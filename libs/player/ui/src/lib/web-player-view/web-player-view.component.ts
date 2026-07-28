@@ -30,6 +30,7 @@ import { EmbeddedMpvPlayerComponent } from "../embedded-mpv-player/embedded-mpv-
 import { HtmlVideoPlayerComponent } from "../html-video-player/html-video-player.component";
 import {
   type PlayerMediaTitle,
+  type PlayerRuntimeSnapshot,
   WEB_PLAYER_SHARED_CONTROLS,
   WEB_PLAYER_SHARED_CONTROLS_ENABLED,
 } from "../player-controls";
@@ -100,6 +101,7 @@ export class WebPlayerViewComponent {
   }>();
   readonly externalFallbackRequested = output<PlaybackFallbackRequest>();
   readonly playbackDiagnosticChange = output<PlaybackDiagnostic | null>();
+  readonly runtimeSnapshotChange = output<PlayerRuntimeSnapshot>();
   readonly playbackEnded = output<void>();
   readonly previousEpisodeRequested = output<void>();
   readonly nextEpisodeRequested = output<void>();

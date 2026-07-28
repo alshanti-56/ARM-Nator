@@ -20,4 +20,8 @@ export interface ResolvedPortalPlayback {
     referer?: string;
     origin?: string;
     drm?: ChannelDrm;
+    /** Optional remote WebVTT subtitle loaded alongside the media source. */
+    subtitleUrl?: string;
+    subtitleLabel?: string;
+    subtitleLanguage?: string;
 }

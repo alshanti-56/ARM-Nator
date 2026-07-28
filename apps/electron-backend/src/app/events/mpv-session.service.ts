@@ -39,6 +39,7 @@ export interface OpenExternalPlayerRequest {
     contentInfo?: PlayerContentInfo;
     startTime?: number;
     headers?: Record<string, string>;
+    subtitleUrl?: string;
 }
 
 let mpvProcess: ChildProcess | null = null;
@@ -220,6 +221,7 @@ export async function openMpvPlayer({
     contentInfo,
     startTime,
     headers,
+    subtitleUrl,
 }: OpenExternalPlayerRequest) {
     const session = externalPlayerSessions.beginSession({
         player: 'mpv',
@@ -381,6 +383,10 @@ export async function openMpvPlayer({
 
         if (startTime) {
             args.push(`--start=${startTime}`);
+        }
+
+        if (subtitleUrl) {
+            args.push(`--sub-file=${subtitleUrl}`);
         }
 
         args.push(url);

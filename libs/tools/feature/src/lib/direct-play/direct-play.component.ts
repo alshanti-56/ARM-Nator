@@ -1,5 +1,5 @@
 import { ClipboardModule } from "@angular/cdk/clipboard";
-import { DatePipe, JsonPipe } from "@angular/common";
+import { DatePipe, JsonPipe, DecimalPipe } from "@angular/common";
 import {
   ChangeDetectionStrategy,
   Component,
@@ -22,6 +22,7 @@ import {
 import {
   type PlaybackDiagnostic,
   type PlaybackFallbackRequest,
+  type PlayerRuntimeSnapshot,
   WebPlayerViewComponent,
 } from "@arm-nator/player/ui";
 import {
@@ -49,6 +50,7 @@ interface DiagnosticTimelineItem {
   imports: [
     ClipboardModule,
     DatePipe,
+    DecimalPipe,
     FormsModule,
     JsonPipe,
     MatButtonModule,
@@ -70,18 +72,23 @@ export class DirectPlayComponent {
   readonly playback = signal<ResolvedPortalPlayback | null>(null);
   readonly selectedEngine = signal(VideoPlayer.ArtPlayer);
   readonly status = signal<
-    "ready" | "opening" | "playing" | "external" | "error"
+    "ready" | "opening" | "playing" | "paused" | "ended" | "external" | "error"
   >("ready");
   readonly errorMessage = signal("");
   readonly currentTime = signal(0);
   readonly duration = signal(0);
   readonly diagnostic = signal<PlaybackDiagnostic | null>(null);
+  readonly runtimeSnapshot = signal<PlayerRuntimeSnapshot | null>(null);
   readonly timeline = signal<readonly DiagnosticTimelineItem[]>([]);
   private diagnosticSequence = 0;
+  private lastRuntimeStatus = "idle";
 
   url = "";
   title = "";
   headersText = "";
+  subtitleUrl = "";
+  subtitleLabel = "Online subtitle";
+  subtitleLanguage = "en";
   isLive = true;
 
   readonly isExternalEngine = computed(() =>
@@ -94,6 +101,25 @@ export class DirectPlayComponent {
     this.engines.filter((engine) => isManagedExternalPlayer(engine.id)),
   );
   readonly capabilitySummary = computed(() => {
+    const runtime = this.runtimeSnapshot();
+    if (runtime) {
+      const capabilities = runtime.capabilities;
+      return [
+        ["Play / pause", true],
+        ["Seek", capabilities.seek],
+        ["Volume", capabilities.volume],
+        ["Audio tracks", capabilities.audioTracks],
+        ["Subtitles", capabilities.subtitles],
+        ["Speed", capabilities.playbackSpeed],
+        ["Aspect", capabilities.aspectRatio],
+        ["Recording", capabilities.recording],
+        ["Picture in picture", capabilities.pictureInPicture],
+        ["Fullscreen", capabilities.fullscreen],
+      ]
+        .filter(([, enabled]) => enabled)
+        .map(([label]) => String(label));
+    }
+
     switch (this.selectedEngine()) {
       case VideoPlayer.EmbeddedMpv:
         return [
@@ -159,12 +185,17 @@ export class DirectPlayComponent {
       title: this.title.trim() || "Direct stream",
       headers: this.parseHeaders(this.headersText),
       isLive: this.isLive,
+      subtitleUrl: this.subtitleUrl.trim() || undefined,
+      subtitleLabel: this.subtitleLabel.trim() || undefined,
+      subtitleLanguage: this.subtitleLanguage.trim() || undefined,
     };
 
     this.playback.set(playback);
     this.currentTime.set(0);
     this.duration.set(0);
     this.diagnostic.set(null);
+    this.runtimeSnapshot.set(null);
+    this.lastRuntimeStatus = "idle";
     this.timeline.set([]);
     this.errorMessage.set("");
     this.status.set("opening");
@@ -241,6 +272,41 @@ export class DirectPlayComponent {
     this.duration.set(event.duration);
   }
 
+  onRuntimeSnapshot(snapshot: PlayerRuntimeSnapshot): void {
+    this.runtimeSnapshot.set(snapshot);
+    this.currentTime.set(snapshot.state.positionSeconds);
+    this.duration.set(snapshot.state.durationSeconds ?? 0);
+
+    const runtimeStatus = snapshot.state.status;
+    if (runtimeStatus !== this.lastRuntimeStatus) {
+      this.lastRuntimeStatus = runtimeStatus;
+      this.recordEvent(
+        runtimeStatus === "error" ? "error" : "info",
+        `Player state: ${runtimeStatus}`,
+        snapshot.state.statusMessage || undefined,
+      );
+    }
+
+    switch (runtimeStatus) {
+      case "loading":
+      case "idle":
+        this.status.set("opening");
+        break;
+      case "playing":
+        this.status.set("playing");
+        break;
+      case "paused":
+        this.status.set("paused");
+        break;
+      case "ended":
+        this.status.set("ended");
+        break;
+      case "error":
+        this.status.set("error");
+        break;
+    }
+  }
+
   onDiagnostic(issue: PlaybackDiagnostic | null): void {
     this.diagnostic.set(issue);
     if (!issue) {
@@ -265,6 +331,7 @@ export class DirectPlayComponent {
         runtime: {
           currentTime: this.currentTime(),
           duration: this.duration(),
+          snapshot: this.runtimeSnapshot(),
         },
         diagnostic: this.diagnostic(),
         timeline: this.timeline(),
@@ -307,6 +374,8 @@ export class DirectPlayComponent {
     this.currentTime.set(0);
     this.duration.set(0);
     this.diagnostic.set(null);
+    this.runtimeSnapshot.set(null);
+    this.lastRuntimeStatus = "idle";
     this.timeline.set([]);
   }
 

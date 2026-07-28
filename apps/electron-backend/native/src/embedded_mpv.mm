@@ -1783,6 +1783,8 @@ Napi::Value LoadPlayback(const Napi::CallbackInfo& info)
     const std::string title = readOptionalString(playback, "title");
     const std::string userAgent = readOptionalString(playback, "userAgent");
     const std::string referer = readOptionalString(playback, "referer");
+    const std::string subtitleUrl =
+        readOptionalString(playback, "subtitleUrl");
     const double startTime = readOptionalNumber(playback, "startTime", -1);
 
     bool recordingActive = false;
@@ -1838,6 +1840,9 @@ Napi::Value LoadPlayback(const Napi::CallbackInfo& info)
 
     if (!referer.empty()) {
         options.emplace_back("referrer", referer);
+    }
+    if (!subtitleUrl.empty()) {
+        options.emplace_back("sub-file", subtitleUrl);
     }
 
     if (std::isfinite(startTime) && startTime >= 0) {

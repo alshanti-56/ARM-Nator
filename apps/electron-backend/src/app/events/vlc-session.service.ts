@@ -39,6 +39,7 @@ export interface OpenVlcPlayerRequest {
     contentInfo?: PlayerContentInfo;
     startTime?: number;
     headers?: Record<string, string>;
+    subtitleUrl?: string;
 }
 
 let vlcProcess: ChildProcess | null = null;
@@ -309,6 +310,7 @@ export async function openVlcPlayer({
     contentInfo,
     startTime,
     headers,
+    subtitleUrl,
 }: OpenVlcPlayerRequest) {
     const session = externalPlayerSessions.beginSession({
         player: 'vlc',
@@ -473,6 +475,10 @@ export async function openVlcPlayer({
 
         if (startTime) {
             args.push(`--start-time=${startTime}`);
+        }
+
+        if (subtitleUrl) {
+            args.push(`--sub-file=${subtitleUrl}`);
         }
 
         args.push(url);

@@ -78,6 +78,26 @@
         <mat-hint>One Name: Value header per line</mat-hint>
       </mat-form-field>
 
+      <div class="subtitle-fields">
+        <mat-form-field class="subtitle-url-field">
+          <mat-label>Online subtitle URL</mat-label>
+          <input
+            matInput
+            [(ngModel)]="subtitleUrl"
+            placeholder="https://example.com/subtitles/movie.vtt"
+          />
+          <mat-hint>Web players currently support WebVTT URLs</mat-hint>
+        </mat-form-field>
+        <mat-form-field>
+          <mat-label>Subtitle label</mat-label>
+          <input matInput [(ngModel)]="subtitleLabel" />
+        </mat-form-field>
+        <mat-form-field>
+          <mat-label>Language</mat-label>
+          <input matInput [(ngModel)]="subtitleLanguage" placeholder="en" />
+        </mat-form-field>
+      </div>
+
       <div class="setup-footer">
         <mat-checkbox [(ngModel)]="isLive">Live stream</mat-checkbox>
         <div class="setup-actions">
@@ -159,6 +179,73 @@
             <mat-icon>content_copy</mat-icon>
           </button>
         </div>
+
+        @if (runtimeSnapshot(); as runtime) {
+          <dl class="runtime-info">
+            <div>
+              <dt>Actual state</dt>
+              <dd>{{ runtime.state.status }}</dd>
+            </div>
+            <div>
+              <dt>Volume</dt>
+              <dd>{{ runtime.state.volume * 100 | number: "1.0-0" }}%</dd>
+            </div>
+            <div>
+              <dt>Speed</dt>
+              <dd>{{ runtime.state.playbackSpeed }}×</dd>
+            </div>
+            <div>
+              <dt>Seekable</dt>
+              <dd>{{ runtime.state.canSeek ? "Yes" : "No" }}</dd>
+            </div>
+            <div>
+              <dt>Audio tracks</dt>
+              <dd>{{ runtime.state.audioTracks.length }}</dd>
+            </div>
+            <div>
+              <dt>Subtitle tracks</dt>
+              <dd>{{ runtime.state.subtitleTracks.length }}</dd>
+            </div>
+            <div>
+              <dt>Subtitles</dt>
+              <dd>
+                {{ runtime.state.subtitlesEnabled ? "Enabled" : "Off" }}
+              </dd>
+            </div>
+            <div>
+              <dt>Buffering</dt>
+              <dd>{{ runtime.state.stalled ? "Stalled" : "Normal" }}</dd>
+            </div>
+          </dl>
+
+          @if (
+            runtime.state.audioTracks.length ||
+            runtime.state.subtitleTracks.length
+          ) {
+            <div class="track-summary">
+              @if (runtime.state.audioTracks.length) {
+                <div>
+                  <span>Audio</span>
+                  @for (track of runtime.state.audioTracks; track track.id) {
+                    <strong [class.is-selected]="track.selected">
+                      {{ track.label }}
+                    </strong>
+                  }
+                </div>
+              }
+              @if (runtime.state.subtitleTracks.length) {
+                <div>
+                  <span>Subtitles</span>
+                  @for (track of runtime.state.subtitleTracks; track track.id) {
+                    <strong [class.is-selected]="track.selected">
+                      {{ track.label }}
+                    </strong>
+                  }
+                </div>
+              }
+            </div>
+          }
+        }
       } @else {
         <div class="empty-info">
           <mat-icon>query_stats</mat-icon>
@@ -208,6 +295,7 @@
           [playerOverride]="selectedEngine()"
           [unifiedControls]="true"
           (timeUpdate)="onTimeUpdate($event)"
+          (runtimeSnapshotChange)="onRuntimeSnapshot($event)"
           (playbackDiagnosticChange)="onDiagnostic($event)"
           (externalFallbackRequested)="openFallback($event)"
         />

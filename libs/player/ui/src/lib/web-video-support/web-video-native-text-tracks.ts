@@ -11,6 +11,7 @@ export interface WebVideoNativeTextTracksConfig {
     video: HTMLVideoElement;
     showCaptions: () => boolean;
     refresh: () => void;
+    includeTrack?: (track: TextTrack) => boolean;
     /**
      * Vendor-chrome hosts pass a "playback started" probe. Its presence
      * switches the caption preference from authoritative (shared controls, the
@@ -115,7 +116,8 @@ export class WebVideoNativeTextTracks {
                 const track = tracks[index];
                 if (
                     !track ||
-                    (track.kind !== 'captions' && track.kind !== 'subtitles')
+                    (track.kind !== 'captions' && track.kind !== 'subtitles') ||
+                    this.config.includeTrack?.(track) === false
                 ) {
                     continue;
                 }

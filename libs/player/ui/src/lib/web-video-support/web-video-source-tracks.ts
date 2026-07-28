@@ -4,6 +4,9 @@ import type { ShakaVideoSession } from '../shaka-engine/shaka-video-session';
 import { WebVideoHlsControls } from './web-video-hls-controls';
 import { WebVideoNativeTextTracks } from './web-video-native-text-tracks';
 import { WebVideoShakaControls } from './web-video-shaka-controls';
+import { ONLINE_SUBTITLE_TRACK_ID } from './online-subtitle-track';
+
+const NATIVE_SUBTITLE_ID_OFFSET = 1_000_000;
 
 export type WebVideoControlsSource =
     | { kind: 'native' }
@@ -67,6 +70,10 @@ export class WebVideoSourceTracks {
             showCaptions: config.showCaptions,
             refresh,
             playbackStarted,
+            includeTrack: (track) =>
+                this.source?.kind === 'hls' || this.source?.kind === 'shaka'
+                    ? track.id === ONLINE_SUBTITLE_TRACK_ID
+                    : true,
         });
         if (config.vendorCaptionControls) {
             const listener = () => {
@@ -90,12 +97,11 @@ export class WebVideoSourceTracks {
         this.source = source;
         // A new source starts unsettled so its own defaults are seeded again.
         this.playbackStarted = false;
+        this.nativeTextTracks.bind();
         if (source.kind === 'hls') {
             this.hlsControls.bind(source.hls);
         } else if (source.kind === 'shaka') {
             this.shakaControls.bind(source.session);
-        } else {
-            this.nativeTextTracks.bind();
         }
     }
 
@@ -108,7 +114,8 @@ export class WebVideoSourceTracks {
             this.hlsControls.refreshInputs();
         } else if (this.source?.kind === 'shaka') {
             this.shakaControls.refreshInputs();
-        } else if (this.source) {
+        }
+        if (this.source) {
             this.nativeTextTracks.refreshInputs();
         }
     }
@@ -157,22 +164,42 @@ export class WebVideoSourceTracks {
     }
 
     getSubtitleTracks(): PlayerTrack[] {
+        const nativeTracks = this.nativeTextTracks
+            .getSubtitleTracks()
+            .map((track) => ({
+                ...track,
+                id: track.id + NATIVE_SUBTITLE_ID_OFFSET,
+            }));
         if (this.source?.kind === 'hls') {
-            return this.hlsControls.getSubtitleTracks();
+            return [...this.hlsControls.getSubtitleTracks(), ...nativeTracks];
         }
         if (this.source?.kind === 'shaka') {
-            return this.shakaControls.getSubtitleTracks();
+            return [...this.shakaControls.getSubtitleTracks(), ...nativeTracks];
         }
-        return this.source ? this.nativeTextTracks.getSubtitleTracks() : [];
+        return this.source ? nativeTracks : [];
     }
 
     setSubtitleTrack(id: number): void {
+        if (!Number.isInteger(id)) {
+            return;
+        }
+        if (id >= NATIVE_SUBTITLE_ID_OFFSET) {
+            this.disableEngineSubtitles();
+            this.nativeTextTracks.setSubtitleTrack(
+                id - NATIVE_SUBTITLE_ID_OFFSET
+            );
+            return;
+        }
+
+        this.nativeTextTracks.setSubtitleTrack(-1);
         if (this.source?.kind === 'hls') {
             this.hlsControls.setSubtitleTrack(id);
         } else if (this.source?.kind === 'shaka') {
             this.shakaControls.setSubtitleTrack(id);
         } else if (this.source) {
-            this.nativeTextTracks.setSubtitleTrack(id);
+            this.nativeTextTracks.setSubtitleTrack(
+                id === -1 ? -1 : id - NATIVE_SUBTITLE_ID_OFFSET
+            );
         }
     }
 
@@ -181,8 +208,15 @@ export class WebVideoSourceTracks {
             this.hlsControls.clear();
         } else if (this.source?.kind === 'shaka') {
             this.shakaControls.clear();
-        } else if (this.source) {
-            this.nativeTextTracks.clear();
+        }
+        this.nativeTextTracks.clear();
+    }
+
+    private disableEngineSubtitles(): void {
+        if (this.source?.kind === 'hls') {
+            this.hlsControls.setSubtitleTrack(-1);
+        } else if (this.source?.kind === 'shaka') {
+            this.shakaControls.setSubtitleTrack(-1);
         }
     }
 }

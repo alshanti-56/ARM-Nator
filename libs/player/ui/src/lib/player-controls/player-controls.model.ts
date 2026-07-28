@@ -105,3 +105,9 @@ export interface PlayerController {
     readonly state: Signal<PlayerControlsState>;
     readonly commands: PlayerControlsCommands;
 }
+
+/** Read-only runtime data emitted to player hosts and diagnostics surfaces. */
+export interface PlayerRuntimeSnapshot {
+    readonly state: PlayerControlsState;
+    readonly capabilities: PlayerControlsCapabilities;
+}

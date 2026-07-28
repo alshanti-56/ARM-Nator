@@ -283,8 +283,8 @@ export interface ElectronBridgeApi {
     saveFileDialog: (defaultPath: string, filters?: ElectronBridgeDialogFilter[]) => Promise<string | null>;
     writeFile: (filePath: string, content: string) => Promise<ElectronBridgeResult>;
     setUserAgent: (userAgent?: string | null, referer?: string | null, scopeUrl?: string | null) => Promise<boolean>;
-    openInMpv: (url: string, title: string, thumbnail: string, userAgent: string | undefined, referer?: string, origin?: string, contentInfo?: PlayerContentInfo, startTime?: number, headers?: Record<string, string>) => Promise<ExternalPlayerSession>;
-    openInVlc: (url: string, title: string, thumbnail: string, userAgent: string | undefined, referer?: string, origin?: string, contentInfo?: PlayerContentInfo, startTime?: number, headers?: Record<string, string>) => Promise<ExternalPlayerSession>;
+    openInMpv: (url: string, title: string, thumbnail: string, userAgent: string | undefined, referer?: string, origin?: string, contentInfo?: PlayerContentInfo, startTime?: number, headers?: Record<string, string>, subtitleUrl?: string) => Promise<ExternalPlayerSession>;
+    openInVlc: (url: string, title: string, thumbnail: string, userAgent: string | undefined, referer?: string, origin?: string, contentInfo?: PlayerContentInfo, startTime?: number, headers?: Record<string, string>, subtitleUrl?: string) => Promise<ExternalPlayerSession>;
     autoUpdatePlaylists: (playlists: Playlist[], options?: ElectronBridgeTrustOptions) => Promise<AutoUpdatePlaylistsResult>;
     fetchEpg: (urls: string[], options?: ElectronBridgeTrustOptions) => Promise<ElectronBridgeEpgFetchResult>;
     getChannelPrograms: (channelId: string, options?: ElectronBridgeEpgLookupOptions) => Promise<EpgProgram[]>;

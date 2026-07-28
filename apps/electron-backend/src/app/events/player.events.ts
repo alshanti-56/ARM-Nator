@@ -50,7 +50,8 @@ ipcMain.handle(
         origin?: string,
         contentInfo?: PlayerContentInfo,
         startTime?: number,
-        headers?: Record<string, string>
+        headers?: Record<string, string>,
+        subtitleUrl?: string
     ) =>
         openMpvPlayer({
             url,
@@ -62,6 +63,7 @@ ipcMain.handle(
             contentInfo,
             startTime,
             headers,
+            subtitleUrl,
         })
 );
 
@@ -92,7 +94,8 @@ ipcMain.handle(
         origin?: string,
         contentInfo?: PlayerContentInfo,
         startTime?: number,
-        headers?: Record<string, string>
+        headers?: Record<string, string>,
+        subtitleUrl?: string
     ) =>
         openVlcPlayer({
             url,
@@ -104,6 +107,7 @@ ipcMain.handle(
             contentInfo,
             startTime,
             headers,
+            subtitleUrl,
         })
 );
 

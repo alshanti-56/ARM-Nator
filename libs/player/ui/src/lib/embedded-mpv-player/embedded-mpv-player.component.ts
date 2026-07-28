@@ -25,7 +25,10 @@ import {
     ResolvedPortalPlayback,
 } from '@arm-nator/shared/interfaces';
 import { PlayerControlsComponent } from '../player-controls/player-controls.component';
-import type { PlayerMediaTitle } from '../player-controls/player-controls.model';
+import type {
+    PlayerMediaTitle,
+    PlayerRuntimeSnapshot,
+} from '../player-controls/player-controls.model';
 import type { SeriesPlaybackNavigation } from '../portal-inline-player/series-playback-navigation';
 import { EmbeddedMpvControlsAdapter } from './embedded-mpv-controls.adapter';
 import { EmbeddedMpvDockPanelComponent } from './embedded-mpv-dock-panel.component';
@@ -88,6 +91,7 @@ export class EmbeddedMpvPlayerComponent implements OnDestroy {
     readonly playbackEnded = output<void>();
     readonly previousEpisodeRequested = output<void>();
     readonly nextEpisodeRequested = output<void>();
+    readonly runtimeSnapshotChange = output<PlayerRuntimeSnapshot>();
 
     private readonly overlayVisibility = inject(
         EmbeddedMpvOverlayVisibilityService
@@ -373,6 +377,12 @@ export class EmbeddedMpvPlayerComponent implements OnDestroy {
             playback: this.playback,
             seriesNavigation: this.seriesNavigation,
             recordingFolder: this.recordingFolder,
+        });
+        effect(() => {
+            this.runtimeSnapshotChange.emit({
+                state: this.sharedControls.state(),
+                capabilities: this.sharedControls.capabilities(),
+            });
         });
 
         if (typeof document !== 'undefined') {

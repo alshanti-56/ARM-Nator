@@ -43,6 +43,7 @@ interface PlayerLaunchPayload {
     readonly url: string;
     readonly ['user-agent']?: string;
     readonly contentInfo?: PlayerContentInfo;
+    readonly subtitleUrl?: string;
 }
 
 interface ErrorStatus {
@@ -169,7 +170,8 @@ export class ElectronService extends DataService {
                     data.origin ?? undefined,
                     data.contentInfo,
                     data.startTime,
-                    data.headers ?? undefined
+                    data.headers ?? undefined,
+                    data.subtitleUrl
                 )) as T;
             } catch (error: unknown) {
                 const errorMessage =
@@ -198,7 +200,8 @@ export class ElectronService extends DataService {
                     data.origin ?? undefined,
                     data.contentInfo,
                     data.startTime,
-                    data.headers ?? undefined
+                    data.headers ?? undefined,
+                    data.subtitleUrl
                 )) as T;
             } catch (error: unknown) {
                 const errorMessage =

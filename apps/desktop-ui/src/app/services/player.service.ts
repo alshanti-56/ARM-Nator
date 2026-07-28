@@ -97,6 +97,7 @@ export class PlayerService implements PlayerFacade {
         headers: playback.headers,
         contentInfo: playback.contentInfo,
         startTime: playback.startTime,
+        subtitleUrl: playback.subtitleUrl,
       },
     );
   }

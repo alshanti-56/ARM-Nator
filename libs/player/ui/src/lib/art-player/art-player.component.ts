@@ -1,6 +1,7 @@
 import {
   Component,
   ElementRef,
+  effect,
   inject,
   input,
   OnChanges,
@@ -17,6 +18,7 @@ import type { PlaybackDiagnostic } from "../playback-diagnostics/playback-diagno
 import {
   PlayerControlsComponent,
   type PlayerMediaTitle,
+  type PlayerRuntimeSnapshot,
   WEB_PLAYER_SHARED_CONTROLS,
   WebVideoControlsAdapter,
 } from "../player-controls";
@@ -30,6 +32,7 @@ import {
 } from "./art-player-setup";
 import { ArtPlayerSourceSession } from "./art-player-source-session";
 import { ArtPlayerVideoSession } from "./art-player-video-session";
+import { syncOnlineSubtitleTrack } from "../web-video-support/online-subtitle-track";
 
 const debugArtPlayer = createDevLogger("ArtPlayer");
 
@@ -52,6 +55,9 @@ export class ArtPlayerComponent implements OnInit, OnDestroy, OnChanges {
   readonly interactionEnabled = input(true);
   readonly mediaTitle = input<PlayerMediaTitle | null>(null);
   readonly sharedControlsOverride = input<boolean | null>(null);
+  readonly onlineSubtitleUrl = input("");
+  readonly onlineSubtitleLabel = input("Online subtitle");
+  readonly onlineSubtitleLanguage = input("und");
 
   readonly timeUpdate = output<{
     currentTime: number;
@@ -61,6 +67,7 @@ export class ArtPlayerComponent implements OnInit, OnDestroy, OnChanges {
   readonly playbackEnded = output<void>();
   readonly previousEpisodeRequested = output<void>();
   readonly nextEpisodeRequested = output<void>();
+  readonly runtimeSnapshotChange = output<PlayerRuntimeSnapshot>();
 
   private readonly configuredSharedControls = inject(
     WEB_PLAYER_SHARED_CONTROLS,
@@ -69,6 +76,12 @@ export class ArtPlayerComponent implements OnInit, OnDestroy, OnChanges {
     return this.sharedControlsOverride() ?? this.configuredSharedControls;
   }
   readonly controlsAdapter = inject(WebVideoControlsAdapter);
+  private readonly runtimeSnapshotEffect = effect(() => {
+    this.runtimeSnapshotChange.emit({
+      state: this.controlsAdapter.state(),
+      capabilities: this.controlsAdapter.capabilities(),
+    });
+  });
   readonly playerRoot = viewChild<ElementRef<HTMLElement>>("playerRoot");
   private readonly artplayerContainer =
     viewChild.required<ElementRef<HTMLDivElement>>("artplayer");
@@ -107,6 +120,14 @@ export class ArtPlayerComponent implements OnInit, OnDestroy, OnChanges {
     }
 
     if (changes["showCaptions"]) {
+      this.sourceSession?.refreshInputs();
+    }
+    if (
+      changes["onlineSubtitleUrl"] ||
+      changes["onlineSubtitleLabel"] ||
+      changes["onlineSubtitleLanguage"]
+    ) {
+      this.syncOnlineSubtitle();
       this.sourceSession?.refreshInputs();
     }
     if (changes["interactionEnabled"]?.currentValue === false) {
@@ -159,6 +180,7 @@ export class ArtPlayerComponent implements OnInit, OnDestroy, OnChanges {
       customType: sourceSession.customType,
     });
     this.player = player;
+    this.syncOnlineSubtitle();
     sourceSession.attach(player);
 
     const videoSession = new ArtPlayerVideoSession({
@@ -180,6 +202,17 @@ export class ArtPlayerComponent implements OnInit, OnDestroy, OnChanges {
     if (this.sharedControls) {
       this.applyVolume(this.volume());
     }
+  }
+
+  private syncOnlineSubtitle(): void {
+    if (!this.player) {
+      return;
+    }
+    syncOnlineSubtitleTrack(this.player.video, {
+      url: this.onlineSubtitleUrl(),
+      label: this.onlineSubtitleLabel(),
+      language: this.onlineSubtitleLanguage(),
+    });
   }
 
   private destroyPlayer(): void {

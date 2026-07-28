@@ -52,10 +52,17 @@ export function buildLoadPlaybackCommand(
         );
     }
     if (playback.userAgent) {
-        fields.push(`opt.user-agent=${encodeProtocolValue(playback.userAgent)}`);
+        fields.push(
+            `opt.user-agent=${encodeProtocolValue(playback.userAgent)}`
+        );
     }
     if (playback.referer) {
         fields.push(`opt.referrer=${encodeProtocolValue(playback.referer)}`);
+    }
+    if (playback.subtitleUrl) {
+        fields.push(
+            `opt.sub-file=${encodeProtocolValue(playback.subtitleUrl)}`
+        );
     }
     if (
         typeof playback.startTime === 'number' &&

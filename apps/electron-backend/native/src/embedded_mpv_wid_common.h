@@ -551,6 +551,7 @@ std::vector<std::string> buildLinuxMpvArguments(
     const std::string& title,
     const std::string& userAgent,
     const std::string& referer,
+    const std::string& subtitleUrl,
     double startTime,
     const std::string& ipcSocketPath)
 {
@@ -588,6 +589,7 @@ std::vector<std::string> buildLinuxMpvArguments(
     appendLinuxMpvOption(arguments, "force-media-title", title);
     appendLinuxMpvOption(arguments, "user-agent", userAgent);
     appendLinuxMpvOption(arguments, "referrer", referer);
+    appendLinuxMpvOption(arguments, "sub-file", subtitleUrl);
     if (std::isfinite(startTime) && startTime >= 0) {
         appendLinuxMpvOption(
             arguments,
@@ -1096,6 +1098,7 @@ void loadLinuxProcessPlayback(
     const std::string& title,
     const std::string& userAgent,
     const std::string& referer,
+    const std::string& subtitleUrl,
     double startTime)
 {
     terminateLinuxMpvProcessAsync(session);
@@ -1108,6 +1111,7 @@ void loadLinuxProcessPlayback(
         title,
         userAgent,
         referer,
+        subtitleUrl,
         startTime,
         ipcSocketPath
     );
@@ -1745,6 +1749,8 @@ Napi::Value LoadPlayback(const Napi::CallbackInfo& info)
     const std::string title = readOptionalString(playback, "title");
     const std::string userAgent = readOptionalString(playback, "userAgent");
     const std::string referer = readOptionalString(playback, "referer");
+    const std::string subtitleUrl =
+        readOptionalString(playback, "subtitleUrl");
     const double startTime = readOptionalNumber(playback, "startTime", -1);
 
 #ifdef __linux__
@@ -1756,6 +1762,7 @@ Napi::Value LoadPlayback(const Napi::CallbackInfo& info)
         title,
         userAgent,
         referer,
+        subtitleUrl,
         startTime
     );
     return env.Undefined();
@@ -1802,6 +1809,9 @@ Napi::Value LoadPlayback(const Napi::CallbackInfo& info)
     }
     if (!referer.empty()) {
         options.emplace_back("referrer", referer);
+    }
+    if (!subtitleUrl.empty()) {
+        options.emplace_back("sub-file", subtitleUrl);
     }
     if (std::isfinite(startTime) && startTime >= 0) {
         std::ostringstream startValue;

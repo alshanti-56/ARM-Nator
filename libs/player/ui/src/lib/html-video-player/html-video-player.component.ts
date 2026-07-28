@@ -2,6 +2,7 @@ import {
   Component,
   ElementRef,
   EventEmitter,
+  effect,
   inject,
   input,
   Input,
@@ -25,6 +26,7 @@ import {
 import {
   PlayerControlsComponent,
   type PlayerMediaTitle,
+  type PlayerRuntimeSnapshot,
   WEB_PLAYER_SHARED_CONTROLS,
   WebVideoControlsAdapter,
 } from "../player-controls";
@@ -37,6 +39,7 @@ import {
   setNativeVideoSource,
 } from "../web-video-support/web-video-native-source.util";
 import { WebVideoSourceTracks } from "../web-video-support/web-video-source-tracks";
+import { syncOnlineSubtitleTrack } from "../web-video-support/online-subtitle-track";
 import { HtmlVideoElementSession } from "./html-video-element-session";
 import {
   emitFatalHlsPlaybackError,
@@ -72,6 +75,9 @@ export class HtmlVideoPlayerComponent implements OnInit, OnChanges, OnDestroy {
   readonly showCaptions = input(false);
   readonly mediaTitle = input<PlayerMediaTitle | null>(null);
   readonly sharedControlsOverride = input<boolean | null>(null);
+  readonly onlineSubtitleUrl = input("");
+  readonly onlineSubtitleLabel = input("Online subtitle");
+  readonly onlineSubtitleLanguage = input("und");
   @Output() timeUpdate = new EventEmitter<{
     currentTime: number;
     duration: number;
@@ -80,6 +86,7 @@ export class HtmlVideoPlayerComponent implements OnInit, OnChanges, OnDestroy {
   @Output() playbackEnded = new EventEmitter<void>();
   @Output() previousEpisodeRequested = new EventEmitter<void>();
   @Output() nextEpisodeRequested = new EventEmitter<void>();
+  @Output() runtimeSnapshotChange = new EventEmitter<PlayerRuntimeSnapshot>();
 
   private readonly configuredSharedControls = inject(
     WEB_PLAYER_SHARED_CONTROLS,
@@ -88,6 +95,12 @@ export class HtmlVideoPlayerComponent implements OnInit, OnChanges, OnDestroy {
     return this.sharedControlsOverride() ?? this.configuredSharedControls;
   }
   readonly controlsAdapter = inject(WebVideoControlsAdapter);
+  private readonly runtimeSnapshotEffect = effect(() => {
+    this.runtimeSnapshotChange.emit({
+      state: this.controlsAdapter.state(),
+      capabilities: this.controlsAdapter.capabilities(),
+    });
+  });
   private readonly seriesNavigationSignal =
     signal<SeriesPlaybackNavigation | null>(null);
 
@@ -114,6 +127,7 @@ export class HtmlVideoPlayerComponent implements OnInit, OnChanges, OnDestroy {
   private videoSession: HtmlVideoElementSession | null = null;
 
   ngOnInit() {
+    this.syncOnlineSubtitle();
     if (this.sharedControls) {
       this.seriesNavigationSignal.set(this.seriesNavigation);
       this.controlsAdapter.setContext({
@@ -154,6 +168,15 @@ export class HtmlVideoPlayerComponent implements OnInit, OnChanges, OnDestroy {
       this.controlsBridge?.refreshInputs();
       this.captionTracks?.refreshInputs();
     }
+    if (
+      changes["onlineSubtitleUrl"] ||
+      changes["onlineSubtitleLabel"] ||
+      changes["onlineSubtitleLanguage"]
+    ) {
+      this.syncOnlineSubtitle();
+      this.controlsBridge?.refreshInputs();
+      this.captionTracks?.refreshInputs();
+    }
     if (changes["interactionEnabled"]?.currentValue === false) {
       exitOwnedFullscreen(
         this.sharedControls,
@@ -181,6 +204,7 @@ export class HtmlVideoPlayerComponent implements OnInit, OnChanges, OnDestroy {
     this.destroyHls();
     this.shakaSession?.stop();
     clearNativeVideoSources(this.videoPlayer.nativeElement);
+    this.syncOnlineSubtitle();
     if (channel.url) {
       this.playbackIssue.emit(null);
       const url = channel.url + (channel.epgParams ?? "");
@@ -257,6 +281,7 @@ export class HtmlVideoPlayerComponent implements OnInit, OnChanges, OnDestroy {
       } else {
         debugHtmlPlayer("Using native video player");
         setNativeVideoSource(this.videoPlayer.nativeElement, url, "video/mp4");
+        this.syncOnlineSubtitle();
         this.bindControlsSource({ kind: "native" });
         this.videoPlayer.nativeElement.load();
         this.handlePlayOperation();
@@ -274,6 +299,17 @@ export class HtmlVideoPlayerComponent implements OnInit, OnChanges, OnDestroy {
     this.controlsBridge?.clearSource();
     this.captionTracks?.clearSource();
     this.controlsSource = null;
+  }
+
+  private syncOnlineSubtitle(): void {
+    if (!this.videoPlayer?.nativeElement) {
+      return;
+    }
+    syncOnlineSubtitleTrack(this.videoPlayer.nativeElement, {
+      url: this.onlineSubtitleUrl(),
+      label: this.onlineSubtitleLabel(),
+      language: this.onlineSubtitleLanguage(),
+    });
   }
 
   private destroyMpegtsPlayer(): void {
