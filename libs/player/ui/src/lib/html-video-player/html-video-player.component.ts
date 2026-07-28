@@ -99,6 +99,12 @@ export class HtmlVideoPlayerComponent implements OnInit, OnChanges, OnDestroy {
     this.runtimeSnapshotChange.emit({
       state: this.controlsAdapter.state(),
       capabilities: this.controlsAdapter.capabilities(),
+      media: this.controlsAdapter.mediaTelemetry(),
+      engine: {
+        engine: "html5",
+        available: true,
+        sessionStatus: this.controlsAdapter.state().status,
+      },
     });
   });
   private readonly seriesNavigationSignal =
@@ -383,6 +389,8 @@ export class HtmlVideoPlayerComponent implements OnInit, OnChanges, OnDestroy {
       emitPlaybackIssue: (issue) => this.playbackIssue.emit(issue),
       emitTimeUpdate: (value) => this.timeUpdate.emit(value),
       emitPlaybackEnded: () => this.playbackEnded.emit(),
+      getSourceKind: () => this.controlsSource?.kind ?? null,
+      getIsLive: () => this.isLive(),
     });
     return this.videoSession;
   }

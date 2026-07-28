@@ -100,6 +100,12 @@ export function sendPlaybackPositionUpdate(
     }
 
     externalPlayerSessions.markPlaying(sessionId);
+    externalPlayerSessions.updateSession(sessionId, {
+        positionSeconds: snapshot.positionSeconds,
+        durationSeconds: snapshot.durationSeconds,
+        canPause: true,
+        canSeek: snapshot.durationSeconds !== null,
+    });
     App.mainWindow.webContents.send('playback-position-update', {
         sessionId,
         positionSeconds: snapshot.positionSeconds,

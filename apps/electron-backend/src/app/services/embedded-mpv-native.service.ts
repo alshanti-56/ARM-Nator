@@ -55,6 +55,12 @@ export interface NativeEmbeddedMpvSessionSnapshot {
     aspectOverride?: string;
     videoWidth?: number;
     videoHeight?: number;
+    videoCodec?: string;
+    audioCodec?: string;
+    fps?: number;
+    bitrate?: number;
+    droppedFrames?: number;
+    bufferedSeconds?: number;
     recording?: EmbeddedMpvRecordingState;
     error?: string;
 }
@@ -78,6 +84,7 @@ export interface NativeEmbeddedMpvAddon {
     setAspect?(sessionId: string, aspect: string): void;
     startRecording?(sessionId: string, targetPath: string): void;
     stopRecording?(sessionId: string): void;
+    takeScreenshot?(sessionId: string, targetPath: string): void;
     getSessionSnapshot(
         sessionId: string
     ): NativeEmbeddedMpvSessionSnapshot | null;
@@ -247,7 +254,7 @@ export class EmbeddedMpvNativeService {
             subtitles: typeof addon?.setSubtitleTrack === 'function',
             playbackSpeed: typeof addon?.setSpeed === 'function',
             aspectOverride: typeof addon?.setAspect === 'function',
-            screenshot: false,
+            screenshot: typeof addon?.takeScreenshot === 'function',
             recording:
                 typeof addon?.startRecording === 'function' &&
                 typeof addon?.stopRecording === 'function',
@@ -585,6 +592,17 @@ export class EmbeddedMpvNativeService {
         return this.refreshSession(sessionId);
     }
 
+    takeScreenshot(sessionId: string, targetPath: string): void {
+        this.assertEmbeddedMpvEnabled();
+        const addon = this.getAddon();
+        if (typeof addon.takeScreenshot !== 'function') {
+            throw new Error(
+                'Active embedded MPV engine does not support screenshots.'
+            );
+        }
+        addon.takeScreenshot(sessionId, targetPath);
+    }
+
     startRecording(
         sessionId: string,
         options: EmbeddedMpvRecordingStartOptions = {}
@@ -835,6 +853,22 @@ export class EmbeddedMpvNativeService {
                       videoWidth: snapshot.videoWidth,
                       videoHeight: snapshot.videoHeight,
                   }
+                : {}),
+            ...(typeof snapshot.videoCodec === 'string'
+                ? { videoCodec: snapshot.videoCodec }
+                : {}),
+            ...(typeof snapshot.audioCodec === 'string'
+                ? { audioCodec: snapshot.audioCodec }
+                : {}),
+            ...(typeof snapshot.fps === 'number' ? { fps: snapshot.fps } : {}),
+            ...(typeof snapshot.bitrate === 'number'
+                ? { bitrate: snapshot.bitrate }
+                : {}),
+            ...(typeof snapshot.droppedFrames === 'number'
+                ? { droppedFrames: snapshot.droppedFrames }
+                : {}),
+            ...(typeof snapshot.bufferedSeconds === 'number'
+                ? { bufferedSeconds: snapshot.bufferedSeconds }
                 : {}),
             recording: snapshot.recording ?? { active: false },
             startedAt: session.startedAt,

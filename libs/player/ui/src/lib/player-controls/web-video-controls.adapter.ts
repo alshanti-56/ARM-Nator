@@ -10,6 +10,7 @@ import type {
     PlayerControlsCapabilities,
     PlayerControlsCommands,
     PlayerControlsState,
+    PlayerMediaTelemetry,
     PlayerTrack,
 } from './player-controls.model';
 import type { SeriesPlaybackNavigation } from '../portal-inline-player/series-playback-navigation';
@@ -40,6 +41,7 @@ export interface WebVideoControlsOptions extends WebVideoMetadataOptions {
     setAudioTrack?: (id: number) => void | Promise<void>;
     getSubtitleTracks?: () => PlayerTrack[];
     setSubtitleTrack?: (id: number) => void | Promise<void>;
+    getMediaTelemetry?: () => Partial<PlayerMediaTelemetry>;
 }
 
 interface WebVideoControlsContext {
@@ -56,6 +58,14 @@ export class WebVideoControlsAdapter implements PlayerController {
     private opts: WebVideoControlsOptions = {};
     private detachFn: (() => void) | null = null;
     private bindingGeneration = 0;
+    private lastMetricSample: {
+        at: number;
+        frames: number;
+        bytes: number;
+    } | null = null;
+    private sampledFps: number | undefined;
+    private sampledBitrate: number | undefined;
+    private readonly aspectRatio = signal('no');
 
     /** Bumped whenever DOM or engine-specific state must be re-read. */
     private readonly tick = signal(0);
@@ -100,7 +110,7 @@ export class WebVideoControlsAdapter implements PlayerController {
             fullscreen: true,
             audioTracks: hasAudioTracks,
             subtitles: hasSubtitles,
-            aspectRatio: false,
+            aspectRatio: true,
             recording: false,
             pictureInPicture: pictureInPicture.supported,
             seriesNavigation: !isLive && this.seriesNavigation() !== null,
@@ -140,7 +150,7 @@ export class WebVideoControlsAdapter implements PlayerController {
             subtitlesEnabled: subtitleTracks.some((track) => track.selected),
             playbackSpeed: video?.playbackRate ?? 1,
             speedPresets: DEFAULT_SPEED_PRESETS,
-            aspectRatio: 'no',
+            aspectRatio: this.aspectRatio(),
             aspectPresets: DEFAULT_ASPECT_PRESETS,
             recording: { active: false, elapsedSeconds: 0, message: null },
             pictureInPictureActive: pictureInPicture.active,
@@ -148,6 +158,85 @@ export class WebVideoControlsAdapter implements PlayerController {
             canPreviousEpisode:
                 seriesNavCapable && seriesNav?.canPrevious === true,
             canNextEpisode: seriesNavCapable && seriesNav?.canNext === true,
+        };
+    });
+
+    readonly mediaTelemetry = computed<PlayerMediaTelemetry>(() => {
+        this.tick();
+        const video = this.video;
+        if (!video) {
+            return {};
+        }
+
+        const quality = video.getVideoPlaybackQuality?.();
+        const totalFrames = quality?.totalVideoFrames;
+        const droppedFrames = quality?.droppedVideoFrames;
+        const decodedBytes = Number(
+            (
+                video as HTMLVideoElement & {
+                    webkitVideoDecodedByteCount?: number;
+                }
+            ).webkitVideoDecodedByteCount ?? 0
+        );
+        const now = performance.now();
+        if (
+            typeof totalFrames === 'number' &&
+            this.lastMetricSample &&
+            now > this.lastMetricSample.at
+        ) {
+            const elapsedSeconds = (now - this.lastMetricSample.at) / 1000;
+            const frameDelta = totalFrames - this.lastMetricSample.frames;
+            const byteDelta = decodedBytes - this.lastMetricSample.bytes;
+            if (elapsedSeconds >= 0.25 && frameDelta >= 0) {
+                this.sampledFps = frameDelta / elapsedSeconds;
+                if (byteDelta >= 0) {
+                    this.sampledBitrate = (byteDelta * 8) / elapsedSeconds;
+                }
+            }
+        }
+        if (typeof totalFrames === 'number') {
+            this.lastMetricSample = {
+                at: now,
+                frames: totalFrames,
+                bytes: decodedBytes,
+            };
+        }
+
+        let bufferedSeconds = 0;
+        let bufferAheadSeconds = 0;
+        try {
+            const ranges = video.buffered;
+            for (let index = 0; index < ranges.length; index += 1) {
+                bufferedSeconds += Math.max(
+                    0,
+                    ranges.end(index) - ranges.start(index)
+                );
+                if (
+                    video.currentTime >= ranges.start(index) &&
+                    video.currentTime <= ranges.end(index)
+                ) {
+                    bufferAheadSeconds = Math.max(
+                        0,
+                        ranges.end(index) - video.currentTime
+                    );
+                }
+            }
+        } catch {
+            // Media ranges can change while being read.
+        }
+
+        return {
+            resolvedUrl: video.currentSrc || undefined,
+            width: video.videoWidth || undefined,
+            height: video.videoHeight || undefined,
+            fps: this.sampledFps,
+            bitrate: this.sampledBitrate,
+            bufferedSeconds,
+            bufferAheadSeconds,
+            droppedFrames,
+            totalFrames,
+            eofReason: video.ended ? 'media-element-ended' : undefined,
+            ...this.opts.getMediaTelemetry?.(),
         };
     });
 
@@ -173,7 +262,15 @@ export class WebVideoControlsAdapter implements PlayerController {
                 this.refresh()
             ),
         setPlaybackSpeed: (speed) => applyVideoSpeed(this.video, speed),
-        setAspectRatio: () => undefined,
+        setAspectRatio: (value) => {
+            this.aspectRatio.set(value);
+            if (this.video) {
+                this.video.style.aspectRatio =
+                    value === 'no' ? '' : value.replace(':', ' / ');
+                this.video.style.objectFit = 'contain';
+            }
+            this.refresh();
+        },
         toggleRecording: () => undefined,
         togglePictureInPicture: () => this.pictureInPicture.toggle(),
     };
@@ -219,6 +316,10 @@ export class WebVideoControlsAdapter implements PlayerController {
         this.detachFn = null;
         this.video = null;
         this.opts = {};
+        this.lastMetricSample = null;
+        this.sampledFps = undefined;
+        this.sampledBitrate = undefined;
+        this.aspectRatio.set('no');
         this.pictureInPicture.release(previousVideo);
         this.refresh();
     }

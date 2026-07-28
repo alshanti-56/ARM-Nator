@@ -1,4 +1,4 @@
-import { ChildProcess, spawn } from 'child_process';
+import { ChildProcess, spawn, spawnSync } from 'child_process';
 import { AddressInfo, createConnection, createServer } from 'net';
 import { PlayerContentInfo } from '@arm-nator/shared/interfaces';
 import {
@@ -51,6 +51,25 @@ function getVlcPath(options: PlayerPathOptions = {}): string {
         normalizeCustomPlayerPath(store.get(VLC_PLAYER_PATH)) ??
         getDefaultVlcPath(options)
     );
+}
+
+export function getVlcAvailability() {
+    const context = resolveExternalPlayerLaunchContext(
+        'vlc',
+        getVlcPath({ isFlatpak: isRunningInFlatpak() }),
+        { isFlatpak: isRunningInFlatpak() }
+    );
+    const spec = buildExternalPlayerSpawnSpec(context, ['--version']);
+    const result = spawnSync(spec.command, spec.args, {
+        encoding: 'utf8',
+        timeout: 3000,
+    });
+    return {
+        engine: 'vlc',
+        available: !result.error && result.status === 0,
+        path: context.playerPath,
+        reason: result.error?.message || result.stderr?.trim() || undefined,
+    };
 }
 
 export function buildVlcEnqueueCommands(options: {
@@ -222,7 +241,7 @@ async function getVlcPlaybackSnapshot(
 
 function startVlcPositionPolling(
     port: number,
-    contentInfo: PlayerContentInfo,
+    contentInfo: PlayerContentInfo | undefined,
     sessionId: string,
     onSnapshot?: (snapshot: ExternalPlaybackSnapshot) => void,
     onStopped?: () => void
@@ -236,11 +255,20 @@ function startVlcPositionPolling(
 
                 if (snapshot) {
                     onSnapshot?.(snapshot);
-                    sendPlaybackPositionUpdate(
-                        sessionId,
-                        contentInfo,
-                        snapshot
-                    );
+                    if (contentInfo) {
+                        sendPlaybackPositionUpdate(
+                            sessionId,
+                            contentInfo,
+                            snapshot
+                        );
+                    } else {
+                        externalPlayerSessions.markPlaying(sessionId);
+                        externalPlayerSessions.updateSession(sessionId, {
+                            ...snapshot,
+                            canPause: true,
+                            canSeek: snapshot.durationSeconds !== null,
+                        });
+                    }
                     return;
                 }
 
@@ -298,6 +326,27 @@ export function setVlcReuseInstance(reuseInstance: boolean): void {
  */
 export function shutdownVlcSession(): void {
     killStoredVlcProcess('kill reused vlc process on app shutdown');
+}
+
+export async function controlVlcSession(
+    sessionId: string,
+    action: 'toggle-pause' | 'seek-relative',
+    value = 0
+) {
+    const session = externalPlayerSessions.getSession(sessionId);
+    if (!session || session.player !== 'vlc' || !vlcRcPort) {
+        return session;
+    }
+    await sendVlcRcCommand(
+        vlcRcPort,
+        action === 'toggle-pause'
+            ? 'pause'
+            : `seek ${value >= 0 ? '+' : ''}${value}`
+    );
+    return externalPlayerSessions.updateSession(sessionId, {
+        canPause: true,
+        canSeek: true,
+    });
 }
 
 export async function openVlcPlayer({
@@ -436,7 +485,7 @@ export async function openVlcPlayer({
         }
 
         let rcPort = 0;
-        if (contentInfo || reuseInstance) {
+        {
             try {
                 rcPort = await getFreePort();
                 traceExternalPlayer('using vlc rc port', { rcPort });
@@ -521,7 +570,7 @@ export async function openVlcPlayer({
                         playerArgs
                     )
                 );
-                const trackProcess = reuseInstance && !isRetry;
+                const trackProcess = !isRetry;
                 const proc = spawn(spawnSpec.command, spawnSpec.args, {
                     shell: false,
                     detached: !trackProcess,
@@ -584,7 +633,7 @@ export async function openVlcPlayer({
                     }
                 });
 
-                if (!isRetry && rcPort > 0 && contentInfo) {
+                if (!isRetry && rcPort > 0) {
                     startVlcPositionPolling(
                         rcPort,
                         contentInfo,
@@ -596,6 +645,10 @@ export async function openVlcPlayer({
                             markVlcSessionClosed();
                         }
                     );
+                    externalPlayerSessions.updateSession(session.id, {
+                        canPause: true,
+                        canSeek: true,
+                    });
                 }
 
                 if (proc.stdout) {

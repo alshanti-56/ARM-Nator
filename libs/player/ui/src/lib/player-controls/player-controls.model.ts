@@ -1,12 +1,7 @@
 import type { Signal } from '@angular/core';
 
 export type PlayerStatus =
-    | 'idle'
-    | 'loading'
-    | 'playing'
-    | 'paused'
-    | 'ended'
-    | 'error';
+    'idle' | 'loading' | 'playing' | 'paused' | 'ended' | 'error';
 
 /** Which controls an engine supports. A control is only rendered when its flag is true. */
 export interface PlayerControlsCapabilities {
@@ -20,6 +15,10 @@ export interface PlayerControlsCapabilities {
     pictureInPicture: boolean;
     fullscreen: boolean;
     seriesNavigation: boolean;
+    stop: boolean;
+    restart: boolean;
+    frameStep: boolean;
+    screenshot: boolean;
 }
 
 export interface PlayerTrack {
@@ -106,8 +105,60 @@ export interface PlayerController {
     readonly commands: PlayerControlsCommands;
 }
 
+export interface PlayerMediaTelemetry {
+    readonly sourceKind?: string;
+    readonly resolvedUrl?: string;
+    readonly container?: string;
+    readonly videoCodec?: string;
+    readonly audioCodec?: string;
+    readonly width?: number;
+    readonly height?: number;
+    readonly fps?: number;
+    readonly bitrate?: number;
+    readonly bufferedSeconds?: number;
+    readonly bufferAheadSeconds?: number;
+    readonly droppedFrames?: number;
+    readonly totalFrames?: number;
+    readonly eofReason?: string;
+}
+
+export interface PlayerNetworkHop {
+    readonly url: string;
+    readonly status: number;
+    readonly location?: string;
+}
+
+export interface PlayerNetworkTelemetry {
+    readonly requestedUrl: string;
+    readonly finalUrl: string;
+    readonly status: number;
+    readonly statusText: string;
+    readonly contentType?: string;
+    readonly contentLength?: number;
+    readonly headers: Readonly<Record<string, string>>;
+    readonly redirectChain: readonly PlayerNetworkHop[];
+    readonly detectedLive?: boolean;
+    readonly elapsedMs: number;
+    readonly error?: string;
+}
+
+export interface PlayerEngineTelemetry {
+    readonly engine: string;
+    readonly available: boolean;
+    readonly supportReason?: string;
+    readonly sessionId?: string;
+    readonly sessionStatus?: string;
+    readonly renderingEngine?: string;
+    readonly startedAt?: string;
+    readonly updatedAt?: string;
+    readonly recordingDestination?: string;
+}
+
 /** Read-only runtime data emitted to player hosts and diagnostics surfaces. */
 export interface PlayerRuntimeSnapshot {
     readonly state: PlayerControlsState;
     readonly capabilities: PlayerControlsCapabilities;
+    readonly media?: PlayerMediaTelemetry;
+    readonly network?: PlayerNetworkTelemetry;
+    readonly engine?: PlayerEngineTelemetry;
 }

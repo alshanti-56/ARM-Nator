@@ -379,9 +379,36 @@ export class EmbeddedMpvPlayerComponent implements OnDestroy {
             recordingFolder: this.recordingFolder,
         });
         effect(() => {
+            const support = this.support();
+            const session = this.session();
             this.runtimeSnapshotChange.emit({
                 state: this.sharedControls.state(),
                 capabilities: this.sharedControls.capabilities(),
+                media: {
+                    resolvedUrl: session?.streamUrl,
+                    width: session?.videoWidth,
+                    height: session?.videoHeight,
+                    videoCodec: session?.videoCodec,
+                    audioCodec: session?.audioCodec,
+                    fps: session?.fps,
+                    bitrate: session?.bitrate,
+                    droppedFrames: session?.droppedFrames,
+                    bufferedSeconds: session?.bufferedSeconds,
+                    bufferAheadSeconds: session?.bufferedSeconds,
+                    eofReason:
+                        session?.status === 'ended' ? 'mpv-eof' : undefined,
+                },
+                engine: {
+                    engine: 'embedded-mpv',
+                    available: support?.supported === true,
+                    supportReason: support?.reason,
+                    sessionId: session?.id,
+                    sessionStatus: session?.status,
+                    renderingEngine: support?.engine,
+                    startedAt: session?.startedAt,
+                    updatedAt: session?.updatedAt,
+                    recordingDestination: session?.recording?.targetPath,
+                },
             });
         });
 

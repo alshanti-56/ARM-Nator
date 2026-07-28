@@ -2,7 +2,7 @@
 import { EmbeddedMpvBounds, EmbeddedMpvRecordingStartOptions, EmbeddedMpvSession, EmbeddedMpvSupport } from './embedded-mpv-session.interface';
 import { EpgChannelMetadata } from './epg-channel-metadata.model';
 import { EpgProgram } from './epg-program.model';
-import { ExternalPlayerSession } from './external-player-session.interface';
+import { ExternalPlayerControlAction, ExternalPlayerSession } from './external-player-session.interface';
 import { GlobalSearchPaginationOptions, GlobalSearchResult, GlobalSearchResultSource } from './global-search-result.interface';
 import { M3uFavoriteChannel } from './m3u-favorite-channel.interface';
 import { PlaybackPositionData } from './playback-position.interface';
@@ -10,7 +10,7 @@ import { AutoUpdatePlaylistsResult } from './playlist-auto-update.interface';
 import { XtreamBackupFavoriteItem, XtreamBackupHiddenCategory, XtreamBackupRecentlyViewedItem } from './playlist-backup.interface';
 import { PlaylistRefreshCancelledResult, PlaylistRefreshEvent, PlaylistRefreshPayload } from './playlist-refresh.interface';
 import { Playlist } from './playlist.interface';
-import { PlayerContentInfo, ResolvedPortalPlayback } from './portal-playback.interface';
+import { PlaybackNetworkInspection, PlayerContentInfo, PlayerEngineAvailability, ResolvedPortalPlayback } from './portal-playback.interface';
 import { PortalDebugEvent } from './portal-debug.interface';
 import { CatalogTitleMatch } from './catalog-title-match.interface';
 import { Settings } from './settings.interface';
@@ -285,6 +285,8 @@ export interface ElectronBridgeApi {
     setUserAgent: (userAgent?: string | null, referer?: string | null, scopeUrl?: string | null) => Promise<boolean>;
     openInMpv: (url: string, title: string, thumbnail: string, userAgent: string | undefined, referer?: string, origin?: string, contentInfo?: PlayerContentInfo, startTime?: number, headers?: Record<string, string>, subtitleUrl?: string) => Promise<ExternalPlayerSession>;
     openInVlc: (url: string, title: string, thumbnail: string, userAgent: string | undefined, referer?: string, origin?: string, contentInfo?: PlayerContentInfo, startTime?: number, headers?: Record<string, string>, subtitleUrl?: string) => Promise<ExternalPlayerSession>;
+    inspectPlaybackUrl: (url: string, headers?: Record<string, string>) => Promise<PlaybackNetworkInspection>;
+    getPlayerEngineAvailability: () => Promise<PlayerEngineAvailability[]>;
     autoUpdatePlaylists: (playlists: Playlist[], options?: ElectronBridgeTrustOptions) => Promise<AutoUpdatePlaylistsResult>;
     fetchEpg: (urls: string[], options?: ElectronBridgeTrustOptions) => Promise<ElectronBridgeEpgFetchResult>;
     getChannelPrograms: (channelId: string, options?: ElectronBridgeEpgLookupOptions) => Promise<EpgProgram[]>;
@@ -395,6 +397,7 @@ export interface ElectronBridgeApi {
     onExternalPlayerSessionUpdate?: (callback: (data: ExternalPlayerSession) => void) => () => void;
     onEmbeddedMpvSessionUpdate?: (callback: (data: EmbeddedMpvSession) => void) => () => void;
     closeExternalPlayerSession: (sessionId: string) => Promise<ExternalPlayerSession | null>;
+    controlExternalPlayerSession: (sessionId: string, action: ExternalPlayerControlAction, value?: number) => Promise<ExternalPlayerSession | null>;
     getEmbeddedMpvSupport: () => Promise<EmbeddedMpvSupport>;
     prepareEmbeddedMpv?: () => Promise<EmbeddedMpvSupport>;
     createEmbeddedMpvSession: (bounds: EmbeddedMpvBounds, title?: string, initialVolume?: number) => Promise<EmbeddedMpvSession>;
@@ -407,6 +410,7 @@ export interface ElectronBridgeApi {
     setEmbeddedMpvSubtitleTrack?: (sessionId: string, trackId: number) => Promise<EmbeddedMpvSession | null>;
     setEmbeddedMpvSpeed?: (sessionId: string, speed: number) => Promise<EmbeddedMpvSession | null>;
     setEmbeddedMpvAspect?: (sessionId: string, aspect: string) => Promise<EmbeddedMpvSession | null>;
+    takeEmbeddedMpvScreenshot?: (sessionId: string, targetPath: string) => Promise<void>;
     startEmbeddedMpvRecording?: (sessionId: string, options: EmbeddedMpvRecordingStartOptions) => Promise<EmbeddedMpvSession | null>;
     stopEmbeddedMpvRecording?: (sessionId: string) => Promise<EmbeddedMpvSession | null>;
     getEmbeddedMpvDefaultRecordingFolder?: () => Promise<string>;

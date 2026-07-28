@@ -80,6 +80,12 @@ export class ArtPlayerComponent implements OnInit, OnDestroy, OnChanges {
     this.runtimeSnapshotChange.emit({
       state: this.controlsAdapter.state(),
       capabilities: this.controlsAdapter.capabilities(),
+      media: this.controlsAdapter.mediaTelemetry(),
+      engine: {
+        engine: "artplayer",
+        available: true,
+        sessionStatus: this.controlsAdapter.state().status,
+      },
     });
   });
   readonly playerRoot = viewChild<ElementRef<HTMLElement>>("playerRoot");

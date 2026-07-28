@@ -1,5 +1,8 @@
 import Hls from 'hls.js';
-import type { PlayerTrack } from '../player-controls/player-controls.model';
+import type {
+    PlayerMediaTelemetry,
+    PlayerTrack,
+} from '../player-controls/player-controls.model';
 
 export interface WebVideoHlsControlsConfig {
     showCaptions: () => boolean;
@@ -75,6 +78,25 @@ export class WebVideoHlsControls {
         ) {
             this.hls.audioTrack = id;
         }
+    }
+
+    getMediaTelemetry(): Partial<PlayerMediaTelemetry> {
+        const hls = this.hls;
+        if (!hls) {
+            return { sourceKind: 'hls' };
+        }
+        const levelIndex =
+            hls.currentLevel >= 0 ? hls.currentLevel : hls.loadLevel;
+        const level = levelIndex >= 0 ? hls.levels[levelIndex] : undefined;
+        return {
+            sourceKind: 'hls',
+            container: 'HLS',
+            videoCodec: level?.videoCodec,
+            audioCodec: level?.audioCodec,
+            width: level?.width || undefined,
+            height: level?.height || undefined,
+            bitrate: level?.bitrate || undefined,
+        };
     }
 
     getSubtitleTracks(): PlayerTrack[] {

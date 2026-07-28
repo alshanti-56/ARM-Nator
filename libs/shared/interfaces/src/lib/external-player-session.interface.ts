@@ -3,11 +3,7 @@ import { PlayerContentInfo } from './portal-playback.interface';
 export type ExternalPlayerName = 'mpv' | 'vlc';
 
 export type ExternalPlayerSessionStatus =
-    | 'launching'
-    | 'opened'
-    | 'playing'
-    | 'error'
-    | 'closed';
+    'launching' | 'opened' | 'playing' | 'error' | 'closed';
 
 export interface ExternalPlayerSession {
     id: string;
@@ -21,4 +17,11 @@ export interface ExternalPlayerSession {
     updatedAt: string;
     error?: string;
     canClose: boolean;
+    canPause?: boolean;
+    canSeek?: boolean;
+    positionSeconds?: number;
+    durationSeconds?: number | null;
 }
+
+export type ExternalPlayerControlAction =
+    'toggle-pause' | 'seek-relative' | 'stop';

@@ -25,3 +25,30 @@ export interface ResolvedPortalPlayback {
     subtitleLabel?: string;
     subtitleLanguage?: string;
 }
+
+export interface PlaybackNetworkHop {
+    url: string;
+    status: number;
+    location?: string;
+}
+
+export interface PlaybackNetworkInspection {
+    requestedUrl: string;
+    finalUrl: string;
+    status: number;
+    statusText: string;
+    contentType?: string;
+    contentLength?: number;
+    headers: Record<string, string>;
+    redirectChain: PlaybackNetworkHop[];
+    detectedLive?: boolean;
+    elapsedMs: number;
+    error?: string;
+}
+
+export interface PlayerEngineAvailability {
+    engine: string;
+    available: boolean;
+    path?: string;
+    reason?: string;
+}

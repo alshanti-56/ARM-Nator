@@ -3,6 +3,7 @@ import {
     InlinePlaybackPlayer,
     type PlaybackDiagnostic,
     classifyNativePlaybackIssue,
+    classifyMpegTsPlaybackIssue,
     createPlaybackSourceMetadata,
 } from '../playback-diagnostics/playback-diagnostics.util';
 
@@ -15,6 +16,8 @@ export interface HtmlVideoElementSessionConfig {
     emitPlaybackIssue: (issue: PlaybackDiagnostic | null) => void;
     emitTimeUpdate: (value: { currentTime: number; duration: number }) => void;
     emitPlaybackEnded: () => void;
+    getSourceKind?: () => string | null;
+    getIsLive?: () => boolean;
 }
 
 export class HtmlVideoElementSession {
@@ -60,6 +63,41 @@ export class HtmlVideoElementSession {
     };
 
     private readonly handlePlaybackEnded = (): void => {
+        const sourceKind = this.config.getSourceKind?.();
+        if (
+            this.config.getIsLive?.() &&
+            (sourceKind === 'mpegts' || sourceKind === 'hls')
+        ) {
+            const url =
+                this.config.getChannelUrl() ?? this.config.video.currentSrc;
+            this.config.emitPlaybackIssue(
+                sourceKind === 'mpegts'
+                    ? classifyMpegTsPlaybackIssue(
+                          {
+                              type: 'media',
+                              details:
+                                  'early eof: live MPEG-TS stream ended unexpectedly',
+                          },
+                          createPlaybackSourceMetadata({
+                              url,
+                              mimeType: 'video/mp2t',
+                              player: InlinePlaybackPlayer.Html5,
+                          })
+                      )
+                    : classifyNativePlaybackIssue(
+                          {
+                              code: 3,
+                              message:
+                                  'Live HLS stream reached EOF unexpectedly.',
+                          },
+                          createPlaybackSourceMetadata({
+                              url,
+                              mimeType: 'application/x-mpegURL',
+                              player: InlinePlaybackPlayer.Html5,
+                          })
+                      )
+            );
+        }
         this.config.emitPlaybackEnded();
     };
 

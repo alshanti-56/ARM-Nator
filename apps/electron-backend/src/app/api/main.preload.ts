@@ -23,10 +23,13 @@ import type {
     ElectronBridgeWindowState,
     ElectronBridgeXtreamContentStream,
     ExternalPlayerSession,
+    ExternalPlayerControlAction,
     GlobalSearchPaginationOptions,
     GlobalSearchResultSource,
     PlaybackPositionData,
     PlayerContentInfo,
+    PlaybackNetworkInspection,
+    PlayerEngineAvailability,
     Playlist,
     PlaylistRefreshEvent,
     PlaylistRefreshPayload,
@@ -394,8 +397,26 @@ const electronApi: ElectronBridgeApi = {
             headers,
             subtitleUrl
         ),
+    inspectPlaybackUrl: (
+        url: string,
+        headers?: Record<string, string>
+    ): Promise<PlaybackNetworkInspection> =>
+        ipcRenderer.invoke('INSPECT_PLAYBACK_URL', url, headers),
+    getPlayerEngineAvailability: (): Promise<PlayerEngineAvailability[]> =>
+        ipcRenderer.invoke('GET_PLAYER_ENGINE_AVAILABILITY'),
     closeExternalPlayerSession: (sessionId: string) =>
         ipcRenderer.invoke('CLOSE_EXTERNAL_PLAYER_SESSION', sessionId),
+    controlExternalPlayerSession: (
+        sessionId: string,
+        action: ExternalPlayerControlAction,
+        value?: number
+    ) =>
+        ipcRenderer.invoke(
+            'CONTROL_EXTERNAL_PLAYER_SESSION',
+            sessionId,
+            action,
+            value
+        ),
     getEmbeddedMpvSupport: (): Promise<EmbeddedMpvSupport> =>
         ipcRenderer.invoke('EMBEDDED_MPV_SUPPORT'),
     prepareEmbeddedMpv: (): Promise<EmbeddedMpvSupport> =>
@@ -460,6 +481,15 @@ const electronApi: ElectronBridgeApi = {
         aspect: string
     ): Promise<EmbeddedMpvSession | null> =>
         ipcRenderer.invoke('EMBEDDED_MPV_SET_ASPECT', sessionId, aspect),
+    takeEmbeddedMpvScreenshot: (
+        sessionId: string,
+        targetPath: string
+    ): Promise<void> =>
+        ipcRenderer.invoke(
+            'EMBEDDED_MPV_TAKE_SCREENSHOT',
+            sessionId,
+            targetPath
+        ),
     startEmbeddedMpvRecording: (
         sessionId: string,
         options: EmbeddedMpvRecordingStartOptions
@@ -680,11 +710,7 @@ const electronApi: ElectronBridgeApi = {
         kind: 'all' | 'vod' | 'series',
         limit?: number,
         playlistType?:
-            | 'xtream'
-            | 'stalker'
-            | 'm3u-file'
-            | 'm3u-text'
-            | 'm3u-url'
+            'xtream' | 'stalker' | 'm3u-file' | 'm3u-text' | 'm3u-url'
     ) =>
         ipcRenderer.invoke(
             'DB_GET_GLOBAL_RECENTLY_ADDED',

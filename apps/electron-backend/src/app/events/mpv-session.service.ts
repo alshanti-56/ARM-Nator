@@ -1,4 +1,4 @@
-import { ChildProcess, spawn } from 'child_process';
+import { ChildProcess, spawn, spawnSync } from 'child_process';
 import { createConnection } from 'net';
 import { PlayerContentInfo } from '@arm-nator/shared/interfaces';
 import {
@@ -51,6 +51,25 @@ function getMpvPath(options: PlayerPathOptions = {}): string {
         normalizeCustomPlayerPath(store.get(MPV_PLAYER_PATH)) ??
         getDefaultMpvPath(options)
     );
+}
+
+export function getMpvAvailability() {
+    const context = resolveExternalPlayerLaunchContext(
+        'mpv',
+        getMpvPath({ isFlatpak: isRunningInFlatpak() }),
+        { isFlatpak: isRunningInFlatpak() }
+    );
+    const spec = buildExternalPlayerSpawnSpec(context, ['--version']);
+    const result = spawnSync(spec.command, spec.args, {
+        encoding: 'utf8',
+        timeout: 3000,
+    });
+    return {
+        engine: 'mpv',
+        available: !result.error && result.status === 0,
+        path: context.playerPath,
+        reason: result.error?.message || result.stderr?.trim() || undefined,
+    };
 }
 
 async function getMpvProperty(
@@ -128,7 +147,7 @@ function shouldIgnoreMpvStdoutLine(line: string): boolean {
 
 function startPositionPolling(
     socketPath: string,
-    contentInfo: PlayerContentInfo,
+    contentInfo: PlayerContentInfo | undefined,
     sessionId: string
 ): void {
     stopPositionPolling();
@@ -140,10 +159,24 @@ function startPositionPolling(
                 const duration = await getMpvProperty(socketPath, 'duration');
 
                 if (position !== null) {
-                    sendPlaybackPositionUpdate(sessionId, contentInfo, {
+                    const snapshot = {
                         positionSeconds: Math.floor(position),
                         durationSeconds: duration ? Math.floor(duration) : null,
-                    });
+                    };
+                    if (contentInfo) {
+                        sendPlaybackPositionUpdate(
+                            sessionId,
+                            contentInfo,
+                            snapshot
+                        );
+                    } else {
+                        externalPlayerSessions.markPlaying(sessionId);
+                        externalPlayerSessions.updateSession(sessionId, {
+                            ...snapshot,
+                            canPause: true,
+                            canSeek: snapshot.durationSeconds !== null,
+                        });
+                    }
                 }
             } catch {
                 stopPositionPolling();
@@ -209,6 +242,26 @@ export function setMpvReuseInstance(reuseInstance: boolean): void {
  */
 export function shutdownMpvSession(): void {
     killStoredMpvProcess('kill reused mpv process on app shutdown');
+}
+
+export async function controlMpvSession(
+    sessionId: string,
+    action: 'toggle-pause' | 'seek-relative',
+    value = 0
+) {
+    const session = externalPlayerSessions.getSession(sessionId);
+    if (!session || session.player !== 'mpv' || !mpvSocketPath) {
+        return session;
+    }
+    if (action === 'toggle-pause') {
+        await sendMpvCommand('cycle', ['pause']);
+    } else {
+        await sendMpvCommand('seek', [value, 'relative']);
+    }
+    return externalPlayerSessions.updateSession(sessionId, {
+        canPause: true,
+        canSeek: true,
+    });
 }
 
 export async function openMpvPlayer({
@@ -494,7 +547,7 @@ export async function openMpvPlayer({
                 externalPlayerSessions.markClosed(session.id);
             });
 
-            if (reuseInstance && socketPath) {
+            if (socketPath) {
                 mpvProcess = proc;
                 mpvSocketPath = socketPath;
                 traceExternalPlayer('stored mpv process for reuse', {
@@ -510,8 +563,12 @@ export async function openMpvPlayer({
                 }
             });
 
-            if (useMpvSocketBridge && contentInfo && socketPath) {
+            if (useMpvSocketBridge && socketPath) {
                 startPositionPolling(socketPath, contentInfo, session.id);
+                externalPlayerSessions.updateSession(session.id, {
+                    canPause: true,
+                    canSeek: true,
+                });
             }
 
             setTimeout(() => {

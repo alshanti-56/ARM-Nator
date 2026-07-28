@@ -102,6 +102,12 @@ export interface EmbeddedMpvSession {
     /** Source video size (mpv dwidth/dheight); frame-copy engine only. */
     videoWidth?: number;
     videoHeight?: number;
+    videoCodec?: string;
+    audioCodec?: string;
+    fps?: number;
+    bitrate?: number;
+    droppedFrames?: number;
+    bufferedSeconds?: number;
     recording?: EmbeddedMpvRecordingState;
     startedAt: string;
     updatedAt: string;

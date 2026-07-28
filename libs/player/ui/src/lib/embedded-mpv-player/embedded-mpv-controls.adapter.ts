@@ -117,6 +117,8 @@ export class EmbeddedMpvControlsAdapter implements PlayerController {
             pictureInPicture: false,
             fullscreen: true,
             seriesNavigation: !isLive && context.seriesNavigation() !== null,
+            frameStep: !isLive,
+            screenshot: optionalCapabilities?.screenshot ?? false,
         };
     });
 

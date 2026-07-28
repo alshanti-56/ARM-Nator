@@ -11,6 +11,114 @@
   box-sizing: border-box;
 }
 
+.layout-switcher,
+.transport-tools,
+.advanced-seek {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+.layout-switcher button,
+.advanced-seek button {
+  border: 1px solid rgba(255, 255, 255, 0.14);
+  border-radius: 8px;
+  background: rgba(255, 255, 255, 0.05);
+  color: inherit;
+  padding: 7px 11px;
+}
+
+.layout-switcher button.is-active {
+  border-color: #5f9cff;
+  background: rgba(95, 156, 255, 0.18);
+}
+
+.advanced-seek {
+  padding: 10px 16px;
+  border-top: 1px solid rgba(255, 255, 255, 0.08);
+  border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+}
+
+.advanced-seek label {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  color: rgba(255, 255, 255, 0.72);
+}
+
+.advanced-seek input {
+  width: 64px;
+  border: 1px solid rgba(255, 255, 255, 0.14);
+  border-radius: 6px;
+  background: #10141c;
+  color: inherit;
+  padding: 6px;
+}
+
+.player-card--compact {
+  max-width: 920px;
+  margin-inline: auto;
+}
+
+.player-card--compact app-web-player-view {
+  display: block;
+  max-height: 520px;
+  overflow: hidden;
+}
+
+.stopped-player {
+  min-height: 260px;
+  display: grid;
+  place-content: center;
+  justify-items: center;
+  gap: 12px;
+  color: rgba(255, 255, 255, 0.7);
+}
+
+.network-info,
+.engine-status-card {
+  margin-top: 18px;
+  padding: 16px;
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  border-radius: 12px;
+  background: rgba(10, 14, 21, 0.72);
+}
+
+.network-info pre,
+.engine-status-card pre {
+  max-height: 300px;
+  overflow: auto;
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+}
+
+.engine-status-card > div {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(190px, 1fr));
+  gap: 10px;
+}
+
+.engine-status-card article {
+  display: grid;
+  grid-template-columns: auto 1fr;
+  gap: 3px 8px;
+  align-items: center;
+  padding: 12px;
+  border-radius: 10px;
+  background: rgba(76, 175, 80, 0.08);
+}
+
+.engine-status-card article span {
+  grid-column: 2;
+  color: rgba(255, 255, 255, 0.6);
+  font-size: 12px;
+}
+
+.engine-status-card article.is-unavailable {
+  background: rgba(244, 67, 54, 0.08);
+}
+
 .page-heading,
 .setup-footer,
 .section-heading,

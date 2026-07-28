@@ -51,10 +51,7 @@ function handleEmbeddedMpv<Args extends unknown[]>(
         try {
             return await handler(...(args as Args));
         } catch (error) {
-            console.error(
-                `[Embedded MPV] ${channel} handler failed:`,
-                error
-            );
+            console.error(`[Embedded MPV] ${channel} handler failed:`, error);
             throw error;
         }
     });
@@ -110,15 +107,20 @@ handleEmbeddedMpv(
         getService().setSubtitleTrack(sessionId, trackId)
 );
 
-handleEmbeddedMpv(
-    EMBEDDED_MPV_SET_SPEED,
-    (sessionId: string, speed: number) => getService().setSpeed(sessionId, speed)
+handleEmbeddedMpv(EMBEDDED_MPV_SET_SPEED, (sessionId: string, speed: number) =>
+    getService().setSpeed(sessionId, speed)
 );
 
 handleEmbeddedMpv(
     EMBEDDED_MPV_SET_ASPECT,
     (sessionId: string, aspect: string) =>
         getService().setAspect(sessionId, aspect)
+);
+
+handleEmbeddedMpv(
+    'EMBEDDED_MPV_TAKE_SCREENSHOT',
+    (sessionId: string, targetPath: string) =>
+        getService().takeScreenshot(sessionId, targetPath)
 );
 
 handleEmbeddedMpv(

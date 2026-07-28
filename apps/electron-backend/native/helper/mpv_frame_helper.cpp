@@ -60,6 +60,12 @@ struct SnapshotState {
     double volume = 1;           /* 0..1 */
     int64_t videoWidth = 0;      /* mpv dwidth/dheight; 0 = unknown */
     int64_t videoHeight = 0;
+    std::string videoCodec;
+    std::string audioCodec;
+    double fps = 0;
+    double bitrate = 0;
+    int64_t droppedFrames = 0;
+    double bufferedSeconds = 0;
     std::string streamUrl;
     std::vector<TrackInfo> audioTracks;
     int64_t selectedAudioTrackId = -1;
@@ -142,6 +148,12 @@ std::string composeSnapshotLocked() {
         writer.num("videoWidth", (double)s.videoWidth);
         writer.num("videoHeight", (double)s.videoHeight);
     }
+    if (!s.videoCodec.empty()) writer.str("videoCodec", s.videoCodec);
+    if (!s.audioCodec.empty()) writer.str("audioCodec", s.audioCodec);
+    if (s.fps > 0) writer.num("fps", s.fps);
+    if (s.bitrate > 0) writer.num("bitrate", s.bitrate);
+    writer.num("droppedFrames", (double)s.droppedFrames);
+    writer.num("bufferedSeconds", s.bufferedSeconds);
     if (s.durationSeconds >= 0) {
         writer.num("durationSeconds", s.durationSeconds);
     } else {
@@ -353,6 +365,25 @@ void handlePropertyChange(const mpv_event_property& property) {
             s.videoHeight = value;
         }
         applyRenderSizeLocked();
+    } else if ((name == "video-codec" || name == "audio-codec-name") &&
+               property.format == MPV_FORMAT_STRING && property.data) {
+        const char* value = *static_cast<char**>(property.data);
+        if (name == "video-codec") {
+            s.videoCodec = value ? value : "";
+        } else {
+            s.audioCodec = value ? value : "";
+        }
+    } else if ((name == "estimated-vf-fps" ||
+                name == "video-bitrate" ||
+                name == "demuxer-cache-duration") &&
+               property.format == MPV_FORMAT_DOUBLE && property.data) {
+        const double value = *static_cast<double*>(property.data);
+        if (name == "estimated-vf-fps") s.fps = value;
+        else if (name == "video-bitrate") s.bitrate = value;
+        else s.bufferedSeconds = value;
+    } else if (name == "drop-frame-count" &&
+               property.format == MPV_FORMAT_INT64 && property.data) {
+        s.droppedFrames = *static_cast<int64_t*>(property.data);
     } else if (name == "video-aspect-override" &&
                property.format == MPV_FORMAT_STRING && property.data) {
         const char* value = *static_cast<char**>(property.data);
@@ -820,6 +851,12 @@ int main(int argc, char** argv) {
     mpv_observe_property(g_state.mpv, 11, "eof-reached", MPV_FORMAT_FLAG);
     mpv_observe_property(g_state.mpv, 12, "dwidth", MPV_FORMAT_INT64);
     mpv_observe_property(g_state.mpv, 13, "dheight", MPV_FORMAT_INT64);
+    mpv_observe_property(g_state.mpv, 14, "video-codec", MPV_FORMAT_STRING);
+    mpv_observe_property(g_state.mpv, 15, "audio-codec-name", MPV_FORMAT_STRING);
+    mpv_observe_property(g_state.mpv, 16, "estimated-vf-fps", MPV_FORMAT_DOUBLE);
+    mpv_observe_property(g_state.mpv, 17, "video-bitrate", MPV_FORMAT_DOUBLE);
+    mpv_observe_property(g_state.mpv, 18, "drop-frame-count", MPV_FORMAT_INT64);
+    mpv_observe_property(g_state.mpv, 19, "demuxer-cache-duration", MPV_FORMAT_DOUBLE);
 
     g_state.pipeline.onGenerationChanged = [](const std::string& name,
                                               int width, int height,

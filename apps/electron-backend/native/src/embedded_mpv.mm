@@ -96,6 +96,12 @@ struct SessionSnapshot {
     double volumePercent = 100.0;
     std::string streamUrl;
     std::string error;
+    std::string videoCodec;
+    std::string audioCodec;
+    double fps = 0.0;
+    double bitrate = 0.0;
+    int64_t droppedFrames = 0;
+    double bufferedSeconds = 0.0;
     std::vector<AudioTrack> audioTracks;
     int64_t selectedAudioTrackId = -1;
     std::vector<AudioTrack> subtitleTracks;
@@ -1240,6 +1246,45 @@ void runEventLoop(const std::shared_ptr<Session>& session)
                     break;
                 }
 
+                if ((propertyName == "video-codec" ||
+                     propertyName == "audio-codec-name") &&
+                    property->format == MPV_FORMAT_STRING &&
+                    property->data) {
+                    const auto* value =
+                        static_cast<char*>(property->data);
+                    if (propertyName == "video-codec") {
+                        session->snapshot.videoCodec = value ? value : "";
+                    } else {
+                        session->snapshot.audioCodec = value ? value : "";
+                    }
+                    break;
+                }
+
+                if ((propertyName == "estimated-vf-fps" ||
+                     propertyName == "video-bitrate" ||
+                     propertyName == "demuxer-cache-duration") &&
+                    property->format == MPV_FORMAT_DOUBLE &&
+                    property->data) {
+                    const double value =
+                        *static_cast<double*>(property->data);
+                    if (propertyName == "estimated-vf-fps") {
+                        session->snapshot.fps = value;
+                    } else if (propertyName == "video-bitrate") {
+                        session->snapshot.bitrate = value;
+                    } else {
+                        session->snapshot.bufferedSeconds = value;
+                    }
+                    break;
+                }
+
+                if (propertyName == "drop-frame-count" &&
+                    property->format == MPV_FORMAT_INT64 &&
+                    property->data) {
+                    session->snapshot.droppedFrames =
+                        *static_cast<int64_t*>(property->data);
+                    break;
+                }
+
                 if (propertyName == "track-list" &&
                     property->format == MPV_FORMAT_NODE &&
                     property->data) {
@@ -1746,6 +1791,12 @@ Napi::Value CreateSession(const Napi::CallbackInfo& info)
         MPV_FORMAT_STRING
     );
     mpv_observe_property(session->handle, 11, "eof-reached", MPV_FORMAT_FLAG);
+    mpv_observe_property(session->handle, 12, "video-codec", MPV_FORMAT_STRING);
+    mpv_observe_property(session->handle, 13, "audio-codec-name", MPV_FORMAT_STRING);
+    mpv_observe_property(session->handle, 14, "estimated-vf-fps", MPV_FORMAT_DOUBLE);
+    mpv_observe_property(session->handle, 15, "video-bitrate", MPV_FORMAT_DOUBLE);
+    mpv_observe_property(session->handle, 16, "drop-frame-count", MPV_FORMAT_INT64);
+    mpv_observe_property(session->handle, 17, "demuxer-cache-duration", MPV_FORMAT_DOUBLE);
 
     session->running.store(true);
     session->eventThread = std::thread(runEventLoop, session);
@@ -2387,6 +2438,26 @@ Napi::Value GetSessionSnapshot(const Napi::CallbackInfo& info)
     }
     result.Set("volume", Napi::Number::New(env, snapshot.volumePercent / 100.0));
     result.Set("streamUrl", Napi::String::New(env, snapshot.streamUrl));
+    if (!snapshot.videoCodec.empty()) {
+        result.Set("videoCodec", Napi::String::New(env, snapshot.videoCodec));
+    }
+    if (!snapshot.audioCodec.empty()) {
+        result.Set("audioCodec", Napi::String::New(env, snapshot.audioCodec));
+    }
+    if (snapshot.fps > 0) {
+        result.Set("fps", Napi::Number::New(env, snapshot.fps));
+    }
+    if (snapshot.bitrate > 0) {
+        result.Set("bitrate", Napi::Number::New(env, snapshot.bitrate));
+    }
+    result.Set(
+        "droppedFrames",
+        Napi::Number::New(env, snapshot.droppedFrames)
+    );
+    result.Set(
+        "bufferedSeconds",
+        Napi::Number::New(env, snapshot.bufferedSeconds)
+    );
     if (snapshot.selectedAudioTrackId >= 0) {
         result.Set(
             "selectedAudioTrackId",
@@ -2515,6 +2586,28 @@ Napi::Value DisposeSession(const Napi::CallbackInfo& info)
     return env.Undefined();
 }
 
+Napi::Value TakeScreenshot(const Napi::CallbackInfo& info)
+{
+    Napi::Env env = info.Env();
+    if (info.Length() < 2 || !info[0].IsString() || !info[1].IsString()) {
+        throw Napi::TypeError::New(env, "Expected session id and screenshot path.");
+    }
+    const auto session =
+        getSessionOrThrow(env, info[0].As<Napi::String>().Utf8Value());
+    const std::string targetPath = info[1].As<Napi::String>().Utf8Value();
+    const char* args[] = {
+        "screenshot-to-file",
+        targetPath.c_str(),
+        "video",
+        nullptr
+    };
+    const int result = mpv_command(session->handle, args);
+    if (result < 0) {
+        throw Napi::Error::New(env, mpv_error_string(result));
+    }
+    return env.Undefined();
+}
+
 Napi::Object Init(Napi::Env env, Napi::Object exports)
 {
     exports.Set("isSupported", Napi::Function::New(env, IsSupported));
@@ -2529,6 +2622,7 @@ Napi::Object Init(Napi::Env env, Napi::Object exports)
         "setSubtitleTrack",
         Napi::Function::New(env, SetSubtitleTrack)
     );
+    exports.Set("takeScreenshot", Napi::Function::New(env, TakeScreenshot));
     exports.Set("setSpeed", Napi::Function::New(env, SetSpeed));
     exports.Set("setAspect", Napi::Function::New(env, SetAspect));
     exports.Set("startRecording", Napi::Function::New(env, StartRecording));

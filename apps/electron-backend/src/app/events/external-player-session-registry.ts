@@ -16,6 +16,10 @@ interface UpdateExternalPlayerSessionOptions {
     status?: ExternalPlayerSession['status'];
     error?: string;
     canClose?: boolean;
+    canPause?: boolean;
+    canSeek?: boolean;
+    positionSeconds?: number;
+    durationSeconds?: number | null;
 }
 
 interface ExternalPlayerSessionRuntime {
@@ -46,6 +50,8 @@ export class ExternalPlayerSessionRegistry {
             startedAt,
             updatedAt: startedAt,
             canClose: false,
+            canPause: false,
+            canSeek: false,
         };
 
         this.sessions.set(session.id, { snapshot: session });

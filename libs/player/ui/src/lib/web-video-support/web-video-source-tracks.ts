@@ -1,5 +1,8 @@
 import type Hls from 'hls.js';
-import type { PlayerTrack } from '../player-controls/player-controls.model';
+import type {
+    PlayerMediaTelemetry,
+    PlayerTrack,
+} from '../player-controls/player-controls.model';
 import type { ShakaVideoSession } from '../shaka-engine/shaka-video-session';
 import { WebVideoHlsControls } from './web-video-hls-controls';
 import { WebVideoNativeTextTracks } from './web-video-native-text-tracks';
@@ -161,6 +164,23 @@ export class WebVideoSourceTracks {
         } else if (this.source?.kind === 'shaka') {
             this.shakaControls.setAudioTrack(id);
         }
+    }
+
+    getMediaTelemetry(): Partial<PlayerMediaTelemetry> {
+        if (this.source?.kind === 'hls') {
+            return this.hlsControls.getMediaTelemetry();
+        }
+        return {
+            sourceKind: this.source?.kind,
+            container:
+                this.source?.kind === 'shaka'
+                    ? 'DASH'
+                    : this.source?.kind === 'mpegts'
+                      ? 'MPEG-TS'
+                      : this.source?.kind === 'native'
+                        ? 'Native'
+                        : undefined,
+        };
     }
 
     getSubtitleTracks(): PlayerTrack[] {

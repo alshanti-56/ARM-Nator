@@ -9,6 +9,22 @@
       <span></span>
       {{ status() }}
     </div>
+    <div class="layout-switcher" aria-label="Player layout">
+      <button
+        type="button"
+        [class.is-active]="layoutMode() === 'compact'"
+        (click)="layoutMode.set('compact')"
+      >
+        Compact
+      </button>
+      <button
+        type="button"
+        [class.is-active]="layoutMode() === 'full'"
+        (click)="layoutMode.set('full')"
+      >
+        Full
+      </button>
+    </div>
   </header>
 
   <div class="direct-play-layout">
@@ -218,6 +234,53 @@
             </div>
           </dl>
 
+          <dl class="runtime-info runtime-info--media">
+            <div>
+              <dt>Resolution</dt>
+              <dd>
+                {{ runtime.media?.width ?? "?" }}×{{
+                  runtime.media?.height ?? "?"
+                }}
+              </dd>
+            </div>
+            <div>
+              <dt>FPS</dt>
+              <dd>{{ runtime.media?.fps | number: "1.0-2" }}</dd>
+            </div>
+            <div>
+              <dt>Bitrate</dt>
+              <dd>{{ formatBitrate(runtime.media?.bitrate) }}</dd>
+            </div>
+            <div>
+              <dt>Codecs</dt>
+              <dd>
+                {{ runtime.media?.videoCodec ?? "?" }} /
+                {{ runtime.media?.audioCodec ?? "?" }}
+              </dd>
+            </div>
+            <div>
+              <dt>Buffer ahead</dt>
+              <dd>
+                {{ runtime.media?.bufferAheadSeconds | number: "1.0-2" }}s
+              </dd>
+            </div>
+            <div>
+              <dt>Dropped frames</dt>
+              <dd>
+                {{ runtime.media?.droppedFrames ?? 0 }} /
+                {{ runtime.media?.totalFrames ?? 0 }}
+              </dd>
+            </div>
+            <div>
+              <dt>EOF</dt>
+              <dd>{{ runtime.media?.eofReason ?? "No" }}</dd>
+            </div>
+            <div>
+              <dt>Resolved URL</dt>
+              <dd>{{ runtime.media?.resolvedUrl ?? current.streamUrl }}</dd>
+            </div>
+          </dl>
+
           @if (
             runtime.state.audioTracks.length ||
             runtime.state.subtitleTracks.length
@@ -246,6 +309,50 @@
             </div>
           }
         }
+
+        @if (networkInspection(); as network) {
+          <div class="network-info">
+            <h3>Network response</h3>
+            <dl class="runtime-info">
+              <div>
+                <dt>HTTP</dt>
+                <dd>{{ network.status }} {{ network.statusText }}</dd>
+              </div>
+              <div>
+                <dt>Content type</dt>
+                <dd>{{ network.contentType ?? "Unknown" }}</dd>
+              </div>
+              <div>
+                <dt>Content length</dt>
+                <dd>{{ network.contentLength ?? "Unknown" }}</dd>
+              </div>
+              <div>
+                <dt>Detected mode</dt>
+                <dd>
+                  {{
+                    network.detectedLive === undefined
+                      ? "Unknown"
+                      : network.detectedLive
+                        ? "Live"
+                        : "VOD"
+                  }}
+                </dd>
+              </div>
+              <div class="wide-info">
+                <dt>Final URL</dt>
+                <dd>{{ network.finalUrl }}</dd>
+              </div>
+            </dl>
+            <details>
+              <summary>
+                Redirects and response headers ({{
+                  network.redirectChain.length
+                }})
+              </summary>
+              <pre>{{ network | json }}</pre>
+            </details>
+          </div>
+        }
       } @else {
         <div class="empty-info">
           <mat-icon>query_stats</mat-icon>
@@ -258,7 +365,10 @@
 
   @if (playback(); as current) {
     @if (!isExternalEngine()) {
-      <section class="player-card">
+      <section
+        class="player-card"
+        [class.player-card--compact]="layoutMode() === 'compact'"
+      >
         <div class="player-command-bar">
           <div class="engine-switcher" aria-label="Inline player engine">
             @for (engine of inlineEngines(); track engine.id) {
@@ -286,19 +396,68 @@
               </button>
             }
           </div>
+          <div class="transport-tools">
+            <button mat-button type="button" (click)="stopPlayback()">
+              <mat-icon>stop</mat-icon>
+              Stop
+            </button>
+            <button mat-button type="button" (click)="restartPlayback()">
+              <mat-icon>restart_alt</mat-icon>
+              Restart
+            </button>
+            <button mat-button type="button" (click)="takeScreenshot()">
+              <mat-icon>photo_camera</mat-icon>
+              Screenshot
+            </button>
+          </div>
         </div>
 
-        <app-web-player-view
-          [streamUrl]="current.streamUrl"
-          [title]="current.title"
-          [playback]="current"
-          [playerOverride]="selectedEngine()"
-          [unifiedControls]="true"
-          (timeUpdate)="onTimeUpdate($event)"
-          (runtimeSnapshotChange)="onRuntimeSnapshot($event)"
-          (playbackDiagnosticChange)="onDiagnostic($event)"
-          (externalFallbackRequested)="openFallback($event)"
-        />
+        <div class="advanced-seek">
+          <label>
+            Seek step
+            <input
+              type="number"
+              min="1"
+              max="600"
+              [(ngModel)]="seekStepSeconds"
+            />
+            seconds
+          </label>
+          <button type="button" (click)="seekByConfiguredStep(-1)">
+            −{{ seekStepSeconds }}s
+          </button>
+          <button type="button" (click)="seekByConfiguredStep(1)">
+            +{{ seekStepSeconds }}s
+          </button>
+          <label>
+            FPS
+            <input type="number" min="1" max="240" [(ngModel)]="frameRate" />
+          </label>
+          <button type="button" (click)="seekFrame(-1)">Previous frame</button>
+          <button type="button" (click)="seekFrame(1)">Next frame</button>
+        </div>
+
+        @if (playerActive()) {
+          <app-web-player-view
+            [streamUrl]="current.streamUrl"
+            [title]="current.title"
+            [playback]="current"
+            [playerOverride]="selectedEngine()"
+            [unifiedControls]="true"
+            (timeUpdate)="onTimeUpdate($event)"
+            (runtimeSnapshotChange)="onRuntimeSnapshot($event)"
+            (playbackDiagnosticChange)="onDiagnostic($event)"
+            (externalFallbackRequested)="openFallback($event)"
+          />
+        } @else {
+          <div class="stopped-player">
+            <mat-icon>stop_circle</mat-icon>
+            <strong>Playback stopped</strong>
+            <button mat-flat-button type="button" (click)="restartPlayback()">
+              Restart
+            </button>
+          </div>
+        }
       </section>
     } @else {
       <section class="external-placeholder">
@@ -329,6 +488,63 @@
           </span>
         }
       </div>
+    </section>
+
+    <section class="engine-status-card">
+      <h2>Player engine availability</h2>
+      <div>
+        @for (engine of engineAvailability(); track engine.engine) {
+          <article [class.is-unavailable]="!engine.available">
+            <mat-icon>{{
+              engine.available ? "check_circle" : "cancel"
+            }}</mat-icon>
+            <strong>{{ engine.engine }}</strong>
+            <span>{{ engine.detail }}</span>
+          </article>
+        }
+      </div>
+      @if (runtimeSnapshot()?.engine; as engine) {
+        <details>
+          <summary>Embedded/player session details</summary>
+          <pre>{{ engine | json }}</pre>
+        </details>
+      }
+      @if (externalSession(); as session) {
+        <details open>
+          <summary>External session: {{ session.status }}</summary>
+          <pre>{{ session | json }}</pre>
+          @if (session.canClose) {
+            @if (session.canPause) {
+              <button
+                mat-button
+                type="button"
+                (click)="controlExternal('toggle-pause')"
+              >
+                Play / pause
+              </button>
+            }
+            @if (session.canSeek) {
+              <button
+                mat-button
+                type="button"
+                (click)="controlExternal('seek-relative', -seekStepSeconds)"
+              >
+                −{{ seekStepSeconds }}s
+              </button>
+              <button
+                mat-button
+                type="button"
+                (click)="controlExternal('seek-relative', seekStepSeconds)"
+              >
+                +{{ seekStepSeconds }}s
+              </button>
+            }
+            <button mat-button type="button" (click)="stopPlayback()">
+              Close {{ session.player }}
+            </button>
+          }
+        </details>
+      }
     </section>
   }
 
