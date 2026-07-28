@@ -36,10 +36,7 @@ import {
     resolveFrameCopyHelperPath,
 } from './embedded-mpv-frame-copy-platform.util';
 import type { EmbeddedMpvFrameCopyRuntimeMode } from './embedded-mpv-frame-copy-runtime';
-import {
-    EMBEDDED_MPV_EXPERIMENT_ENV,
-    isEmbeddedMpvFeatureEnabled,
-} from './embedded-mpv-runtime-policy.util';
+import { isEmbeddedMpvFeatureEnabled } from './embedded-mpv-runtime-policy.util';
 
 export interface NativeEmbeddedMpvSessionSnapshot {
     status: EmbeddedMpvSessionStatus;
@@ -292,7 +289,7 @@ export class EmbeddedMpvNativeService {
             return {
                 supported: false,
                 platform: process.platform,
-                reason: `Embedded MPV is an experimental desktop player. Set ${EMBEDDED_MPV_EXPERIMENT_ENV}=1 to enable it for local development builds, or use a packaged build with the bundled runtime.`,
+                reason: 'Embedded MPV Beta is disabled by the current runtime policy.',
             };
         }
 
@@ -1035,7 +1032,7 @@ export class EmbeddedMpvNativeService {
     private assertEmbeddedMpvEnabled(): void {
         if (!isEmbeddedMpvFeatureEnabled()) {
             throw new Error(
-                `Embedded MPV is disabled. Set ${EMBEDDED_MPV_EXPERIMENT_ENV}=1 to enable the local desktop harness, or use a packaged build with the bundled runtime.`
+                'Embedded MPV Beta is disabled by the current runtime policy.'
             );
         }
     }

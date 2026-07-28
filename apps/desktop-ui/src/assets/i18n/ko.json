@@ -275,7 +275,7 @@
         "VIDEO_PLAYER_LABEL": "비디오 플레이어",
         "PLAYER_HTML5": "HTML5 비디오 플레이어",
         "PLAYER_ARTPLAYER": "ArtPlayer",
-        "PLAYER_EMBEDDED_MPV": "내장 MPV (실험적)",
+        "PLAYER_EMBEDDED_MPV": "내장 MPV (Beta)",
         "PLAYER_MPV": "MPV 플레이어",
         "PLAYER_VLC": "VLC",
         "VIDEO_PLAYER_PLACEHOLDER": "옵션을 선택하세요",

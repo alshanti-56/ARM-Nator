@@ -275,7 +275,7 @@
         "VIDEO_PLAYER_LABEL": "Videospeler",
         "PLAYER_HTML5": "HTML5-videospeler",
         "PLAYER_ARTPLAYER": "ArtPlayer",
-        "PLAYER_EMBEDDED_MPV": "Ingebedde MPV (experimenteel)",
+        "PLAYER_EMBEDDED_MPV": "Ingebedde MPV (Beta)",
         "PLAYER_MPV": "MPV-speler",
         "PLAYER_VLC": "VLC",
         "VIDEO_PLAYER_PLACEHOLDER": "Selecteer een optie",

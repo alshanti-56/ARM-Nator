@@ -275,7 +275,7 @@
         "VIDEO_PLAYER_LABEL": "Reproductor de vídeo",
         "PLAYER_HTML5": "Reproductor HTML5",
         "PLAYER_ARTPLAYER": "ArtPlayer",
-        "PLAYER_EMBEDDED_MPV": "MPV integrado (experimental)",
+        "PLAYER_EMBEDDED_MPV": "MPV integrado (Beta)",
         "PLAYER_MPV": "Reproductor MPV",
         "PLAYER_VLC": "VLC",
         "VIDEO_PLAYER_PLACEHOLDER": "Selecciona una opción",
