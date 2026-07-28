@@ -89,6 +89,7 @@ export class WebPlayerViewComponent {
   startTime = input<number>(0);
   volume = input<number>(1);
   playerOverride = input<VideoPlayer | null>(null);
+  unifiedControls = input(false);
   seriesNavigation = input<SeriesPlaybackNavigation | null>(null);
   /** Display-ready title lines for the fullscreen overlay; hosts with richer
    * context (e.g. series name + episode label) pass it explicitly. */

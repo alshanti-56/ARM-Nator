@@ -172,11 +172,41 @@
   @if (playback(); as current) {
     @if (!isExternalEngine()) {
       <section class="player-card">
+        <div class="player-command-bar">
+          <div class="engine-switcher" aria-label="Inline player engine">
+            @for (engine of inlineEngines(); track engine.id) {
+              <button
+                type="button"
+                [class.is-active]="selectedEngine() === engine.id"
+                (click)="switchEngine(engine.id)"
+              >
+                <mat-icon>{{
+                  engine.id === "embedded-mpv" ? "memory" : "web_asset"
+                }}</mat-icon>
+                {{ engine.id }}
+              </button>
+            }
+          </div>
+          <div class="external-switcher">
+            @for (engine of externalEngines(); track engine.id) {
+              <button
+                mat-button
+                type="button"
+                (click)="switchEngine(engine.id)"
+              >
+                <mat-icon>open_in_new</mat-icon>
+                {{ engine.id }}
+              </button>
+            }
+          </div>
+        </div>
+
         <app-web-player-view
           [streamUrl]="current.streamUrl"
           [title]="current.title"
           [playback]="current"
           [playerOverride]="selectedEngine()"
+          [unifiedControls]="true"
           (timeUpdate)="onTimeUpdate($event)"
           (playbackDiagnosticChange)="onDiagnostic($event)"
           (externalFallbackRequested)="openFallback($event)"
@@ -194,6 +224,24 @@
         </div>
       </section>
     }
+
+    <section class="capability-strip">
+      <div class="capability-title">
+        <mat-icon>tune</mat-icon>
+        <span>
+          <strong>{{ selectedEngine() }}</strong>
+          available controls
+        </span>
+      </div>
+      <div class="capability-list">
+        @for (capability of capabilitySummary(); track capability) {
+          <span>
+            <mat-icon>check</mat-icon>
+            {{ capability }}
+          </span>
+        }
+      </div>
+    </section>
   }
 
   @if (playback()) {

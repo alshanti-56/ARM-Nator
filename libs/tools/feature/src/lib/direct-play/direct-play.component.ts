@@ -87,6 +87,41 @@ export class DirectPlayComponent {
   readonly isExternalEngine = computed(() =>
     isManagedExternalPlayer(this.selectedEngine()),
   );
+  readonly inlineEngines = computed(() =>
+    this.engines.filter((engine) => !isManagedExternalPlayer(engine.id)),
+  );
+  readonly externalEngines = computed(() =>
+    this.engines.filter((engine) => isManagedExternalPlayer(engine.id)),
+  );
+  readonly capabilitySummary = computed(() => {
+    switch (this.selectedEngine()) {
+      case VideoPlayer.EmbeddedMpv:
+        return [
+          "Play / pause",
+          "Seek",
+          "Volume",
+          "Audio tracks",
+          "Subtitles",
+          "Speed",
+          "Aspect",
+          "Recording",
+          "Fullscreen",
+        ];
+      case VideoPlayer.ArtPlayer:
+      case VideoPlayer.Html5Player:
+        return [
+          "Play / pause",
+          this.isLive ? "Live timeline" : "Seek",
+          "Volume",
+          "Speed",
+          "Picture in picture",
+          "Fullscreen",
+        ];
+      case VideoPlayer.MPV:
+      case VideoPlayer.VLC:
+        return ["Controlled in external player"];
+    }
+  });
   readonly playbackInfo = computed<DirectPlaybackInfo | null>(() => {
     const playback = this.playback();
     if (!playback) {
@@ -168,6 +203,19 @@ export class DirectPlayComponent {
 
     this.status.set("playing");
     this.recordEvent("info", "Inline player mounted", this.selectedEngine());
+  }
+
+  async switchEngine(engine: VideoPlayer): Promise<void> {
+    if (engine === this.selectedEngine()) {
+      return;
+    }
+    this.selectedEngine.set(engine);
+    if (this.playback()) {
+      await this.play();
+      this.recordEvent("info", "Player engine changed", engine);
+      return;
+    }
+    this.recordEvent("info", "Player engine changed", engine);
   }
 
   async openFallback(request: PlaybackFallbackRequest): Promise<void> {
