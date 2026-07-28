@@ -1923,10 +1923,14 @@ function validatePackagedEmbeddedMpv(resourceDir, options = {}) {
         errors.push(`Missing embedded MPV runtime manifest: ${manifestPath}`);
     } else {
         const manifest = JSON.parse(fs.readFileSync(manifestPath, 'utf8'));
-        const expectedOrigin = 'vendored-lgpl';
-        if (manifest.origin !== expectedOrigin) {
+        const allowedOrigins = options.allowLocalHomebrewRuntime
+            ? ['vendored-lgpl', 'homebrew-dev']
+            : ['vendored-lgpl'];
+        if (!allowedOrigins.includes(manifest.origin)) {
             errors.push(
-                `Embedded MPV packaged runtime must be ${expectedOrigin}, received: ${manifest.origin}`
+                `Embedded MPV packaged runtime must be ${allowedOrigins.join(
+                    ' or '
+                )}, received: ${manifest.origin}`
             );
         }
     }

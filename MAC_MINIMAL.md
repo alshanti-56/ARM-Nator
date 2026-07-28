@@ -40,6 +40,10 @@ Packages use local ad-hoc signing and are intended for this Mac. Distribution
 outside your Mac would require Apple Developer signing and notarization, which
 are intentionally not configured.
 
+The local package command may bundle the Homebrew libmpv runtime installed on
+this Mac. That allowance is explicit to this command and is not suitable for a
+publicly distributed release.
+
 ## Retained applications
 
 - `apps/desktop-ui` — main Angular interface
