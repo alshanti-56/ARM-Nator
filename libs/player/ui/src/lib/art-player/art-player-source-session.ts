@@ -19,6 +19,11 @@ import {
     WebVideoSourceControlsBridge,
 } from '../web-video-support/web-video-source-controls.bridge';
 import { WebVideoSourceTracks } from '../web-video-support/web-video-source-tracks';
+import {
+    MpegTsLiveRecovery,
+    createMpegTsConfig,
+    isRecoverableMpegTsLiveFailure,
+} from '../web-video-support/mpegts-live-recovery';
 import { addHlsAudioTrackSettings } from './art-player-audio-tracks';
 
 export interface ArtPlayerSourceSessionConfig {
@@ -64,13 +69,21 @@ export class ArtPlayerSourceSession {
         | ((event: unknown, data: ErrorData) => void)
         | null = null;
     private mpegTsPlayer: mpegts.Player | null = null;
+    private mpegTsUrl = '';
+    private mpegTsVideo: HTMLVideoElement | null = null;
+    private readonly mpegTsRecovery: MpegTsLiveRecovery;
     private mpegTsErrorListener:
         | ((type: string, details: string, info: unknown) => void)
         | null = null;
     private shakaSession: ShakaVideoSession | null = null;
     private destroyed = false;
 
-    constructor(private readonly config: ArtPlayerSourceSessionConfig) {}
+    constructor(private readonly config: ArtPlayerSourceSessionConfig) {
+        this.mpegTsRecovery = new MpegTsLiveRecovery({
+            isLive: this.config.isLive,
+            restart: () => this.restartMpegTsAfterDisconnect(),
+        });
+    }
 
     attach(player: Artplayer): void {
         if (this.destroyed || this.player) {
@@ -123,6 +136,7 @@ export class ArtPlayerSourceSession {
         this.captionTracks = null;
         this.destroyHls();
         this.destroyMpegTs();
+        this.mpegTsRecovery.destroy();
         this.shakaSession?.destroy();
         this.shakaSession = null;
         this.player = null;
@@ -179,11 +193,21 @@ export class ArtPlayerSourceSession {
         if (!mpegts.isSupported()) {
             return;
         }
-        const engine = mpegts.createPlayer({
-            type: 'mpegts',
-            isLive: this.config.sharedControls ? this.config.isLive() : true,
-            url,
-        });
+        this.mpegTsUrl = url;
+        this.mpegTsVideo = video;
+        this.openMpegTs(video, url);
+    }
+
+    private openMpegTs(video: HTMLVideoElement, url: string): void {
+        const isLive = this.isMpegTsLive();
+        const engine = mpegts.createPlayer(
+            {
+                type: 'mpegts',
+                isLive,
+                url,
+            },
+            createMpegTsConfig(isLive)
+        );
         this.mpegTsPlayer = engine;
         this.mpegTsErrorListener = (type, details, info) => {
             if (this.destroyed || this.mpegTsPlayer !== engine) {
@@ -195,11 +219,24 @@ export class ArtPlayerSourceSession {
                     this.createSourceMetadata(url, 'video/mp2t')
                 )
             );
+            if (isLive && isRecoverableMpegTsLiveFailure(type, details, info)) {
+                this.mpegTsRecovery.request(`${type}: ${details}`);
+            }
         };
+        this.mpegTsEndedListener = () => {
+            if (isLive) {
+                this.mpegTsRecovery.request(
+                    'Live MPEG-TS connection reached EOF.'
+                );
+            }
+        };
+        this.mpegTsPlayingListener = () => this.mpegTsRecovery.markPlaying();
 
         engine.attachMediaElement(video);
         this.bindControlsSource({ kind: 'mpegts' });
         engine.on(mpegts.Events.ERROR, this.mpegTsErrorListener);
+        video.addEventListener('ended', this.mpegTsEndedListener);
+        video.addEventListener('playing', this.mpegTsPlayingListener);
         engine.load();
         const playResult = engine.play();
         if (playResult) {
@@ -273,22 +310,51 @@ export class ArtPlayerSourceSession {
         this.hls = null;
     }
 
-    private destroyMpegTs(): void {
-        const engine = this.mpegTsPlayer;
-        if (!engine) {
-            this.mpegTsErrorListener = null;
-            return;
-        }
+    private mpegTsEndedListener: EventListener | null = null;
+    private mpegTsPlayingListener: EventListener | null = null;
 
-        if (this.mpegTsErrorListener) {
+    private destroyMpegTs(preserveRecovery = false): void {
+        const engine = this.mpegTsPlayer;
+        const video = this.mpegTsVideo;
+        if (video && this.mpegTsEndedListener) {
+            video.removeEventListener('ended', this.mpegTsEndedListener);
+        }
+        if (video && this.mpegTsPlayingListener) {
+            video.removeEventListener('playing', this.mpegTsPlayingListener);
+        }
+        this.mpegTsEndedListener = null;
+        this.mpegTsPlayingListener = null;
+
+        if (engine && this.mpegTsErrorListener) {
             engine.off(mpegts.Events.ERROR, this.mpegTsErrorListener);
         }
         this.mpegTsErrorListener = null;
-        engine.pause();
-        engine.unload();
-        engine.detachMediaElement();
-        engine.destroy();
+        if (engine) {
+            engine.pause();
+            engine.unload();
+            engine.detachMediaElement();
+            engine.destroy();
+        }
         this.mpegTsPlayer = null;
+        if (!preserveRecovery) {
+            this.mpegTsRecovery.reset();
+            this.mpegTsUrl = '';
+            this.mpegTsVideo = null;
+        }
+    }
+
+    private restartMpegTsAfterDisconnect(): void {
+        const video = this.mpegTsVideo;
+        const url = this.mpegTsUrl;
+        if (this.destroyed || !video || !url || !this.isMpegTsLive()) {
+            return;
+        }
+        this.destroyMpegTs(true);
+        this.openMpegTs(video, url);
+    }
+
+    private isMpegTsLive(): boolean {
+        return this.config.sharedControls ? this.config.isLive() : true;
     }
 
     private handleHlsManifestParsed(

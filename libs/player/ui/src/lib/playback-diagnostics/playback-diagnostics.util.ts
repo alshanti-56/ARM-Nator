@@ -155,7 +155,7 @@ export function classifyMpegTsPlaybackIssue(
 
     if (isEarlyEofFailure(lowerDetails)) {
         return createPlaybackDiagnostic({
-            code: DiagnosticCode.MediaDecodeError,
+            code: DiagnosticCode.NetworkError,
             source: DiagnosticSource.MpegTs,
             metadata,
             details,

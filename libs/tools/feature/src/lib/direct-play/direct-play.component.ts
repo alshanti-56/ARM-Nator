@@ -26,12 +26,14 @@ import {
   type PlayerRuntimeSnapshot,
   WebPlayerViewComponent,
 } from "@arm-nator/player/ui";
+import { SettingsStore } from "@arm-nator/services";
 import {
   type ResolvedPortalPlayback,
   type ExternalPlayerSession,
   type PlaybackNetworkInspection,
   type PlayerEngineAvailability,
   VideoPlayer,
+  type DirectPlayLayoutMode,
 } from "@arm-nator/shared/interfaces";
 
 interface DirectPlaybackInfo {
@@ -71,6 +73,7 @@ interface DiagnosticTimelineItem {
 })
 export class DirectPlayComponent implements OnDestroy {
   private readonly player = inject(PLAYER_FACADE);
+  private readonly settingsStore = inject(SettingsStore);
 
   readonly engines = PLAYER_ENGINES;
   readonly playback = signal<ResolvedPortalPlayback | null>(null);
@@ -87,7 +90,7 @@ export class DirectPlayComponent implements OnDestroy {
   readonly networkInspection = signal<PlaybackNetworkInspection | null>(null);
   readonly externalSession = signal<ExternalPlayerSession | null>(null);
   readonly playerActive = signal(false);
-  readonly layoutMode = signal<"compact" | "full">("full");
+  readonly layoutMode = signal<DirectPlayLayoutMode>("full");
   readonly embeddedSupport = signal<{
     available: boolean;
     reason?: string;
@@ -112,6 +115,7 @@ export class DirectPlayComponent implements OnDestroy {
   private readonly unsubscribeExternalSession?: () => void;
 
   constructor() {
+    void this.loadPreferences();
     this.unsubscribeExternalSession =
       window.electron?.onExternalPlayerSessionUpdate?.((session) => {
         this.externalSession.set(session);
@@ -332,13 +336,39 @@ export class DirectPlayComponent implements OnDestroy {
     if (engine === this.selectedEngine()) {
       return;
     }
-    this.selectedEngine.set(engine);
+    this.selectEngine(engine);
     if (this.playback()) {
       this.recordEvent("info", "Player engine changed", engine);
       await this.restartPlayback();
       return;
     }
     this.recordEvent("info", "Player engine changed", engine);
+  }
+
+  setLayoutMode(layout: DirectPlayLayoutMode): void {
+    this.layoutMode.set(layout);
+    void this.persistPreferences();
+  }
+
+  selectEngine(engine: VideoPlayer): void {
+    this.selectedEngine.set(engine);
+    void this.persistPreferences();
+  }
+
+  setSeekStepSeconds(value: unknown): void {
+    const parsed = Number(value);
+    this.seekStepSeconds = Number.isFinite(parsed)
+      ? Math.min(600, Math.max(1, Math.round(parsed)))
+      : 10;
+    void this.persistPreferences();
+  }
+
+  setFrameRate(value: unknown): void {
+    const parsed = Number(value);
+    this.frameRate = Number.isFinite(parsed)
+      ? Math.min(240, Math.max(1, parsed))
+      : 25;
+    void this.persistPreferences();
   }
 
   async openFallback(request: PlaybackFallbackRequest): Promise<void> {
@@ -697,6 +727,29 @@ export class DirectPlayComponent implements OnDestroy {
       inspection.error ??
         `${inspection.status} ${inspection.contentType ?? "unknown type"} · ${inspection.redirectChain.length - 1} redirects`,
     );
+  }
+
+  private async loadPreferences(): Promise<void> {
+    await this.settingsStore.loadSettings();
+    const preferences = this.settingsStore.getSettings().directPlay;
+    if (!preferences) {
+      return;
+    }
+    this.selectedEngine.set(preferences.engine);
+    this.layoutMode.set(preferences.layout);
+    this.seekStepSeconds = preferences.seekStepSeconds;
+    this.frameRate = preferences.frameRate;
+  }
+
+  private async persistPreferences(): Promise<void> {
+    await this.settingsStore.updateSettings({
+      directPlay: {
+        engine: this.selectedEngine(),
+        layout: this.layoutMode(),
+        seekStepSeconds: this.seekStepSeconds,
+        frameRate: this.frameRate,
+      },
+    });
   }
 
   private recordEvent(

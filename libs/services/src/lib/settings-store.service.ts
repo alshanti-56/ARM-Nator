@@ -11,6 +11,7 @@ import { StorageMap } from "@ngx-pwa/local-storage";
 import { firstValueFrom } from "rxjs";
 import {
   DEFAULT_DASHBOARD_RAILS_SETTINGS,
+  DEFAULT_DIRECT_PLAY_PREFERENCES,
   DEFAULT_TMDB_SETTINGS,
   ElectronBridgeTrustOptions,
   EpgViewMode,
@@ -22,12 +23,14 @@ import {
   Theme,
   VideoPlayer,
   normalizeDashboardRailsSettings,
+  normalizeDirectPlayPreferences,
   normalizeVideoPlayer,
 } from "@arm-nator/shared/interfaces";
 import { isInlinePlayer } from "@arm-nator/player/core";
 
 const DEFAULT_SETTINGS: Settings = {
   player: VideoPlayer.ArtPlayer,
+  directPlay: DEFAULT_DIRECT_PLAY_PREFERENCES,
   webPlayerSharedControls: false,
   playerAmbientMode: false,
   playerUpNextRail: true,
@@ -128,6 +131,9 @@ export const SettingsStore = signalStore(
               ...DEFAULT_SETTINGS,
               ...storedSettings,
               player: normalizeVideoPlayer(storedSettings.player),
+              directPlay: normalizeDirectPlayPreferences(
+                storedSettings.directPlay,
+              ),
               webPlayerSharedControls:
                 storedSettings.webPlayerSharedControls === true,
               dashboardRails: normalizeDashboardRailsSettings(
@@ -166,6 +172,11 @@ export const SettingsStore = signalStore(
                 ),
               }
             : {}),
+          ...(settings.directPlay !== undefined
+            ? {
+                directPlay: normalizeDirectPlayPreferences(settings.directPlay),
+              }
+            : {}),
         });
         // Save the complete settings object, not just the partial update
         const completeSettings = this.getSettings();
@@ -185,6 +196,7 @@ export const SettingsStore = signalStore(
       getSettings() {
         return {
           player: store.player(),
+          directPlay: normalizeDirectPlayPreferences(store.directPlay?.()),
           webPlayerSharedControls: store.webPlayerSharedControls?.() === true,
           playerAmbientMode:
             store.playerAmbientMode?.() ?? DEFAULT_SETTINGS.playerAmbientMode,

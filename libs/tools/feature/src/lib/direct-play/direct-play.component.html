@@ -13,14 +13,14 @@
       <button
         type="button"
         [class.is-active]="layoutMode() === 'compact'"
-        (click)="layoutMode.set('compact')"
+        (click)="setLayoutMode('compact')"
       >
         Compact
       </button>
       <button
         type="button"
         [class.is-active]="layoutMode() === 'full'"
-        (click)="layoutMode.set('full')"
+        (click)="setLayoutMode('full')"
       >
         Full
       </button>
@@ -72,7 +72,7 @@
           <mat-label>Player engine</mat-label>
           <mat-select
             [ngModel]="selectedEngine()"
-            (ngModelChange)="selectedEngine.set($event)"
+            (ngModelChange)="selectEngine($event)"
           >
             @for (engine of engines; track engine.id) {
               <mat-option [value]="engine.id">
@@ -419,7 +419,8 @@
               type="number"
               min="1"
               max="600"
-              [(ngModel)]="seekStepSeconds"
+              [ngModel]="seekStepSeconds"
+              (ngModelChange)="setSeekStepSeconds($event)"
             />
             seconds
           </label>
@@ -431,7 +432,13 @@
           </button>
           <label>
             FPS
-            <input type="number" min="1" max="240" [(ngModel)]="frameRate" />
+            <input
+              type="number"
+              min="1"
+              max="240"
+              [ngModel]="frameRate"
+              (ngModelChange)="setFrameRate($event)"
+            />
           </label>
           <button type="button" (click)="seekFrame(-1)">Previous frame</button>
           <button type="button" (click)="seekFrame(1)">Next frame</button>

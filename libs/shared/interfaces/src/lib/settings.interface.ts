@@ -14,6 +14,43 @@ export enum VideoPlayer {
     ArtPlayer = 'artplayer',
 }
 
+export type DirectPlayLayoutMode = 'compact' | 'full';
+
+export interface DirectPlayPreferences {
+    engine: VideoPlayer;
+    layout: DirectPlayLayoutMode;
+    seekStepSeconds: number;
+    frameRate: number;
+}
+
+export const DEFAULT_DIRECT_PLAY_PREFERENCES: DirectPlayPreferences = {
+    engine: VideoPlayer.ArtPlayer,
+    layout: 'full',
+    seekStepSeconds: 10,
+    frameRate: 25,
+};
+
+export function normalizeDirectPlayPreferences(
+    value?: Partial<DirectPlayPreferences> | null
+): DirectPlayPreferences {
+    const seekStepSeconds = Number(value?.seekStepSeconds);
+    const frameRate = Number(value?.frameRate);
+
+    return {
+        engine: normalizeVideoPlayer(
+            value?.engine,
+            DEFAULT_DIRECT_PLAY_PREFERENCES.engine
+        ),
+        layout: value?.layout === 'compact' ? 'compact' : 'full',
+        seekStepSeconds: Number.isFinite(seekStepSeconds)
+            ? Math.min(600, Math.max(1, Math.round(seekStepSeconds)))
+            : DEFAULT_DIRECT_PLAY_PREFERENCES.seekStepSeconds,
+        frameRate: Number.isFinite(frameRate)
+            ? Math.min(240, Math.max(1, frameRate))
+            : DEFAULT_DIRECT_PLAY_PREFERENCES.frameRate,
+    };
+}
+
 export function normalizeVideoPlayer(
     player: unknown,
     fallback = VideoPlayer.ArtPlayer
@@ -86,6 +123,8 @@ export function normalizeDashboardRailsSettings(
  */
 export interface Settings {
     player: VideoPlayer;
+    /** Preferences used by the local Direct Play diagnostics tool. */
+    directPlay?: DirectPlayPreferences;
     /**
      * Use ARM-Nator's shared controls in HTML5 and ArtPlayer.
      * Missing values remain off for compatibility with older saved settings.

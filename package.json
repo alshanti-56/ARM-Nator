@@ -24,6 +24,7 @@
     "build": "nx run-many -t build --projects=desktop-ui,electron-backend --configuration=production",
     "package": "nx run electron-backend:package --configuration=production",
     "embedded-mpv:build": "ARM_NATOR_EMBEDDED_MPV_ALLOW_HOMEBREW=1 nx run electron-backend:build-embedded-mpv",
+    "player:fixtures": "node tools/player-stream-fixtures.mjs",
     "clean": "rm -rf dist tmp apps/electron-backend/native/build"
   },
   "private": true,

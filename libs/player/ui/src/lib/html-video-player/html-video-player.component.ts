@@ -39,6 +39,11 @@ import {
   setNativeVideoSource,
 } from "../web-video-support/web-video-native-source.util";
 import { WebVideoSourceTracks } from "../web-video-support/web-video-source-tracks";
+import {
+  MpegTsLiveRecovery,
+  createMpegTsConfig,
+  isRecoverableMpegTsLiveFailure,
+} from "../web-video-support/mpegts-live-recovery";
 import { syncOnlineSubtitleTrack } from "../web-video-support/online-subtitle-track";
 import { HtmlVideoElementSession } from "./html-video-element-session";
 import {
@@ -120,6 +125,13 @@ export class HtmlVideoPlayerComponent implements OnInit, OnChanges, OnDestroy {
   hls: Hls | null = null;
   /** mpegts.js player for raw MPEG-TS streams */
   private mpegtsPlayer: mpegts.Player | null = null;
+  private mpegtsUrl = "";
+  private readonly mpegTsRecovery = new MpegTsLiveRecovery({
+    isLive: () => this.isLive(),
+    restart: () => this.restartMpegTsAfterDisconnect(),
+    onScheduled: ({ attempt, delayMs, reason }) =>
+      debugHtmlPlayer(`MPEG-TS reconnect ${attempt} in ${delayMs}ms:`, reason),
+  });
   /** Shaka session for DASH (.mpd) streams, created on first use */
   private shakaSession: ShakaVideoSession | null = null;
   private controlsSource: HtmlVideoControlsSource | null = null;
@@ -157,6 +169,14 @@ export class HtmlVideoPlayerComponent implements OnInit, OnChanges, OnDestroy {
       this.bindControlsSource(this.controlsSource);
     }
     this.getVideoSession().attach();
+    this.videoPlayer.nativeElement.addEventListener(
+      "playing",
+      this.handleMpegTsPlaying,
+    );
+    this.videoPlayer.nativeElement.addEventListener(
+      "ended",
+      this.handleMpegTsEnded,
+    );
   }
 
   /**
@@ -248,23 +268,8 @@ export class HtmlVideoPlayerComponent implements OnInit, OnChanges, OnDestroy {
         }
       } else if ((extension === "ts" || !extension) && mpegts.isSupported()) {
         debugHtmlPlayer("Using mpegts.js for TS stream:", channel.name, url);
-        this.mpegtsPlayer = mpegts.createPlayer({
-          type: "mpegts",
-          isLive: this.isLive(),
-          url: url,
-        });
-        this.mpegtsPlayer.attachMediaElement(this.videoPlayer.nativeElement);
-        this.bindControlsSource({ kind: "mpegts" });
-        this.mpegtsPlayer.on(
-          mpegts.Events.ERROR,
-          (type: string, details: string, info: unknown): void => {
-            emitMpegTsPlaybackError(url, { type, details, info }, (issue) =>
-              this.playbackIssue.emit(issue),
-            );
-          },
-        );
-        this.mpegtsPlayer.load();
-        this.handlePlayOperation();
+        this.mpegtsUrl = url;
+        this.openMpegTsPlayer(url);
       } else if (
         extension !== "mp4" &&
         extension !== "mpv" &&
@@ -318,7 +323,11 @@ export class HtmlVideoPlayerComponent implements OnInit, OnChanges, OnDestroy {
     });
   }
 
-  private destroyMpegtsPlayer(): void {
+  private destroyMpegtsPlayer(preserveRecovery = false): void {
+    if (!preserveRecovery) {
+      this.mpegTsRecovery.reset();
+      this.mpegtsUrl = "";
+    }
     const player = this.mpegtsPlayer;
     this.mpegtsPlayer = null;
     if (!player) {
@@ -328,6 +337,58 @@ export class HtmlVideoPlayerComponent implements OnInit, OnChanges, OnDestroy {
     player.unload();
     player.detachMediaElement();
     player.destroy();
+  }
+
+  private openMpegTsPlayer(url: string): void {
+    const isLive = this.isLive();
+    const player = mpegts.createPlayer(
+      {
+        type: "mpegts",
+        isLive,
+        url,
+      },
+      createMpegTsConfig(isLive),
+    );
+    this.mpegtsPlayer = player;
+    player.attachMediaElement(this.videoPlayer.nativeElement);
+    this.bindControlsSource({ kind: "mpegts" });
+    player.on(
+      mpegts.Events.ERROR,
+      (type: string, details: string, info: unknown): void => {
+        if (this.mpegtsPlayer !== player) {
+          return;
+        }
+        emitMpegTsPlaybackError(url, { type, details, info }, (issue) =>
+          this.playbackIssue.emit(issue),
+        );
+        if (isLive && isRecoverableMpegTsLiveFailure(type, details, info)) {
+          this.mpegTsRecovery.request(`${type}: ${details}`);
+        }
+      },
+    );
+    player.load();
+    this.handlePlayOperation();
+  }
+
+  private readonly handleMpegTsPlaying = (): void => {
+    if (this.controlsSource?.kind === "mpegts") {
+      this.mpegTsRecovery.markPlaying();
+    }
+  };
+
+  private readonly handleMpegTsEnded = (): void => {
+    if (this.controlsSource?.kind === "mpegts" && this.isLive()) {
+      this.mpegTsRecovery.request("Live MPEG-TS connection reached EOF.");
+    }
+  };
+
+  private restartMpegTsAfterDisconnect(): void {
+    const url = this.mpegtsUrl;
+    if (!url || !this.isLive()) {
+      return;
+    }
+    this.destroyMpegtsPlayer(true);
+    this.openMpegTsPlayer(url);
   }
 
   private destroyHls(): void {
@@ -368,6 +429,14 @@ export class HtmlVideoPlayerComponent implements OnInit, OnChanges, OnDestroy {
    * Destroy hls instance on component destroy and clean up event listener
    */
   ngOnDestroy(): void {
+    this.videoPlayer.nativeElement.removeEventListener(
+      "playing",
+      this.handleMpegTsPlaying,
+    );
+    this.videoPlayer.nativeElement.removeEventListener(
+      "ended",
+      this.handleMpegTsEnded,
+    );
     this.controlsBridge?.destroy();
     this.controlsBridge = null;
     this.captionTracks?.destroy();
@@ -376,6 +445,7 @@ export class HtmlVideoPlayerComponent implements OnInit, OnChanges, OnDestroy {
     this.videoSession?.destroy();
     this.videoSession = null;
     this.destroyMpegtsPlayer();
+    this.mpegTsRecovery.destroy();
     this.destroyHls();
     this.shakaSession?.destroy();
     this.shakaSession = null;
