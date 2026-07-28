@@ -25,11 +25,9 @@
                 ],
                 "tsConfig": "apps/desktop-ui/tsconfig.app.json",
                 "inlineStyleLanguage": "scss",
-                "serviceWorker": "ngsw-config.json",
                 "assets": [
                     "apps/desktop-ui/src/favicon.ico",
-                    "apps/desktop-ui/src/assets",
-                    "apps/desktop-ui/src/manifest.webmanifest"
+                    "apps/desktop-ui/src/assets"
                 ],
                 "styles": [
                     "apps/desktop-ui/src/styles.scss",
@@ -80,74 +78,13 @@
                         }
                     ]
                 },
-                "pwa": {
-                    "baseHref": "/",
-                    "budgets": [
-                        {
-                            "type": "initial",
-                            "maximumWarning": "4.5mb",
-                            "maximumError": "5mb"
-                        },
-                        {
-                            "type": "anyComponentStyle",
-                            "maximumWarning": "12.5kb",
-                            "maximumError": "15kb"
-                        }
-                    ],
-                    "outputHashing": "all",
-                    "optimization": {
-                        "scripts": true,
-                        "styles": {
-                            "minify": true,
-                            "inlineCritical": false,
-                            "removeSpecialComments": true
-                        },
-                        "fonts": true
-                    },
-                    "extractLicenses": true,
-                    "sourceMap": false,
-                    "fileReplacements": [
-                        {
-                            "replace": "apps/desktop-ui/src/environments/environment.ts",
-                            "with": "apps/desktop-ui/src/environments/environment.prod.ts"
-                        }
-                    ]
-                },
                 "development": {
-                    "serviceWorker": false,
                     "optimization": false,
                     "extractLicenses": false,
                     "sourceMap": true
-                },
-                "electron-performance": {
-                    "baseHref": "./",
-                    "serviceWorker": false,
-                    "optimization": {
-                        "scripts": true,
-                        "styles": {
-                            "minify": true,
-                            "inlineCritical": false,
-                            "removeSpecialComments": true
-                        },
-                        "fonts": true
-                    },
-                    "outputHashing": "all",
-                    "sourceMap": true,
-                    "fileReplacements": [
-                        {
-                            "replace": "apps/desktop-ui/src/environments/environment.ts",
-                            "with": "apps/desktop-ui/src/environments/environment.prod.ts"
-                        }
-                    ]
                 }
             },
             "defaultConfiguration": "production"
-        },
-        "build-performance": {
-            "executor": "nx:run-commands",
-            "options": {
-                "command": "pnpm nx run desktop-ui:build:electron-performance"
-            }
         },
         "serve": {
             "continuous": true,
@@ -155,9 +92,6 @@
             "configurations": {
                 "production": {
                     "buildTarget": "desktop-ui:build:production"
-                },
-                "pwa": {
-                    "buildTarget": "desktop-ui:build:pwa"
                 },
                 "development": {
                     "buildTarget": "desktop-ui:build:development"
@@ -177,16 +111,6 @@
         },
         "lint": {
             "executor": "@nx/eslint:lint"
-        },
-        "serve-static": {
-            "continuous": true,
-            "executor": "@nx/web:file-server",
-            "options": {
-                "buildTarget": "desktop-ui:build:pwa",
-                "port": 4200,
-                "staticFilePath": "dist/apps/desktop-ui",
-                "spa": true
-            }
         }
     }
 }

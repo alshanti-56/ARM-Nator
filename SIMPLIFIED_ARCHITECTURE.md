@@ -8,7 +8,7 @@ Active source types: M3U and Xtream.
 
 Active playback engines:
 
-1. Embedded MPV (`embedded-mpv`) — experimental, native, primary option.
+1. Embedded MPV (`embedded-mpv`) — beta, native, primary option.
 2. ArtPlayer (`artplayer`) — web fallback using HLS.js and MPEG-TS.js.
 3. HTML5 (`html5`) — built-in browser playback.
 4. External MPV (`mpv`) — managed desktop player.
@@ -66,6 +66,11 @@ pnpm build
 pnpm package
 pnpm clean
 ```
+
+`pnpm dev` is the only development workflow. `pnpm build` creates the
+production desktop application, and `pnpm package` creates the ad-hoc-signed
+macOS ARM64 DMG and ZIP. There is no PWA, browser-only, performance-build,
+Linux-package, or Windows-package workflow.
 
 ## Refactoring rule
 

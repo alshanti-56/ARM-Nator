@@ -18,15 +18,6 @@
                 "command": "node apps/electron-backend/build-worker.js"
             }
         },
-        "build-worker-performance": {
-            "executor": "nx:run-commands",
-            "outputs": [
-                "{workspaceRoot}/dist/apps/electron-backend/workers"
-            ],
-            "options": {
-                "command": "node apps/electron-backend/build-worker.js --performance"
-            }
-        },
         "build-embedded-mpv": {
             "executor": "nx:run-commands",
             "cache": false,
@@ -92,29 +83,7 @@
                             "with": "apps/electron-backend/src/environments/environment.prod.ts"
                         }
                     ]
-                },
-                "electron-performance": {
-                    "optimization": true,
-                    "extractLicenses": true,
-                    "inspect": false,
-                    "sourceMap": true,
-                    "fileReplacements": [
-                        {
-                            "replace": "apps/electron-backend/src/environments/environment.ts",
-                            "with": "apps/electron-backend/src/environments/environment.prod.ts"
-                        }
-                    ]
                 }
-            }
-        },
-        "build-performance": {
-            "dependsOn": [
-                "electron-backend:build-worker-performance",
-                "electron-backend:build-embedded-mpv"
-            ],
-            "executor": "nx:run-commands",
-            "options": {
-                "command": "pnpm nx run electron-backend:build:electron-performance --excludeTaskDependencies"
             }
         },
         "serve": {
@@ -137,20 +106,6 @@
             }
         },
         "package": {
-            "dependsOn": [
-                "electron-backend:build",
-                "electron-backend:generate-builder-metadata"
-            ],
-            "executor": "nx-electron:package",
-            "options": {
-                "name": "electron-backend",
-                "frontendProject": "desktop-ui",
-                "sourcePath": "dist/apps",
-                "outputPath": "dist/packages",
-                "prepackageOnly": true
-            }
-        },
-        "make": {
             "dependsOn": [
                 "electron-backend:build",
                 "electron-backend:generate-builder-metadata"

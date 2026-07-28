@@ -36,7 +36,9 @@ Apple Silicon only:
 pnpm package
 ```
 
-Unsigned local packages are supported. Distribution outside your Mac requires Apple signing and notarization configuration.
+Packages use local ad-hoc signing and are intended for this Mac. Distribution
+outside your Mac would require Apple Developer signing and notarization, which
+are intentionally not configured.
 
 ## Retained applications
 

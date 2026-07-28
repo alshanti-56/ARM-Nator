@@ -15,9 +15,6 @@ declare global {
     type ElectronDbOperationEvent = ElectronBridgeDbOperationEvent;
 
     interface Window {
-        __ARM_NATOR_CONFIG__?: {
-            BACKEND_URL?: string;
-        };
         electron: ElectronBridgeApi;
         process: NodeJS.Process;
         require: NodeRequire;

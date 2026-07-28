@@ -5,14 +5,12 @@ import {
 } from '@angular/common/http';
 import {
     ApplicationConfig,
-    inject,
     importProvidersFrom,
     provideZoneChangeDetection,
 } from '@angular/core';
 import { MAT_FORM_FIELD_DEFAULT_OPTIONS } from '@angular/material/form-field';
 import { provideAnimations } from '@angular/platform-browser/animations';
 import { provideRouter, withComponentInputBinding } from '@angular/router';
-import { provideServiceWorker } from '@angular/service-worker';
 import { provideEffects } from '@ngrx/effects';
 import { provideRouterStore, routerReducer } from '@ngrx/router-store';
 import { provideStore } from '@ngrx/store';
@@ -40,8 +38,6 @@ import {
     providePortalNavigationActions,
 } from './services/portal-navigation-actions.service';
 import { providePortalPlaybackPositions } from './services/portal-playback-positions.service';
-import { PwaService } from './services/pwa.service';
-import { shouldEnableServiceWorker } from './services/runtime-config';
 import { provideWorkspaceShellActions } from './services/workspace-shell-actions.service';
 
 // AoT requires an exported function for factories
@@ -92,16 +88,6 @@ export function getInitialLanguage(): string {
     return 'en';
 }
 
-/**
- * Conditionally provides the necessary service based on the current environment
- */
-export function DataFactory() {
-    if (window.electron) {
-        return inject(ElectronService);
-    }
-    return inject(PwaService);
-}
-
 export const appConfig: ApplicationConfig = {
     providers: [
         provideZoneChangeDetection({ eventCoalescing: true }),
@@ -115,10 +101,6 @@ export const appConfig: ApplicationConfig = {
         provideEffects([PlaylistEffects]),
         provideRouterStore(),
         ...(AppConfig.production ? [] : [provideStoreDevtools({ maxAge: 25 })]),
-        provideServiceWorker('ngsw-worker.js', {
-            enabled: shouldEnableServiceWorker(),
-            registrationStrategy: 'registerWhenStable:30000',
-        }),
         importProvidersFrom(
             NgxIndexedDBModule.forRoot(dbConfig),
             NgxSkeletonLoaderModule.forRoot({
@@ -136,7 +118,7 @@ export const appConfig: ApplicationConfig = {
         ),
         {
             provide: DataService,
-            useFactory: DataFactory,
+            useExisting: ElectronService,
         },
         {
             provide: PORTAL_PLAYER,
