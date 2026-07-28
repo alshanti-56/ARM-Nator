@@ -19,6 +19,7 @@
       "@arm-nator/browser/core": ["libs/browser/core/src/index.ts"],
       "@arm-nator/player/core": ["libs/player/core/src/index.ts"],
       "@arm-nator/tools/core": ["libs/tools/core/src/index.ts"],
+      "@arm-nator/tools/feature": ["libs/tools/feature/src/index.ts"],
       "@arm-nator/player/ui/external-player-info-dialog": [
         "libs/player/ui/src/lib/external-player-info-dialog/external-player-info-dialog.component.ts"
       ],
@@ -69,9 +70,7 @@
       ],
       "@arm-nator/database": ["libs/database/src/index.ts"],
       "@arm-nator/database/schema": ["libs/database/src/lib/schema.ts"],
-      "@arm-nator/database/path-utils": [
-        "libs/database/src/lib/path-utils.ts"
-      ],
+      "@arm-nator/database/path-utils": ["libs/database/src/lib/path-utils.ts"],
       "@arm-nator/settings/ui": ["libs/settings/ui/src/index.ts"],
       "@arm-nator/settings/data-access": [
         "libs/settings/data-access/src/index.ts"

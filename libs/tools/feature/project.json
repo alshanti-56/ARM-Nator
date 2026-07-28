@@ -1,0 +1,13 @@
+{
+  "name": "tools-feature",
+  "$schema": "../../../node_modules/nx/schemas/project-schema.json",
+  "sourceRoot": "libs/tools/feature/src",
+  "prefix": "lib",
+  "projectType": "library",
+  "tags": ["scope:shared", "domain:tools", "type:feature"],
+  "targets": {
+    "lint": {
+      "executor": "@nx/eslint:lint"
+    }
+  }
+}

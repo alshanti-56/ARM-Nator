@@ -1,0 +1,196 @@
+<section class="direct-play-page">
+  <header class="page-heading">
+    <div>
+      <span class="eyebrow">Playback tool</span>
+      <h1>Direct Play</h1>
+      <p>Open any stream with the player engine you choose.</p>
+    </div>
+    <div class="status-pill" [attr.data-status]="status()">
+      <span></span>
+      {{ status() }}
+    </div>
+  </header>
+
+  <div class="direct-play-layout">
+    <section class="setup-card">
+      <div class="section-heading">
+        <mat-icon>link</mat-icon>
+        <div>
+          <h2>Stream source</h2>
+          <p>URLs and headers stay on this machine.</p>
+        </div>
+      </div>
+
+      <mat-form-field class="wide-field">
+        <mat-label>Playback URL</mat-label>
+        <input
+          matInput
+          [(ngModel)]="url"
+          placeholder="https://server.example/live/stream.m3u8"
+          (keydown.enter)="play()"
+        />
+        @if (url) {
+          <button
+            mat-icon-button
+            matSuffix
+            type="button"
+            [cdkCopyToClipboard]="url"
+            aria-label="Copy playback URL"
+          >
+            <mat-icon>content_copy</mat-icon>
+          </button>
+        }
+      </mat-form-field>
+
+      <div class="form-row">
+        <mat-form-field>
+          <mat-label>Title</mat-label>
+          <input
+            matInput
+            [(ngModel)]="title"
+            placeholder="Optional display title"
+          />
+        </mat-form-field>
+
+        <mat-form-field>
+          <mat-label>Player engine</mat-label>
+          <mat-select
+            [ngModel]="selectedEngine()"
+            (ngModelChange)="selectedEngine.set($event)"
+          >
+            @for (engine of engines; track engine.id) {
+              <mat-option [value]="engine.id">
+                {{ engine.id }}
+              </mat-option>
+            }
+          </mat-select>
+        </mat-form-field>
+      </div>
+
+      <mat-form-field class="wide-field headers-field">
+        <mat-label>HTTP headers</mat-label>
+        <textarea
+          matInput
+          [(ngModel)]="headersText"
+          rows="4"
+          placeholder="User-Agent: ...&#10;Referer: ...&#10;Origin: ..."
+        ></textarea>
+        <mat-hint>One Name: Value header per line</mat-hint>
+      </mat-form-field>
+
+      <div class="setup-footer">
+        <mat-checkbox [(ngModel)]="isLive">Live stream</mat-checkbox>
+        <div class="setup-actions">
+          @if (playback()) {
+            <button mat-button type="button" (click)="clear()">Clear</button>
+          }
+          <button
+            mat-flat-button
+            type="button"
+            class="play-button"
+            (click)="play()"
+          >
+            <mat-icon>{{
+              isExternalEngine() ? "open_in_new" : "play_arrow"
+            }}</mat-icon>
+            {{ isExternalEngine() ? "Open player" : "Play stream" }}
+          </button>
+        </div>
+      </div>
+
+      @if (errorMessage()) {
+        <div class="error-banner">
+          <mat-icon>error_outline</mat-icon>
+          {{ errorMessage() }}
+        </div>
+      }
+    </section>
+
+    <aside class="info-card">
+      <div class="section-heading">
+        <mat-icon>monitoring</mat-icon>
+        <div>
+          <h2>Playback Info</h2>
+          <p>Current source and engine.</p>
+        </div>
+      </div>
+
+      @if (playback(); as current) {
+        <dl class="info-grid">
+          <div>
+            <dt>Engine</dt>
+            <dd>{{ selectedEngine() }}</dd>
+          </div>
+          <div>
+            <dt>Status</dt>
+            <dd>{{ status() }}</dd>
+          </div>
+          <div>
+            <dt>Protocol</dt>
+            <dd>{{ playbackInfo()?.protocol }}</dd>
+          </div>
+          <div>
+            <dt>Stream type</dt>
+            <dd>{{ playbackInfo()?.streamType }}</dd>
+          </div>
+          <div class="wide-info">
+            <dt>Host</dt>
+            <dd>{{ playbackInfo()?.host }}</dd>
+          </div>
+          <div>
+            <dt>Mode</dt>
+            <dd>{{ current.isLive ? "Live" : "On demand" }}</dd>
+          </div>
+          <div>
+            <dt>Headers</dt>
+            <dd>{{ playbackInfo()?.headerCount }}</dd>
+          </div>
+        </dl>
+
+        <div class="source-url">
+          <span>Source URL</span>
+          <code>{{ current.streamUrl }}</code>
+          <button
+            mat-icon-button
+            type="button"
+            [cdkCopyToClipboard]="current.streamUrl"
+            aria-label="Copy current source URL"
+          >
+            <mat-icon>content_copy</mat-icon>
+          </button>
+        </div>
+      } @else {
+        <div class="empty-info">
+          <mat-icon>query_stats</mat-icon>
+          <strong>No active stream</strong>
+          <span>Playback details will appear here.</span>
+        </div>
+      }
+    </aside>
+  </div>
+
+  @if (playback(); as current) {
+    @if (!isExternalEngine()) {
+      <section class="player-card">
+        <app-web-player-view
+          [streamUrl]="current.streamUrl"
+                    [title]="current.title"
+          [playback]="current"
+          [playerOverride]="selectedEngine()"
+          (externalFallbackRequested)="openFallback($event)"
+        />
+      </section>
+    } @else {
+      <section class="external-placeholder">
+        <mat-icon>open_in_new</mat-icon>
+        <div>
+          <strong>Playing outside ARM-Nator</strong>
+          <span>
+            Controls and detailed runtime information remain in
+            {{ selectedEngine() }}.
+          </span>
+        </div>
+      </section>
+    }
+  }
+</section>
