@@ -57,7 +57,6 @@ import { PortalEmptyStateComponent } from '../portal-empty-state/portal-empty-st
 import {
     AudioPlayerComponent,
     type PlaybackFallbackRequest,
-    WebPlayerViewComponent,
 } from '@arm-nator/player/ui';
 import { ResizableDirective } from '@arm-nator/ui/components';
 import { RuntimeCapabilitiesService, SettingsStore } from '@arm-nator/services';
@@ -79,7 +78,6 @@ import { EpgProgram } from '@arm-nator/shared/interfaces';
         PortalEmptyStateComponent,
         ResizableDirective,
         TranslatePipe,
-        WebPlayerViewComponent,
     ],
 })
 export class UnifiedLiveTabComponent {
@@ -441,7 +439,7 @@ export class UnifiedLiveTabComponent {
         this.activeTimeshift.set({ url: playbackUrl, program });
 
         const playback = this.activeDetail()?.playback;
-        if (!this.shouldUseInlinePlayer() && playback) {
+        if (playback) {
             void this.portalPlayer.openResolvedPlayback({
                 ...playback,
                 streamUrl: playbackUrl,
@@ -503,7 +501,7 @@ export class UnifiedLiveTabComponent {
         this.activeTimeshift.set({ url: playbackUrl, program });
 
         const playback = this.activeDetail()?.playback;
-        if (!this.shouldUseInlinePlayer() && playback) {
+        if (playback) {
             void this.portalPlayer.openResolvedPlayback({
                 ...playback,
                 streamUrl: playbackUrl,
@@ -520,7 +518,7 @@ export class UnifiedLiveTabComponent {
         // "Watch live" must open it even when no archive was active — e.g.
         // openStreamOnDoubleClick shows the guide without launching playback.
         const playback = this.activeDetail()?.playback;
-        if (!this.shouldUseInlinePlayer() && playback) {
+        if (playback) {
             void this.portalPlayer.openResolvedPlayback(playback);
         }
     }
@@ -593,7 +591,10 @@ export class UnifiedLiveTabComponent {
                 void this.hydrateSelectedM3uPrograms(item, detail, requestId);
             }
 
-            if (this.shouldOpenExternalPlayback(detail, startPlayback)) {
+            if (
+                this.shouldUseInlinePlayer() ||
+                this.shouldOpenExternalPlayback(detail, startPlayback)
+            ) {
                 void this.portalPlayer.openResolvedPlayback(detail.playback);
             }
 

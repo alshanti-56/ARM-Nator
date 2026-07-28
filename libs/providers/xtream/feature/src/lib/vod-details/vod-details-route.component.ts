@@ -27,7 +27,6 @@ import { createLogger } from '@arm-nator/providers/shared/util';
 import { XtreamStore } from '@arm-nator/providers/xtream/data-access';
 import {
     type PlaybackFallbackRequest,
-    PortalInlinePlayerComponent,
 } from '@arm-nator/player/ui';
 import {
     CrossPortalSimilarItem,
@@ -71,7 +70,6 @@ import { VodDetailsPlaybackService } from './vod-details-playback.service';
         SafePipe,
         SlicePipe,
         TranslateModule,
-        PortalInlinePlayerComponent,
     ],
 })
 export class VodDetailsRouteComponent implements OnInit, OnDestroy {

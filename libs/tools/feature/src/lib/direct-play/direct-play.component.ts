@@ -5,8 +5,10 @@ import {
   Component,
   OnDestroy,
   computed,
+  effect,
   inject,
   signal,
+  untracked,
 } from "@angular/core";
 import { FormsModule } from "@angular/forms";
 import { MatButtonModule } from "@angular/material/button";
@@ -24,7 +26,7 @@ import {
   type PlaybackDiagnostic,
   type PlaybackFallbackRequest,
   type PlayerRuntimeSnapshot,
-  WebPlayerViewComponent,
+  WorkspacePlayerStateService,
 } from "@arm-nator/player/ui";
 import { SettingsStore } from "@arm-nator/services";
 import {
@@ -65,7 +67,6 @@ interface DiagnosticTimelineItem {
     MatIconModule,
     MatInputModule,
     MatSelectModule,
-    WebPlayerViewComponent,
   ],
   templateUrl: "./direct-play.component.html",
   styleUrl: "./direct-play.component.scss",
@@ -74,6 +75,7 @@ interface DiagnosticTimelineItem {
 export class DirectPlayComponent implements OnDestroy {
   private readonly player = inject(PLAYER_FACADE);
   private readonly settingsStore = inject(SettingsStore);
+  private readonly workspacePlayer = inject(WorkspacePlayerStateService);
 
   readonly engines = PLAYER_ENGINES;
   readonly playback = signal<ResolvedPortalPlayback | null>(null);
@@ -116,6 +118,30 @@ export class DirectPlayComponent implements OnDestroy {
 
   constructor() {
     void this.loadPreferences();
+    effect(() => {
+      const current = this.playback();
+      const workspacePlayback = this.workspacePlayer.playback();
+      const snapshot = this.workspacePlayer.runtimeSnapshot();
+      if (
+        current &&
+        workspacePlayback?.streamUrl === current.streamUrl &&
+        snapshot
+      ) {
+        untracked(() => this.onRuntimeSnapshot(snapshot));
+      }
+    });
+    effect(() => {
+      const current = this.playback();
+      const workspacePlayback = this.workspacePlayer.playback();
+      const diagnostic = this.workspacePlayer.diagnostic();
+      if (
+        current &&
+        workspacePlayback?.streamUrl === current.streamUrl &&
+        diagnostic
+      ) {
+        untracked(() => this.onDiagnostic(diagnostic));
+      }
+    });
     this.unsubscribeExternalSession =
       window.electron?.onExternalPlayerSessionUpdate?.((session) => {
         this.externalSession.set(session);
@@ -327,6 +353,7 @@ export class DirectPlayComponent implements OnDestroy {
       return;
     }
 
+    this.player.openInlinePlayback(playback, engine);
     this.playerActive.set(true);
     this.status.set("opening");
     this.recordEvent("info", "Inline player mounted", this.selectedEngine());
@@ -339,6 +366,10 @@ export class DirectPlayComponent implements OnDestroy {
     this.selectEngine(engine);
     if (this.playback()) {
       this.recordEvent("info", "Player engine changed", engine);
+      if (!isManagedExternalPlayer(engine)) {
+        this.workspacePlayer.switchEngine(engine);
+        return;
+      }
       await this.restartPlayback();
       return;
     }
@@ -501,6 +532,12 @@ export class DirectPlayComponent implements OnDestroy {
 
   clear(): void {
     void this.stopPlayback();
+    if (
+      this.workspacePlayer.playback()?.streamUrl ===
+      this.playback()?.streamUrl
+    ) {
+      this.workspacePlayer.close();
+    }
     this.playback.set(null);
     this.status.set("ready");
     this.errorMessage.set("");
@@ -517,6 +554,12 @@ export class DirectPlayComponent implements OnDestroy {
 
   async stopPlayback(): Promise<void> {
     this.playerActive.set(false);
+    if (
+      this.workspacePlayer.playback()?.streamUrl ===
+      this.playback()?.streamUrl
+    ) {
+      this.workspacePlayer.stop();
+    }
     const external = this.externalSession();
     if (external?.canClose) {
       await window.electron
@@ -571,6 +614,7 @@ export class DirectPlayComponent implements OnDestroy {
         if (session) {
           this.externalSession.set(session);
         }
+        this.workspacePlayer.close();
         this.status.set("external");
       } catch (error) {
         this.status.set("error");
@@ -583,7 +627,7 @@ export class DirectPlayComponent implements OnDestroy {
       return;
     }
 
-    await Promise.resolve();
+    this.workspacePlayer.restart();
     this.playerActive.set(true);
   }
 

@@ -2,8 +2,23 @@ import { InjectionToken } from "@angular/core";
 import {
   ExternalPlayerSession,
   ResolvedPortalPlayback,
+  VideoPlayer,
 } from "@arm-nator/shared/interfaces";
 import type { ExternalPlayerName } from "@arm-nator/shared/interfaces";
+
+export interface PlayerOpenContext {
+  readonly canPrevious?: boolean;
+  readonly canNext?: boolean;
+  readonly autoplayNext?: boolean;
+  readonly onPrevious?: () => void;
+  readonly onNext?: () => void;
+  readonly onEnded?: () => void;
+  readonly onClosed?: () => void;
+  readonly onTimeUpdate?: (event: {
+    currentTime: number;
+    duration: number;
+  }) => void;
+}
 
 /**
  * Application-facing playback boundary. Features call this contract and do
@@ -27,7 +42,13 @@ export interface PlayerFacade {
   openResolvedPlayback(
     playback: ResolvedPortalPlayback,
     hideExternalInfoDialog?: boolean,
+    context?: PlayerOpenContext,
   ): Promise<ExternalPlayerSession | void>;
+  openInlinePlayback(
+    playback: ResolvedPortalPlayback,
+    engine?: VideoPlayer,
+    context?: PlayerOpenContext,
+  ): void;
   openExternalPlayback(
     playback: ResolvedPortalPlayback,
     player: ExternalPlayerName,

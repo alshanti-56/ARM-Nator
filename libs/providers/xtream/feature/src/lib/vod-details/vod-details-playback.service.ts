@@ -326,12 +326,16 @@ export class VodDetailsPlaybackService {
 
     private startPlayback(playback: ResolvedPortalPlayback): void {
         this.lastSaveTime = 0;
-        if (this.portalPlayer.isEmbeddedPlayer()) {
-            this.inlinePlayback.set(playback);
+        if (!this.portalPlayer.isEmbeddedPlayer()) {
+            this.closeInlinePlayer();
+            void this.portalPlayer.openResolvedPlayback(playback, true);
             return;
         }
 
-        this.closeInlinePlayer();
-        void this.portalPlayer.openResolvedPlayback(playback, true);
+        this.inlinePlayback.set(playback);
+        void this.portalPlayer.openResolvedPlayback(playback, true, {
+            onClosed: () => this.closeInlinePlayer(),
+            onTimeUpdate: (event) => this.handleInlineTimeUpdate(event),
+        });
     }
 }

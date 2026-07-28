@@ -1,0 +1,117 @@
+@if (state.playback(); as playback) {
+    <section
+        class="workspace-player"
+        [class.workspace-player--mini]="isMini()"
+        [class.workspace-player--expanded]="!isMini()"
+        aria-label="Now playing"
+    >
+        <header class="workspace-player__header">
+            <div class="workspace-player__identity">
+                <span>{{ playback.isLive ? 'LIVE' : 'NOW PLAYING' }}</span>
+                <strong>{{ playback.title || playback.streamUrl }}</strong>
+            </div>
+
+            <nav class="workspace-player__engines" aria-label="Player engine">
+                @for (engine of engines; track engine.id) {
+                    <button
+                        type="button"
+                        [class.is-active]="state.engine() === engine.id"
+                        [disabled]="!engineAvailable(engine.id)"
+                        (click)="switchEngine(engine.id)"
+                    >
+                        {{ engine.id }}
+                    </button>
+                }
+            </nav>
+
+            <div class="workspace-player__health">
+                <span title="Resolution">{{ mediaSummary().resolution }}</span>
+                <span title="Buffer">Buffer {{ mediaSummary().buffer }}</span>
+                <span title="Codec">{{ mediaSummary().codec }}</span>
+            </div>
+
+            <div class="workspace-player__window-actions">
+                <button
+                    mat-icon-button
+                    type="button"
+                    matTooltip="Stop"
+                    (click)="state.stop()"
+                >
+                    <mat-icon>stop</mat-icon>
+                </button>
+                <button
+                    mat-icon-button
+                    type="button"
+                    matTooltip="Restart"
+                    (click)="state.restart()"
+                >
+                    <mat-icon>restart_alt</mat-icon>
+                </button>
+                <button
+                    mat-icon-button
+                    type="button"
+                    matTooltip="Screenshot"
+                    (click)="takeScreenshot()"
+                >
+                    <mat-icon>photo_camera</mat-icon>
+                </button>
+                @if (isMini()) {
+                    <button
+                        mat-icon-button
+                        type="button"
+                        matTooltip="Expand player"
+                        (click)="state.expand()"
+                    >
+                        <mat-icon>open_in_full</mat-icon>
+                    </button>
+                } @else {
+                    <button
+                        mat-icon-button
+                        type="button"
+                        matTooltip="Mini player"
+                        (click)="state.minimize()"
+                    >
+                        <mat-icon>picture_in_picture_alt</mat-icon>
+                    </button>
+                }
+                <button
+                    mat-icon-button
+                    type="button"
+                    matTooltip="Close player"
+                    (click)="state.close()"
+                >
+                    <mat-icon>close</mat-icon>
+                </button>
+            </div>
+        </header>
+
+        <div class="workspace-player__surface">
+            @if (state.stopped()) {
+                <div class="workspace-player__stopped">
+                    <mat-icon>stop_circle</mat-icon>
+                    <strong>Playback stopped</strong>
+                    <button mat-flat-button type="button" (click)="state.restart()">
+                        <mat-icon>restart_alt</mat-icon>
+                        Restart
+                    </button>
+                </div>
+            } @else {
+                <app-web-player-view
+                    [streamUrl]="playback.streamUrl"
+                    [title]="playback.title"
+                    [playback]="playback"
+                    [playerOverride]="state.engine()"
+                    [reloadGeneration]="state.reloadGeneration()"
+                    [unifiedControls]="true"
+                    (timeUpdate)="onTimeUpdate($event)"
+                    (runtimeSnapshotChange)="state.onRuntimeSnapshot($event)"
+                    (playbackDiagnosticChange)="state.onDiagnostic($event)"
+                    (playbackEnded)="state.onEnded()"
+                    (previousEpisodeRequested)="state.previous()"
+                    (nextEpisodeRequested)="state.next()"
+                    (externalFallbackRequested)="openFallback($event)"
+                />
+            }
+        </div>
+    </section>
+}

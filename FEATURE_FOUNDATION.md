@@ -1,7 +1,8 @@
 # Feature foundation
 
-This repository is prepared for the next feature phase without changing the
-current player behavior or exposing unfinished screens.
+This repository is prepared for the next feature phase. The shared playback
+foundation and Direct Play observability work are implemented; unfinished
+credential and browser tools remain unpublished.
 
 ## Domain boundaries
 
@@ -27,15 +28,16 @@ implement them without importing each other's internals.
 No engine was hidden, removed, or behaviorally changed by this preparation.
 Video.js remains intentionally absent.
 
-## Implementation order
+## Implementation status
 
-1. Add a playback session store implementing `PlaybackObservability`.
-2. Adapt each player engine into `PlaybackController`.
-3. Build Direct Play and playback information/diagnostics UI.
-4. Add credential tester Electron worker and UI.
-5. Add Electron `WebContentsView` tab manager and browser shell.
-6. Implement request filtering for the browser partition.
-7. Add YouTube-specific navigation and SponsorBlock client.
+1. Done: persistent workspace playback session and runtime observability.
+2. Done: shared playback boundary for every retained player engine.
+3. Done: Direct Play, diagnostics, unified controls, engine switching,
+   expanded player, mini-player, tracks, seek, screenshot, and media health.
+4. Planned for 25.x.x: credential tester Electron worker and UI.
+5. Planned for 25.x.x: Electron `WebContentsView` tab manager and browser shell.
+6. Planned for 25.x.x: request filtering for the browser partition.
+7. Planned for 25.x.x: YouTube navigation, ad filtering, and SponsorBlock.
 
 ## Electron boundary
 

@@ -91,6 +91,7 @@ export class WebPlayerViewComponent {
   volume = input<number>(1);
   playerOverride = input<VideoPlayer | null>(null);
   unifiedControls = input(true);
+  reloadGeneration = input(0);
   seriesNavigation = input<SeriesPlaybackNavigation | null>(null);
   /** Display-ready title lines for the fullscreen overlay; hosts with richer
    * context (e.g. series name + episode label) pass it explicitly. */
@@ -186,6 +187,7 @@ export class WebPlayerViewComponent {
     effect(() => {
       // Track player changes so stale browser diagnostics are cleared on switch.
       this.selectedPlayer();
+      this.reloadGeneration();
 
       const playback = this.resolvedPlayback();
       this.playbackDiagnostic.set(null);

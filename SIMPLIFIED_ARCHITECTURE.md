@@ -23,9 +23,17 @@ VLC, external MPV, and HTML5-player features are intentionally preserved and sel
 ## Runtime flow
 
 ```text
-Angular feature -> PlayerFacade -> selected player adapter
+Angular feature -> PlayerFacade -> WorkspacePlayerState -> selected player adapter
 Angular service -> typed preload bridge -> Electron service -> SQLite / HTTP / native MPV
 ```
+
+All in-app playback is owned by the workspace shell. Direct Play, Xtream live,
+movies, series, unified live collections, and M3U publish resolved playback
+requests to the same persistent host. The host provides one engine switcher,
+stop/restart/screenshot actions, shared seek and track controls, compact media
+health, an expanded presentation, and a persistent mini-player presentation.
+Web players retain native picture-in-picture support. External MPV and VLC
+sessions continue to use the workspace external-player dock.
 
 ## Source structure
 
@@ -54,6 +62,10 @@ The `@arm-nator/player/core` boundary owns the list of supported players,
 runtime availability rules, engine classification, and the `PlayerFacade`
 contract. Feature code must call this boundary rather than importing a player
 implementation.
+
+`WorkspacePlayerStateService` owns the active in-app session independently of
+the current route. Provider pages resolve media and navigation callbacks, but
+they do not mount their own player UI.
 
 Directory cleanup must never remove or disable VLC, external MPV, HTML5,
 ArtPlayer, or embedded MPV.

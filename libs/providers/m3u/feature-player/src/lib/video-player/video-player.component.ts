@@ -59,8 +59,6 @@ import {
     firstValueFrom,
     Observable,
     catchError,
-    combineLatest,
-    filter,
     map,
     of,
     switchMap,
@@ -75,6 +73,7 @@ import {
     persistLiveEpgPanelState,
     persistLiveSidebarState,
     PORTAL_EXTERNAL_PLAYBACK,
+    PORTAL_PLAYER,
     restoreLiveEpgPanelState,
     restoreLiveSidebarState,
     WorkspaceHeaderContextService,
@@ -84,7 +83,6 @@ import {
     AudioPlayerComponent,
     type PlaybackFallbackRequest,
     SidebarComponent,
-    WebPlayerViewComponent,
 } from '@arm-nator/player/ui';
 import { LiveEpgPanelSummary } from '@arm-nator/ui/shared-portals';
 import { ChannelListLoadingStateComponent } from '@arm-nator/ui/components';
@@ -135,7 +133,6 @@ const M3U_SIDEBAR_DEFAULT_WIDTH = 460;
         ResizableDirective,
         SidebarComponent,
         TranslatePipe,
-        WebPlayerViewComponent,
     ],
     templateUrl: './video-player.component.html',
     styleUrl: './video-player.component.scss',
@@ -153,6 +150,7 @@ export class VideoPlayerComponent implements OnInit, OnDestroy {
     private readonly store = inject(Store);
     private readonly epgService = inject(EpgService);
     private readonly externalPlayback = inject(PORTAL_EXTERNAL_PLAYBACK);
+    private readonly portalPlayer = inject(PORTAL_PLAYER);
     private readonly workspaceHeaderContext = inject(
         WorkspaceHeaderContextService
     );
@@ -398,6 +396,23 @@ export class VideoPlayerComponent implements OnInit, OnDestroy {
             this.playerSettings = {
                 player: this.settingsStore.player(),
             };
+        });
+
+        effect(() => {
+            const channel = this.activeChannel();
+            const playback = this.embeddedPlayback();
+            if (
+                !channel ||
+                channel.radio === 'true' ||
+                !playback ||
+                !this.shouldShowInlinePlayer(channel)
+            ) {
+                return;
+            }
+            const engine = this.activeChannelIsDash()
+                ? this.dashPlayerOverride()
+                : (this.playerSettings.player ?? VideoPlayer.ArtPlayer);
+            this.portalPlayer.openInlinePlayback(playback, engine);
         });
 
         // Keep "now" fresh so EPG state re-evaluates over time.

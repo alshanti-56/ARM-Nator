@@ -109,11 +109,6 @@ module.exports = async function afterPackHook(params) {
         params.packager.projectDir ?? process.cwd()
     );
 
-    const required = ['1', 'true', 'yes', 'on'].includes(
-        String(process.env.ARM_NATOR_REQUIRE_EMBEDDED_MPV ?? '')
-            .trim()
-            .toLowerCase()
-    );
     const allowLocalHomebrewRuntime = ['1', 'true', 'yes', 'on'].includes(
         String(
             process.env.ARM_NATOR_ALLOW_LOCAL_HOMEBREW_PACKAGE ?? ''
@@ -123,7 +118,7 @@ module.exports = async function afterPackHook(params) {
     );
     const errors = validatePackagedEmbeddedMpv(resourceDir, {
         platform: 'darwin',
-        required,
+        required: true,
         foreignArch: false,
         executableName: params.packager.executableName,
         allowLocalHomebrewRuntime,

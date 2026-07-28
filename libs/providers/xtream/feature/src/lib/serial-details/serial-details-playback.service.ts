@@ -352,21 +352,32 @@ export class SerialDetailsPlaybackService {
 
     private startPlayback(playback: ResolvedPortalPlayback): void {
         this.lastSaveTime = 0;
-        if (this.portalPlayer.isEmbeddedPlayer()) {
-            this.inlinePlayback.set(playback);
+        if (!this.portalPlayer.isEmbeddedPlayer()) {
+            this.closeInlinePlayer();
+            void this.playbackPositionState.recordExternalLaunch(
+                playback,
+                this.portalPlayer.openResolvedPlayback(playback, true),
+                (playlistId, position) =>
+                    this.playbackPositions.savePlaybackPosition(
+                        playlistId,
+                        position
+                    )
+            );
             return;
         }
 
-        this.closeInlinePlayer();
-        void this.playbackPositionState.recordExternalLaunch(
-            playback,
-            this.portalPlayer.openResolvedPlayback(playback, true),
-            (playlistId, position) =>
-                this.playbackPositions.savePlaybackPosition(
-                    playlistId,
-                    position
-                )
-        );
+        this.inlinePlayback.set(playback);
+        const navigation = this.inlineSeriesNavigation();
+        void this.portalPlayer.openResolvedPlayback(playback, true, {
+            canPrevious: navigation?.canPrevious ?? false,
+            canNext: navigation?.canNext ?? false,
+            autoplayNext: navigation?.autoplayEnabled ?? false,
+            onPrevious: () => this.playPreviousEpisode(),
+            onNext: () => this.playNextEpisode(),
+            onEnded: () => this.handleInlinePlaybackEnded(),
+            onClosed: () => this.closeInlinePlayer(),
+            onTimeUpdate: (event) => this.handleInlineTimeUpdate(event),
+        });
     }
 
     private getInlineEpisodeState(): SeriesPlaybackEpisodeState<XtreamSerieEpisode> | null {

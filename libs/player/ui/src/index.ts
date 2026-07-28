@@ -13,3 +13,5 @@ export * from './lib/portal-inline-player/up-next-rail.util';
 export * from './lib/video-player/sidebar/sidebar.component';
 export * from './lib/vod-details/vod-details.component';
 export * from './lib/web-player-view/web-player-view.component';
+export * from './lib/workspace-player/workspace-player-host.component';
+export * from './lib/workspace-player/workspace-player-state.service';

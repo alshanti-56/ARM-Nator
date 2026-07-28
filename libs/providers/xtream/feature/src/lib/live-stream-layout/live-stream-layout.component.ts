@@ -54,10 +54,7 @@ import {
     shiftEpgDateKey,
 } from '@arm-nator/epg/ui';
 import { MatProgressSpinnerModule } from '@angular/material/progress-spinner';
-import {
-    type PlaybackFallbackRequest,
-    WebPlayerViewComponent,
-} from '@arm-nator/player/ui';
+import { type PlaybackFallbackRequest } from '@arm-nator/player/ui';
 import { LiveEpgPanelSummary } from '@arm-nator/ui/shared-portals';
 import {
     EpgItem,
@@ -104,7 +101,6 @@ interface XtreamLiveChannelItem {
         PortalEmptyStateComponent,
         ResizableDirective,
         TranslatePipe,
-        WebPlayerViewComponent,
     ],
     changeDetection: ChangeDetectionStrategy.OnPush,
 })
@@ -375,13 +371,18 @@ export class LiveStreamLayoutComponent implements OnInit {
         // sync with the category rail. For already-selected channels this is a
         // store no-op.
         this.selectLiveItemCategory(item);
-        this.activePlayback.set({
+        const playback: ResolvedPortalPlayback = {
             streamUrl,
             title: item.title ?? item.name ?? '',
             thumbnail: item.poster_url ?? item.stream_icon ?? null,
             isLive: true,
-        });
-        if (this.usesEmbeddedPlayer() || !startPlayback) {
+        };
+        this.activePlayback.set(playback);
+        if (this.usesEmbeddedPlayer()) {
+            void this.portalPlayer.openResolvedPlayback(playback);
+            return;
+        }
+        if (!startPlayback) {
             return;
         }
         this.xtreamStore.openPlayer(
@@ -541,13 +542,15 @@ export class LiveStreamLayoutComponent implements OnInit {
         );
 
         this.activeCatchupProgram.set(program);
-        this.activePlayback.set({
+        const playback: ResolvedPortalPlayback = {
             streamUrl: catchupUrl,
             title: this.getCatchupPlaybackTitle(item, program),
             thumbnail: item.poster_url ?? item.stream_icon ?? null,
             isLive: false,
-        });
+        };
+        this.activePlayback.set(playback);
         if (this.usesEmbeddedPlayer()) {
+            void this.portalPlayer.openResolvedPlayback(playback);
             return;
         }
 

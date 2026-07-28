@@ -56,16 +56,6 @@
                             ''
                         "
                     />
-                } @else {
-                    <app-web-player-view
-                        [streamUrl]="currentStreamUrl()"
-                        [title]="activeDetail()?.playback?.title ?? ''"
-                        [playback]="inlinePlayback()"
-                        [playerOverride]="player()"
-                        (externalFallbackRequested)="
-                            handleExternalFallbackRequest($event)
-                        "
-                    />
                 }
             </div>
         }

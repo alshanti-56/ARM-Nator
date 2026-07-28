@@ -58,35 +58,15 @@
         </button>
     }
     @if (activeChannel(); as activeChannel) {
-        @if (
-            activeChannel.radio === 'true' ||
-            shouldShowInlinePlayer(activeChannel)
-        ) {
+        @if (activeChannel.radio === 'true') {
             <div class="video-player">
-                @if (activeChannel.radio === 'true') {
-                    <app-audio-player
-                        [url]="activeChannel.url"
-                        [icon]="activeChannel?.tvg?.logo!"
-                        [channelName]="displayChannelName()"
-                        [volume]="volume()"
-                        (volumeChange)="onInlineVolumeChange($event)"
-                    />
-                } @else {
-                    <app-web-player-view
-                        [streamUrl]="embeddedPlayback()?.streamUrl ?? ''"
-                        [title]="inlinePlayerTitle()"
-                        [playback]="embeddedPlayback()"
-                        [playerOverride]="
-                            activeChannelIsDash()
-                                ? dashPlayerOverride()
-                                : (playerSettings.player ?? null)
-                        "
-                        [volume]="volume()"
-                        (externalFallbackRequested)="
-                            handleExternalFallbackRequest($event)
-                        "
-                    />
-                }
+                <app-audio-player
+                    [url]="activeChannel.url"
+                    [icon]="activeChannel?.tvg?.logo!"
+                    [channelName]="displayChannelName()"
+                    [volume]="volume()"
+                    (volumeChange)="onInlineVolumeChange($event)"
+                />
             </div>
         }
 

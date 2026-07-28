@@ -11,17 +11,14 @@
   box-sizing: border-box;
 }
 
-.layout-switcher,
-.transport-tools,
-.advanced-seek {
+.layout-switcher {
   display: flex;
   align-items: center;
   gap: 8px;
   flex-wrap: wrap;
 }
 
-.layout-switcher button,
-.advanced-seek button {
+.layout-switcher button {
   border: 1px solid rgba(255, 255, 255, 0.14);
   border-radius: 8px;
   background: rgba(255, 255, 255, 0.05);
@@ -32,48 +29,6 @@
 .layout-switcher button.is-active {
   border-color: #5f9cff;
   background: rgba(95, 156, 255, 0.18);
-}
-
-.advanced-seek {
-  padding: 10px 16px;
-  border-top: 1px solid rgba(255, 255, 255, 0.08);
-  border-bottom: 1px solid rgba(255, 255, 255, 0.08);
-}
-
-.advanced-seek label {
-  display: flex;
-  align-items: center;
-  gap: 6px;
-  color: rgba(255, 255, 255, 0.72);
-}
-
-.advanced-seek input {
-  width: 64px;
-  border: 1px solid rgba(255, 255, 255, 0.14);
-  border-radius: 6px;
-  background: #10141c;
-  color: inherit;
-  padding: 6px;
-}
-
-.player-card--compact {
-  max-width: 920px;
-  margin-inline: auto;
-}
-
-.player-card--compact app-web-player-view {
-  display: block;
-  max-height: 520px;
-  overflow: hidden;
-}
-
-.stopped-player {
-  min-height: 260px;
-  display: grid;
-  place-content: center;
-  justify-items: center;
-  gap: 12px;
-  color: rgba(255, 255, 255, 0.7);
 }
 
 .network-info,
@@ -444,76 +399,6 @@
   span {
     font-size: 12px;
   }
-}
-
-.player-card {
-  min-height: 460px;
-  margin-top: 18px;
-  overflow: hidden;
-  background: #050608;
-
-  app-web-player-view {
-    display: block;
-    min-height: 460px;
-    height: min(65vh, 760px);
-  }
-}
-
-.player-command-bar {
-  min-height: 52px;
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 12px;
-  padding: 7px 10px;
-  border-bottom: 1px solid
-    color-mix(in srgb, var(--mat-sys-outline-variant) 65%, transparent);
-  background: #11141a;
-  color: #e8ebf2;
-}
-
-.engine-switcher,
-.external-switcher {
-  display: flex;
-  align-items: center;
-  gap: 5px;
-}
-
-.engine-switcher button {
-  min-height: 36px;
-  display: inline-flex;
-  align-items: center;
-  gap: 7px;
-  padding: 0 11px;
-  border: 1px solid transparent;
-  border-radius: 9px;
-  background: transparent;
-  color: #9da5b4;
-  cursor: pointer;
-  font: inherit;
-  font-size: 11px;
-
-  mat-icon {
-    width: 17px;
-    height: 17px;
-    font-size: 17px;
-  }
-
-  &:hover {
-    color: #fff;
-    background: rgba(255, 255, 255, 0.06);
-  }
-
-  &.is-active {
-    color: #fff;
-    border-color: rgba(117, 164, 255, 0.42);
-    background: rgba(69, 119, 220, 0.22);
-  }
-}
-
-.external-switcher button {
-  color: #c1c7d2;
-  font-size: 11px;
 }
 
 .capability-strip {

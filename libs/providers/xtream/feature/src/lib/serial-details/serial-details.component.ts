@@ -27,7 +27,6 @@ import { XtreamStore } from '@arm-nator/providers/xtream/data-access';
 import {
     buildUpNextRailItems,
     type PlaybackFallbackRequest,
-    PortalInlinePlayerComponent,
     type UpNextRailItem,
 } from '@arm-nator/player/ui';
 import {
@@ -74,7 +73,6 @@ import {
         DetailTagsTemplateDirective,
         MatIcon,
         PortalDetailShellComponent,
-        PortalInlinePlayerComponent,
         SeasonContainerComponent,
         SlicePipe,
         TranslatePipe,

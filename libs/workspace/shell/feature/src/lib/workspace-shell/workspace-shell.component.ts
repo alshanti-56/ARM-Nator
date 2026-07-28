@@ -1,6 +1,7 @@
 import { Component, HostListener, inject, viewChild } from '@angular/core';
 import { RouterOutlet } from '@angular/router';
 import { ExternalPlaybackDockComponent } from '@arm-nator/ui/components';
+import { WorkspacePlayerHostComponent } from '@arm-nator/player/ui';
 import {
     PlaylistDropOverlayComponent,
     PlaylistDropZoneDirective,
@@ -22,6 +23,7 @@ import { WorkspaceKeyboardShortcutsService } from '../workspace-keyboard-shortcu
     selector: 'app-workspace-shell',
     imports: [
         ExternalPlaybackDockComponent,
+        WorkspacePlayerHostComponent,
         PlaylistDropOverlayComponent,
         PlaylistDropZoneDirective,
         RouterOutlet,

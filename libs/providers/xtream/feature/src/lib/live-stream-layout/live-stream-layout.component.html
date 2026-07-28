@@ -93,18 +93,6 @@
         </button>
     }
     @if (streamUrl) {
-        @if (isEmbeddedPlayer) {
-            <div class="video-player">
-                <app-web-player-view
-                    [streamUrl]="streamUrl"
-                    [title]="activePlayback()?.title ?? ''"
-                    [playback]="activePlayback()"
-                    (externalFallbackRequested)="
-                        handleExternalFallbackRequest($event)
-                    "
-                />
-            </div>
-        }
         @if (supportsEpg) {
             <div
                 class="epg"

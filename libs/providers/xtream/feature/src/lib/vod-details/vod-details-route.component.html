@@ -206,20 +206,6 @@
             }
         </ng-template>
 
-        @if (inlinePlayback(); as playback) {
-            <app-portal-inline-player
-                detail-player
-                [playback]="playback"
-                (timeUpdate)="handleInlineTimeUpdate($event)"
-                (closed)="closeInlinePlayer()"
-                (backClicked)="goBack()"
-                (streamUrlCopied)="showCopyNotification()"
-                (externalFallbackRequested)="
-                    handleExternalFallbackRequest($event)
-                "
-            />
-        }
-
         <div detail-extras>
             @if (trailerEmbedUrl(); as trailerUrl) {
                 <div class="youtube-trailer">

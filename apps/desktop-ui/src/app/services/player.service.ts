@@ -1,6 +1,7 @@
 import { Injectable, inject } from "@angular/core";
 import { MatDialog } from "@angular/material/dialog";
 import { ExternalPlayerInfoDialogComponent } from "@arm-nator/player/ui/external-player-info-dialog";
+import { WorkspacePlayerStateService } from "@arm-nator/player/ui";
 import { DataService } from "@arm-nator/services";
 import {
   ExternalPlayerSession,
@@ -11,7 +12,11 @@ import {
   VideoPlayer,
 } from "@arm-nator/shared/interfaces";
 import type { ExternalPlayerName } from "@arm-nator/shared/interfaces";
-import { isInlinePlayer, PlayerFacade } from "@arm-nator/player/core";
+import {
+  isInlinePlayer,
+  PlayerFacade,
+  type PlayerOpenContext,
+} from "@arm-nator/player/core";
 import { SettingsStore } from "./settings-store.service";
 
 @Injectable({
@@ -21,6 +26,7 @@ export class PlayerService implements PlayerFacade {
   private dialog = inject(MatDialog);
   private dataService = inject(DataService);
   private settingsStore = inject(SettingsStore);
+  private workspacePlayer = inject(WorkspacePlayerStateService);
 
   isEmbeddedPlayer(
     player = this.settingsStore.player() ?? VideoPlayer.ArtPlayer,
@@ -61,6 +67,7 @@ export class PlayerService implements PlayerFacade {
   async openResolvedPlayback(
     playback: ResolvedPortalPlayback,
     hideExternalInfoDialog = true,
+    context?: PlayerOpenContext,
   ): Promise<ExternalPlayerSession | void> {
     const player = this.settingsStore.player() ?? VideoPlayer.ArtPlayer;
 
@@ -76,7 +83,16 @@ export class PlayerService implements PlayerFacade {
       return await this.openExternalPlayback(playback, "vlc");
     }
 
+    this.openInlinePlayback(playback, player, context);
     return;
+  }
+
+  openInlinePlayback(
+    playback: ResolvedPortalPlayback,
+    engine = this.settingsStore.player() ?? VideoPlayer.ArtPlayer,
+    context?: PlayerOpenContext,
+  ): void {
+    this.workspacePlayer.open(playback, engine, context);
   }
 
   async openExternalPlayback(
