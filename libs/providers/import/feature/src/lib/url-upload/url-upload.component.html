@@ -1,0 +1,15 @@
+<form [formGroup]="form">
+    <mat-form-field class="w-full">
+        <mat-label>{{ 'HOME.URL_UPLOAD.PLAYLIST_URL' | translate }}</mat-label>
+        <input type="url" matInput formControlName="playlistUrl" />
+    </mat-form-field>
+    <mat-form-field class="w-full">
+        <mat-label>{{ 'HOME.XTREAM_PLAYLIST.TITLE' | translate }}</mat-label>
+        <input type="text" matInput formControlName="playlistName" />
+    </mat-form-field>
+    @if (!isDesktop) {
+        <p class="cors-note">
+            {{ 'HOME.URL_UPLOAD.CORS_NOTE' | translate }}
+        </p>
+    }
+</form>

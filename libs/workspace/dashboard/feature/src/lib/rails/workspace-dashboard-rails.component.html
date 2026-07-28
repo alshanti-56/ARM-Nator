@@ -1,0 +1,383 @@
+<section
+    class="rails-page"
+    [class.rails-page--empty]="ready() && !hasPlaylists()"
+    data-test-id="dashboard-page"
+>
+    @if (data.playlistsLoaded() && !hasPlaylists()) {
+        <app-empty-state
+            [type]="'welcome-dashboard'"
+            [showElectronOnlyValueProps]="isElectron"
+            (addPlaylistClicked)="onAddPlaylist($event)"
+        />
+    } @else {
+        <!-- Hero: real card if a recent item resolved, skeleton while still
+             loading the first global recent item, nothing if no recent items
+             exist. Each block below renders as soon as ITS data is ready —
+             no longer pinned on the slowest rail's I/O. -->
+        @if (dashboardRails().hero) {
+            @if (hero(); as item) {
+                <a
+                    class="hero"
+                    data-test-id="dashboard-hero"
+                    [class.hero--with-image]="
+                        !!item.posterUrl || !!item.backdropUrl
+                    "
+                    [class.hero--has-backdrop]="item.hasBackdrop"
+                    [class.hero--has-default-backdrop]="
+                        item.backdropSource === 'fallback'
+                    "
+                    [class.hero--live]="item.contentType === 'live'"
+                    [routerLink]="item.link"
+                    [state]="item.state ?? {}"
+                >
+                    <span
+                        class="hero__backdrop"
+                        aria-hidden="true"
+                        [style.backgroundImage]="
+                            item.backdropUrl
+                                ? 'url(' + item.backdropUrl + ')'
+                                : item.fallbackBackdropBackground
+                        "
+                    ></span>
+                    @if (item.backdropUrl; as backdropUrl) {
+                        <img
+                            class="hero__image-probe"
+                            [src]="backdropUrl"
+                            alt=""
+                            aria-hidden="true"
+                            loading="eager"
+                            decoding="async"
+                            (error)="markHeroImageFailed(backdropUrl)"
+                        />
+                    }
+                    <span class="hero__vignette" aria-hidden="true"></span>
+
+                    <span class="hero__poster">
+                        @if (item.posterUrl; as posterUrl) {
+                            <img
+                                [src]="posterUrl"
+                                [alt]="item.title"
+                                loading="eager"
+                                decoding="async"
+                                (error)="markHeroImageFailed(posterUrl)"
+                            />
+                        } @else {
+                            <span
+                                class="hero__poster-fallback"
+                                [style.backgroundImage]="
+                                    item.fallbackPosterBackground
+                                "
+                            >
+                                <mat-icon>{{ item.icon }}</mat-icon>
+                            </span>
+                        }
+                    </span>
+
+                    <span class="hero__body">
+                        <h1 class="hero__title">{{ item.title }}</h1>
+                        <p class="hero__subtitle">{{ item.subtitle }}</p>
+
+                        @if (
+                            item.episodeBadge ||
+                            item.rating ||
+                            (item.genres && item.genres.length > 0)
+                        ) {
+                            <span
+                                class="hero__badges"
+                                data-test-id="dashboard-hero-badges"
+                            >
+                                @if (item.episodeBadge) {
+                                    <span
+                                        class="hero__badge hero__badge--episode"
+                                        >{{ item.episodeBadge }}</span
+                                    >
+                                }
+                                @if (item.rating) {
+                                    <span
+                                        class="hero__badge hero__badge--rating"
+                                        >★ {{ item.rating }}</span
+                                    >
+                                }
+                                @for (genre of item.genres; track genre) {
+                                    <span class="hero__badge">{{
+                                        genre
+                                    }}</span>
+                                }
+                            </span>
+                        }
+
+                        @if (
+                            item.contentType === 'live' &&
+                            (item.nowPlayingTitle ||
+                                item.nowPlayingTimeRange ||
+                                (item.nowPlayingProgress !== null &&
+                                    item.nowPlayingProgress !== undefined))
+                        ) {
+                            <span
+                                class="hero__live-epg"
+                                data-test-id="dashboard-hero-live-epg"
+                            >
+                                <span class="hero__live-epg-topline">
+                                    <span class="hero__live-epg-chip"
+                                        >LIVE</span
+                                    >
+                                    @if (item.nowPlayingTimeRange) {
+                                        <span class="hero__live-epg-time">{{
+                                            item.nowPlayingTimeRange
+                                        }}</span>
+                                    }
+                                </span>
+                                @if (item.nowPlayingTitle) {
+                                    <span class="hero__live-epg-title">{{
+                                        item.nowPlayingTitle
+                                    }}</span>
+                                }
+                                <span
+                                    class="hero__live-epg-progress"
+                                    [class.hero__live-epg-progress--idle]="
+                                        item.nowPlayingProgress === null ||
+                                        item.nowPlayingProgress === undefined
+                                    "
+                                    aria-hidden="true"
+                                >
+                                    <i
+                                        [style.width.%]="
+                                            item.nowPlayingProgress ?? 0
+                                        "
+                                    ></i>
+                                </span>
+                            </span>
+                        }
+
+                        @if (item.watchProgress !== null && item.watchProgress !== undefined) {
+                            <span class="hero__progress" aria-hidden="true">
+                                <span
+                                    class="hero__progress-bar"
+                                    [style.width.%]="item.watchProgress"
+                                ></span>
+                            </span>
+                            <span class="hero__progress-meta">
+                                @if (item.remainingLabel) {
+                                    <span>{{
+                                        item.remainingLabel.key
+                                            | translate
+                                                : item.remainingLabel.params
+                                    }}</span>
+                                    <span class="hero__progress-meta-sep"
+                                        >·</span
+                                    >
+                                }
+                                <span>{{
+                                    'WORKSPACE.DASHBOARD.PERCENT_WATCHED'
+                                        | translate
+                                            : { value: item.watchProgress }
+                                }}</span>
+                            </span>
+                        }
+
+                        <span class="hero__cta">
+                            <mat-icon>play_arrow</mat-icon>
+                            <span>{{
+                                'WORKSPACE.DASHBOARD.CONTINUE_WATCHING'
+                                    | translate
+                            }}</span>
+                        </span>
+                    </span>
+                </a>
+            } @else if (data.globalRecentLoading()) {
+                <section
+                    class="rails-page__skeleton-hero"
+                    aria-hidden="true"
+                    aria-busy="true"
+                >
+                    <div class="rails-page__skeleton-hero-poster"></div>
+                    <div class="rails-page__skeleton-hero-body">
+                        <div class="rails-page__skeleton-hero-title"></div>
+                        <div
+                            class="rails-page__skeleton-hero-title rails-page__skeleton-hero-title--short"
+                        ></div>
+                        <div class="rails-page__skeleton-hero-subtitle"></div>
+                        <div class="rails-page__skeleton-hero-cta"></div>
+                    </div>
+                </section>
+            }
+        }
+
+        <!-- Continue watching (movies + series) -->
+        @if (
+            dashboardRails().continueWatching &&
+            continueWatchingCards().length > 0
+        ) {
+            <lib-dashboard-rail
+                [label]="'WORKSPACE.DASHBOARD.CONTINUE_WATCHING' | translate"
+                [items]="continueWatchingCards()"
+                [totalCount]="data.globalRecentVodItems().length"
+                [seeAllLink]="['/workspace/global-recent']"
+                [seeAllState]="continueWatchingSeeAllState()"
+                [testId]="'dashboard-continue-watching-rail'"
+            />
+        }
+
+        <!-- Live favorites: no fallback. Recently watched live gets its own rail. -->
+        @if (
+            dashboardRails().liveFavorites &&
+            !showLiveFavoritesSkeleton() &&
+            liveFavoriteCardsEnriched().length > 0
+        ) {
+            <lib-dashboard-rail
+                [label]="liveRailTitleKeyForSource('favorites') | translate"
+                [items]="liveFavoriteCardsEnriched()"
+                [totalCount]="data.globalFavoriteLiveItems().length"
+                [seeAllLink]="['/workspace/global-favorites']"
+                [seeAllState]="liveSeeAllState"
+                layout="channel"
+                [testId]="'dashboard-live-favorites-rail'"
+            />
+        } @else if (showLiveFavoritesSkeleton()) {
+            <section
+                class="rails-page__skeleton-rail"
+                aria-hidden="true"
+                aria-busy="true"
+            >
+                <div class="rails-page__skeleton-header"></div>
+                <div class="rails-page__skeleton-track">
+                    @for (slot of skeletonSlots; track slot) {
+                        <div class="rails-page__skeleton-card"></div>
+                    }
+                </div>
+            </section>
+        }
+
+        @if (
+            dashboardRails().recentlyWatchedLive &&
+            recentLiveCardsEnriched().length > 0
+        ) {
+            <lib-dashboard-rail
+                [label]="liveRailTitleKeyForSource('recent') | translate"
+                [items]="recentLiveCardsEnriched()"
+                [totalCount]="data.globalRecentLiveItems().length"
+                [seeAllLink]="['/workspace/global-recent']"
+                [seeAllState]="liveSeeAllState"
+                layout="channel"
+                [testId]="'dashboard-recent-live-rail'"
+            />
+        }
+
+        @if (
+            dashboardRails().favoriteMoviesAndSeries &&
+            favoriteMoviesAndSeriesCards().length > 0
+        ) {
+            <lib-dashboard-rail
+                [label]="
+                    'WORKSPACE.DASHBOARD.FAVORITE_MOVIES_AND_SERIES'
+                        | translate
+                "
+                [items]="favoriteMoviesAndSeriesCards()"
+                [totalCount]="
+                    data.globalFavoriteItems().length -
+                    data.globalFavoriteLiveItems().length
+                "
+                [seeAllLink]="['/workspace/global-favorites']"
+                [seeAllState]="favoriteMoviesAndSeriesSeeAllState()"
+                [testId]="'dashboard-favorite-vod-rail'"
+            />
+        }
+
+        @if (showRecentContentSkeleton()) {
+            <section
+                class="rails-page__skeleton-rail"
+                aria-hidden="true"
+                aria-busy="true"
+            >
+                <div class="rails-page__skeleton-header"></div>
+                <div class="rails-page__skeleton-track">
+                    @for (slot of skeletonSlots; track slot) {
+                        <div class="rails-page__skeleton-card"></div>
+                    }
+                </div>
+            </section>
+        }
+
+        <!-- Sources rail -->
+        @if (dashboardRails().recentSources && sourceCards().length > 0) {
+            <lib-dashboard-rail
+                [label]="'WORKSPACE.DASHBOARD.RECENT_SOURCES' | translate"
+                [items]="sourceCards()"
+                [totalCount]="data.playlists().length"
+                [seeAllLink]="['/workspace/sources']"
+                aspectRatio="16 / 9"
+                [testId]="'dashboard-recent-sources-rail'"
+                (actionSelected)="onSourceActionSelected($event)"
+            />
+        } @else if (dashboardRails().recentSources && !data.playlistsLoaded()) {
+            <section
+                class="rails-page__skeleton-rail"
+                aria-hidden="true"
+                aria-busy="true"
+            >
+                <div class="rails-page__skeleton-header"></div>
+                <div class="rails-page__skeleton-track">
+                    @for (slot of skeletonSlots; track slot) {
+                        <div class="rails-page__skeleton-card"></div>
+                    }
+                </div>
+            </section>
+        }
+
+        <!-- Xtream recently-added rail (only relevant if there are Xtream playlists) -->
+        @if (
+            dashboardRails().xtreamRecentlyAdded &&
+            xtreamRecentlyAddedCards().length > 0
+        ) {
+            <lib-dashboard-rail
+                [label]="
+                    'WORKSPACE.DASHBOARD.XTREAM_RECENTLY_ADDED' | translate
+                "
+                [items]="xtreamRecentlyAddedCards()"
+                [totalCount]="data.xtreamRecentlyAddedItems().length"
+                [testId]="'dashboard-xtream-recently-added-rail'"
+            />
+        } @else if (
+            dashboardRails().xtreamRecentlyAdded &&
+            xtreamPlaylistCount() > 0 && data.xtreamRecentlyAddedLoading()
+        ) {
+            <section
+                class="rails-page__skeleton-rail"
+                aria-hidden="true"
+                aria-busy="true"
+            >
+                <div class="rails-page__skeleton-header"></div>
+                <div class="rails-page__skeleton-track">
+                    @for (slot of skeletonSlots; track slot) {
+                        <div class="rails-page__skeleton-card"></div>
+                    }
+                </div>
+            </section>
+        }
+
+        <!-- TMDB trending rail (opt-in; Electron only — needs title matching) -->
+        @if (dashboardRails().tmdbTrending && trendingCards().length > 0) {
+            <lib-dashboard-rail
+                [label]="'WORKSPACE.DASHBOARD.TMDB_TRENDING' | translate"
+                [items]="trendingCards()"
+                [totalCount]="trendingCards().length"
+                [testId]="'dashboard-tmdb-trending-rail'"
+            />
+        } @else if (
+            dashboardRails().tmdbTrending && trendingService.loading()
+        ) {
+            <section
+                class="rails-page__skeleton-rail"
+                aria-hidden="true"
+                aria-busy="true"
+            >
+                <div class="rails-page__skeleton-header"></div>
+                <div class="rails-page__skeleton-track">
+                    @for (slot of skeletonSlots; track slot) {
+                        <div class="rails-page__skeleton-card"></div>
+                    }
+                </div>
+            </section>
+        }
+    }
+</section>

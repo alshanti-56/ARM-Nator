@@ -1,0 +1,32 @@
+// Cover size tokens — consumed by all cover/poster grids and rails.
+// Toggled via [data-cover-size] attribute on <html>, set from SettingsStore.
+:root {
+    --cover-grid-min-width: 148px;
+    --cover-rail-width: 172px;
+    --cover-gap: 16px;
+}
+
+:root[data-cover-size='small'] {
+    --cover-grid-min-width: 120px;
+    --cover-rail-width: 140px;
+    --cover-gap: 12px;
+}
+
+:root[data-cover-size='medium'] {
+    --cover-grid-min-width: 148px;
+    --cover-rail-width: 172px;
+    --cover-gap: 16px;
+}
+
+:root[data-cover-size='large'] {
+    --cover-grid-min-width: 200px;
+    --cover-rail-width: 220px;
+    --cover-gap: 20px;
+}
+
+@media (max-width: 600px) {
+    :root[data-cover-size='large'] {
+        --cover-grid-min-width: 160px;
+        --cover-rail-width: 170px;
+    }
+}

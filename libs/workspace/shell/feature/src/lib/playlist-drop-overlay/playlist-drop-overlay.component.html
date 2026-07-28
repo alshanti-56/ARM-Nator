@@ -1,0 +1,31 @@
+@if (isVisible()) {
+    <div class="drop-overlay__backdrop" aria-hidden="true"></div>
+    <div
+        class="drop-overlay__card"
+        [class.is-rejected]="isRejected()"
+        role="status"
+        aria-live="polite"
+    >
+        <div class="drop-overlay__icon-wrap">
+            <mat-icon class="drop-overlay__icon">
+                {{ isRejected() ? 'error_outline' : 'file_download' }}
+            </mat-icon>
+        </div>
+        <h2 class="drop-overlay__title">
+            {{
+                (isRejected()
+                    ? rejectionKey()
+                    : 'WORKSPACE.SHELL.DROP_OVERLAY_TITLE'
+                ) | translate
+            }}
+        </h2>
+        <p class="drop-overlay__body">
+            {{
+                (isRejected()
+                    ? 'WORKSPACE.SHELL.DROP_OVERLAY_REJECTED_BODY'
+                    : 'WORKSPACE.SHELL.DROP_OVERLAY_BODY'
+                ) | translate
+            }}
+        </p>
+    </div>
+}

@@ -1,0 +1,171 @@
+@use '../../styles/content-grid' as grid;
+
+:host {
+    display: flex;
+    flex-direction: column;
+    overflow-y: auto;
+    height: 100%;
+    width: 100%;
+}
+
+.search-page {
+    display: flex;
+    flex-direction: column;
+    height: 100%;
+    min-height: 0;
+    width: 100%;
+}
+
+.search-content {
+    display: flex;
+    flex-direction: column;
+    flex: 1;
+    min-height: 0;
+    overflow: hidden;
+    padding: 0 20px 0 20px;
+}
+
+.header {
+    position: sticky;
+    top: 0;
+    z-index: 100;
+    padding: 20px 0 10px 0;
+    margin-bottom: 2px;
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.02);
+
+    display: flex;
+    flex-direction: column;
+    align-items: stretch;
+    gap: 16px;
+
+    .header-top {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        gap: 20px;
+    }
+
+    .header-left {
+        display: flex;
+        align-items: center;
+        gap: 32px;
+        flex: 1;
+        flex-wrap: wrap;
+
+        // Keep the back arrow and title tightly grouped, independent of the
+        // wide gap between the title group and the filters (RTL-safe)
+        .header-title-group {
+            display: flex;
+            align-items: center;
+            gap: 4px;
+        }
+
+        .header-back {
+            flex-shrink: 0;
+        }
+
+        h2 {
+            margin: 0;
+            white-space: nowrap;
+            font-size: 1.2rem;
+            font-weight: 650;
+            letter-spacing: -0.02em;
+        }
+
+        .type-filters {
+            display: flex;
+            gap: 20px;
+            align-items: center;
+
+            ::ng-deep mat-checkbox {
+                margin: 0;
+            }
+        }
+    }
+
+    .header-right {
+        display: flex;
+        align-items: center;
+        gap: 16px;
+
+        .results-count {
+            font-size: 0.85rem;
+            padding: 6px 12px;
+            white-space: nowrap;
+            display: flex;
+            align-items: center;
+        }
+    }
+
+    .search-input-container {
+        margin-bottom: 0;
+    }
+}
+
+.results-container {
+    flex: 1;
+    min-height: 0;
+    overflow-y: auto;
+}
+
+.loading-state {
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    padding: 4rem 2rem;
+}
+
+.no-items {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    padding: 4rem 2rem;
+    text-align: center;
+
+    mat-icon {
+        font-size: 64px;
+        width: 64px;
+        height: 64px;
+        margin-bottom: 1.5rem;
+        opacity: 0.5;
+    }
+
+    .no-items-content {
+        h3 {
+            margin: 0 0 0.5rem;
+            font-size: 1.05rem;
+            font-weight: 520;
+            letter-spacing: -0.01em;
+            color: var(--text-color);
+        }
+
+        p {
+            font-size: 0.85rem;
+            margin: 0;
+            opacity: 0.65;
+        }
+
+        .search-term-note {
+            margin-top: 1rem;
+            font-size: 0.9rem;
+            font-style: italic;
+            opacity: 0.6;
+        }
+    }
+
+    &.initial-state {
+        opacity: 0.8;
+
+        mat-icon {
+            color: var(--primary-color);
+            opacity: 0.6;
+        }
+    }
+}
+
+// Results grid mixin for consumers
+::ng-deep .results-grid {
+    @include grid.content-grid;
+    padding-bottom: 1rem;
+}

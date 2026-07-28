@@ -1,0 +1,114 @@
+<div
+    class="channel-list-item"
+    [class.compact]="!showEpg()"
+    cdkDrag
+    [cdkDragDisabled]="!isDraggable()"
+    cdkDragPreviewContainer="parent"
+    [class.active]="selected()"
+    (click)="onClick($event)"
+    (dblclick)="onDoubleClick()"
+    (contextmenu)="onContextMenu($event)"
+    data-test-id="channel-item"
+>
+    @if (isDraggable()) {
+        <mat-icon cdkDragHandle class="drag-icon">drag_indicator</mat-icon>
+    }
+    <div class="channel-content">
+        <div class="channel-logo-shell" aria-hidden="true">
+            @if (showLogoFallback()) {
+                <mat-icon class="channel-logo-fallback">live_tv</mat-icon>
+            }
+            @if (logo()) {
+                <img
+                    class="channel-logo"
+                    [src]="logo()"
+                    (error)="onLogoError($event)"
+                    alt="Channel Logo"
+                />
+            }
+        </div>
+        <div class="channel-details">
+            <div class="channel-name">{{ displayName() }}</div>
+            @if (showEpg()) {
+                @if (epgProgram(); as program) {
+                    <div class="epg-title">
+                        {{ program.title }}
+                    </div>
+                    <div class="epg-timeline">
+                        <span class="epg-time">{{
+                            (program.startTimestamp
+                                ? program.startTimestamp * 1000
+                                : program.start
+                            ) | date: 'HH:mm'
+                        }}</span>
+                        <div class="epg-progress-track">
+                            <div
+                                class="epg-progress-fill"
+                                [ngStyle]="{
+                                    width: progressPercentage() + '%',
+                                }"
+                            ></div>
+                        </div>
+                        <span class="epg-time">{{
+                            (program.stopTimestamp
+                                ? program.stopTimestamp * 1000
+                                : program.stop
+                            ) | date: 'HH:mm'
+                        }}</span>
+                    </div>
+                } @else if (!isRadio()) {
+                    <div class="epg-placeholder">
+                        {{ 'EPG.NO_PROGRAM_INFO' | translate }}
+                    </div>
+                }
+            }
+        </div>
+    </div>
+    @if (
+        (showProgramInfoButton() && showEpg() && epgProgram()) ||
+        showFavoriteButton() ||
+        showAuxActionButton()
+    ) {
+        <div class="action-buttons">
+            @if (showProgramInfoButton() && showEpg() && epgProgram(); as program) {
+                <button
+                    mat-icon-button
+                    class="program-info-button"
+                    [matTooltip]="
+                        'EPG.PROGRAM_DIALOG.SHOW_PROGRAM_DETAILS' | translate
+                    "
+                    (click)="showProgramDescription(program, $event)"
+                >
+                    <mat-icon>info</mat-icon>
+                </button>
+            }
+            @if (showFavoriteButton()) {
+                <button
+                    mat-icon-button
+                    class="favorite-button"
+                    [matTooltip]="
+                        (isFavorite()
+                            ? 'CHANNELS.REMOVE_FAVORITE'
+                            : 'CHANNELS.ADD_FAVORITE'
+                        ) | translate
+                    "
+                    (click)="onFavoriteClick($event)"
+                >
+                    <mat-icon>{{
+                        isFavorite() ? 'star' : 'star_outline'
+                    }}</mat-icon>
+                </button>
+            }
+            @if (showAuxActionButton()) {
+                <button
+                    mat-icon-button
+                    class="favorite-button"
+                    [matTooltip]="auxActionTooltip()"
+                    (click)="onAuxActionClick($event)"
+                >
+                    <mat-icon>{{ auxActionIcon() }}</mat-icon>
+                </button>
+            }
+        </div>
+    }
+</div>

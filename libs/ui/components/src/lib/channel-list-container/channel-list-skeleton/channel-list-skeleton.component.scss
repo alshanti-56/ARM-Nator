@@ -1,0 +1,11 @@
+:host {
+    display: block;
+    width: 100%;
+}
+
+.channel-list-skeleton {
+    display: flex;
+    flex-direction: column;
+    gap: 0;
+    width: 100%;
+}

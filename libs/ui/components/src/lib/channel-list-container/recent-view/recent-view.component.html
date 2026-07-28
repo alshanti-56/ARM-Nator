@@ -1,0 +1,79 @@
+<div class="channel-list app-scrollbar" id="recent-list">
+    @if (enrichedRecentItems().length > 0) {
+        @for (
+            item of enrichedRecentItems();
+            track item.channel.url;
+            let i = $index
+        ) {
+            <app-channel-list-item
+                [name]="
+                    i +
+                    1 +
+                    '. ' +
+                    (item.channel.name || 'CHANNELS.UNNAMED_CHANNEL' | translate)
+                "
+                [logo]="item.logo"
+                [showEpg]="shouldShowEpg()"
+                [isRadio]="item.channel.radio === 'true'"
+                [epgProgram]="item.epgProgram"
+                [progressPercentage]="item.progressPercentage"
+                [selected]="activeChannelUrl() === item.channel.url"
+                [showDetailsContextMenu]="true"
+                [showAuxActionButton]="true"
+                [auxActionIcon]="'delete'"
+                [auxActionTooltip]="
+                    'WORKSPACE.DASHBOARD.REMOVE_FROM_HISTORY' | translate
+                "
+                (clicked)="onChannelClick(item.channel)"
+                (activated)="onChannelActivate(item.channel)"
+                (contextMenuRequested)="
+                    onChannelContextMenu(item.channel, $event)
+                "
+                (auxActionClicked)="onRemoveRecent(item.channel, $event)"
+            />
+        }
+    } @else {
+        <div class="empty-recent">
+            <strong>
+                @if (searchTerm()) {
+                    {{ 'CHANNELS.NO_SEARCH_RESULTS' | translate }}
+                } @else {
+                    {{ 'WORKSPACE.DASHBOARD.NO_HISTORY' | translate }}
+                }
+            </strong>
+        </div>
+        <div class="empty-recent-hint">
+            @if (searchTerm()) {
+                {{ 'CHANNELS.TRY_DIFFERENT_SEARCH' | translate }}
+            } @else {
+                {{ 'WORKSPACE.DASHBOARD.NO_HISTORY_HINT' | translate }}
+            }
+        </div>
+    }
+</div>
+
+<div
+    aria-hidden="true"
+    class="channel-context-menu-anchor"
+    [style.left]="contextMenuPosition().x"
+    [style.top]="contextMenuPosition().y"
+    [matMenuTriggerFor]="channelContextMenu"
+    #contextMenuTrigger="matMenuTrigger"
+></div>
+
+<mat-menu #channelContextMenu="matMenu">
+    @if (supportsEpgMapping) {
+        <button mat-menu-item (click)="openEpgMapping()">
+            <mat-icon>settings_remote</mat-icon>
+            <span>{{ 'CHANNELS.MAP_EPG' | translate }}</span>
+        </button>
+    }
+    <button mat-menu-item (click)="openChannelDetails()">
+        <mat-icon>info</mat-icon>
+        <span>{{ 'CHANNELS.SHOW_DETAILS' | translate }}</span>
+    </button>
+    <button mat-menu-item (click)="removeContextMenuChannel()">
+        <mat-icon>delete</mat-icon>
+        <span>{{ 'WORKSPACE.DASHBOARD.REMOVE_FROM_HISTORY' | translate }}</span>
+    </button>
+</mat-menu>

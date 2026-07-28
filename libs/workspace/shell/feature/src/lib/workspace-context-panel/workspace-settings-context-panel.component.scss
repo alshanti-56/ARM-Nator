@@ -1,0 +1,44 @@
+@use '../../nav-list.scss';
+
+:host {
+    display: flex;
+    flex-direction: column;
+    height: 100%;
+    overflow: hidden;
+}
+
+// Quiet sentence-case rail header — matches the typography of the
+// section nav items below ("Dashboard", "Sources", etc., all sentence
+// case) instead of standing out as an uppercase eyebrow that didn't
+// appear anywhere else in the workspace rail. The muted colour and
+// small size still distinguish it from the clickable items so it reads
+// as a section caption rather than competing for focus.
+.panel-title {
+    margin: 0;
+    padding: 20px 18px 10px;
+    font-size: 13px;
+    font-weight: 600;
+    letter-spacing: 0.005em;
+    color: var(--mat-sys-on-surface-variant);
+}
+
+.settings-panel-body {
+    flex: 1;
+    min-height: 0;
+    padding-top: 16px;
+}
+
+.settings-sections-list {
+    height: 100%;
+}
+
+.settings-panel-footer {
+    flex-shrink: 0;
+    padding: 12px 8px calc(20px + env(safe-area-inset-bottom, 0px));
+    border-top: 1px solid var(--app-separator);
+}
+
+.settings-section-item:hover:not(.active):not(.selected),
+.settings-back-button:hover:not(.active):not(.selected) {
+    background: var(--app-selection-surface);
+}

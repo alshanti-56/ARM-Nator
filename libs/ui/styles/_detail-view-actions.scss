@@ -1,0 +1,101 @@
+@mixin play-button-copy($meta-color: currentColor) {
+    &__copy {
+        display: inline-flex;
+        flex-direction: column;
+        align-items: flex-start;
+        gap: 2px;
+        min-width: 0;
+        line-height: 1.1;
+        text-align: left;
+    }
+
+    &__label {
+        display: block;
+        min-width: 0;
+        line-height: 1.15;
+    }
+
+    &__meta {
+        display: block;
+        max-width: min(42vw, 360px);
+        overflow: hidden;
+        color: $meta-color;
+        font-size: 0.78rem;
+        font-weight: 500;
+        line-height: 1.2;
+        opacity: 0.72;
+        text-overflow: ellipsis;
+        white-space: nowrap;
+    }
+}
+
+// Secondary detail-view actions (Favorite, Download). Per UX audit: only Play
+// should read as the primary CTA, so these stay ghost/neutral. State accents
+// (favorite=red destructive, download=green completed) keep their semantic
+// meaning but ride on transparent fills so they never out-shout Play.
+@mixin secondary-action-button {
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    min-height: 64px;
+    padding: 0 24px;
+    font-size: 1rem;
+    font-weight: 600;
+    background: rgba(255, 255, 255, 0.08);
+    color: var(--text-primary, #fff);
+    border: 1px solid rgba(255, 255, 255, 0.12);
+    border-radius: 16px;
+    cursor: pointer;
+    transition: all 0.2s ease;
+
+    &:hover {
+        background: rgba(255, 255, 255, 0.14);
+        border-color: rgba(255, 255, 255, 0.2);
+    }
+
+    mat-icon {
+        font-size: 24px;
+        width: 24px;
+        height: 24px;
+    }
+}
+
+@mixin favorite-button-state {
+    &--active {
+        background: rgba(255, 91, 110, 0.16);
+        border-color: rgba(255, 91, 110, 0.4);
+        color: #ff8f8f;
+
+        &:hover {
+            background: rgba(255, 91, 110, 0.24);
+        }
+    }
+}
+
+@mixin mobile-action-buttons {
+    .play-btn,
+    .favorite-btn {
+        flex: 1;
+        justify-content: center;
+        min-height: 58px;
+        padding: 10px 16px;
+    }
+
+    .play-btn__meta {
+        max-width: 100%;
+    }
+}
+
+@mixin projected-mobile-action-buttons {
+    ::ng-deep .play-btn,
+    ::ng-deep .favorite-btn {
+        flex: 1;
+        justify-content: center;
+        min-height: 58px;
+        padding: 10px 16px;
+    }
+
+    ::ng-deep .play-btn__meta {
+        max-width: 100%;
+    }
+}

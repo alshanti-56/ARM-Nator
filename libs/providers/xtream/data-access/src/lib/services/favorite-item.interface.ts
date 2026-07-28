@@ -1,0 +1,11 @@
+export interface FavoriteItem {
+    content_id: number;
+    playlist_id: string;
+    type: 'live' | 'movie' | 'vod' | 'series';
+    title: string;
+    stream_icon?: string;
+    poster_url?: string;
+    added_at?: string;
+    category_id: number;
+    xtream_id: number;
+}

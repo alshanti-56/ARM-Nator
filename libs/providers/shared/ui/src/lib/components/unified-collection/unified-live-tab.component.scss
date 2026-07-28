@@ -1,0 +1,74 @@
+@use '../../styles/portal-layout' as portal;
+
+@include portal.live-layout;
+
+.sidebar {
+    > app-global-favorites-list {
+        flex: 1;
+        min-height: 0;
+        overflow: hidden;
+    }
+}
+
+.content-container {
+    background: var(--mat-sys-surface);
+
+    &:has(> app-portal-empty-state) {
+        align-items: center;
+        justify-content: center;
+    }
+}
+
+.video-player {
+    background: #000;
+    display: flex;
+    flex-direction: column;
+
+    &--radio {
+        position: relative;
+        background: var(--mat-sys-surface);
+    }
+
+    > app-html-video-player,
+    > app-art-player,
+    > app-audio-player {
+        flex: 1;
+        min-height: 0;
+        display: block;
+    }
+}
+
+.radio-close-btn {
+    position: absolute;
+    top: 16px;
+    right: 16px;
+    z-index: 4;
+    color: var(--mat-sys-on-surface);
+    background: color-mix(
+        in srgb,
+        var(--mat-sys-surface-container-high) 72%,
+        transparent
+    );
+    backdrop-filter: blur(12px);
+}
+
+.epg {
+    border-top: 1px solid var(--mat-sys-outline-variant);
+    background: var(--mat-sys-surface);
+    display: flex;
+    flex-direction: column;
+}
+
+.epg-content {
+    flex: 1;
+    min-height: 0;
+    overflow: hidden;
+    display: flex;
+    flex-direction: column;
+
+    > app-epg-timeline,
+    > app-epg-list-view {
+        flex: 1;
+        min-height: 0;
+    }
+}

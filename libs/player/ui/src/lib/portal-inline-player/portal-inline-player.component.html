@@ -1,0 +1,88 @@
+@if (hasPlayback()) {
+    <section class="player-shell" aria-label="Inline player">
+        <header class="player-shell__header">
+            <div class="player-shell__title-row">
+                <button
+                    mat-icon-button
+                    type="button"
+                    class="player-shell__back"
+                    data-testid="inline-player-back"
+                    [attr.aria-label]="'BACK' | translate"
+                    [matTooltip]="'BACK' | translate"
+                    (click)="onBack()"
+                >
+                    <mat-icon>arrow_back</mat-icon>
+                </button>
+                <div class="player-shell__heading">
+                    <div class="player-shell__eyebrow">
+                        {{ 'PORTALS.NOW_PLAYING' | translate }}
+                    </div>
+                    <h3 class="player-shell__title" [matTooltip]="title()">
+                        {{ title() }}
+                        @if (episodeMetadataText(); as episodeText) {
+                            <span class="player-shell__episode-meta">
+                                · {{ episodeText }}
+                            </span>
+                        }
+                    </h3>
+                </div>
+                <div class="player-shell__actions">
+                    <button
+                        mat-button
+                        type="button"
+                        [cdkCopyToClipboard]="streamUrl()"
+                        [matTooltip]="streamUrl()"
+                        (click)="onCopied()"
+                    >
+                        <mat-icon>content_copy</mat-icon>
+                        {{ 'PORTALS.COPY_STREAM_URL' | translate }}
+                    </button>
+                    <button
+                        mat-stroked-button
+                        type="button"
+                        (click)="onClose()"
+                    >
+                        <mat-icon>close</mat-icon>
+                        {{ 'PORTALS.CLOSE_PLAYER' | translate }}
+                    </button>
+                </div>
+            </div>
+        </header>
+
+        <div
+            class="player-shell__viewport"
+            #stageViewport
+            [class.player-shell__viewport--with-rail]="upNextRailVisible()"
+        >
+            @if (ambientEnabled()) {
+                <div
+                    class="player-shell__ambient"
+                    aria-hidden="true"
+                    [style.--ambient-image]="ambientImageStyle()"
+                ></div>
+            }
+            <app-web-player-view
+                [streamUrl]="streamUrl()"
+                [title]="title()"
+                [mediaTitle]="playerMediaTitle()"
+                [playback]="playback()"
+                [startTime]="startTime()"
+                [seriesNavigation]="seriesNavigation()"
+                (timeUpdate)="onTimeUpdate($event)"
+                (playbackEnded)="onPlaybackEnded()"
+                (previousEpisodeRequested)="onPreviousEpisodeRequested()"
+                (nextEpisodeRequested)="onNextEpisodeRequested()"
+                (externalFallbackRequested)="
+                    onExternalFallbackRequested($event)
+                "
+            />
+            @if (upNextRailVisible()) {
+                <app-up-next-rail
+                    class="player-shell__rail"
+                    [items]="upNextRailItems()"
+                    (episodeSelected)="onUpNextEpisodeSelected($event)"
+                />
+            }
+        </div>
+    </section>
+}

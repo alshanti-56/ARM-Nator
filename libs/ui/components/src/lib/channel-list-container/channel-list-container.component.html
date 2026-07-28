@@ -1,0 +1,110 @@
+@if (channelsLoading()) {
+    <app-channel-list-loading-state [view]="activeView()" />
+} @else if (displayedChannels().length) {
+    @if (viewTitle() && activeView() !== 'groups' && activeView() !== 'all') {
+        <header class="context-header">
+            <div class="context-header__top">
+                <h2>{{ viewTitle() | translate }}</h2>
+                @if (
+                    activeView() === 'recent' && recentChannelItems().length > 0
+                ) {
+                    <button mat-button (click)="clearRecentChannels()">
+                        {{
+                            'WORKSPACE.SHELL.CLEAR_RECENTLY_VIEWED_SECTION'
+                                | translate
+                        }}
+                    </button>
+                }
+            </div>
+        </header>
+        <div class="context-divider"></div>
+    }
+
+    @switch (activeView()) {
+        @case ('all') {
+            <app-all-channels-view
+                [channels]="displayedChannels()"
+                [searchTerm]="workspaceSearchTerm()"
+                [channelEpgMap]="channelEpgMap()"
+                [channelIconMap]="channelIconMap()"
+                [progressTick]="progressTick()"
+                [shouldShowEpg]="shouldShowEpg()"
+                [openOnDoubleClick]="openStreamOnDoubleClick()"
+                [itemSize]="itemSize()"
+                [activeChannelUrl]="activeChannelUrl()"
+                [favoriteIds]="favoriteIds()"
+                (channelSelected)="onChannelSelected($event)"
+                (channelPlaybackRequested)="onChannelPlaybackRequested($event)"
+                (favoriteToggled)="onFavoriteToggled($event)"
+                (sidebarToggleRequested)="sidebarToggleRequested.emit()"
+            />
+        }
+        @case ('groups') {
+            <app-groups-view
+                [groupedChannels]="groupedChannels()"
+                [searchTerm]="workspaceSearchTerm()"
+                [channelEpgMap]="channelEpgMap()"
+                [channelIconMap]="channelIconMap()"
+                [progressTick]="progressTick()"
+                [shouldShowEpg]="shouldShowEpg()"
+                [openOnDoubleClick]="openStreamOnDoubleClick()"
+                [activeChannelUrl]="activeChannelUrl()"
+                [favoriteIds]="favoriteIds()"
+                [hiddenGroupTitles]="hiddenGroupTitles()"
+                [sidebarWidth]="sidebarWidth()"
+                (channelSelected)="onChannelSelected($event)"
+                (channelPlaybackRequested)="onChannelPlaybackRequested($event)"
+                (favoriteToggled)="onFavoriteToggled($event)"
+                (hiddenGroupTitlesChanged)="onHiddenGroupTitlesChanged($event)"
+                (sidebarWidthRequested)="onSidebarWidthRequested($event)"
+                (sidebarWidthRequestEnded)="onSidebarWidthRequestEnded($event)"
+                (sidebarToggleRequested)="sidebarToggleRequested.emit()"
+            />
+        }
+        @case ('favorites') {
+            @let favorites = favorites$ | async;
+            @if (favorites) {
+                <app-favorites-view
+                    [favorites]="favorites"
+                    [searchTerm]="workspaceSearchTerm()"
+                    [channelEpgMap]="channelEpgMap()"
+                    [channelIconMap]="channelIconMap()"
+                    [progressTick]="progressTick()"
+                    [shouldShowEpg]="shouldShowEpg()"
+                    [openOnDoubleClick]="openStreamOnDoubleClick()"
+                    [activeChannelUrl]="activeChannelUrl()"
+                    (channelSelected)="onChannelSelected($event)"
+                    (channelPlaybackRequested)="
+                        onChannelPlaybackRequested($event)
+                    "
+                    (favoriteToggled)="onFavoriteToggled($event)"
+                    (favoritesReordered)="onFavoritesReordered($event)"
+                />
+            }
+        }
+        @case ('recent') {
+            <app-recent-view
+                [recentItems]="recentChannelItems()"
+                [searchTerm]="workspaceSearchTerm()"
+                [channelEpgMap]="channelEpgMap()"
+                [channelIconMap]="channelIconMap()"
+                [progressTick]="progressTick()"
+                [shouldShowEpg]="shouldShowEpg()"
+                [openOnDoubleClick]="openStreamOnDoubleClick()"
+                [activeChannelUrl]="activeChannelUrl()"
+                (channelSelected)="onChannelSelected($event)"
+                (channelPlaybackRequested)="onChannelPlaybackRequested($event)"
+                (removeRecent)="removeRecentChannel($event)"
+            />
+        }
+    }
+} @else {
+    <div class="empty-source-state">
+        <div class="empty-source-state__icon-wrapper">
+            <mat-icon class="empty-source-state__icon">folder_off</mat-icon>
+        </div>
+        <h3 class="empty-source-state__title">
+            {{ 'CHANNELS.NO_CHANNELS_FOUND' | translate }}
+        </h3>
+    </div>
+}

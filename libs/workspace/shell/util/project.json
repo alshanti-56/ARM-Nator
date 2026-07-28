@@ -1,0 +1,17 @@
+{
+    "name": "workspace-shell-util",
+    "$schema": "../../../../node_modules/nx/schemas/project-schema.json",
+    "sourceRoot": "libs/workspace/shell/util/src",
+    "prefix": "lib",
+    "projectType": "library",
+    "tags": [
+        "scope:workspace",
+        "domain:workspace",
+        "type:data-access"
+    ],
+    "targets": {
+        "lint": {
+            "executor": "@nx/eslint:lint"
+        }
+    }
+}

@@ -1,0 +1,579 @@
+/* eslint-disable max-lines */
+import {
+    CdkVirtualScrollViewport,
+    ScrollingModule,
+} from '@angular/cdk/scrolling';
+import {
+    AfterViewInit,
+    ChangeDetectionStrategy,
+    ChangeDetectorRef,
+    Component,
+    computed,
+    effect,
+    inject,
+    input,
+    OnDestroy,
+    output,
+    signal,
+    untracked,
+    viewChild,
+} from '@angular/core';
+import { MatButtonModule } from '@angular/material/button';
+import { MatDialog } from '@angular/material/dialog';
+import { MatIcon } from '@angular/material/icon';
+import { MatMenuModule, MatMenuTrigger } from '@angular/material/menu';
+import { ActivatedRoute } from '@angular/router';
+import { TranslatePipe } from '@ngx-translate/core';
+import { Subscription } from 'rxjs';
+import { debounceTime } from 'rxjs/operators';
+import {
+    buildXtreamEpgMappingKey,
+    EpgItem,
+    EpgProgram,
+    XtreamCategory,
+    XtreamItem,
+} from '@arm-nator/shared/interfaces';
+import {
+    ChannelListItemComponent,
+    ChannelListSkeletonComponent,
+    EpgMappingDialogComponent,
+} from '@arm-nator/ui/components';
+import {
+    PortalChannelSortMode,
+    sortPortalChannelItems,
+} from '@arm-nator/providers/shared/util';
+import { EpgQueueService } from '@arm-nator/providers/xtream/data-access';
+import { XtreamCredentials } from '@arm-nator/providers/xtream/data-access';
+import { FavoritesService } from '@arm-nator/providers/xtream/data-access';
+import { XtreamStore } from '@arm-nator/providers/xtream/data-access';
+import { RuntimeCapabilitiesService } from '@arm-nator/services';
+
+export interface XtreamChannelListItem {
+    readonly category_id?: string | number;
+    readonly id?: string | number;
+    readonly name?: string;
+    readonly poster_url?: string;
+    readonly stream_icon?: string;
+    readonly title?: string;
+    readonly type?: 'live' | 'movie' | 'series' | 'vod';
+    readonly xtream_id: number;
+    readonly epg_channel_id?: string | null;
+}
+
+interface XtreamCategoryLike {
+    readonly category_id?: string | number;
+    readonly id?: string | number;
+}
+
+@Component({
+    selector: 'app-portal-channels-list',
+    templateUrl: './portal-channels-list.component.html',
+    styleUrls: ['./portal-channels-list.component.scss'],
+    changeDetection: ChangeDetectionStrategy.OnPush,
+    imports: [
+        ChannelListItemComponent,
+        ChannelListSkeletonComponent,
+        MatButtonModule,
+        MatIcon,
+        MatMenuModule,
+        ScrollingModule,
+        TranslatePipe,
+    ],
+})
+export class PortalChannelsListComponent implements AfterViewInit, OnDestroy {
+    readonly playClicked = output<XtreamChannelListItem>();
+    readonly playbackRequested = output<XtreamChannelListItem>();
+    readonly sortMode = input<PortalChannelSortMode>('server');
+    readonly channelsOverride = input<XtreamChannelListItem[] | null>(null);
+    readonly searchTermInput = input('');
+
+    readonly xtreamStore = inject(XtreamStore);
+    private readonly favoritesService = inject(FavoritesService);
+    private readonly epgQueueService = inject(EpgQueueService);
+    private readonly route = inject(ActivatedRoute);
+    private readonly runtime = inject(RuntimeCapabilitiesService);
+    private readonly dialog = inject(MatDialog);
+
+    readonly contextMenuTrigger =
+        viewChild.required<MatMenuTrigger>('contextMenuTrigger');
+    readonly contextMenuChannel = signal<XtreamChannelListItem | null>(null);
+    readonly contextMenuPosition = signal({ x: '0px', y: '0px' });
+    readonly supportsEpg = this.runtime.supportsEpg;
+    readonly supportsEpgMapping = this.runtime.supportsEpgMapping;
+    readonly isSelectedTypeContentLoading =
+        this.xtreamStore.selectedTypeContentLoading;
+    readonly channels = computed(() => {
+        const override = this.channelsOverride();
+        if (Array.isArray(override)) {
+            return override;
+        }
+
+        return this.xtreamStore.selectItemsFromSelectedCategory() as XtreamChannelListItem[];
+    });
+    readonly sortedChannels = computed(() => {
+        const mode = this.sortMode();
+        const channels = this.channels();
+        return sortPortalChannelItems(
+            channels,
+            mode,
+            (item) => item.title ?? item.name
+        );
+    });
+    readonly filteredChannels = computed(() => {
+        const term = this.searchTermInput().trim().toLowerCase();
+        const channels = this.sortedChannels();
+
+        if (!term) {
+            return channels;
+        }
+
+        return channels.filter((item) =>
+            `${item.title ?? ''} ${item.name ?? ''}`
+                .toLowerCase()
+                .includes(term)
+        );
+    });
+
+    favorites = new Map<string, boolean>();
+    epgPrograms = new Map<number, EpgProgram>();
+    currentProgramsProgress = new Map<number, number>();
+
+    /** Last viewport slice, reused to refresh previews after a mapping change. */
+    private lastVisibleChannels: XtreamChannelListItem[] = [];
+
+    readonly viewport = viewChild(CdkVirtualScrollViewport);
+
+    private subscriptions = new Subscription();
+
+    constructor(private cdr: ChangeDetectorRef) {
+        effect(() => {
+            const selectedItem = this.xtreamStore.selectedItem();
+            const viewport = this.viewport();
+            const selectedId = Number(
+                (selectedItem as XtreamChannelListItem | null)?.xtream_id
+            );
+
+            if (!viewport || !Number.isFinite(selectedId) || selectedId <= 0) {
+                return;
+            }
+
+            const filteredChannels = untracked(() => this.filteredChannels());
+            const selectedIndex = filteredChannels.findIndex(
+                (item) => Number(item.xtream_id) === selectedId
+            );
+            if (selectedIndex < 0) {
+                return;
+            }
+
+            viewport.scrollToIndex(selectedIndex, 'smooth');
+        });
+
+        effect(() => {
+            if (!this.supportsEpg) {
+                return;
+            }
+
+            const selectedItem = this.xtreamStore.selectedItem();
+            const epgItems = this.xtreamStore.epgItems();
+
+            if (!selectedItem?.xtream_id || epgItems.length === 0) {
+                return;
+            }
+
+            const previewProgram = this.pickPreviewProgram(epgItems);
+            if (!previewProgram) {
+                return;
+            }
+
+            this.applyProgram(selectedItem.xtream_id, previewProgram);
+        });
+    }
+
+    trackBy(_index: number, item: XtreamChannelListItem | XtreamItem) {
+        return item.xtream_id;
+    }
+
+    ngOnInit(): void {
+        const { categoryId } = this.route.snapshot.params;
+        if (categoryId && !this.channelsOverride())
+            this.xtreamStore.setSelectedCategory(Number(categoryId));
+
+        const playlist = this.xtreamStore.currentPlaylist();
+        if (playlist) {
+            this.favoritesService
+                .getFavorites(playlist.id)
+                .subscribe((favorites) => {
+                    favorites.forEach((fav) => {
+                        this.favorites.set(
+                            this.getFavoriteKey(fav.xtream_id, fav.type),
+                            true
+                        );
+                    });
+                });
+        }
+
+        if (this.supportsEpg) {
+            this.subscriptions.add(
+                this.epgQueueService.epgResult$.subscribe(
+                    ({ streamId, items }) => {
+                        const previewProgram = this.pickPreviewProgram(items);
+                        if (previewProgram) {
+                            this.applyProgram(streamId, previewProgram);
+                        }
+                    }
+                )
+            );
+        }
+    }
+
+    ngAfterViewInit() {
+        const vp = this.viewport();
+        if (
+            this.supportsEpg &&
+            vp &&
+            this.xtreamStore.selectedContentType() === 'live'
+        ) {
+            this.subscriptions.add(
+                vp.renderedRangeStream
+                    .pipe(debounceTime(300))
+                    .subscribe((range) => {
+                        const visibleChannels = this.filteredChannels().slice(
+                            range.start,
+                            range.end
+                        );
+                        this.lastVisibleChannels = visibleChannels;
+                        this.loadEpgForVisibleChannels(visibleChannels);
+                    })
+            );
+        }
+    }
+
+    private loadEpgForVisibleChannels(channels: XtreamChannelListItem[]): void {
+        if (!this.supportsEpg) {
+            return;
+        }
+
+        const playlist = this.xtreamStore.currentPlaylist();
+        if (!playlist) return;
+
+        const credentials: XtreamCredentials = {
+            serverUrl: playlist.serverUrl,
+            username: playlist.username,
+            password: playlist.password,
+        };
+
+        const visibleIds = new Set<number>(channels.map((ch) => ch.xtream_id));
+        const uncachedEntries: {
+            streamId: number;
+            epgChannelId?: string | null;
+            playlistId?: string | null;
+        }[] = [];
+
+        // Apply cached results immediately
+        for (const channel of channels) {
+            const cached = this.epgQueueService.getCached(channel.xtream_id);
+            if (cached !== null) {
+                const previewProgram = this.pickPreviewProgram(cached);
+                if (previewProgram) {
+                    if (!this.epgPrograms.has(channel.xtream_id)) {
+                        this.applyProgram(channel.xtream_id, previewProgram);
+                    }
+                }
+
+                continue;
+            }
+
+            if (!this.epgPrograms.has(channel.xtream_id)) {
+                uncachedEntries.push({
+                    streamId: channel.xtream_id,
+                    epgChannelId: channel.epg_channel_id ?? null,
+                    playlistId: playlist.id ?? null,
+                });
+            }
+        }
+
+        if (uncachedEntries.length > 0) {
+            this.epgQueueService
+                .enqueue(uncachedEntries, visibleIds, credentials)
+                .catch((error) => {
+                    console.warn('EPG enqueue failed', error);
+                });
+        }
+    }
+
+    private updateProgramProgress(streamId: number, program: EpgItem) {
+        const now = Date.now();
+        const start = this.getProgramTimestampMs(
+            program.start,
+            program.start_timestamp
+        );
+        const end = this.getProgramTimestampMs(
+            program.stop ?? program.end,
+            program.stop_timestamp
+        );
+
+        if (now >= start && now <= end) {
+            const duration = end - start;
+            const elapsed = now - start;
+            const progress = (elapsed / duration) * 100;
+
+            this.currentProgramsProgress.set(streamId, progress);
+            return;
+        }
+
+        this.currentProgramsProgress.delete(streamId);
+    }
+
+    isSelected(item: XtreamCategory | XtreamCategoryLike): boolean {
+        const selectedCategory = this.xtreamStore.selectedCategoryId();
+        const itemId = Number(item.category_id ?? item.id);
+        return selectedCategory !== null && selectedCategory === itemId;
+    }
+
+    toggleFavorite(event: Event, item: XtreamChannelListItem) {
+        event.stopPropagation();
+        const playlistId = this.xtreamStore.currentPlaylist()?.id;
+        if (!playlistId) {
+            return;
+        }
+
+        const favoriteKey = this.favoriteKeyFor(item);
+        const contentType = this.getContentTypeForItem(item);
+
+        this.xtreamStore
+            .toggleFavorite(item.xtream_id, playlistId, contentType)
+            .then((result: boolean) => {
+                if (result) {
+                    this.favorites.set(favoriteKey, true);
+                } else {
+                    this.favorites.delete(favoriteKey);
+                }
+                this.cdr.detectChanges();
+            });
+    }
+
+    favoriteKeyFor(item: XtreamChannelListItem): string {
+        return this.getFavoriteKey(
+            item.xtream_id,
+            item.type ?? this.xtreamStore.selectedContentType()
+        );
+    }
+
+    private getFavoriteKey(
+        xtreamId: number,
+        type?: 'live' | 'movie' | 'series' | 'vod'
+    ): string {
+        return `${this.normalizeContentType(type)}:${xtreamId}`;
+    }
+
+    private getContentTypeForItem(
+        item: XtreamChannelListItem
+    ): 'live' | 'movie' | 'series' {
+        return this.normalizeContentType(
+            item.type ?? this.xtreamStore.selectedContentType()
+        );
+    }
+
+    private normalizeContentType(
+        type?: 'live' | 'movie' | 'series' | 'vod'
+    ): 'live' | 'movie' | 'series' {
+        if (type === 'movie' || type === 'vod') {
+            return 'movie';
+        }
+
+        if (type === 'series') {
+            return 'series';
+        }
+
+        return 'live';
+    }
+
+    ngOnDestroy(): void {
+        this.subscriptions.unsubscribe();
+    }
+
+    private applyProgram(streamId: number, program: EpgItem): void {
+        this.epgPrograms.set(streamId, this.toSharedEpgProgram(program));
+        this.updateProgramProgress(streamId, program);
+        this.cdr.detectChanges();
+    }
+
+    private pickPreviewProgram(items: EpgItem[]): EpgItem | null {
+        if (!items.length) {
+            return null;
+        }
+
+        const now = Date.now();
+        const normalizedItems = [...items].sort(
+            (a, b) =>
+                this.getProgramTimestampMs(a.start, a.start_timestamp) -
+                this.getProgramTimestampMs(b.start, b.start_timestamp)
+        );
+
+        const currentProgram = normalizedItems.find((item) => {
+            const start = this.getProgramTimestampMs(
+                item.start,
+                item.start_timestamp
+            );
+            const end = this.getProgramTimestampMs(
+                item.stop ?? item.end,
+                item.stop_timestamp
+            );
+            return now >= start && now <= end;
+        });
+
+        if (currentProgram) {
+            return currentProgram;
+        }
+
+        const nextProgram = normalizedItems.find((item) => {
+            return (
+                this.getProgramTimestampMs(item.start, item.start_timestamp) >
+                now
+            );
+        });
+
+        return nextProgram ?? normalizedItems[0];
+    }
+
+    private getProgramTimestampMs(
+        dateValue: string | undefined,
+        unixTimestampValue: string | undefined
+    ): number {
+        const unixTimestamp = Number(unixTimestampValue);
+        if (Number.isFinite(unixTimestamp) && unixTimestamp > 0) {
+            return unixTimestamp * 1000;
+        }
+
+        return new Date(dateValue ?? '').getTime();
+    }
+
+    private toSharedEpgProgram(program: EpgItem): EpgProgram {
+        return {
+            start: program.start,
+            stop: program.stop ?? program.end,
+            channel: program.channel_id ?? program.id,
+            title: program.title,
+            desc: program.description ?? null,
+            category: null,
+            startTimestamp: this.getProgramTimestampSeconds(
+                program.start,
+                program.start_timestamp
+            ),
+            stopTimestamp: this.getProgramTimestampSeconds(
+                program.stop ?? program.end,
+                program.stop_timestamp
+            ),
+        };
+    }
+
+    private getProgramTimestampSeconds(
+        dateValue: string | undefined,
+        unixTimestampValue: string | undefined
+    ): number | null {
+        const unixTimestamp = Number(unixTimestampValue);
+        if (Number.isFinite(unixTimestamp) && unixTimestamp > 0) {
+            return unixTimestamp;
+        }
+
+        const parsedDate = new Date(dateValue ?? '').getTime();
+        return Number.isFinite(parsedDate)
+            ? Math.floor(parsedDate / 1000)
+            : null;
+    }
+
+    // ── Context menu ────────────────────────────────────────────
+
+    onChannelContextMenu(channel: XtreamChannelListItem, event: MouseEvent): void {
+        this.contextMenuChannel.set(channel);
+        this.contextMenuPosition.set({
+            x: `${event.clientX}px`,
+            y: `${event.clientY}px`,
+        });
+
+        const trigger = this.contextMenuTrigger();
+        if (trigger.menuOpen) {
+            trigger.closeMenu();
+        }
+
+        queueMicrotask(() => {
+            this.contextMenuTrigger().openMenu();
+        });
+    }
+
+    openEpgMapping(): void {
+        const channel = this.contextMenuChannel();
+        if (!channel) {
+            return;
+        }
+
+        this.contextMenuTrigger().closeMenu();
+        const playlistId = this.xtreamStore.currentPlaylist()?.id;
+        const xtreamId = channel.xtream_id ?? channel.id;
+        if (!playlistId || xtreamId == null) {
+            return;
+        }
+
+        const channelKey = buildXtreamEpgMappingKey(playlistId, xtreamId);
+        void this.openEpgMappingDialog(
+            channelKey,
+            channel,
+            xtreamId,
+            playlistId
+        );
+    }
+
+    private async openEpgMappingDialog(
+        channelKey: string,
+        channel: XtreamChannelListItem,
+        streamId: number,
+        playlistId: string
+    ): Promise<void> {
+        const mappingBefore = await this.readEpgMapping(channelKey);
+
+        EpgMappingDialogComponent.open(this.dialog, {
+            channelKey,
+            channelName: channel.title ?? channel.name ?? String(streamId),
+            playlistId,
+        })
+            .afterClosed()
+            .subscribe(async () => {
+                const mappingAfter = await this.readEpgMapping(channelKey);
+                if (mappingAfter === mappingBefore) {
+                    return;
+                }
+                // The mapping changed (saved or removed) — drop the cached
+                // preview/resolution and refetch so the row updates now
+                // instead of after the 5-minute TTL or the next scroll.
+                this.epgQueueService.invalidate(streamId);
+                this.epgPrograms.delete(streamId);
+                this.currentProgramsProgress.delete(streamId);
+                const visible = this.lastVisibleChannels.length
+                    ? this.lastVisibleChannels
+                    : this.filteredChannels().slice(0, 50);
+                this.loadEpgForVisibleChannels(visible);
+            });
+    }
+
+    /** Read the current mapped EPG channel id, or null (PWA / no mapping). */
+    private async readEpgMapping(channelKey: string): Promise<string | null> {
+        if (!this.supportsEpgMapping) {
+            return null;
+        }
+        const bridge = (
+            window as unknown as {
+                electron?: {
+                    getEpgMapping?: (
+                        key: string
+                    ) => Promise<{ epgChannelId?: string } | null>;
+                };
+            }
+        ).electron;
+        try {
+            const mapping = await bridge?.getEpgMapping?.(channelKey);
+            return mapping?.epgChannelId?.trim() || null;
+        } catch {
+            return null;
+        }
+    }
+}

@@ -1,0 +1,33 @@
+<div
+    class="channel-list-item-skeleton"
+    [class.compact]="!showEpg()"
+    aria-hidden="true"
+>
+    <div class="channel-content-skeleton">
+        <span class="list-skeleton-avatar channel-logo-skeleton"></span>
+        <div class="channel-details-skeleton">
+            <span
+                class="grid-skeleton-line channel-name-skeleton"
+                [style.width.%]="titleWidth()"
+            ></span>
+            @if (showEpg()) {
+                <span
+                    class="grid-skeleton-line epg-title-skeleton"
+                    [style.width.%]="metaWidth()"
+                ></span>
+                <span
+                    class="grid-skeleton-line epg-progress-skeleton"
+                ></span>
+            }
+        </div>
+    </div>
+    @if (actionCount() > 0) {
+        <div class="action-buttons-skeleton">
+            @for (slot of actionSlots; track slot) {
+                @if (slot < actionCount()) {
+                    <span class="list-skeleton-star action-button-skeleton"></span>
+                }
+            }
+        </div>
+    }
+</div>

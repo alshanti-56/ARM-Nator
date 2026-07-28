@@ -1,0 +1,13 @@
+{
+  "name": "player-core",
+  "$schema": "../../../node_modules/nx/schemas/project-schema.json",
+  "sourceRoot": "libs/player/core/src",
+  "prefix": "lib",
+  "projectType": "library",
+  "tags": ["scope:shared", "domain:player", "type:util"],
+  "targets": {
+    "lint": {
+      "executor": "@nx/eslint:lint"
+    }
+  }
+}

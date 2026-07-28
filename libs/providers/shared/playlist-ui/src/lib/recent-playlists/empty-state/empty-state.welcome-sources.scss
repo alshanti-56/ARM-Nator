@@ -1,0 +1,259 @@
+.welcome-sources {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    height: 100%;
+    width: 100%;
+    box-sizing: border-box;
+    padding: clamp(16px, 3vh, 36px) clamp(12px, 3vw, 32px);
+    overflow: hidden;
+    gap: clamp(16px, 3vh, 28px);
+    animation: fadeIn 0.5s ease-out;
+    min-width: 0;
+    min-height: 0;
+
+    .welcome-sources__header {
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        text-align: center;
+        gap: 8px;
+        max-width: 540px;
+        width: 100%;
+        animation: slideUp 0.6s ease-out;
+    }
+
+    .welcome-sources__icon-wrap {
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        margin-bottom: 12px;
+        animation: gentleFloat 0.6s ease-out;
+    }
+
+    .welcome-sources__icon {
+        font-size: 72px;
+        width: 72px;
+        height: 72px;
+        color: #60a5fa;
+        opacity: 0.85;
+    }
+
+    .welcome-sources__title {
+        font-family: Roboto, 'Helvetica Neue', sans-serif;
+        font-weight: 500;
+        font-size: 1.5rem;
+        margin: 0 0 8px 0;
+        background: linear-gradient(135deg, #60a5fa 0%, #3b82f6 50%, #2563eb 100%);
+        -webkit-background-clip: text;
+        -webkit-text-fill-color: transparent;
+        background-clip: text;
+    }
+
+    .welcome-sources__body {
+        font-family: Roboto, 'Helvetica Neue', sans-serif;
+        font-size: 0.95rem;
+        line-height: 1.6;
+        opacity: 0.7;
+        margin: 0;
+    }
+
+    .welcome-sources__grid {
+        display: grid;
+        grid-template-columns: repeat(3, minmax(0, 1fr));
+        gap: clamp(10px, 1.6vw, 18px);
+        width: 100%;
+        max-width: 980px;
+        margin: 0 auto;
+        animation: slideUp 0.7s ease-out 0.1s backwards;
+        min-width: 0;
+    }
+
+    .source-card {
+        display: flex;
+        flex-direction: column;
+        gap: 10px;
+        padding: clamp(14px, 2.2vh, 22px);
+        background: linear-gradient(
+            145deg,
+            rgba(96, 165, 250, 0.08),
+            rgba(37, 99, 235, 0.04)
+        );
+        border: 1px solid rgba(96, 165, 250, 0.2);
+        border-radius: 16px;
+        transition:
+            transform 0.2s ease,
+            box-shadow 0.2s ease,
+            border-color 0.2s ease;
+        min-width: 0;
+
+        &:hover {
+            transform: translateY(-3px);
+            box-shadow: 0 12px 28px rgba(59, 130, 246, 0.22);
+            border-color: rgba(96, 165, 250, 0.4);
+        }
+    }
+
+    .source-card__head {
+        display: flex;
+        align-items: center;
+        gap: 10px;
+        min-width: 0;
+    }
+
+    .source-card__icon {
+        font-size: 28px;
+        width: 28px;
+        height: 28px;
+        color: #60a5fa;
+        flex-shrink: 0;
+    }
+
+    .source-card__name {
+        font-family: Roboto, 'Helvetica Neue', sans-serif;
+        font-size: 1.05rem;
+        font-weight: 600;
+        margin: 0;
+        line-height: 1.2;
+        word-break: break-word;
+    }
+
+    .source-card__needs {
+        font-family: Roboto, 'Helvetica Neue', sans-serif;
+        font-size: 0.8125rem;
+        opacity: 0.75;
+        margin: 0;
+        line-height: 1.45;
+        min-height: 2.5em;
+        word-break: break-word;
+    }
+
+    .source-card__chips {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 6px;
+        margin: 0;
+        padding: 0;
+        list-style: none;
+    }
+
+    .source-card__chip {
+        font-family: Roboto, 'Helvetica Neue', sans-serif;
+        font-size: 0.7rem;
+        font-weight: 500;
+        padding: 3px 9px;
+        border-radius: 999px;
+        background: rgba(96, 165, 250, 0.14);
+        color: #93c5fd;
+        border: 1px solid rgba(96, 165, 250, 0.22);
+        text-transform: uppercase;
+        letter-spacing: 0.04em;
+    }
+
+    .source-card__cta {
+        margin-top: auto;
+        align-self: stretch;
+        background: linear-gradient(135deg, #3b82f6 0%, #2563eb 100%);
+        color: white;
+        font-weight: 500;
+        font-size: 0.875rem;
+        padding: 8px 18px;
+        border-radius: 10px;
+        box-shadow: 0 4px 12px rgba(59, 130, 246, 0.25);
+        transition:
+            transform 0.2s ease,
+            box-shadow 0.2s ease;
+        text-transform: none;
+
+        mat-icon {
+            margin-right: 6px;
+            font-size: 18px;
+            width: 18px;
+            height: 18px;
+        }
+
+        &:hover {
+            transform: translateY(-1px);
+            box-shadow: 0 6px 18px rgba(59, 130, 246, 0.35);
+        }
+    }
+}
+
+@media (max-width: 760px) {
+    .welcome-sources .welcome-sources__grid {
+        grid-template-columns: 1fr;
+        max-width: 480px;
+    }
+}
+
+@media (max-height: 620px) {
+    .welcome-sources {
+        gap: 14px;
+
+        .source-card__needs {
+            min-height: 0;
+        }
+    }
+}
+
+@media (prefers-reduced-motion: reduce) {
+    .welcome-sources {
+        animation: none;
+
+        .welcome-sources__header,
+        .welcome-sources__grid {
+            animation: none;
+        }
+
+        .source-card:hover,
+        .source-card__cta:hover {
+            transform: none;
+        }
+    }
+}
+
+@media (prefers-color-scheme: light) {
+    .welcome-sources {
+        .welcome-sources__icon {
+            color: #2563eb;
+        }
+
+        .welcome-sources__title {
+            background: linear-gradient(135deg, #2563eb 0%, #1d4ed8 50%, #1e40af 100%);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            background-clip: text;
+        }
+
+        .welcome-sources__body {
+            color: #64748b;
+            opacity: 0.85;
+        }
+
+        .source-card {
+            background: linear-gradient(145deg, rgba(37, 99, 235, 0.06), rgba(29, 78, 216, 0.03));
+            border-color: rgba(37, 99, 235, 0.15);
+
+            &:hover {
+                background: linear-gradient(145deg, rgba(37, 99, 235, 0.1), rgba(29, 78, 216, 0.05));
+                border-color: rgba(37, 99, 235, 0.3);
+            }
+        }
+
+        .source-card__icon {
+            color: #2563eb;
+        }
+
+        .source-card__needs {
+            color: #475569;
+            opacity: 0.9;
+        }
+
+        .source-card__chip {
+            background: rgba(37, 99, 235, 0.08);
+            color: #1d4ed8;
+            border-color: rgba(37, 99, 235, 0.18);
+        }
+    }
+}

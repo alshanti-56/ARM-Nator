@@ -1,0 +1,28 @@
+{
+    "name": "shared-interfaces",
+    "$schema": "../../../node_modules/nx/schemas/project-schema.json",
+    "sourceRoot": "libs/shared/interfaces/src",
+    "projectType": "library",
+    "tags": [
+        "scope:shared",
+        "domain:shared-contracts",
+        "type:util"
+    ],
+    "targets": {
+        "build": {
+            "executor": "@nx/js:tsc",
+            "outputs": [
+                "{options.outputPath}"
+            ],
+            "options": {
+                "outputPath": "dist/libs/shared/interfaces",
+                "main": "libs/shared/interfaces/src/index.ts",
+                "tsConfig": "libs/shared/interfaces/tsconfig.lib.json",
+                "assets": []
+            }
+        },
+        "lint": {
+            "executor": "@nx/eslint:lint"
+        }
+    }
+}

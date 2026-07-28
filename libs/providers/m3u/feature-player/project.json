@@ -1,0 +1,17 @@
+{
+    "name": "providers-m3u-feature-player",
+    "$schema": "../../../../node_modules/nx/schemas/project-schema.json",
+    "sourceRoot": "libs/providers/m3u/feature-player/src",
+    "prefix": "lib",
+    "projectType": "library",
+    "tags": [
+        "scope:providers",
+        "domain:m3u",
+        "type:feature"
+    ],
+    "targets": {
+        "lint": {
+            "executor": "@nx/eslint:lint"
+        }
+    }
+}

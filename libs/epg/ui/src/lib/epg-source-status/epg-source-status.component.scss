@@ -1,0 +1,73 @@
+:host {
+    // Theme-aware tokens
+    --badge-fresh: #22c55e;
+    --badge-stale: #f59e0b;
+    --badge-error: #ef4444;
+    --badge-queued: #a78bfa;
+    --badge-accent: var(--app-selection-color);
+
+    display: inline-flex;
+    align-items: center;
+    min-height: 22px;
+}
+
+.status {
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+    padding: 2px 8px;
+    border-radius: 999px;
+    font-size: 0.7rem;
+    font-weight: 600;
+    letter-spacing: 0.03em;
+    text-transform: uppercase;
+    line-height: 1.2;
+    white-space: nowrap;
+    background: color-mix(
+        in srgb,
+        var(--badge-color, var(--app-body-color)) 14%,
+        transparent
+    );
+    color: var(--badge-color, var(--app-body-color));
+    border: 1px solid
+        color-mix(
+            in srgb,
+            var(--badge-color, var(--app-body-color)) 28%,
+            transparent
+        );
+
+    mat-icon {
+        font-size: 14px;
+        width: 14px;
+        height: 14px;
+    }
+
+    mat-progress-spinner {
+        flex-shrink: 0;
+    }
+
+    &__label {
+        line-height: 1.2;
+    }
+
+    &--loading {
+        --badge-color: var(--badge-accent);
+    }
+
+    &--queued {
+        --badge-color: var(--badge-queued);
+    }
+
+    &--fresh {
+        --badge-color: var(--badge-fresh);
+    }
+
+    &--stale {
+        --badge-color: var(--badge-stale);
+    }
+
+    &--error {
+        --badge-color: var(--badge-error);
+        cursor: help;
+    }
+}

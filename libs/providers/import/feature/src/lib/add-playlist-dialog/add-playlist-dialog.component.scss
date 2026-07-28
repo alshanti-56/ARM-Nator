@@ -1,0 +1,277 @@
+.apd {
+    --apd-border: var(--app-widget-header-border);
+    --apd-heading: var(--app-heading-color);
+    --apd-body: var(--app-body-color);
+    --apd-muted: var(--app-muted-color);
+    --apd-surface-raised: var(--app-widget-header-bg);
+    --apd-accent: var(--app-selection-color);
+    --apd-segment-track: color-mix(
+        in srgb,
+        var(--app-shell-bg) 70%,
+        transparent
+    );
+    --apd-segment-active: color-mix(
+        in srgb,
+        var(--app-widget-header-bg) 70%,
+        white 14%
+    );
+}
+
+// ─── Dialog head (title + helper subtitle) ──────────────────────────────────
+// `mat-dialog-title` carries Material's `.mdc-dialog__title` defaults, which
+// include a 40px-tall `::before` ghost element for baseline alignment plus a
+// 6px/9px asymmetric padding. Both fight our custom two-line head — kill the
+// ghost and apply explicit padding so the title shares the same 24px
+// horizontal inset as `mat-dialog-content` below.
+.apd-head {
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+    margin: 0;
+    padding: 20px 24px 4px;
+
+    &::before {
+        display: none;
+    }
+}
+
+.apd-title {
+    margin: 0;
+    font-size: 20px;
+    font-weight: 600;
+    letter-spacing: -0.01em;
+    color: var(--apd-heading);
+}
+
+.apd-sub {
+    margin: 0;
+    font-size: 13px;
+    color: var(--apd-body);
+    line-height: 1.45;
+}
+
+// ─── Method grid (5 flat cards instead of 2-level segmented control) ────────
+// One card per source method. Replaces the prior 3×3 type×subtype matrix
+// which had 9 cells of which only 5 were real (Xtream-via-file, etc. didn't
+// exist). Each card is self-describing — icon + label + one-line sub.
+.apd-method-grid {
+    display: grid;
+    grid-template-columns: repeat(5, minmax(0, 1fr));
+    gap: 10px;
+    margin: 4px 0 16px;
+}
+
+.apd-method {
+    appearance: none;
+    background: var(--apd-segment-track);
+    border: 1px solid var(--apd-border);
+    border-radius: 10px;
+    padding: 10px 11px 12px;
+    display: flex;
+    flex-direction: column;
+    gap: 5px;
+    cursor: pointer;
+    text-align: left;
+    font: inherit;
+    color: var(--apd-heading);
+    min-width: 0;
+    // Locks every card to the same height regardless of which has the
+    // longest subtitle. Without this the URL card (short text) collapses
+    // and the Stalker/Xtream cards (longer text) push tall — selection
+    // states then look visually inconsistent.
+    min-height: 132px;
+    transition:
+        background-color 160ms ease,
+        border-color 160ms ease,
+        box-shadow 160ms ease;
+
+    &:hover:not(.active) {
+        background: var(--apd-segment-active);
+        border-color: color-mix(in srgb, var(--apd-accent) 32%, transparent);
+
+        .apd-method__icon {
+            background: color-mix(
+                in srgb,
+                var(--apd-accent) 14%,
+                transparent
+            );
+            color: var(--apd-accent);
+        }
+    }
+
+    &.active {
+        background: color-mix(in srgb, var(--apd-accent) 12%, transparent);
+        border-color: var(--apd-accent);
+        box-shadow: 0 1px 2px
+            color-mix(in srgb, var(--apd-accent) 32%, transparent);
+
+        .apd-method__icon {
+            background: color-mix(
+                in srgb,
+                var(--apd-accent) 22%,
+                transparent
+            );
+            color: var(--apd-accent);
+        }
+
+        .apd-method__title {
+            color: var(--apd-accent);
+        }
+    }
+
+    &:focus-visible {
+        outline: 2px solid var(--apd-accent);
+        outline-offset: 1px;
+    }
+}
+
+.apd-method__icon {
+    width: 32px;
+    height: 32px;
+    display: grid;
+    place-items: center;
+    border-radius: 8px;
+    background: color-mix(
+        in srgb,
+        var(--apd-surface-raised) 75%,
+        transparent
+    );
+    color: var(--apd-muted);
+    transition:
+        background-color 160ms ease,
+        color 160ms ease;
+
+    mat-icon {
+        font-size: 18px;
+        width: 18px;
+        height: 18px;
+        line-height: 18px;
+    }
+}
+
+.apd-method__title {
+    font-size: 13px;
+    font-weight: 600;
+    line-height: 1.25;
+    color: var(--apd-heading);
+    transition: color 160ms ease;
+}
+
+.apd-method__sub {
+    font-size: 11.5px;
+    color: var(--apd-muted);
+    line-height: 1.4;
+}
+
+// On narrow widths the 5-column grid wraps to 2 columns to stay legible.
+// 480px keeps the dialog usable down to small modals; below that it stacks
+// fully.
+@media (max-width: 720px) {
+    .apd-method-grid {
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+    }
+}
+
+@media (max-width: 480px) {
+    .apd-method-grid {
+        grid-template-columns: minmax(0, 1fr);
+    }
+}
+
+// ─── Form area ──────────────────────────────────────────────────────────────
+.apd-form-area {
+    min-height: 0;
+
+    form {
+        display: flex;
+        flex-direction: column;
+        gap: 4px;
+    }
+
+    .w-full,
+    .mat-mdc-form-field {
+        width: 100%;
+    }
+
+    // Textarea overrides the compact density so multi-line input has room.
+    textarea.mat-mdc-input-element {
+        min-height: 140px;
+        padding-top: 8px;
+    }
+
+    app-text-import .mat-mdc-form-field-infix {
+        min-height: auto;
+    }
+
+    app-text-import .mat-mdc-form-field {
+        min-height: 180px;
+    }
+
+    .cors-note {
+        margin: 6px 0 0;
+        padding: 10px 12px;
+        border-radius: 8px;
+        background: color-mix(
+            in srgb,
+            var(--apd-surface-raised) 50%,
+            transparent
+        );
+        color: var(--apd-muted);
+        font-size: 11.5px;
+        line-height: 1.45;
+    }
+}
+
+.apd-actions {
+    display: flex;
+    flex-wrap: wrap;
+    justify-content: space-between;
+    gap: 8px 12px;
+
+    &__reset,
+    &__decision {
+        display: flex;
+        align-items: center;
+        flex-wrap: wrap;
+        gap: 8px;
+    }
+
+    &__decision {
+        justify-content: flex-end;
+        margin-left: auto;
+    }
+}
+
+@media (max-width: 520px) {
+    .apd-actions {
+        align-items: stretch;
+        flex-direction: column;
+
+        &__reset,
+        &__decision {
+            width: 100%;
+        }
+
+        &__decision {
+            justify-content: flex-end;
+            margin-left: 0;
+        }
+    }
+}
+
+// ─── Light-theme segmented control tweak ────────────────────────────────────
+// `.dark-theme` is on <body>, so target light mode via `body:not(...)`.
+body:not(.dark-theme) .apd {
+    --apd-segment-track: color-mix(
+        in srgb,
+        var(--app-content-bg) 70%,
+        transparent
+    );
+    --apd-segment-active: #ffffff;
+
+    .apd-segment.active {
+        box-shadow:
+            0 1px 2px rgba(0, 0, 0, 0.06),
+            0 0 0 1px rgba(0, 0, 0, 0.06);
+    }
+}

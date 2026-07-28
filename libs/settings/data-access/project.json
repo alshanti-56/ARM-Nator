@@ -1,0 +1,13 @@
+{
+    "name": "settings-data-access",
+    "$schema": "../../../node_modules/nx/schemas/project-schema.json",
+    "sourceRoot": "libs/settings/data-access/src",
+    "prefix": "lib",
+    "projectType": "library",
+    "tags": ["scope:settings", "domain:settings", "type:data-access"],
+    "targets": {
+        "lint": {
+            "executor": "@nx/eslint:lint"
+        }
+    }
+}

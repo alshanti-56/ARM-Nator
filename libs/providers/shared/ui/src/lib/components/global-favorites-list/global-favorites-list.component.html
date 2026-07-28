@@ -1,0 +1,86 @@
+<div
+    class="nav-list app-scrollbar"
+    cdkDropList
+    [cdkDropListDisabled]="!canDragDrop()"
+    (cdkDropListDropped)="onDrop($event)"
+>
+    @if (enrichedChannels().length === 0) {
+        <div class="empty-state">
+            <mat-icon class="empty-icon">star_border</mat-icon>
+            @if (hasSearchTerm()) {
+                <p class="empty-title">
+                    {{ 'WORKSPACE.GLOBAL_FAVORITES.NO_RESULTS' | translate }}
+                </p>
+                <p class="empty-hint">
+                    {{
+                        'WORKSPACE.GLOBAL_FAVORITES.NO_RESULTS_HINT'
+                            | translate
+                    }}
+                </p>
+            } @else {
+                <p class="empty-title">
+                    {{
+                        'WORKSPACE.GLOBAL_FAVORITES.EMPTY_TITLE' | translate
+                    }}
+                </p>
+                <p class="empty-hint">
+                    {{ 'WORKSPACE.GLOBAL_FAVORITES.EMPTY_HINT' | translate }}
+                </p>
+            }
+        </div>
+    }
+
+    @for (ch of enrichedChannels(); track trackByUid($index, ch)) {
+        <app-channel-list-item
+            [isDraggable]="canDragDrop()"
+            [logo]="ch.logo"
+            [name]="ch.name"
+            [selected]="activeUid() === ch.uid"
+            [showEpg]="true"
+            [epgProgram]="ch.currentEpgProgram"
+            [progressPercentage]="ch.progressPercentage"
+            [showFavoriteButton]="true"
+            [isFavorite]="isChannelFavorite(ch)"
+            [showProgramInfoButton]="true"
+            [showDetailsContextMenu]="hasChannelContextMenu(ch)"
+            (clicked)="onChannelClick(ch)"
+            (activated)="onChannelActivate(ch)"
+            (favoriteToggled)="onFavoriteToggled(ch)"
+            (contextMenuRequested)="onChannelContextMenu(ch, $event)"
+        />
+    }
+</div>
+
+<div
+    aria-hidden="true"
+    class="channel-context-menu-anchor"
+    [style.left]="contextMenuPosition().x"
+    [style.top]="contextMenuPosition().y"
+    [matMenuTriggerFor]="channelContextMenu"
+    #contextMenuTrigger="matMenuTrigger"
+></div>
+
+<mat-menu #channelContextMenu="matMenu">
+    @if (supportsEpgMapping) {
+        <button mat-menu-item (click)="openEpgMapping()">
+            <mat-icon>settings_remote</mat-icon>
+            <span>{{ 'CHANNELS.MAP_EPG' | translate }}</span>
+        </button>
+    }
+    @if (contextMenuChannel()?.m3uChannel) {
+        <button mat-menu-item (click)="openChannelDetails()">
+            <mat-icon>info</mat-icon>
+            <span>{{ 'CHANNELS.SHOW_DETAILS' | translate }}</span>
+        </button>
+    }
+    @if (mode() === 'recent') {
+        <button mat-menu-item (click)="removeContextMenuChannel()">
+            <mat-icon>delete</mat-icon>
+            <span>
+                {{
+                    'WORKSPACE.DASHBOARD.REMOVE_FROM_HISTORY' | translate
+                }}
+            </span>
+        </button>
+    }
+</mat-menu>

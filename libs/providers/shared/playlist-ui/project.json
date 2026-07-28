@@ -1,0 +1,17 @@
+{
+    "name": "providers-playlist-ui",
+    "$schema": "../../../../node_modules/nx/schemas/project-schema.json",
+    "sourceRoot": "libs/providers/shared/playlist-ui/src",
+    "prefix": "lib",
+    "projectType": "library",
+    "tags": [
+        "scope:providers",
+        "domain:providers-shared",
+        "type:ui"
+    ],
+    "targets": {
+        "lint": {
+            "executor": "@nx/eslint:lint"
+        }
+    }
+}

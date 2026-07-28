@@ -1,0 +1,287 @@
+@let item = selectedItem();
+@if (item && item.info) {
+    @let info = item.info;
+    <app-portal-detail-shell
+        [title]="info.name"
+        [description]="info.plot"
+        [posterUrl]="info.cover"
+        [backdropUrl]="getBackdropUrl(info)"
+        [playbackActive]="!!inlinePlayback()"
+        (backClicked)="goBack()"
+        (closePlayerRequested)="closeInlinePlayer()"
+    >
+        <ng-template appDetailTags>
+            @if (info.tmdb_status; as status) {
+                <span class="details__tag details__tag--status">{{
+                    seriesStatusLabelKey(status) | translate
+                }}</span>
+            }
+            @if (info.releaseDate) {
+                <span class="details__tag">{{
+                    info.releaseDate | slice: 0 : 4
+                }}</span>
+            }
+            @if (info.genre) {
+                <span class="details__tag">{{ info.genre }}</span>
+            }
+            @if (info.episode_run_time) {
+                <span class="details__tag"
+                    >{{ info.episode_run_time }} min/ep</span
+                >
+            }
+            @if (info.rating) {
+                <span class="details__tag details__tag--rating">
+                    ⭐ {{ info.rating }}
+                </span>
+            }
+        </ng-template>
+
+        <ng-template appDetailMeta>
+            @if (info.cast || info.tmdb_cast?.length) {
+                <div class="details__meta-item">
+                    <span class="label">{{ 'XTREAM.CAST' | translate }}</span>
+                    @if (info.tmdb_cast?.length) {
+                        <div class="details__cast-strip">
+                            @for (member of info.tmdb_cast; track member.tmdbPersonId ? 'p' + member.tmdbPersonId : 'i' + $index) {
+                                <span
+                                    class="details__cast-chip"
+                                    [class.details__cast-chip--clickable]="
+                                        !!member.tmdbPersonId
+                                    "
+                                    (click)="openActor(member)"
+                                    [title]="
+                                        member.character
+                                            ? member.name +
+                                              ' — ' +
+                                              member.character
+                                            : member.name
+                                    "
+                                >
+                                    @if (member.profileUrl) {
+                                        <img
+                                            class="details__cast-avatar"
+                                            [src]="member.profileUrl"
+                                            [alt]="member.name"
+                                            loading="lazy"
+                                        />
+                                    } @else {
+                                        <span
+                                            class="details__cast-avatar details__cast-avatar--fallback"
+                                        >
+                                            {{ member.name.charAt(0) }}
+                                        </span>
+                                    }
+                                    <span class="details__cast-name">{{
+                                        member.name
+                                    }}</span>
+                                </span>
+                            }
+                        </div>
+                    } @else {
+                        <span class="value">{{ info.cast }}</span>
+                    }
+                </div>
+            }
+            @if (info.director || info.tmdb_directors?.length) {
+                <div class="details__meta-item">
+                    <span class="label">{{ 'XTREAM.DIRECTOR' | translate }}</span>
+                    @if (info.tmdb_directors?.length) {
+                        <div class="details__cast-strip">
+                            @for (member of info.tmdb_directors; track member.tmdbPersonId ? 'p' + member.tmdbPersonId : 'i' + $index) {
+                                <span
+                                    class="details__cast-chip"
+                                    [class.details__cast-chip--clickable]="
+                                        !!member.tmdbPersonId
+                                    "
+                                    (click)="openActor(member)"
+                                    [title]="member.name"
+                                >
+                                    @if (member.profileUrl) {
+                                        <img
+                                            class="details__cast-avatar"
+                                            [src]="member.profileUrl"
+                                            [alt]="member.name"
+                                            loading="lazy"
+                                        />
+                                    } @else {
+                                        <span
+                                            class="details__cast-avatar details__cast-avatar--fallback"
+                                        >
+                                            {{ member.name.charAt(0) }}
+                                        </span>
+                                    }
+                                    <span class="details__cast-name">{{
+                                        member.name
+                                    }}</span>
+                                </span>
+                            }
+                        </div>
+                    } @else {
+                        <span class="value">{{ info.director }}</span>
+                    }
+                </div>
+            }
+        </ng-template>
+
+        <ng-template appDetailActions>
+            @if (quickStartAction(); as action) {
+                <button
+                    class="play-btn"
+                    data-testid="series-quick-start"
+                    (click)="playQuickStartEpisode()"
+                    [disabled]="action.disabled"
+                >
+                    <span class="play-btn__icon-shell" aria-hidden="true">
+                        <mat-icon class="play-btn__icon">{{
+                            action.icon
+                        }}</mat-icon>
+                    </span>
+                    <span class="play-btn__copy">
+                        <span class="play-btn__label">
+                            {{
+                                action.labelKey
+                                    | translate: action.labelParams
+                            }}
+                        </span>
+                        <span class="play-btn__meta">
+                            {{ action.episodeLabel }}
+                        </span>
+                    </span>
+                </button>
+            }
+            @if (!isFavorite()) {
+                <button class="favorite-btn" (click)="toggleFavorite()">
+                    <mat-icon>add</mat-icon>
+                    {{ 'PORTALS.ADD_TO_FAVORITES' | translate }}
+                </button>
+            } @else {
+                <button
+                    class="favorite-btn favorite-btn--active"
+                    (click)="toggleFavorite()"
+                >
+                    <mat-icon>check</mat-icon>
+                    {{ 'PORTALS.REMOVE_FROM_FAVORITES' | translate }}
+                </button>
+            }
+        </ng-template>
+
+        @if (inlinePlayback(); as playback) {
+            <app-portal-inline-player
+                detail-player
+                [playback]="playback"
+                [episodeMetadata]="inlineEpisodeMetadata()"
+                [seriesTitle]="item.info.name"
+                [seriesNavigation]="inlineSeriesNavigation()"
+                [upNextEpisodes]="upNextEpisodes()"
+                (timeUpdate)="handleInlineTimeUpdate($event)"
+                (closed)="closeInlinePlayer()"
+                (backClicked)="goBack()"
+                (streamUrlCopied)="showCopyNotification()"
+                (playbackEnded)="handleInlinePlaybackEnded()"
+                (previousEpisodeRequested)="playPreviousEpisode()"
+                (nextEpisodeRequested)="playNextEpisode()"
+                (upNextEpisodeSelected)="playUpNextEpisode($event)"
+                (externalFallbackRequested)="
+                    handleExternalFallbackRequest($event)
+                "
+            />
+        }
+
+        <app-season-container
+            detail-episodes
+            [seasons]="item.episodes"
+            [seriesId]="item.series_id"
+            [playlistId]="currentPlaylistId()"
+            [seriesTitle]="info.name"
+            [playbackPositions]="episodePlaybackPositions()"
+            [openingEpisodeId]="openingEpisodeId()"
+            [activeEpisodeId]="activeEpisodeId()"
+            [playingEpisodeId]="
+                inlinePlayback()?.contentInfo?.contentXtreamId ?? null
+            "
+            [seasonDescriptions]="seasonDescriptions()"
+            (episodeClicked)="playEpisode($event)"
+            (playbackToggleRequested)="handlePlaybackToggleRequested($event)"
+            (seasonSelected)="onSeasonSelected($event)"
+        />
+
+        <div detail-extras>
+            @if (similarItems().length || similarInPortals().length) {
+                <section class="details__similar" data-test-id="tmdb-similar">
+                    <h3>{{ 'XTREAM.SIMILAR' | translate }}</h3>
+                    <div class="details__similar-strip">
+                        @for (similar of similarItems(); track similar.id) {
+                            <button
+                                type="button"
+                                class="details__similar-card"
+                                [title]="similar.title"
+                                (click)="openSimilar(similar)"
+                            >
+                                @if (similar.posterUrl) {
+                                    <img
+                                        class="details__similar-poster"
+                                        [src]="similar.posterUrl"
+                                        [alt]="similar.title"
+                                        loading="lazy"
+                                    />
+                                } @else {
+                                    <span
+                                        class="details__similar-poster details__similar-poster--fallback"
+                                    >
+                                        {{ similar.title.charAt(0) }}
+                                    </span>
+                                }
+                                <span class="details__similar-title">
+                                    {{ similar.title }}
+                                </span>
+                            </button>
+                        }
+                        @for (
+                            item of similarInPortals();
+                            track 'x' + item.match.playlistId + '-' + item.match.xtreamId
+                        ) {
+                            <button
+                                type="button"
+                                class="details__similar-card"
+                                [title]="
+                                    item.title +
+                                    ' — ' +
+                                    item.match.playlistName
+                                "
+                                (click)="openSimilarInPortals(item)"
+                            >
+                                @if (item.posterUrl) {
+                                    <img
+                                        class="details__similar-poster"
+                                        [src]="item.posterUrl"
+                                        [alt]="item.title"
+                                        loading="lazy"
+                                    />
+                                } @else {
+                                    <span
+                                        class="details__similar-poster details__similar-poster--fallback"
+                                    >
+                                        {{ item.title.charAt(0) }}
+                                    </span>
+                                }
+                                <span class="details__similar-title">
+                                    {{ item.title }}
+                                </span>
+                                <span class="details__similar-source">
+                                    {{ item.match.playlistName }}
+                                </span>
+                            </button>
+                        }
+                    </div>
+                </section>
+            }
+        </div>
+    </app-portal-detail-shell>
+} @else if (detailsError()) {
+    <app-portal-detail-shell
+        [errorMessage]="detailsError() ?? undefined"
+        (backClicked)="goBack()"
+    />
+} @else {
+    <app-portal-detail-shell [isLoading]="true" (backClicked)="goBack()" />
+}

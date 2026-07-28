@@ -1,0 +1,228 @@
+@if (selectedCategory()) {
+    @if (selectedDetailComponent(); as detailComponentRef) {
+        <ng-container *ngComponentOutlet="detailComponentRef" />
+    } @else {
+        <div class="category-content-layout">
+            <div class="category-content-header">
+                <div class="category-meta">
+                    <h2 class="category-title">
+                        {{ selectedCategoryTitle() }}
+                    </h2>
+                    <div class="category-subtitle">
+                        {{ categoryItemSubtitle() }}
+                    </div>
+                </div>
+                @if (hasRefineControls()) {
+                    <div class="active-refinements" aria-live="polite">
+                        @if (canSortContent()) {
+                            <div
+                                class="refinement-chip sort-refinement-chip"
+                                [attr.aria-label]="
+                                    ('WORKSPACE.SORT_LABEL' | translate) +
+                                    (activeSortLabelKey() | translate)
+                                "
+                            >
+                                <mat-icon>sort</mat-icon>
+                                <span
+                                    class="refinement-chip-label refinement-chip-label-full"
+                                >
+                                    {{ 'WORKSPACE.SORT_LABEL' | translate
+                                    }}{{ activeSortLabelKey() | translate }}
+                                </span>
+                                <span
+                                    class="refinement-chip-label refinement-chip-label-compact"
+                                >
+                                    {{ activeSortLabelKey() | translate }}
+                                </span>
+                            </div>
+                        }
+                        @if (minRating(); as rating) {
+                            <button
+                                type="button"
+                                mat-button
+                                class="refinement-chip rating-refinement-chip"
+                                (click)="setMinRating(null)"
+                                [attr.aria-label]="
+                                    'WORKSPACE.REFINE_CLEAR_RATING'
+                                        | translate: { value: rating }
+                                "
+                            >
+                                <mat-icon>star</mat-icon>
+                                <span
+                                    class="refinement-chip-label refinement-chip-label-full"
+                                >
+                                    {{ 'WORKSPACE.FILTER_RATING' | translate }}:
+                                    {{ rating }}.0+
+                                </span>
+                                <span
+                                    class="refinement-chip-label refinement-chip-label-compact"
+                                >
+                                    {{ rating }}.0+
+                                </span>
+                                <mat-icon>close</mat-icon>
+                            </button>
+                        }
+                    </div>
+                    <button
+                        type="button"
+                        mat-button
+                        class="refine-action"
+                        [class.refine-action-active]="activeRefinementCount() > 0"
+                        [matMenuTriggerFor]="refineMenu"
+                        [matTooltip]="'WORKSPACE.REFINE_ACTION' | translate"
+                        [attr.aria-label]="'WORKSPACE.REFINE_ACTION' | translate"
+                    >
+                        <mat-icon>tune</mat-icon>
+                        <span>{{ 'WORKSPACE.REFINE_ACTION' | translate }}</span>
+                        @if (activeRefinementCount() > 0) {
+                            <span class="refine-count">{{
+                                activeRefinementCount()
+                            }}</span>
+                        }
+                    </button>
+                    <mat-menu #refineMenu="matMenu" class="refine-menu">
+                        @if (canSortContent()) {
+                            <div class="refine-menu-section-title">
+                                {{ 'WORKSPACE.REFINE_SORT_SECTION' | translate }}
+                            </div>
+                            <button
+                                mat-menu-item
+                                (click)="setContentSortMode('date-desc')"
+                            >
+                                <span>{{
+                                    'WORKSPACE.SORT_DATE_DESC' | translate
+                                }}</span>
+                                @if (contentSortMode() === 'date-desc') {
+                                    <mat-icon>check</mat-icon>
+                                }
+                            </button>
+                            <button
+                                mat-menu-item
+                                (click)="setContentSortMode('date-asc')"
+                            >
+                                <span>{{
+                                    'WORKSPACE.SORT_DATE_ASC' | translate
+                                }}</span>
+                                @if (contentSortMode() === 'date-asc') {
+                                    <mat-icon>check</mat-icon>
+                                }
+                            </button>
+                            <button
+                                mat-menu-item
+                                (click)="setContentSortMode('name-asc')"
+                            >
+                                <span>{{
+                                    'WORKSPACE.SORT_NAME_ASC' | translate
+                                }}</span>
+                                @if (contentSortMode() === 'name-asc') {
+                                    <mat-icon>check</mat-icon>
+                                }
+                            </button>
+                            <button
+                                mat-menu-item
+                                (click)="setContentSortMode('name-desc')"
+                            >
+                                <span>{{
+                                    'WORKSPACE.SORT_NAME_DESC' | translate
+                                }}</span>
+                                @if (contentSortMode() === 'name-desc') {
+                                    <mat-icon>check</mat-icon>
+                                }
+                            </button>
+                            @if (supportsRatingSort()) {
+                                <button
+                                    mat-menu-item
+                                    (click)="setContentSortMode('rating-desc')"
+                                >
+                                    <span>{{
+                                        'WORKSPACE.SORT_TOP_RATED' | translate
+                                    }}</span>
+                                    @if (contentSortMode() === 'rating-desc') {
+                                        <mat-icon>check</mat-icon>
+                                    }
+                                </button>
+                                <button
+                                    mat-menu-item
+                                    (click)="setContentSortMode('rating-asc')"
+                                >
+                                    <span>{{
+                                        'WORKSPACE.SORT_LOWEST_RATED'
+                                            | translate
+                                    }}</span>
+                                    @if (contentSortMode() === 'rating-asc') {
+                                        <mat-icon>check</mat-icon>
+                                    }
+                                </button>
+                            }
+                        }
+                        @if (canFilterByRating()) {
+                            @if (canSortContent()) {
+                                <div class="refine-menu-divider"></div>
+                            }
+                            <div class="refine-menu-section-title">
+                                {{
+                                    'WORKSPACE.REFINE_RATING_SECTION'
+                                        | translate
+                                }}
+                            </div>
+                            <button mat-menu-item (click)="setMinRating(null)">
+                                <span>{{
+                                    'WORKSPACE.FILTER_RATING_ANY' | translate
+                                }}</span>
+                                @if (minRating() === null) {
+                                    <mat-icon>check</mat-icon>
+                                }
+                            </button>
+                            @for (threshold of ratingThresholds; track threshold) {
+                                <button
+                                    mat-menu-item
+                                    (click)="setMinRating(threshold)"
+                                >
+                                    <span>{{
+                                        'WORKSPACE.FILTER_RATING_MIN'
+                                            | translate: { value: threshold }
+                                    }}</span>
+                                    @if (minRating() === threshold) {
+                                        <mat-icon>check</mat-icon>
+                                    }
+                                </button>
+                            }
+                        }
+                    </mat-menu>
+                }
+                @if (categoryItemCount() > 0) {
+                    <mat-paginator
+                        [pageIndex]="pageIndex()"
+                        [length]="categoryItemCount()"
+                        [pageSize]="limit()"
+                        [pageSizeOptions]="pageSizeOptions"
+                        (page)="onPageChange($event)"
+                        aria-label="Select page"
+                    />
+                }
+            </div>
+            <app-grid-list
+                [isLoading]="isPaginatedContentLoading()"
+                [items]="contentWithProgress()"
+                (itemClicked)="onItemClick($event)"
+                [pageIndex]="pageIndex()"
+                [totalPages]="totalPages()"
+                [limit]="limit()"
+                [pageSizeOptions]="pageSizeOptions"
+                [showPaginator]="false"
+                [searchTerm]="searchTerm()"
+                [type]="contentType() ?? ''"
+                (pageChange)="onPageChange($event)"
+            />
+        </div>
+    }
+} @else {
+    <app-playlist-error-view
+        [title]="'PORTALS.ERROR_VIEW.NO_CATEGORY_SELECTED.TITLE' | translate"
+        [description]="
+            'PORTALS.ERROR_VIEW.NO_CATEGORY_SELECTED.DESCRIPTION' | translate
+        "
+        [showActionButtons]="false"
+        [viewType]="'EMPTY_CATEGORY'"
+    />
+}

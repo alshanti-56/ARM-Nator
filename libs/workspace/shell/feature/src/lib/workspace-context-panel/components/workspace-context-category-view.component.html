@@ -1,0 +1,67 @@
+@if (items().length > 0) {
+    <div class="nav-list">
+        @if (statusText()) {
+            <div class="context-inline-status">
+                {{ statusText() }}
+            </div>
+        }
+        @for (item of items(); track $index) {
+            <button
+                type="button"
+                class="nav-item category-item"
+                [attr.data-category-id]="
+                    $any(item).category_id ?? $any(item).xtream_id ?? item.id
+                "
+                [class.selected]="isSelected(item)"
+                [class.category-item--selected]="isSelected(item)"
+                [class.category-item--disabled]="!interactionEnabled()"
+                [attr.aria-current]="isSelected(item) ? 'true' : null"
+                [attr.aria-disabled]="!interactionEnabled()"
+                [disabled]="!interactionEnabled()"
+                (click)="onCategoryClick(item)"
+            >
+                <span class="nav-item-label">
+                    {{
+                        item.category_name ||
+                            $any(item).name ||
+                            'No category name'
+                    }}
+                </span>
+                @if (showCounts()) {
+                    @if (countDisplayMode() === 'loading') {
+                        <div
+                            class="item-count item-count--loading"
+                            aria-hidden="true"
+                        ></div>
+                    } @else if (hasItemCount(item)) {
+                        <div class="item-count app-count-badge">
+                            {{ getItemCount(item) }}
+                        </div>
+                    }
+                } @else if ($any(item).count !== undefined) {
+                    <div class="item-count app-count-badge">
+                        {{ $any(item).count }}
+                    </div>
+                }
+            </button>
+        } @empty {
+            <app-workspace-context-error-view
+                [title]="'PORTALS.EMPTY_LIST_VIEW.TITLE' | translate"
+                [description]="
+                    'PORTALS.EMPTY_LIST_VIEW.NO_SEARCH_RESULTS' | translate
+                "
+                [showActionButtons]="false"
+                [viewType]="'NO_SEARCH_RESULTS'"
+            />
+        }
+    </div>
+} @else {
+    <div class="category-empty-state">
+        <app-workspace-context-error-view
+            [title]="'No categories available'"
+            [showIllustration]="false"
+            [showActionButtons]="false"
+            [viewType]="'EMPTY_CATEGORY'"
+        />
+    </div>
+}

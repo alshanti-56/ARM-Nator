@@ -1,0 +1,42 @@
+:host {
+    display: flex;
+    flex-direction: column;
+    height: 100%;
+    min-height: 0;
+}
+
+#recent-list {
+    flex: 1;
+    min-height: 0;
+    overflow-x: hidden;
+}
+
+.channel-list {
+    overflow-x: hidden;
+}
+
+.channel-context-menu-anchor {
+    position: fixed;
+    width: 0;
+    height: 0;
+    opacity: 0;
+    pointer-events: none;
+}
+
+.empty-recent,
+.empty-recent-hint {
+    padding: 16px 24px;
+    text-align: center;
+}
+
+.empty-recent {
+    margin-top: 40px;
+    font-size: 1.05rem;
+    font-weight: 520;
+    letter-spacing: -0.01em;
+}
+
+.empty-recent-hint {
+    opacity: 0.65;
+    font-size: 0.85rem;
+}

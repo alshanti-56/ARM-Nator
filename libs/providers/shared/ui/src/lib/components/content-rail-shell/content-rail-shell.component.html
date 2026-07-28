@@ -1,0 +1,57 @@
+<section class="rail" [class.rail--active]="active()">
+    <header class="rail__header">
+        <h3 class="rail__title">
+            <span class="rail__label">{{ label() }}</span>
+            @if ((totalCount() ?? 0) > 0) {
+                <span class="rail__count app-count-badge" aria-hidden="true">{{
+                    totalCount()
+                }}</span>
+            }
+        </h3>
+        @if (seeAllLink(); as link) {
+            <a class="rail__see-all" [routerLink]="link">
+                <span class="rail__see-all-label">
+                    @if (seeAllLabel()) {
+                        {{ seeAllLabel() }}
+                    } @else {
+                        {{ 'WORKSPACE.DASHBOARD.MANAGE_ALL' | translate }}
+                    }
+                </span>
+                <mat-icon>chevron_right</mat-icon>
+            </a>
+        }
+    </header>
+
+    <div class="rail__viewport">
+        <button
+            type="button"
+            class="rail__chev rail__chev--left"
+            [class.rail__chev--visible]="canScrollLeft()"
+            (click)="scrollBy(-1)"
+            aria-label="Scroll left"
+            tabindex="-1"
+        >
+            <mat-icon>chevron_left</mat-icon>
+        </button>
+
+        <div
+            #track
+            class="rail__track"
+            (scroll)="onScroll()"
+            role="list"
+        >
+            <ng-content></ng-content>
+        </div>
+
+        <button
+            type="button"
+            class="rail__chev rail__chev--right"
+            [class.rail__chev--visible]="canScrollRight()"
+            (click)="scrollBy(1)"
+            aria-label="Scroll right"
+            tabindex="-1"
+        >
+            <mat-icon>chevron_right</mat-icon>
+        </button>
+    </div>
+</section>

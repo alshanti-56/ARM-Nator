@@ -1,0 +1,704 @@
+/* eslint-disable max-lines */
+import { inject, Injectable } from '@angular/core';
+import { MatSnackBar } from '@angular/material/snack-bar';
+import { Store } from '@ngrx/store';
+import { TranslateService } from '@ngx-translate/core';
+import { PlaylistActions } from '@arm-nator/providers/m3u/state';
+import { DialogService } from '@arm-nator/ui/components';
+import { DataService, SettingsStore } from '@arm-nator/services';
+import {
+    AUTO_UPDATE_PLAYLISTS,
+    AutoUpdatePlaylistsResult,
+    ELECTRON_BRIDGE_SECURITY_ERROR_CODES,
+    ERROR,
+    normalizeHost,
+    parseSecurityPolicyError,
+    PlayerContentInfo,
+    Playlist,
+    PLAYLIST_PARSE_BY_URL,
+    PLAYLIST_UPDATE,
+    XTREAM_REQUEST,
+    XTREAM_RESPONSE,
+    XtreamCodeActions,
+} from '@arm-nator/shared/interfaces';
+import {
+    measureRendererPerformancePhase,
+    RENDERER_PERFORMANCE_PHASE,
+} from '@arm-nator/shared/logging';
+import { AppConfig } from '../../environments/environment';
+import { buildAutoUpdatePlaylistsFeedback } from './auto-update-playlists-feedback';
+import {
+    createLogger,
+    createPortalDebugRequestContext,
+    logPortalDebugEvent,
+} from '@arm-nator/providers/shared/util';
+
+interface PlayerLaunchPayload {
+    readonly headers?: Record<string, string>;
+    readonly origin?: string;
+    readonly referer?: string;
+    readonly startTime?: number;
+    readonly thumbnail?: string;
+    readonly title?: string;
+    readonly url: string;
+    readonly ['user-agent']?: string;
+    readonly contentInfo?: PlayerContentInfo;
+}
+
+interface ErrorStatus {
+    readonly message?: string;
+    readonly status?: number;
+}
+
+@Injectable({
+    providedIn: 'root',
+})
+export class ElectronService extends DataService {
+    private eventListeners: { [key: string]: () => void } = {};
+    private messageListeners = new Map<string, EventListener>();
+    private readonly snackBar = inject(MatSnackBar);
+    private readonly dialogService = inject(DialogService);
+    private readonly store = inject(Store);
+    private readonly settingsStore = inject(SettingsStore);
+    private readonly translateService = inject(TranslateService);
+    private readonly logger = createLogger('ElectronService');
+    private readonly silentXtreamActions = new Set<string>([
+        XtreamCodeActions.GetAccountInfo,
+        XtreamCodeActions.GetLiveCategories,
+        XtreamCodeActions.GetVodCategories,
+        XtreamCodeActions.GetSeriesCategories,
+        XtreamCodeActions.GetShortEpg,
+        XtreamCodeActions.GetSimpleDataTable,
+        XtreamCodeActions.GetSimpleDateTable,
+    ]);
+
+    constructor() {
+        super();
+        this.setupPlayerErrorListener();
+        this.setupPortalDebugListener();
+    }
+
+    private setupPlayerErrorListener() {
+        // Listen for player errors from the backend
+        if (window.electron?.onPlayerError) {
+            window.electron.onPlayerError(
+                (data: {
+                    player: string;
+                    error: string;
+                    originalError: string;
+                }) => {
+                    this.logger.error(
+                        `${data.player} Error:`,
+                        data.originalError
+                    );
+                    this.snackBar.open(
+                        `${data.player} Error: ${data.error}`,
+                        'Close',
+                        {
+                            duration: 7000,
+                            panelClass: ['error-snackbar'],
+                        }
+                    );
+                }
+            );
+        }
+    }
+
+    private setupPortalDebugListener() {
+        const onPortalDebugEvent = (
+            window.electron as {
+                onPortalDebugEvent?: (
+                    callback: (
+                        event: Parameters<typeof logPortalDebugEvent>[0]
+                    ) => void
+                ) => void;
+            }
+        ).onPortalDebugEvent;
+
+        if (AppConfig.production || !onPortalDebugEvent) {
+            return;
+        }
+
+        onPortalDebugEvent((event) => {
+            logPortalDebugEvent(
+                event as Parameters<typeof logPortalDebugEvent>[0]
+            );
+        });
+    }
+
+    getAppVersion(): string {
+        return AppConfig.version;
+    }
+
+    async sendIpcEvent<T = unknown>(
+        type: string,
+        payload?: unknown
+    ): Promise<T> {
+        if (type === PLAYLIST_PARSE_BY_URL) {
+            this.fetchM3uPlaylistFromUrl(payload as Partial<Playlist>);
+            return undefined as T;
+        }
+
+        if (type === PLAYLIST_UPDATE) {
+            this.updateM3uPlaylistFromFile(
+                payload as {
+                    id: string;
+                    filePath?: string;
+                    url?: string;
+                    title: string;
+                }
+            );
+            return undefined as T;
+        }
+
+        if (type === XTREAM_REQUEST) {
+            return (await this.forwardXtreamRequest(
+                payload as { url: string; params: Record<string, string> }
+            )) as T;
+        }
+
+        if (type === 'OPEN_MPV_PLAYER') {
+            const data = payload as PlayerLaunchPayload;
+            try {
+                return (await window.electron.openInMpv(
+                    data.url,
+                    data.title ?? '',
+                    data.thumbnail ?? '',
+                    data['user-agent'],
+                    data.referer ?? undefined,
+                    data.origin ?? undefined,
+                    data.contentInfo,
+                    data.startTime,
+                    data.headers ?? undefined
+                )) as T;
+            } catch (error: unknown) {
+                const errorMessage =
+                    this.getErrorDetails(error)?.message ?? String(error);
+                this.snackBar.open(
+                    `Error launching MPV: ${errorMessage}`,
+                    'Close',
+                    {
+                        duration: 5000,
+                    }
+                );
+                this.logger.error('MPV launch error:', error);
+                throw error;
+            }
+        }
+
+        if (type === 'OPEN_VLC_PLAYER') {
+            const data = payload as PlayerLaunchPayload;
+            try {
+                return (await window.electron.openInVlc(
+                    data.url,
+                    data.title ?? '',
+                    data.thumbnail ?? '',
+                    data['user-agent'],
+                    data.referer ?? undefined,
+                    data.origin ?? undefined,
+                    data.contentInfo,
+                    data.startTime,
+                    data.headers ?? undefined
+                )) as T;
+            } catch (error: unknown) {
+                const errorMessage =
+                    this.getErrorDetails(error)?.message ?? String(error);
+                this.snackBar.open(
+                    `Error launching VLC: ${errorMessage}`,
+                    'Close',
+                    {
+                        duration: 5000,
+                    }
+                );
+                this.logger.error('VLC launch error:', error);
+                throw error;
+            }
+        }
+
+        if (type === AUTO_UPDATE_PLAYLISTS) {
+            const data = payload as Playlist[];
+            const result = await window.electron.autoUpdatePlaylists(
+                data,
+                this.settingsStore.getTrustOptions()
+            );
+            this.store.dispatch(
+                PlaylistActions.updateManyPlaylists({
+                    playlists: result.playlists,
+                })
+            );
+            this.reportAutoUpdatePlaylistsResult(result);
+            return result as T;
+        }
+
+        this.logger.debug('Unknown IPC event type:', type);
+        return undefined as T;
+    }
+
+    private reportAutoUpdatePlaylistsResult(
+        result: AutoUpdatePlaylistsResult
+    ): void {
+        const unresolved = result.outcomes.filter(
+            (outcome) => outcome.status !== 'updated'
+        );
+        if (unresolved.length > 0) {
+            this.logger.warn(
+                'Playlist auto-refresh did not update every playlist:',
+                unresolved
+                    .map((outcome) => `${outcome.title} (${outcome.status})`)
+                    .join(', ')
+            );
+        }
+
+        const feedback = buildAutoUpdatePlaylistsFeedback(result);
+        this.snackBar.open(
+            this.translateService.instant(feedback.messageKey, feedback.params),
+            feedback.isError
+                ? this.translateService.instant('CLOSE')
+                : undefined,
+            feedback.isError
+                ? { duration: 6000, panelClass: ['error-snackbar'] }
+                : { duration: 2000 }
+        );
+    }
+
+    private async fetchM3uPlaylistFromUrl(payload?: Partial<Playlist>) {
+        if (!payload?.url) {
+            return;
+        }
+
+        const title = payload.title?.trim() || undefined;
+
+        window.electron
+            .fetchPlaylistByUrl(
+                payload.url,
+                title,
+                this.settingsStore.getTrustOptions()
+            )
+            .then((result) => {
+                measureRendererPerformancePhase(
+                    RENDERER_PERFORMANCE_PHASE.M3U_IMPORT_DISPATCH,
+                    () =>
+                        this.store.dispatch(
+                            PlaylistActions.handleAddingPlaylistByUrl({
+                                isTemporary: !!payload?.isTemporary,
+                                playlist: result,
+                            })
+                        )
+                );
+            })
+            .catch((error: unknown) => {
+                if (
+                    this.handlePlaylistSecurityError(error, () =>
+                        this.fetchM3uPlaylistFromUrl(payload)
+                    )
+                ) {
+                    return;
+                }
+
+                const statusCode = this.extractHttpStatusCode(error);
+                let messageKey = 'HOME.URL_UPLOAD.ERROR_FETCH_FAILED';
+                if (statusCode === 403) {
+                    messageKey = 'HOME.URL_UPLOAD.ERROR_403';
+                } else if (statusCode === 404) {
+                    messageKey = 'HOME.URL_UPLOAD.ERROR_404';
+                } else if (statusCode === 401) {
+                    messageKey = 'HOME.URL_UPLOAD.ERROR_401';
+                }
+                this.snackBar.open(
+                    this.translateService.instant(messageKey),
+                    this.translateService.instant('CLOSE'),
+                    { duration: 5000 }
+                );
+            });
+    }
+
+    private extractHttpStatusCode(error: unknown): number | null {
+        if (
+            error &&
+            typeof error === 'object' &&
+            'response' in error &&
+            error.response &&
+            typeof error.response === 'object' &&
+            'status' in error.response
+        ) {
+            return error.response.status as number;
+        }
+        // Parse status from error message string (IPC serialization)
+        const msg = String((error as { message?: string })?.message ?? error);
+        const match = msg.match(/status code (\d{3})/);
+        return match ? parseInt(match[1], 10) : null;
+    }
+
+    private async updateM3uPlaylistFromFile(data: {
+        id: string;
+        url?: string;
+        filePath?: string;
+        title: string;
+    }) {
+        try {
+            let playlistObject: Playlist;
+            if (data.url && !data.filePath) {
+                playlistObject = await window.electron.fetchPlaylistByUrl(
+                    data.url,
+                    data.title,
+                    this.settingsStore.getTrustOptions()
+                );
+            } else if (data.filePath && !data.url) {
+                playlistObject =
+                    await window.electron.updatePlaylistFromFilePath(
+                        data.filePath,
+                        data.title
+                    );
+            } else {
+                this.logger.error(
+                    'Either url or filePath must be provided, but not both.'
+                );
+                return;
+            }
+
+            this.store.dispatch(
+                PlaylistActions.updatePlaylist({
+                    playlist: {
+                        ...playlistObject,
+                        _id: data.id,
+                    },
+                    playlistId: data.id,
+                    refreshEpg: true,
+                })
+            );
+
+            this.snackBar.open(
+                this.translateService.instant(
+                    'HOME.PLAYLISTS.PLAYLIST_UPDATE_SUCCESS'
+                ),
+                undefined,
+                { duration: 2000 }
+            );
+        } catch (error: unknown) {
+            this.logger.error('Playlist refresh error:', error);
+            if (
+                data.url &&
+                this.handlePlaylistSecurityError(error, () => {
+                    void this.updateM3uPlaylistFromFile(data);
+                })
+            ) {
+                return;
+            }
+            this.snackBar.open(
+                this.getPlaylistRefreshErrorMessage(error, data),
+                this.translateService.instant('CLOSE'),
+                { duration: 5000 }
+            );
+        }
+    }
+
+    private getPlaylistRefreshErrorMessage(
+        error: unknown,
+        data: { url?: string; filePath?: string }
+    ): string {
+        if (data.filePath) {
+            const errorMessage = String(
+                this.getErrorDetails(error)?.message ?? error ?? ''
+            );
+
+            if (
+                /(ENOENT|no such file or directory|not found)/i.test(
+                    errorMessage
+                )
+            ) {
+                return this.translateWithFallback(
+                    'HOME.PLAYLISTS.PLAYLIST_UPDATE_FILE_NOT_FOUND',
+                    'Playlist refresh failed. The local file is no longer available. Check the file path or re-import the playlist.'
+                );
+            }
+
+            if (/(EACCES|EPERM|permission denied)/i.test(errorMessage)) {
+                return this.translateWithFallback(
+                    'HOME.PLAYLISTS.PLAYLIST_UPDATE_FILE_ACCESS_ERROR',
+                    'Playlist refresh failed. The app can no longer access the local file.'
+                );
+            }
+
+            return this.translateService.instant(
+                'HOME.PLAYLISTS.PLAYLIST_UPDATE_ERROR'
+            );
+        }
+
+        const statusCode = this.extractHttpStatusCode(error);
+        if (statusCode === 404) {
+            return this.translateService.instant('HOME.URL_UPLOAD.ERROR_404');
+        }
+        if (statusCode === 403) {
+            return this.translateService.instant('HOME.URL_UPLOAD.ERROR_403');
+        }
+        if (statusCode === 401) {
+            return this.translateService.instant('HOME.URL_UPLOAD.ERROR_401');
+        }
+        return this.translateService.instant(
+            'HOME.URL_UPLOAD.ERROR_FETCH_FAILED'
+        );
+    }
+
+    private translateWithFallback(key: string, fallback: string): string {
+        const translated = this.translateService.instant(key);
+        return translated === key ? fallback : translated;
+    }
+
+    private handlePlaylistSecurityError(
+        error: unknown,
+        retry: () => void
+    ): boolean {
+        const securityError = parseSecurityPolicyError(error);
+        if (
+            securityError?.code !==
+            ELECTRON_BRIDGE_SECURITY_ERROR_CODES.InvalidTlsCertificate
+        ) {
+            return false;
+        }
+
+        const ref = this.snackBar.open(
+            this.translateWithFallback(
+                'HOME.URL_UPLOAD.ERROR_INVALID_TLS',
+                'Certificate for this playlist host is invalid.'
+            ),
+            this.translateWithFallback(
+                'HOME.URL_UPLOAD.TRUST_TLS_HOST',
+                'Trust host'
+            ),
+            { duration: 10000 }
+        );
+
+        ref.onAction().subscribe(() => {
+            this.confirmTrustPlaylistHost(securityError.host, retry);
+        });
+        return true;
+    }
+
+    private confirmTrustPlaylistHost(
+        host: string | undefined,
+        retry: () => void
+    ): void {
+        if (!host) {
+            this.snackBar.open(
+                this.translateWithFallback(
+                    'HOME.URL_UPLOAD.ERROR_TLS_HOST_UNKNOWN',
+                    'Could not determine the playlist host. Please retry manually.'
+                ),
+                this.translateService.instant('CLOSE'),
+                { duration: 5000 }
+            );
+            return;
+        }
+
+        this.dialogService.openConfirmDialog({
+            title: this.translateWithFallback(
+                'HOME.URL_UPLOAD.TRUST_TLS_HOST_TITLE',
+                'Trust invalid certificate?'
+            ),
+            message: this.translateWithFallback(
+                'HOME.URL_UPLOAD.TRUST_TLS_HOST_WARNING',
+                'Only continue if you trust this playlist host. ARM-Nator will allow invalid TLS certificates for this host, but other hosts still require valid certificates.'
+            ),
+            confirmLabel: this.translateWithFallback(
+                'HOME.URL_UPLOAD.TRUST_TLS_HOST',
+                'Trust host'
+            ),
+            width: '420px',
+            onConfirm: () => {
+                void this.trustPlaylistHost(host).then(retry);
+            },
+        });
+    }
+
+    private async trustPlaylistHost(host: string): Promise<void> {
+        const settings = this.settingsStore.getSettings();
+        const trustedHosts = new Set(
+            (settings.trustedInsecureTlsHosts ?? []).map((item) =>
+                normalizeHost(item)
+            )
+        );
+        trustedHosts.add(normalizeHost(host));
+
+        await this.settingsStore.updateSettings({
+            trustedInsecureTlsHosts: Array.from(trustedHosts),
+        });
+    }
+
+    /* private getErrorMessageByStatusCode(status: number) {
+        let message = 'Something went wrong';
+        switch (status) {
+            case 0:
+                message = 'The backend is not reachable';
+                break;
+            case 413:
+                message =
+                    'This file is too big. Use standalone or self-hosted version of the app.';
+                break;
+            default:
+                break;
+        }
+        return message;
+    } */
+
+    private async forwardXtreamRequest(payload: {
+        url: string;
+        params: Record<string, string>;
+        requestId?: string;
+        sessionId?: string;
+        suppressErrorLog?: boolean;
+    }) {
+        const context = createPortalDebugRequestContext({
+            provider: 'xtream',
+            operation: payload.params?.action ?? 'unknown',
+            transport: 'electron-renderer',
+            request: payload,
+        });
+
+        try {
+            // Use Electron IPC to make the Xtream request
+            const response = await window.electron.xtreamRequest({
+                ...payload,
+                requestId: context.requestId,
+            });
+
+            const result = {
+                type: XTREAM_RESPONSE,
+                payload: response.payload,
+                action: response.action,
+            };
+            window.postMessage(result);
+            return result;
+        } catch (error: unknown) {
+            const action = payload.params?.action;
+            const isSilentAction =
+                payload.suppressErrorLog === true ||
+                (action ? this.silentXtreamActions.has(action) : false);
+            const normalizedMessage = this.getReadableXtreamErrorMessage(error);
+            const errorInfo = this.getErrorDetails(error);
+
+            // Log error to console
+            if (isSilentAction) {
+                this.logger.debug(
+                    `Background Xtream action failed (${action ?? 'unknown'}):`,
+                    normalizedMessage
+                );
+            } else {
+                this.logger.error('Xtream request error:', normalizedMessage);
+            }
+
+            // Only show snackbar for user-triggered Xtream requests
+            if (!isSilentAction) {
+                this.snackBar.open(
+                    `Xtream request failed: ${normalizedMessage}`,
+                    'Close',
+                    {
+                        duration: 5000,
+                    }
+                );
+            }
+
+            return {
+                type: ERROR,
+                status: errorInfo?.status ?? 500,
+                message: normalizedMessage,
+            };
+        }
+    }
+
+    private getReadableXtreamErrorMessage(error: unknown): string {
+        const fallback = 'Failed to connect to Xtream server';
+        if (!error) {
+            return fallback;
+        }
+
+        const maybeError = error as {
+            message?: unknown;
+            statusText?: unknown;
+            status?: unknown;
+            error?: unknown;
+        };
+
+        if (typeof maybeError.message === 'string') {
+            if (maybeError.message.includes('[object Object]')) {
+                if (typeof maybeError.error === 'string') {
+                    return maybeError.error;
+                }
+                if (
+                    maybeError.error &&
+                    typeof maybeError.error === 'object' &&
+                    'message' in
+                        (maybeError.error as Record<string, unknown>) &&
+                    typeof (maybeError.error as Record<string, unknown>)
+                        .message === 'string'
+                ) {
+                    return (maybeError.error as Record<string, string>).message;
+                }
+                return fallback;
+            }
+            return maybeError.message;
+        }
+
+        if (typeof maybeError.statusText === 'string') {
+            return maybeError.statusText;
+        }
+
+        if (typeof error === 'string') {
+            return error;
+        }
+
+        return fallback;
+    }
+
+    private getErrorDetails(error: unknown): ErrorStatus | null {
+        if (error && typeof error === 'object') {
+            return error as ErrorStatus;
+        }
+        return null;
+    }
+
+    removeAllListeners(type: string): void {
+        if (type === 'all') {
+            // Unsubscribe from all event listeners
+            Object.values(this.eventListeners).forEach((unsubscribe) =>
+                unsubscribe()
+            );
+            this.eventListeners = {};
+            // Remove all tracked window message listeners
+            this.messageListeners.forEach((listener) =>
+                window.removeEventListener('message', listener)
+            );
+            this.messageListeners.clear();
+            return;
+        }
+
+        if (this.eventListeners[type]) {
+            // Unsubscribe from a specific event
+            this.eventListeners[type]();
+            delete this.eventListeners[type];
+        }
+
+        // Remove the window message listener registered for this command
+        const messageListener = this.messageListeners.get(type);
+        if (messageListener) {
+            window.removeEventListener('message', messageListener);
+            this.messageListeners.delete(type);
+        }
+    }
+
+    listenOn(command: string, callback: (...args: unknown[]) => void): void {
+        // Drop any existing listener for this command so calling listenOn()
+        // again rebinds rather than accumulating duplicates.
+        const existing = this.messageListeners.get(command);
+        if (existing) {
+            window.removeEventListener('message', existing);
+        }
+
+        const listener = callback as EventListener;
+        window.addEventListener('message', listener);
+        this.messageListeners.set(command, listener);
+    }
+
+    getAppEnvironment(): string {
+        return 'electron';
+    }
+}

@@ -1,0 +1,720 @@
+.settings-page-host {
+    display: block;
+}
+
+.settings-container {
+    height: auto;
+    overflow: visible;
+    padding: 18px 20px calc(36px + var(--settings-safe-bottom));
+}
+
+.settings-container.dialog-mode {
+    height: auto;
+    max-height: none;
+    overflow: visible;
+    padding: 12px 8px calc(24px + var(--settings-safe-bottom));
+}
+
+.settings-layout {
+    display: flex;
+    flex-direction: column;
+    gap: 16px;
+    align-items: stretch;
+    max-width: 920px;
+    margin: 0 auto;
+    padding-bottom: calc(
+        var(--settings-action-bar-space) + var(--settings-safe-bottom)
+    );
+}
+
+.settings-container.dialog-mode .settings-layout {
+    padding-bottom: 0;
+}
+
+.settings-page-header {
+    padding: 14px 18px 8px;
+    background: transparent;
+    border: 0;
+    box-shadow: none;
+}
+
+.settings-page-header__text {
+    max-width: 56ch;
+
+    h1 {
+        margin: 0;
+        font-size: clamp(1.35rem, 2vw, 1.75rem);
+        line-height: 1.08;
+        letter-spacing: -0.03em;
+        font-weight: 700;
+    }
+
+    p {
+        margin: 4px 0 0;
+        color: var(--settings-muted);
+        font-size: 0.86rem;
+        line-height: 1.45;
+    }
+}
+
+.settings-content {
+    min-width: 0;
+    display: flex;
+    flex-direction: column;
+    gap: 16px;
+}
+
+// Flat section — no panel chrome. The v0.22 mockup treats Settings as a
+// single scroll column with each section anchored by a large title +
+// bottom-border separator. The previous card frame (border-radius 22px,
+// filled bg, box-shadow, active-state ring + icon-circle) made every
+// section look like a feature card, which fought the inline form rhythm.
+.settings-group {
+    position: relative;
+    background: transparent;
+    border: 0;
+    border-radius: 0;
+    box-shadow: none;
+    overflow: visible;
+    padding: 0;
+    margin-top: 24px;
+    scroll-margin-top: 24px;
+    transition: none;
+
+    &:first-of-type {
+        margin-top: 0;
+    }
+}
+
+// The active section no longer gets a ring/shadow — the rail's active
+// state on the left already announces "you are here". Title still
+// colours to the accent so users scanning the right pane don't lose the
+// anchor.
+.settings-group--active {
+    .settings-group__header-text h3 {
+        color: var(--app-selection-color);
+    }
+}
+
+.settings-group__header {
+    display: flex;
+    align-items: flex-start;
+    gap: 14px;
+    padding: 4px 0 18px;
+    margin: 0 0 8px;
+    border-bottom: 1px solid var(--settings-item-border);
+
+    // Icon-circle removed per UX-audit recommendation (the section title
+    // is the anchor, not a card). Hidden rather than ripped out of every
+    // section template so the existing markup stays untouched.
+    .settings-group__header-icon {
+        display: none;
+    }
+
+    .settings-group__header-text {
+        h3 {
+            margin: 0;
+            font-size: 1.5rem;
+            font-weight: 600;
+            letter-spacing: -0.015em;
+            line-height: 1.2;
+            color: var(--app-heading-color);
+        }
+
+        p {
+            margin: 6px 0 0;
+            color: var(--app-body-color);
+            font-size: 0.92rem;
+            line-height: 1.45;
+        }
+    }
+}
+
+.settings-group__footer {
+    padding: 12px 18px 16px;
+    border-top: 1px solid var(--settings-item-border);
+}
+
+// Row layout — flat list aligned to the section title (no inset). The
+// previous `margin: 0 18px` came from the card chrome; now that each
+// section is a flat block, rows sit at the same gutter as the title.
+.setting-item {
+    display: grid;
+    grid-template-columns: minmax(0, 1.15fr) minmax(220px, 340px);
+    gap: 14px;
+    margin: 0;
+    padding: 18px 0;
+    border-top: 1px solid var(--settings-item-border);
+    background: transparent;
+
+    &:first-of-type {
+        border-top: 0;
+        padding-top: 8px;
+    }
+
+    &:last-of-type {
+        margin-bottom: 0;
+    }
+}
+
+.settings-group .setting-item:last-child {
+    margin-bottom: 0;
+}
+
+.setting-item__meta {
+    h4 {
+        margin: 0;
+        font-size: 0.95rem;
+        font-weight: 650;
+        letter-spacing: -0.01em;
+    }
+
+    p {
+        margin: 3px 0 0;
+        color: var(--settings-muted);
+        font-size: 0.84rem;
+        line-height: 1.45;
+    }
+}
+
+.setting-item__control {
+    display: flex;
+    justify-content: flex-end;
+    align-items: center;
+    gap: 12px;
+    min-height: 40px;
+
+    mat-form-field,
+    .w-full {
+        width: min(100%, 340px);
+    }
+}
+
+.setting-item__toggle {
+    justify-content: flex-end;
+}
+
+.setting-item--full-control {
+    grid-template-columns: 1fr;
+    gap: 12px;
+}
+
+.setting-item--full-control .setting-item__control {
+    justify-content: stretch;
+}
+
+.app-update-panel__control {
+    align-items: stretch;
+    justify-content: space-between;
+    flex-wrap: wrap;
+}
+
+.app-update-status {
+    min-width: min(100%, 260px);
+    display: flex;
+    flex: 1 1 280px;
+    flex-direction: column;
+    gap: 6px;
+    color: var(--settings-muted);
+    font-size: 0.84rem;
+    line-height: 1.45;
+
+    strong {
+        color: var(--app-body-color);
+        font-size: 0.9rem;
+        font-weight: 650;
+    }
+
+    progress {
+        width: min(100%, 320px);
+        height: 8px;
+        accent-color: var(--app-selection-color);
+    }
+}
+
+.app-update-actions {
+    display: flex;
+    flex: 0 1 auto;
+    flex-wrap: wrap;
+    justify-content: flex-end;
+    gap: 8px;
+
+    button {
+        app-region: no-drag;
+    }
+}
+
+.setting-item--external-player-arguments {
+    grid-template-columns: 1fr;
+    gap: 10px;
+
+    .setting-item__control {
+        justify-content: stretch;
+        align-items: stretch;
+    }
+
+    mat-form-field {
+        width: 100%;
+    }
+
+    textarea {
+        min-height: 86px;
+        resize: vertical;
+        font-family:
+            'JetBrains Mono', 'SFMono-Regular', Menlo, Monaco, Consolas,
+            monospace;
+        font-size: 0.84rem;
+        line-height: 1.45;
+    }
+}
+
+// Compact segmented control — replaces the previous 3 buttons each ~78px
+// tall. Per the UX audit, "Light/Dark/System" was reading as the most
+// important setting on the page because of its sheer footprint. Now the
+// row reads at the same weight as the other compact rows (Language,
+// Startup behavior, etc.), restoring the visual hierarchy.
+.theme-switcher {
+    width: min(100%, 360px);
+    display: inline-flex;
+    padding: 3px;
+    gap: 2px;
+    background: color-mix(
+        in srgb,
+        var(--mat-sys-surface-container-low) 80%,
+        transparent
+    );
+    border: 1px solid
+        color-mix(in srgb, var(--mat-sys-outline-variant) 60%, transparent);
+    border-radius: 10px;
+}
+
+.theme-switcher__option {
+    flex: 1 1 0;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 6px;
+    min-height: 30px;
+    padding: 4px 12px;
+    border: 0;
+    border-radius: 7px;
+    background: transparent;
+    color: var(--mat-sys-on-surface-variant);
+    font: inherit;
+    font-size: 0.82rem;
+    font-weight: 500;
+    letter-spacing: 0;
+    cursor: pointer;
+    transition:
+        background 0.16s ease,
+        color 0.16s ease,
+        box-shadow 0.16s ease;
+
+    mat-icon {
+        width: 16px;
+        height: 16px;
+        font-size: 16px;
+        line-height: 16px;
+    }
+
+    &:hover {
+        background: color-mix(
+            in srgb,
+            var(--mat-sys-surface-container-highest) 70%,
+            transparent
+        );
+        color: var(--mat-sys-on-surface);
+    }
+
+    &:focus-visible {
+        outline: none;
+        box-shadow: 0 0 0 2px
+            color-mix(in srgb, var(--app-selection-color) 50%, transparent);
+    }
+}
+
+.theme-switcher__option--selected {
+    background: var(--app-widget-bg, var(--mat-sys-surface));
+    color: var(--app-selection-color);
+    font-weight: 600;
+    box-shadow:
+        0 1px 2px rgba(0, 0, 0, 0.18),
+        inset 0 0 0 1px
+            color-mix(in srgb, var(--app-selection-border) 36%, transparent);
+}
+
+.epg-sources {
+    width: 100%;
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+}
+
+.epg-sources-empty {
+    width: 100%;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    text-align: center;
+    gap: 8px;
+    padding: 24px 16px 16px;
+    color: var(--mat-sys-on-surface-variant);
+
+    .epg-sources-empty__icon {
+        font-size: 40px;
+        width: 40px;
+        height: 40px;
+        opacity: 0.55;
+        margin-bottom: 4px;
+    }
+
+    .epg-sources-empty__title {
+        margin: 0;
+        font-size: 0.95rem;
+        font-weight: 600;
+        color: var(--mat-sys-on-surface);
+    }
+
+    .epg-sources-empty__hint {
+        margin: 0;
+        font-size: 0.825rem;
+        line-height: 1.5;
+        max-width: 360px;
+        opacity: 0.75;
+    }
+}
+
+.epg-source-row {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+
+    .w-full {
+        width: 100%;
+    }
+
+    app-epg-source-status {
+        flex-shrink: 0;
+    }
+}
+
+.inline-actions {
+    display: flex;
+    justify-content: flex-end;
+    flex-wrap: wrap;
+    gap: 6px;
+}
+
+.button-spinner {
+    display: inline-block;
+    margin-right: 6px;
+    vertical-align: middle;
+}
+
+.inline-actions__button {
+    min-width: 118px;
+}
+
+.inline-actions__button--busy {
+    background: color-mix(
+        in srgb,
+        var(--app-selection-surface) 74%,
+        transparent
+    );
+    color: var(--app-selection-color);
+    box-shadow:
+        inset 0 0 0 1px
+            color-mix(in srgb, var(--app-selection-border) 48%, transparent),
+        0 8px 18px -18px var(--settings-group-active-glow);
+}
+
+.inline-actions__label {
+    display: inline-flex;
+    align-items: center;
+}
+
+.url-row {
+    display: flex;
+    align-items: center;
+    justify-content: flex-end;
+    gap: 4px;
+}
+
+.version-block {
+    flex-direction: column;
+    align-items: flex-end;
+
+    span {
+        font-weight: 700;
+    }
+
+    small {
+        margin-top: 4px;
+        color: var(--mat-sys-on-surface-variant);
+        text-align: right;
+    }
+}
+
+.settings-note {
+    margin: 12px 18px 18px;
+    padding: 10px 12px;
+    border-radius: 14px;
+    font-size: 0.84rem;
+    background: color-mix(in srgb, var(--mat-sys-primary) 8%, transparent);
+    border: 1px solid
+        color-mix(in srgb, var(--mat-sys-primary) 30%, transparent);
+    line-height: 1.45;
+
+    a {
+        color: inherit;
+        font-weight: 700;
+    }
+}
+
+.danger-zone {
+    margin-top: 8px;
+    margin-bottom: 18px;
+    padding: 14px 16px;
+    background: var(--settings-item-danger-bg);
+    border: 1px solid var(--settings-item-danger-border);
+    border-radius: 16px;
+    grid-template-columns: 1fr;
+    gap: 14px;
+}
+
+.danger-zone__header {
+    display: flex;
+    align-items: flex-start;
+    justify-content: space-between;
+    gap: 16px;
+
+    .setting-item__meta {
+        flex: 1;
+        min-width: 0;
+    }
+}
+
+.danger-zone__summary {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px;
+    margin: 0;
+}
+
+.danger-zone__summary-pill {
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    min-height: 34px;
+    padding: 4px 6px 4px 12px;
+    border-radius: 12px;
+    background: color-mix(
+        in srgb,
+        var(--mat-sys-surface-container-high) 78%,
+        transparent
+    );
+    border: 1px solid
+        color-mix(in srgb, var(--settings-item-danger-border) 60%, transparent);
+    font-size: 0.82rem;
+    line-height: 1.2;
+    color: var(--mat-sys-on-surface);
+
+    .danger-zone__summary-icon {
+        font-size: 18px;
+        width: 18px;
+        height: 18px;
+        color: var(--mat-sys-on-surface-variant);
+        flex-shrink: 0;
+    }
+
+    .danger-zone__summary-label {
+        font-weight: 500;
+        letter-spacing: 0.01em;
+    }
+
+    .danger-zone__summary-count {
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        min-width: 26px;
+        height: 22px;
+        padding: 0 8px;
+        border-radius: 999px;
+        background: color-mix(
+            in srgb,
+            var(--mat-sys-on-surface) 10%,
+            transparent
+        );
+        color: var(--mat-sys-on-surface);
+        font-size: 0.78rem;
+        font-weight: 700;
+        font-variant-numeric: tabular-nums;
+        margin-left: 2px;
+    }
+}
+
+.danger-zone__progress {
+    margin: 0;
+    color: var(--mat-sys-on-surface-variant);
+    font-size: 0.84rem;
+}
+
+.danger-zone__button {
+    min-width: 138px;
+    flex-shrink: 0;
+    align-self: flex-start;
+}
+
+.danger-zone__button--busy {
+    background: color-mix(
+        in srgb,
+        var(--settings-item-danger-border) 28%,
+        transparent
+    );
+}
+
+// Sticky-footer Save bar — full content width so it never overlaps form
+// rows. The previous chip-style bar (border-radius:18px, margin-left:auto)
+// floated in the bottom-right corner and clipped fields underneath; the
+// UX audit called this out as the worst of three available patterns.
+// Now the bar acts as a proper footer: spans the column, separator line
+// on top, sits flush with the bottom edge while still sticking on scroll.
+.action-bar {
+    position: sticky;
+    bottom: calc(
+        var(--settings-action-bar-offset) + var(--settings-safe-bottom)
+    );
+    margin-left: 0;
+    margin-right: 0;
+    z-index: 100;
+    display: flex;
+    justify-content: flex-end;
+    align-items: center;
+    gap: 12px;
+    flex-wrap: wrap;
+    padding: 12px 18px;
+    border-top: 1px solid var(--settings-action-bar-border);
+    border-left: 0;
+    border-right: 0;
+    border-bottom: 0;
+    border-radius: 0;
+    background: var(--settings-action-bar-bg);
+    backdrop-filter: blur(12px);
+    box-shadow: var(--settings-action-bar-shadow);
+}
+
+.settings-container.dialog-mode .action-bar {
+    position: static;
+    margin-top: 12px;
+    margin-bottom: 2px;
+    box-shadow: none;
+    border-radius: 16px;
+    padding: 12px;
+    border-top: 1px solid var(--settings-action-bar-border);
+    justify-content: space-between;
+}
+
+.settings-save-button.mat-mdc-button-base {
+    // Use the unified blue primary (--app-selection-color) instead of the
+    // old hand-rolled #3b82f6 gradient that didn't match the rest of the
+    // app's CTAs after the color unification commit.
+    background: var(--app-selection-color);
+    color: var(--app-selection-on-color, #fff);
+    font-weight: 500;
+    padding: 0 20px;
+    border-radius: 10px;
+    box-shadow: 0 4px 14px
+        color-mix(in srgb, var(--app-selection-color) 28%, transparent);
+    transition:
+        transform 0.2s ease,
+        box-shadow 0.2s ease,
+        opacity 0.2s ease;
+
+    mat-icon {
+        margin-right: 6px;
+    }
+
+    &:hover:not([disabled]) {
+        transform: translateY(-1px);
+        box-shadow: 0 6px 18px
+            color-mix(in srgb, var(--app-selection-color) 38%, transparent);
+    }
+
+    &:active:not([disabled]) {
+        transform: translateY(0);
+    }
+
+    &[disabled] {
+        background: color-mix(
+            in srgb,
+            var(--mat-sys-on-surface) 12%,
+            transparent
+        );
+        color: color-mix(in srgb, var(--mat-sys-on-surface) 38%, transparent);
+        box-shadow: none;
+    }
+}
+
+@media (max-width: 1100px) {
+    .settings-layout {
+        max-width: 100%;
+        padding: 0;
+    }
+}
+
+@media (max-width: 860px) {
+    .settings-container {
+        height: auto;
+        padding: 12px 12px calc(18px + var(--settings-safe-bottom));
+    }
+
+    .settings-page-header {
+        padding: 12px 14px;
+        border-radius: 16px;
+    }
+
+    .setting-item {
+        grid-template-columns: 1fr;
+        gap: 12px;
+        margin: 0 14px;
+        padding: 12px 0;
+    }
+
+    .setting-item__control {
+        justify-content: flex-start;
+
+        mat-form-field,
+        .w-full,
+        .epg-sources {
+            width: 100%;
+        }
+    }
+
+    .theme-switcher {
+        width: 100%;
+        grid-template-columns: 1fr;
+    }
+
+    .version-block {
+        align-items: flex-start;
+    }
+
+    .url-row {
+        justify-content: flex-start;
+        flex-wrap: wrap;
+    }
+
+    .action-bar {
+        position: static;
+        flex-direction: column-reverse;
+        align-items: stretch;
+        border-radius: 16px;
+        box-shadow: none;
+        width: 100%;
+        margin-left: 0;
+
+        button {
+            width: 100%;
+        }
+    }
+}

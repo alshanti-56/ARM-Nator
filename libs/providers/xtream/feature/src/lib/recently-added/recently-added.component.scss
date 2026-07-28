@@ -1,0 +1,106 @@
+:host {
+    display: block;
+    height: 100%;
+    overflow-y: auto;
+}
+
+.recently-added-page {
+    padding: 24px 28px 40px;
+    max-width: 1440px;
+    margin: 0 auto;
+    display: flex;
+    flex-direction: column;
+    gap: 28px;
+    min-width: 0;
+    box-sizing: border-box;
+}
+
+.recently-added-page__title {
+    margin: 0;
+    font-size: 1.5rem;
+    font-weight: 650;
+    line-height: 1.2;
+    letter-spacing: -0.02em;
+    color: var(--app-heading-color, #d8dce8);
+}
+
+// Projected card sizing lives on the caller — the rail shell can't reach
+// projected children through emulated encapsulation.
+.recently-added-page__rail app-content-card {
+    flex: 0 0 var(--cover-rail-width, 160px);
+    width: var(--cover-rail-width, 160px);
+    scroll-snap-align: start;
+}
+
+// ── Skeleton rails ─────────────────────────────────────────────────────────
+// Shown while the xtream store is still fetching categories/content and
+// before any section has resolved data. Matches the rail shell's header +
+// track geometry so the layout doesn't shift when real content arrives.
+.recently-added-page__skeleton-rail {
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+    padding: 12px 0 0;
+}
+
+.recently-added-page__skeleton-header {
+    width: 180px;
+    height: 22px;
+    border-radius: 6px;
+}
+
+.recently-added-page__skeleton-track {
+    display: flex;
+    gap: 16px;
+    padding: 4px 0 16px;
+    overflow: hidden;
+}
+
+.recently-added-page__skeleton-card {
+    flex: 0 0 var(--cover-rail-width, 160px);
+    width: var(--cover-rail-width, 160px);
+    aspect-ratio: 2 / 3;
+    border-radius: 12px;
+}
+
+.recently-added-page__skeleton-header,
+.recently-added-page__skeleton-card {
+    background: linear-gradient(
+        90deg,
+        var(--app-widget-bg, #1e2330) 0%,
+        var(--app-widget-header-bg, #232840) 50%,
+        var(--app-widget-bg, #1e2330) 100%
+    );
+    background-size: 200% 100%;
+    animation: recently-added-shimmer 1.6s linear infinite;
+    border: 1px solid var(--app-widget-header-border, rgba(255, 255, 255, 0.05));
+}
+
+@keyframes recently-added-shimmer {
+    from {
+        background-position: 200% 0;
+    }
+    to {
+        background-position: -200% 0;
+    }
+}
+
+@media (prefers-reduced-motion: reduce) {
+    .recently-added-page__skeleton-header,
+    .recently-added-page__skeleton-card {
+        animation: none;
+        background-position: 0 0;
+    }
+}
+
+@media (max-width: 720px) {
+    .recently-added-page {
+        padding: 16px 16px 32px;
+        gap: 20px;
+    }
+
+    .recently-added-page__skeleton-card {
+        flex: 0 0 min(var(--cover-rail-width, 160px), 136px);
+        width: min(var(--cover-rail-width, 160px), 136px);
+    }
+}

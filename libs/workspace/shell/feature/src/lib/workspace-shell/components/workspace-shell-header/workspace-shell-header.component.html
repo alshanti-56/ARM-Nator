@@ -1,0 +1,114 @@
+<header class="workspace-header" [class.is-settings-route]="isSettingsRoute()">
+    <!-- Playlist switcher hidden on /settings: those controls are
+         playlist-scoped, but Settings is a global page. Per the UX
+         audit, leaving them visible implied switching playlists changes
+         which settings you're editing. -->
+    @if (!isSettingsRoute()) {
+        <app-playlist-switcher
+            class="playlist-switcher"
+            [currentTitle]="playlistTitle()"
+            [subtitle]="playlistSubtitle()"
+            [showPlaylistInfo]="canOpenPlaylistInfo()"
+            [showAddPlaylist]="true"
+            [canRefreshActivePlaylist]="canRefreshPlaylist()"
+            [isRefreshingActivePlaylist]="isRefreshingPlaylist()"
+            (playlistInfoRequested)="onPlaylistInfoRequested()"
+            (addPlaylistRequested)="onAddPlaylistRequested()"
+            (refreshPlaylistRequested)="onRefreshPlaylistRequested()"
+        />
+    }
+
+    @if (!hasNoPlaylists()) {
+        <label class="search-field">
+            <mat-icon>search</mat-icon>
+            @if (searchScopeLabel()) {
+                <span class="search-chip search-chip--scope">
+                    {{ searchScopeLabel() }}
+                </span>
+            }
+            <input
+                #searchInput
+                type="search"
+                spellcheck="false"
+                [value]="searchQuery()"
+                (input)="onSearchInput($event)"
+                (keydown.enter)="onSearchEnter($event)"
+                [disabled]="!canUseSearch()"
+                [placeholder]="searchPlaceholder() | translate"
+                [attr.aria-label]="'WORKSPACE.SHELL.SEARCH_LABEL' | translate"
+            />
+            @if (searchStatusLabel()) {
+                <span class="search-chip search-chip--status">
+                    {{ searchStatusLabel() }}
+                </span>
+            }
+            <button
+                type="button"
+                class="command-trigger"
+                (click)="onCommandPaletteRequested()"
+                [matTooltip]="
+                    'WORKSPACE.SHELL.COMMAND_PALETTE_SHORTCUT' | translate
+                "
+                [attr.aria-label]="
+                    'WORKSPACE.SHELL.OPEN_COMMAND_PALETTE' | translate
+                "
+            >
+                {{ commandShortcutLabel }}
+            </button>
+        </label>
+    }
+
+    <!-- The "Add playlist" button stays visible on /settings — adding a
+         playlist is a global action, not playlist-scoped, so it must
+         remain reachable (e.g. a fresh user configuring the app before
+         importing their first source). Only the per-playlist shortcut
+         and bulk actions are hidden on Settings. -->
+    <div class="header-actions header-actions--leading">
+        <button
+            type="button"
+            mat-icon-button
+            (click)="onShortcutsRequested()"
+            [matTooltip]="'WORKSPACE.SHORTCUTS.OPEN_TOOLTIP' | translate"
+            [attr.aria-label]="'WORKSPACE.SHORTCUTS.OPEN_ARIA' | translate"
+        >
+            <mat-icon>keyboard</mat-icon>
+        </button>
+        <button
+            type="button"
+            mat-icon-button
+            (click)="onAddPlaylistRequested()"
+            [matTooltip]="'WORKSPACE.SHELL.ADD_PLAYLIST_ALL' | translate"
+            [attr.aria-label]="'WORKSPACE.SHELL.ADD_PLAYLIST' | translate"
+        >
+            <mat-icon>add</mat-icon>
+        </button>
+        @if (!isSettingsRoute()) {
+            @if (headerShortcut(); as action) {
+                <button
+                    type="button"
+                    class="header-shortcut"
+                    mat-icon-button
+                    (click)="onHeaderShortcutRequested()"
+                    [matTooltip]="action.tooltipKey | translate"
+                    [attr.aria-label]="action.ariaLabelKey | translate"
+                >
+                    <mat-icon>{{ action.icon }}</mat-icon>
+                </button>
+            }
+            @if (headerBulkAction(); as bulk) {
+                <button
+                    type="button"
+                    class="header-shortcut header-bulk-action"
+                    mat-icon-button
+                    [disabled]="bulk.disabled"
+                    (click)="onHeaderBulkActionRequested()"
+                    [matTooltip]="bulk.tooltip"
+                    [attr.aria-label]="bulk.ariaLabel"
+                >
+                    <mat-icon>{{ bulk.icon }}</mat-icon>
+                </button>
+            }
+        }
+    </div>
+
+</header>

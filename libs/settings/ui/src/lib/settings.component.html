@@ -1,0 +1,133 @@
+@if (isDialog) {
+    <h2 mat-dialog-title>{{ 'SETTINGS.GENERAL' | translate }}</h2>
+}
+
+<div
+    class="settings-container"
+    data-test-id="settings-container"
+    [class.dialog-mode]="isDialog"
+    appSettingsSectionScroll
+>
+    <form
+        [formGroup]="settingsForm"
+        (ngSubmit)="onSubmit()"
+        class="settings-layout"
+        novalidate
+    >
+        <!-- Page-level "Settings" h1 intentionally removed: the left rail
+             already labels the page "Settings" (sg-nav-title), and each
+             section below provides its own h3 + subtitle. Stacking another
+             h1 in the right pane reproduced the audit's "vertical ladder
+             of identical labels" complaint. -->
+        @if (!isDialog) {
+            <!-- Reserved hook so the page test selector still resolves,
+                 even though there's no visible chrome here. -->
+            <span
+                class="visually-hidden"
+                data-test-id="settings-page-header"
+            >
+                {{ 'SETTINGS.TITLE' | translate }}
+            </span>
+        }
+
+        <div class="settings-content">
+            <app-settings-general-section
+                [form]="settingsForm"
+                [activeSection]="activeSection()"
+                [languageEnum]="languageEnum"
+                [themeOptions]="themeOptions"
+                [coverSizeOptions]="coverSizeOptions"
+                [startupBehaviorOptions]="startupBehaviorOptions"
+                (selectTheme)="form.selectTheme($event)"
+                (selectCoverSize)="form.selectCoverSize($event)"
+            />
+
+            <app-settings-playback-section
+                [form]="settingsForm"
+                [activeSection]="activeSection()"
+                [players]="players()"
+                [streamFormatEnum]="streamFormatEnum"
+                [isDesktop]="isDesktop"
+                [supportsManagedExternalPlayers]="supportsManagedExternalPlayers"
+                [supportsExternalPlayerPathSettings]="supportsExternalPlayerPathSettings"
+                [frameCopyAvailable]="embeddedMpv.frameCopyAvailable()"
+                [frameCopyActive]="embeddedMpv.frameCopyActive()"
+                (selectRecordingFolder)="selectRecordingFolder()"
+            />
+
+            @if (supportsEpg) {
+                <app-settings-epg-section
+                    [form]="settingsForm"
+                    [activeSection]="activeSection()"
+                    [epgUrl]="form.epgUrl"
+                    [isClearingEpgData]="epg.isClearing()"
+                    [epgViewModeOptions]="epgViewModeOptions"
+                    (refreshEpg)="epg.refresh($event)"
+                    (removeEpgSource)="form.removeEpgSource($event)"
+                    (addEpgSource)="form.addEpgSource()"
+                    (refreshAllEpg)="epg.refreshAll()"
+                    (clearEpgData)="epg.clear()"
+                    (selectEpgViewMode)="form.selectEpgViewMode($event)"
+                />
+            }
+
+            <app-settings-dashboard-section
+                [form]="settingsForm"
+                [activeSection]="activeSection()"
+            />
+
+            <app-settings-tmdb-section
+                [form]="settingsForm"
+                [activeSection]="activeSection()"
+            />
+
+            <app-settings-backup-section
+                [activeSection]="activeSection()"
+                [isPwa]="isPwa"
+                [isRemovingAllPlaylists]="playlistReset.isRemovingAllPlaylists()"
+                [isExportingData]="backup.isExportingData()"
+                (importData)="importData()"
+                (exportData)="exportData()"
+            />
+
+            <app-settings-reset-section
+                [activeSection]="activeSection()"
+                [isRemovingAllPlaylists]="playlistReset.isRemovingAllPlaylists()"
+                [canRemoveAllPlaylists]="playlistReset.canRemoveAll()"
+                [playlistDeleteSummary]="playlistReset.deleteSummary()"
+                [removeAllProgressLabel]="playlistReset.removeAllProgressLabel()"
+                (removeAll)="removeAll()"
+            />
+
+            <app-settings-about-section
+                [activeSection]="activeSection()"
+                [isDesktop]="isDesktop"
+                [buildCommit]="buildCommit"
+            />
+
+            <footer class="action-bar" data-test-id="settings-action-bar">
+                @if (isDialog) {
+                    <button
+                        mat-button
+                        type="button"
+                        (click)="backToHome()"
+                        data-test-id="back-to-home"
+                    >
+                        <mat-icon>close</mat-icon>
+                        {{ 'CLOSE' | translate }}
+                    </button>
+                }
+                <button
+                    mat-flat-button
+                    type="submit"
+                    class="settings-save-button"
+                    [disabled]="settingsForm.pristine || !settingsForm.valid"
+                    data-test-id="save-settings"
+                >
+                    <mat-icon>save</mat-icon>
+                    {{ 'SETTINGS.SAVE_CHANGES' | translate }}
+                </button>
+            </footer>
+        </div>
+    </form>
+</div>

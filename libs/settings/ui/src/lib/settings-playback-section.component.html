@@ -1,0 +1,395 @@
+<section
+    class="settings-group"
+    [class.settings-group--active]="activeSection() === 'playback'"
+    id="playback"
+    [formGroup]="form()"
+>
+    <header class="settings-group__header">
+        <div class="settings-group__header-icon">
+            <mat-icon>play_circle</mat-icon>
+        </div>
+        <div class="settings-group__header-text">
+            <h3>{{ 'SETTINGS.PLAYBACK' | translate }}</h3>
+            <p>{{ 'SETTINGS.VIDEO_PLAYER_DESCRIPTION' | translate }}</p>
+        </div>
+    </header>
+
+    <div class="setting-item">
+        <div class="setting-item__meta">
+            <h4>{{ 'SETTINGS.VIDEO_PLAYER_LABEL' | translate }}</h4>
+            <p>{{ 'SETTINGS.VIDEO_PLAYER_DESCRIPTION' | translate }}</p>
+        </div>
+        <div class="setting-item__control">
+            <mat-form-field appearance="outline" subscriptSizing="dynamic">
+                <mat-label>{{
+                    'SETTINGS.VIDEO_PLAYER_PLACEHOLDER' | translate
+                }}</mat-label>
+                <mat-select
+                    formControlName="player"
+                    data-test-id="select-video-player"
+                >
+                    @for (player of players(); track player.id) {
+                        <mat-option
+                            [value]="player.id"
+                            [attr.data-test-id]="player.id"
+                            >{{ player.labelKey | translate }}
+                        </mat-option>
+                    }
+                </mat-select>
+            </mat-form-field>
+        </div>
+    </div>
+
+    <div class="setting-item">
+        <div class="setting-item__meta">
+            <h4>{{ 'SETTINGS.STREAM_FORMAT' | translate }}</h4>
+            <p>{{ 'SETTINGS.STREAM_FORMAT_DESCRIPTION' | translate }}</p>
+        </div>
+        <div class="setting-item__control">
+            <mat-form-field appearance="outline" subscriptSizing="dynamic">
+                <mat-label>{{
+                    'SETTINGS.VIDEO_PLAYER_PLACEHOLDER' | translate
+                }}</mat-label>
+                <mat-select
+                    formControlName="streamFormat"
+                    data-test-id="select-stream-format"
+                >
+                    @for (
+                        streamFormat of streamFormatEnum() | keyvalue;
+                        track streamFormat
+                    ) {
+                        <mat-option
+                            [value]="streamFormat.value"
+                            [attr.data-test-id]="streamFormat.value"
+                            >{{ streamFormat.value }}
+                        </mat-option>
+                    }
+                </mat-select>
+            </mat-form-field>
+        </div>
+    </div>
+
+    @if (isWebPlayerSelected()) {
+        <div
+            class="setting-item"
+            data-test-id="web-player-shared-controls-setting"
+        >
+            <div class="setting-item__meta">
+                <h4>
+                    {{ 'SETTINGS.WEB_PLAYER_SHARED_CONTROLS' | translate }}
+                </h4>
+                <p>
+                    {{
+                        'SETTINGS.WEB_PLAYER_SHARED_CONTROLS_DESCRIPTION'
+                            | translate
+                    }}
+                </p>
+            </div>
+            <div class="setting-item__control setting-item__toggle">
+                <mat-checkbox
+                    [aria-label]="
+                        'SETTINGS.WEB_PLAYER_SHARED_CONTROLS' | translate
+                    "
+                    formControlName="webPlayerSharedControls"
+                    data-test-id="web-player-shared-controls-toggle"
+                ></mat-checkbox>
+            </div>
+        </div>
+
+        <div class="setting-item" data-test-id="player-ambient-mode-setting">
+            <div class="setting-item__meta">
+                <h4>
+                    {{ 'SETTINGS.PLAYER_AMBIENT_MODE' | translate }}
+                </h4>
+                <p>
+                    {{ 'SETTINGS.PLAYER_AMBIENT_MODE_DESCRIPTION' | translate }}
+                </p>
+            </div>
+            <div class="setting-item__control setting-item__toggle">
+                <mat-checkbox
+                    [aria-label]="'SETTINGS.PLAYER_AMBIENT_MODE' | translate"
+                    formControlName="playerAmbientMode"
+                    data-test-id="player-ambient-mode-toggle"
+                ></mat-checkbox>
+            </div>
+        </div>
+
+        <div class="setting-item" data-test-id="player-up-next-rail-setting">
+            <div class="setting-item__meta">
+                <h4>
+                    {{ 'SETTINGS.PLAYER_UP_NEXT_RAIL' | translate }}
+                </h4>
+                <p>
+                    {{ 'SETTINGS.PLAYER_UP_NEXT_RAIL_DESCRIPTION' | translate }}
+                </p>
+            </div>
+            <div class="setting-item__control setting-item__toggle">
+                <mat-checkbox
+                    [aria-label]="'SETTINGS.PLAYER_UP_NEXT_RAIL' | translate"
+                    formControlName="playerUpNextRail"
+                    data-test-id="player-up-next-rail-toggle"
+                ></mat-checkbox>
+            </div>
+        </div>
+    }
+
+    @if (supportsManagedExternalPlayers() && isExternalPlayerSelected()) {
+        <div
+            class="setting-item"
+            data-test-id="external-player-double-click-setting"
+        >
+            <div class="setting-item__meta">
+                <h4>
+                    {{
+                        'SETTINGS.OPEN_EXTERNAL_PLAYER_ON_DOUBLE_CLICK'
+                            | translate
+                    }}
+                </h4>
+                <p>
+                    {{
+                        'SETTINGS.OPEN_EXTERNAL_PLAYER_ON_DOUBLE_CLICK_DESCRIPTION'
+                            | translate
+                    }}
+                </p>
+            </div>
+            <div class="setting-item__control setting-item__toggle">
+                <mat-checkbox
+                    formControlName="openStreamOnDoubleClick"
+                ></mat-checkbox>
+            </div>
+        </div>
+    }
+
+    @if (isDesktop()) {
+        <div class="setting-item">
+            <div class="setting-item__meta">
+                <h4>{{ 'SETTINGS.SHOW_EXTERNAL_PLAYBACK_BAR' | translate }}</h4>
+                <p>
+                    {{
+                        'SETTINGS.SHOW_EXTERNAL_PLAYBACK_BAR_DESCRIPTION'
+                            | translate
+                    }}
+                </p>
+            </div>
+            <div class="setting-item__control setting-item__toggle">
+                <mat-checkbox
+                    formControlName="showExternalPlaybackBar"
+                ></mat-checkbox>
+            </div>
+        </div>
+
+        @if (frameCopyAvailable() || form().value.embeddedMpvFrameCopy) {
+            <div
+                class="setting-item"
+                data-test-id="embedded-mpv-frame-copy-setting"
+            >
+                <div class="setting-item__meta">
+                    <h4>
+                        {{ 'SETTINGS.EMBEDDED_MPV_FRAME_COPY' | translate }}
+                    </h4>
+                    <p>
+                        {{
+                            'SETTINGS.EMBEDDED_MPV_FRAME_COPY_DESCRIPTION'
+                                | translate
+                        }}
+                        @if (
+                            form().value.embeddedMpvFrameCopy !==
+                            frameCopyActive()
+                        ) {
+                            <strong>
+                                {{
+                                    'SETTINGS.EMBEDDED_MPV_FRAME_COPY_RESTART'
+                                        | translate
+                                }}
+                            </strong>
+                        }
+                    </p>
+                </div>
+                <div class="setting-item__control setting-item__toggle">
+                    <mat-checkbox
+                        formControlName="embeddedMpvFrameCopy"
+                        data-test-id="embedded-mpv-frame-copy-toggle"
+                    ></mat-checkbox>
+                </div>
+            </div>
+        }
+
+        <div class="setting-item" data-test-id="recording-folder-setting">
+            <div class="setting-item__meta">
+                <h4>{{ 'SETTINGS.RECORDING_FOLDER_LABEL' | translate }}</h4>
+                <p>
+                    {{ 'SETTINGS.RECORDING_FOLDER_DESCRIPTION' | translate }}
+                </p>
+            </div>
+            <div class="setting-item__control">
+                <mat-form-field appearance="outline" subscriptSizing="dynamic">
+                    <mat-label for="recordingFolder">{{
+                        'SETTINGS.RECORDING_FOLDER' | translate
+                    }}</mat-label>
+                    <input
+                        matInput
+                        type="text"
+                        id="recordingFolder"
+                        formControlName="recordingFolder"
+                    />
+                    <button
+                        mat-icon-button
+                        matSuffix
+                        type="button"
+                        [attr.aria-label]="
+                            'SETTINGS.RECORDING_FOLDER_SELECT' | translate
+                        "
+                        (click)="selectRecordingFolder.emit()"
+                    >
+                        <mat-icon>folder_open</mat-icon>
+                    </button>
+                </mat-form-field>
+            </div>
+        </div>
+    }
+
+    @if (
+        supportsExternalPlayerPathSettings() && form().value.player === 'mpv'
+    ) {
+        <div class="setting-item">
+            <div class="setting-item__meta">
+                <h4>{{ 'SETTINGS.MPV_PLAYER_PATH_LABEL' | translate }}</h4>
+                <p>
+                    {{ 'SETTINGS.MPV_PLAYER_PATH_DESCRIPTION' | translate }}
+                </p>
+                <p data-test-id="mpv-compatible-player-tip">
+                    {{ 'SETTINGS.MPV_COMPATIBLE_PLAYER_TIP' | translate }}
+                </p>
+            </div>
+            <div class="setting-item__control">
+                <mat-form-field appearance="outline" subscriptSizing="dynamic">
+                    <mat-label for="mpvPlayerPath">{{
+                        'SETTINGS.MPV_PLAYER_PATH' | translate
+                    }}</mat-label>
+                    <input
+                        matInput
+                        type="text"
+                        id="mpvPlayerPath"
+                        formControlName="mpvPlayerPath"
+                    />
+                </mat-form-field>
+            </div>
+        </div>
+
+        <div
+            class="setting-item setting-item--external-player-arguments"
+            data-test-id="mpv-player-arguments-setting"
+        >
+            <div class="setting-item__meta">
+                <h4>{{ 'SETTINGS.MPV_PLAYER_ARGUMENTS_LABEL' | translate }}</h4>
+                <p>
+                    {{
+                        'SETTINGS.MPV_PLAYER_ARGUMENTS_DESCRIPTION' | translate
+                    }}
+                </p>
+            </div>
+            <div class="setting-item__control">
+                <mat-form-field appearance="outline" subscriptSizing="dynamic">
+                    <mat-label for="mpvPlayerArguments">{{
+                        'SETTINGS.MPV_PLAYER_ARGUMENTS' | translate
+                    }}</mat-label>
+                    <textarea
+                        matInput
+                        id="mpvPlayerArguments"
+                        formControlName="mpvPlayerArguments"
+                        [placeholder]="mpvPlayerArgumentsPlaceholder"
+                        rows="3"
+                        spellcheck="false"
+                        autocomplete="off"
+                    ></textarea>
+                    <mat-hint>{{
+                        'SETTINGS.EXTERNAL_PLAYER_ARGUMENTS_HINT' | translate
+                    }}</mat-hint>
+                </mat-form-field>
+            </div>
+        </div>
+
+        <div class="setting-item">
+            <div class="setting-item__meta">
+                <h4>{{ 'SETTINGS.MPV_REUSE_INSTANCE_LABEL' | translate }}</h4>
+                <p>
+                    {{ 'SETTINGS.MPV_REUSE_INSTANCE_DESCRIPTION' | translate }}
+                </p>
+            </div>
+            <div class="setting-item__control setting-item__toggle">
+                <mat-checkbox formControlName="mpvReuseInstance"></mat-checkbox>
+            </div>
+        </div>
+    }
+
+    @if (
+        supportsExternalPlayerPathSettings() && form().value.player === 'vlc'
+    ) {
+        <div class="setting-item">
+            <div class="setting-item__meta">
+                <h4>{{ 'SETTINGS.VLC_PLAYER_PATH_LABEL' | translate }}</h4>
+                <p>
+                    {{ 'SETTINGS.VLC_PLAYER_PATH_DESCRIPTION' | translate }}
+                </p>
+            </div>
+            <div class="setting-item__control">
+                <mat-form-field appearance="outline" subscriptSizing="dynamic">
+                    <mat-label for="vlcPlayerPath">{{
+                        'SETTINGS.VLC_PLAYER_PATH' | translate
+                    }}</mat-label>
+                    <input
+                        matInput
+                        type="text"
+                        id="vlcPlayerPath"
+                        formControlName="vlcPlayerPath"
+                    />
+                </mat-form-field>
+            </div>
+        </div>
+
+        <div
+            class="setting-item setting-item--external-player-arguments"
+            data-test-id="vlc-player-arguments-setting"
+        >
+            <div class="setting-item__meta">
+                <h4>{{ 'SETTINGS.VLC_PLAYER_ARGUMENTS_LABEL' | translate }}</h4>
+                <p>
+                    {{
+                        'SETTINGS.VLC_PLAYER_ARGUMENTS_DESCRIPTION' | translate
+                    }}
+                </p>
+            </div>
+            <div class="setting-item__control">
+                <mat-form-field appearance="outline" subscriptSizing="dynamic">
+                    <mat-label for="vlcPlayerArguments">{{
+                        'SETTINGS.VLC_PLAYER_ARGUMENTS' | translate
+                    }}</mat-label>
+                    <textarea
+                        matInput
+                        id="vlcPlayerArguments"
+                        formControlName="vlcPlayerArguments"
+                        [placeholder]="vlcPlayerArgumentsPlaceholder"
+                        rows="3"
+                        spellcheck="false"
+                        autocomplete="off"
+                    ></textarea>
+                    <mat-hint>{{
+                        'SETTINGS.EXTERNAL_PLAYER_ARGUMENTS_HINT' | translate
+                    }}</mat-hint>
+                </mat-form-field>
+            </div>
+        </div>
+
+        <div class="setting-item">
+            <div class="setting-item__meta">
+                <h4>{{ 'SETTINGS.VLC_REUSE_INSTANCE_LABEL' | translate }}</h4>
+                <p>
+                    {{ 'SETTINGS.VLC_REUSE_INSTANCE_DESCRIPTION' | translate }}
+                </p>
+            </div>
+            <div class="setting-item__control setting-item__toggle">
+                <mat-checkbox formControlName="vlcReuseInstance"></mat-checkbox>
+            </div>
+        </div>
+    }
+</section>

@@ -1,0 +1,58 @@
+{
+  "appId": "com.fourgray.arm-nator",
+  "productName": "ARM-Nator",
+  "artifactName": "${name}-${version}-${os}-${arch}.${ext}",
+  "directories": {
+    "buildResources": "dist/apps",
+    "output": "dist/executables"
+  },
+  "files": [
+    "electron-backend/**/*",
+    "!electron-backend/native{,/**/*}",
+    "desktop-ui/**/*",
+    "!**/*.map"
+  ],
+  "asarUnpack": [
+    "**/better-sqlite3/**",
+    "**/bindings/**",
+    "**/file-uri-to-path/**",
+    "**/*.node",
+    "**/*.dylib",
+    "**/embedded-mpv-runtime.json"
+  ],
+  "extraMetadata": {
+    "name": "arm-nator",
+    "productName": "ARM-Nator",
+    "main": "electron-backend/main.js"
+  },
+  "extraResources": [
+    "dist/apps/electron-backend/workers"
+  ],
+  "mac": {
+    "minimumSystemVersion": "26.0",
+    "identity": "-",
+    "target": [
+      {
+        "target": "dmg",
+        "arch": [
+          "arm64"
+        ]
+      },
+      {
+        "target": "zip",
+        "arch": [
+          "arm64"
+        ]
+      }
+    ],
+    "category": "public.app-category.video",
+    "forceCodeSigning": false,
+    "gatekeeperAssess": false,
+    "hardenedRuntime": true,
+    "entitlements": "apps/electron-backend/macos/entitlements.mac.plist",
+    "entitlementsInherit": "apps/electron-backend/macos/entitlements.mac.inherit.plist",
+    "notarize": false,
+    "icon": "apps/desktop-ui/src/assets/icons/favicon.icns"
+  },
+  "afterPack": "./tools/packaging/electron-after-pack.cjs"
+}

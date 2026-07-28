@@ -1,0 +1,17 @@
+{
+    "name": "shared-portals",
+    "$schema": "../../../node_modules/nx/schemas/project-schema.json",
+    "sourceRoot": "libs/ui/shared-portals/src",
+    "prefix": "lib",
+    "projectType": "library",
+    "tags": [
+        "scope:portal",
+        "domain:portal-shared",
+        "type:ui"
+    ],
+    "targets": {
+        "lint": {
+            "executor": "@nx/eslint:lint"
+        }
+    }
+}

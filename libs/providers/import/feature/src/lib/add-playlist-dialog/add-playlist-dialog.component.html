@@ -1,0 +1,145 @@
+<div class="apd">
+    <div mat-dialog-title class="apd-head">
+        <h2 class="apd-title">
+            {{ 'HOME.URL_UPLOAD.ADD_PLAYLIST' | translate }}
+        </h2>
+        <p class="apd-sub">
+            {{ 'HOME.ADD_PLAYLIST.PICK_METHOD' | translate }}
+        </p>
+    </div>
+
+    <mat-dialog-content>
+        <div
+            class="apd-method-grid"
+            role="radiogroup"
+            aria-label="Source method"
+        >
+            @for (opt of methodOptions; track opt.value) {
+                <button
+                    type="button"
+                    role="radio"
+                    [attr.aria-checked]="method() === opt.value"
+                    class="apd-method"
+                    [class.active]="method() === opt.value"
+                    (click)="method.set(opt.value)"
+                >
+                    <span class="apd-method__icon" aria-hidden="true">
+                        <mat-icon>{{ opt.icon }}</mat-icon>
+                    </span>
+                    <span class="apd-method__title">
+                        {{ opt.labelKey | translate }}
+                    </span>
+                    <span class="apd-method__sub">
+                        {{ opt.subKey | translate }}
+                    </span>
+                </button>
+            }
+        </div>
+
+        <div class="apd-form-area">
+            @switch (playlistType()) {
+                @case ('file') {
+                    <app-file-upload
+                        (fileRejected)="rejectFile($event)"
+                        (imported)="onFileImported()"
+                        (closeDialog)="closeDialog()"
+                    />
+                }
+                @case ('url') {
+                    <app-url-upload />
+                }
+                @case ('text') {
+                    <app-text-import (textAdded)="uploadAsText($event)" />
+                }
+                @case ('xtream') {
+                    <app-xtream-code-import (addClicked)="closeDialog()" />
+                }
+            }
+        </div>
+    </mat-dialog-content>
+
+    <mat-dialog-actions class="apd-actions">
+        <div class="apd-actions__reset">
+            <button
+                mat-button
+                type="button"
+                [disabled]="isClearDisabled()"
+                (click)="clearCurrentForm()"
+            >
+                {{ 'CLEAR' | translate }}
+            </button>
+        </div>
+
+        <div class="apd-actions__decision">
+            <button mat-button type="button" (click)="closeDialog()">
+                {{ 'CANCEL' | translate }}
+            </button>
+
+            @switch (playlistType()) {
+                @case ('url') {
+                    <button
+                        mat-flat-button
+                        color="primary"
+                        type="button"
+                        [disabled]="!urlUpload()?.form?.valid"
+                        (click)="submitUrlPlaylist()"
+                    >
+                        {{ 'HOME.URL_UPLOAD.ADD_PLAYLIST' | translate }}
+                    </button>
+                }
+                @case ('file') {
+                    <button
+                        mat-flat-button
+                        color="primary"
+                        type="button"
+                        [disabled]="!fileUpload()?.selectedFile()"
+                        (click)="fileUpload()?.confirm()"
+                    >
+                        {{ 'HOME.URL_UPLOAD.ADD_PLAYLIST' | translate }}
+                    </button>
+                }
+                @case ('text') {
+                    <button
+                        mat-flat-button
+                        color="primary"
+                        type="button"
+                        [disabled]="!textImport()?.textForm?.valid"
+                        (click)="
+                            textImport()?.textAdded?.emit(
+                                textImport()?.textForm?.value?.text ?? undefined
+                            )
+                        "
+                    >
+                        {{ 'HOME.TEXT_IMPORT.BUTTON_LABEL' | translate }}
+                    </button>
+                }
+                @case ('xtream') {
+                    <button
+                        mat-stroked-button
+                        type="button"
+                        [disabled]="
+                            !xtreamImport()?.form?.valid ||
+                            xtreamImport()?.isTestingConnection
+                        "
+                        (click)="xtreamImport()?.testConnection()"
+                    >
+                        {{
+                            xtreamImport()?.isTestingConnection
+                                ? 'Testing...'
+                                : 'Test Connection'
+                        }}
+                    </button>
+                    <button
+                        mat-flat-button
+                        color="primary"
+                        type="button"
+                        [disabled]="!xtreamImport()?.form?.valid"
+                        (click)="xtreamImport()?.addPlaylist()"
+                    >
+                        {{ 'HOME.XTREAM_PLAYLIST.ADD' | translate }}
+                    </button>
+                }
+            }
+        </div>
+    </mat-dialog-actions>
+</div>

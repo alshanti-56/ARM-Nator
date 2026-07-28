@@ -1,0 +1,195 @@
+{
+    "name": "electron-backend",
+    "$schema": "../../node_modules/nx/schemas/project-schema.json",
+    "sourceRoot": "apps/electron-backend/src",
+    "projectType": "application",
+    "tags": [
+        "scope:electron",
+        "domain:electron-main",
+        "type:app"
+    ],
+    "targets": {
+        "build-worker": {
+            "executor": "nx:run-commands",
+            "outputs": [
+                "{workspaceRoot}/dist/apps/electron-backend/workers"
+            ],
+            "options": {
+                "command": "node apps/electron-backend/build-worker.js"
+            }
+        },
+        "build-worker-performance": {
+            "executor": "nx:run-commands",
+            "outputs": [
+                "{workspaceRoot}/dist/apps/electron-backend/workers"
+            ],
+            "options": {
+                "command": "node apps/electron-backend/build-worker.js --performance"
+            }
+        },
+        "build-embedded-mpv": {
+            "executor": "nx:run-commands",
+            "cache": false,
+            "outputs": [
+                "{workspaceRoot}/apps/electron-backend/native/build/Release"
+            ],
+            "options": {
+                "command": "node apps/electron-backend/build-embedded-mpv.js"
+            }
+        },
+        "build": {
+            "dependsOn": [
+                "electron-backend:build-worker",
+                "electron-backend:build-embedded-mpv"
+            ],
+            "executor": "nx-electron:build",
+            "outputs": [
+                "{options.outputPath}"
+            ],
+            "inputs": [
+                "production",
+                "^production",
+                "{workspaceRoot}/apps/electron-backend/native/build/Release/**",
+                "{workspaceRoot}/tools/embedded-mpv/runtime-probe-contract.cjs",
+                "{workspaceRoot}/tools/embedded-mpv/runtime-probe-contract.d.cts"
+            ],
+            "options": {
+                "outputPath": "dist/apps/electron-backend",
+                "main": "apps/electron-backend/src/main.ts",
+                "tsConfig": "apps/electron-backend/tsconfig.app.json",
+                "assets": [
+                    "apps/electron-backend/src/assets",
+                    {
+                        "glob": "**/*",
+                        "input": "apps/electron-backend/native/build/Release",
+                        "output": "native",
+                        "ignore": [
+                            ".deps/**",
+                            "obj.target/**",
+                            "**/.deps/**",
+                            "**/obj.target/**",
+                            "obj/**",
+                            "**/obj/**",
+                            "**/*.pdb",
+                            "**/*.iobj",
+                            "**/*.ipdb",
+                            "**/*.ilk",
+                            "**/*.exp",
+                            "**/*.lib",
+                            "**/*.dll.a"
+                        ]
+                    }
+                ]
+            },
+            "configurations": {
+                "production": {
+                    "optimization": true,
+                    "extractLicenses": true,
+                    "inspect": false,
+                    "fileReplacements": [
+                        {
+                            "replace": "apps/electron-backend/src/environments/environment.ts",
+                            "with": "apps/electron-backend/src/environments/environment.prod.ts"
+                        }
+                    ]
+                },
+                "electron-performance": {
+                    "optimization": true,
+                    "extractLicenses": true,
+                    "inspect": false,
+                    "sourceMap": true,
+                    "fileReplacements": [
+                        {
+                            "replace": "apps/electron-backend/src/environments/environment.ts",
+                            "with": "apps/electron-backend/src/environments/environment.prod.ts"
+                        }
+                    ]
+                }
+            }
+        },
+        "build-performance": {
+            "dependsOn": [
+                "electron-backend:build-worker-performance",
+                "electron-backend:build-embedded-mpv"
+            ],
+            "executor": "nx:run-commands",
+            "options": {
+                "command": "pnpm nx run electron-backend:build:electron-performance --excludeTaskDependencies"
+            }
+        },
+        "serve": {
+            "executor": "nx:run-commands",
+            "options": {
+                "command": "nx run electron-backend:serve-electron"
+            }
+        },
+        "serve-electron": {
+            "dependsOn": [
+                "electron-backend:build-worker",
+                "electron-backend:build-embedded-mpv"
+            ],
+            "executor": "nx-electron:execute",
+            "options": {
+                "buildTarget": "electron-backend:build",
+                "waitUntilTargets": [
+                    "desktop-ui:serve"
+                ]
+            }
+        },
+        "package": {
+            "dependsOn": [
+                "electron-backend:build",
+                "electron-backend:generate-builder-metadata"
+            ],
+            "executor": "nx-electron:package",
+            "options": {
+                "name": "electron-backend",
+                "frontendProject": "desktop-ui",
+                "sourcePath": "dist/apps",
+                "outputPath": "dist/packages",
+                "prepackageOnly": true
+            }
+        },
+        "make": {
+            "dependsOn": [
+                "electron-backend:build",
+                "electron-backend:generate-builder-metadata"
+            ],
+            "executor": "nx-electron:make",
+            "options": {
+                "name": "electron-backend",
+                "frontendProject": "desktop-ui",
+                "sourcePath": "dist/apps",
+                "outputPath": "dist/executables"
+            }
+        },
+        "generate-builder-metadata": {
+            "dependsOn": [
+                "electron-backend:build"
+            ],
+            "executor": "nx:run-commands",
+            "cache": true,
+            "inputs": [
+                "{workspaceRoot}/package.json",
+                "{workspaceRoot}/electron-builder.json",
+                "{workspaceRoot}/tools/packaging/generate-electron-builder-metadata.mjs"
+            ],
+            "outputs": [
+                "{workspaceRoot}/apps/electron-backend/src/app/options/electron-builder.metadata.generated.json",
+                "{workspaceRoot}/dist/apps/electron-backend/package.json"
+            ],
+            "options": {
+                "command": "node tools/packaging/generate-electron-builder-metadata.mjs",
+                "cwd": "{workspaceRoot}"
+            }
+        },
+        "lint": {
+            "inputs": [
+                "default",
+                "{workspaceRoot}/tools/embedded-mpv/runtime-probe-contract.cjs",
+                "{workspaceRoot}/tools/embedded-mpv/runtime-probe-contract.d.cts"
+            ],
+            "command": "eslint apps/electron-backend/**/*.ts \"apps/electron-backend/src/app/services/embedded-mpv-frame-copy-runtime.ts\" \"apps/electron-backend/src/app/services/embedded-mpv-frame-copy-runtime/**/*.ts\""
+        }
+    }
+}

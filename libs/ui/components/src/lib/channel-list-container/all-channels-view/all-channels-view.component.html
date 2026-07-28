@@ -1,0 +1,123 @@
+<header class="all-channels-header">
+    <div class="all-channels-header__top">
+        <h2>{{ 'CHANNELS.ALL_CHANNELS' | translate }}</h2>
+        <button
+            type="button"
+            mat-icon-button
+            class="all-channels-sort-button"
+            [matMenuTriggerFor]="channelSortMenu"
+            [matTooltip]="'Sort: ' + allChannelsSortLabel()"
+            aria-label="Sort channels"
+        >
+            <mat-icon>sort_by_alpha</mat-icon>
+        </button>
+        <button
+            type="button"
+            mat-icon-button
+            class="all-channels-sidebar-toggle"
+            [attr.aria-label]="'LAYOUT.HIDE_CHANNELS_LIST' | translate"
+            [matTooltip]="'LAYOUT.TOGGLE_SIDEBAR_TOOLTIP' | translate"
+            (click)="sidebarToggleRequested.emit()"
+        >
+            <mat-icon>chevron_left</mat-icon>
+        </button>
+    </div>
+
+    <mat-menu #channelSortMenu="matMenu">
+        <button mat-menu-item (click)="setAllChannelsSortMode('server')">
+            <mat-icon>drag_indicator</mat-icon>
+            <span>Playlist Order</span>
+            @if (allChannelsSortMode() === 'server') {
+                <mat-icon>check</mat-icon>
+            }
+        </button>
+        <button mat-menu-item (click)="setAllChannelsSortMode('name-asc')">
+            <mat-icon>sort_by_alpha</mat-icon>
+            <span>Name A-Z</span>
+            @if (allChannelsSortMode() === 'name-asc') {
+                <mat-icon>check</mat-icon>
+            }
+        </button>
+        <button mat-menu-item (click)="setAllChannelsSortMode('name-desc')">
+            <mat-icon>sort_by_alpha</mat-icon>
+            <span>Name Z-A</span>
+            @if (allChannelsSortMode() === 'name-desc') {
+                <mat-icon>check</mat-icon>
+            }
+        </button>
+    </mat-menu>
+</header>
+<div class="all-channels-divider"></div>
+
+<div id="all-channels" class="channel-list">
+    @if (filteredChannels().length === 0 && searchTerm()) {
+        <div class="no-results">
+            <mat-icon class="no-results-icon">search_off</mat-icon>
+            <div class="no-results-title">
+                {{ 'CHANNELS.NO_SEARCH_RESULTS' | translate }}
+            </div>
+            <div class="no-results-hint">
+                {{ 'CHANNELS.TRY_DIFFERENT_SEARCH' | translate }}
+            </div>
+        </div>
+    } @else {
+        <cdk-virtual-scroll-viewport
+            [itemSize]="itemSize()"
+            class="scroll-viewport app-scrollbar"
+        >
+            <app-channel-list-item
+                *cdkVirtualFor="
+                    let channel of filteredChannels();
+                    index as i;
+                    trackBy: trackByFn
+                "
+                [name]="
+                    i +
+                    1 +
+                    '. ' +
+                    (channel?.name || 'CHANNELS.UNNAMED_CHANNEL' | translate)
+                "
+                [logo]="getLogoForChannel(channel)"
+                [showEpg]="shouldShowEpg()"
+                [showDetailsContextMenu]="true"
+                [isRadio]="channel?.radio === 'true'"
+                [epgProgram]="
+                    epgMetadataMap().get(getChannelEpgKey(channel))?.epgProgram
+                "
+                [progressPercentage]="
+                    epgMetadataMap().get(getChannelEpgKey(channel))
+                        ?.progressPercentage ?? 0
+                "
+                (clicked)="onChannelClick(channel)"
+                (activated)="onChannelActivate(channel)"
+                (contextMenuRequested)="onChannelContextMenu(channel, $event)"
+                [selected]="activeChannelUrl() === channel?.url"
+                [showFavoriteButton]="true"
+                [isFavorite]="favoriteIds().has(channel?.url ?? '')"
+                (favoriteToggled)="onFavoriteToggle(channel, $event)"
+            />
+        </cdk-virtual-scroll-viewport>
+    }
+</div>
+
+<div
+    aria-hidden="true"
+    class="channel-context-menu-anchor"
+    [style.left]="contextMenuPosition().x"
+    [style.top]="contextMenuPosition().y"
+    [matMenuTriggerFor]="channelContextMenu"
+    #contextMenuTrigger="matMenuTrigger"
+></div>
+
+<mat-menu #channelContextMenu="matMenu">
+    @if (supportsEpgMapping) {
+        <button mat-menu-item (click)="openEpgMapping()">
+            <mat-icon>settings_remote</mat-icon>
+            <span>{{ 'CHANNELS.MAP_EPG' | translate }}</span>
+        </button>
+    }
+    <button mat-menu-item (click)="openChannelDetails()">
+        <mat-icon>info</mat-icon>
+        <span>{{ 'CHANNELS.SHOW_DETAILS' | translate }}</span>
+    </button>
+</mat-menu>

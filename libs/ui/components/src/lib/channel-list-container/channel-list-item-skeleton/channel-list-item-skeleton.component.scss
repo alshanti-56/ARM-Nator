@@ -1,0 +1,132 @@
+@use '../../../../../../providers/shared/ui/src/lib/styles/skeleton';
+
+:host {
+    display: block;
+    width: 100%;
+    container-type: inline-size;
+}
+
+.channel-list-item-skeleton {
+    width: 100%;
+    min-height: 68px;
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    padding: 8px 10px 8px 12px;
+    border: 1px solid transparent;
+    border-radius: 12px;
+    background: transparent;
+    box-sizing: border-box;
+    overflow: hidden;
+
+    &.compact {
+        min-height: 52px;
+        padding-block: 7px;
+    }
+}
+
+.channel-content-skeleton {
+    min-width: 0;
+    flex: 1;
+    display: flex;
+    align-items: center;
+    gap: 12px;
+}
+
+.channel-logo-skeleton {
+    width: 44px;
+    height: 44px;
+    flex-shrink: 0;
+    border-radius: 10px;
+
+    .compact & {
+        width: 38px;
+        height: 38px;
+    }
+}
+
+.channel-details-skeleton {
+    min-width: 0;
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+    gap: 6px;
+}
+
+.channel-name-skeleton {
+    height: 11px;
+    border-radius: 999px;
+    max-width: 100%;
+}
+
+.epg-title-skeleton {
+    height: 9px;
+    border-radius: 999px;
+    max-width: 100%;
+}
+
+.epg-progress-skeleton {
+    height: 6px;
+    width: 100%;
+    border-radius: 999px;
+}
+
+.action-buttons-skeleton {
+    flex-shrink: 0;
+    display: flex;
+    align-items: center;
+    gap: 2px;
+    margin-inline-start: auto;
+}
+
+.action-button-skeleton {
+    width: 34px;
+    height: 34px;
+    border-radius: 10px;
+}
+
+@container (max-width: 360px) {
+    .channel-list-item-skeleton {
+        gap: 10px;
+        padding-inline: 10px 8px;
+    }
+
+    .channel-logo-skeleton {
+        width: 40px;
+        height: 40px;
+    }
+
+    .action-buttons-skeleton {
+        gap: 0;
+    }
+}
+
+@container (max-width: 270px) {
+    .channel-list-item-skeleton {
+        min-height: 52px;
+        gap: 8px;
+        padding-inline: 8px 6px;
+    }
+
+    .channel-logo-skeleton {
+        width: 34px;
+        height: 34px;
+    }
+
+    .epg-title-skeleton,
+    .epg-progress-skeleton {
+        display: none;
+    }
+}
+
+@container (max-width: 220px) {
+    .channel-logo-skeleton,
+    .action-buttons-skeleton {
+        display: none;
+    }
+
+    .channel-content-skeleton {
+        gap: 0;
+    }
+}

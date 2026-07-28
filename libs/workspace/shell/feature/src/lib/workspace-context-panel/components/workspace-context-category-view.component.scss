@@ -1,0 +1,134 @@
+@use '../../../../../../../../apps/desktop-ui/src/nav-list.scss';
+
+:host {
+    display: block;
+    height: 100%;
+    min-height: 0;
+    overflow-y: auto;
+    flex-wrap: wrap;
+    gap: 10px;
+    justify-content: center;
+}
+
+.context-inline-status {
+    margin: 0 4px 8px;
+    padding: 8px 12px;
+    border-radius: 12px;
+    background: color-mix(
+        in srgb,
+        var(--app-selection-surface, var(--mat-sys-surface-container)) 72%,
+        transparent
+    );
+    border: 1px solid
+        color-mix(
+            in srgb,
+            var(--app-selection-border, var(--mat-sys-outline-variant)) 70%,
+            transparent
+        );
+    color: var(--mat-sys-on-surface-variant);
+    font-size: 0.78rem;
+    line-height: 1.35;
+}
+
+.category-item {
+    appearance: none;
+    font: inherit;
+    cursor: pointer;
+    width: auto;
+}
+
+.category-item--disabled,
+.category-item--disabled:hover {
+    cursor: progress;
+    transform: none;
+    box-shadow: none;
+}
+
+.item-count--loading {
+    position: relative;
+    overflow: hidden;
+    width: 22px;
+    height: 10px;
+    border-radius: 999px;
+    background: color-mix(
+        in srgb,
+        var(--app-widget-header-bg, var(--mat-sys-surface-container-high)) 52%,
+        var(--app-body-color, var(--mat-sys-on-surface-variant)) 48%
+    );
+
+    &::after {
+        content: '';
+        position: absolute;
+        inset: 0;
+        background: linear-gradient(
+            100deg,
+            transparent 8%,
+            color-mix(
+                    in srgb,
+                    var(--app-heading-color, var(--mat-sys-on-surface)) 18%,
+                    transparent
+                )
+                44%,
+            transparent 74%
+        );
+        transform: translateX(-120%);
+        animation: context-item-count-shimmer 1.15s ease-in-out infinite;
+    }
+}
+
+// Selected row: tint badge surface with selection accent. Text colour comes
+// from the parent `.nav-item.selected *` rule in nav-list.scss.
+.category-item--selected .item-count.app-count-badge {
+    background: color-mix(
+        in srgb,
+        var(--app-selection-color) 18%,
+        transparent
+    );
+}
+
+mat-card-content {
+    overflow-wrap: break-word;
+    padding: 12px;
+}
+
+.category-empty-state {
+    height: 100%;
+    min-height: 0;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: clamp(14px, 3vh, 28px) 12px clamp(20px, 4vh, 34px);
+    box-sizing: border-box;
+
+    app-workspace-context-error-view {
+        --error-empty-illustration-size: clamp(132px, 15vw, 180px);
+        --error-empty-max-width: min(270px, 100%);
+        --error-empty-title-size: clamp(1.15rem, 1.35vw, 1.4rem);
+        --error-empty-title-weight: 610;
+        --error-empty-title-spacing: -0.006em;
+        --error-empty-copy-gap: 4px;
+        --error-empty-description-opacity: 0.82;
+    }
+}
+
+@keyframes context-item-count-shimmer {
+    100% {
+        transform: translateX(120%);
+    }
+}
+
+@media (max-width: 800px) {
+    .category-item {
+        width: 100%;
+        margin: 4px;
+    }
+
+    .category-empty-state {
+        app-workspace-context-error-view {
+            --error-empty-illustration-size: 142px;
+            --error-empty-max-width: 230px;
+            --error-empty-title-size: 1.05rem;
+            --error-empty-title-weight: 600;
+        }
+    }
+}

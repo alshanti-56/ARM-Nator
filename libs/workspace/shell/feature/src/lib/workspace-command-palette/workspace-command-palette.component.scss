@@ -1,0 +1,220 @@
+:host {
+    display: block;
+    width: 100%;
+    max-height: 80vh;
+    app-region: no-drag;
+}
+
+// ─── Shell ───────────────────────────────────────────────────────────────────
+.palette-shell {
+    background: var(--app-widget-bg);
+    color: var(--mat-sys-on-surface);
+    border: 1px solid var(--app-separator);
+    border-radius: 14px;
+    box-shadow:
+        0 24px 48px -28px rgba(0, 0, 0, 0.5),
+        0 10px 24px -18px rgba(0, 0, 0, 0.35);
+    overflow: hidden;
+}
+
+// ─── Search ──────────────────────────────────────────────────────────────────
+.palette-search {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    padding: 0 14px;
+    min-height: 44px;
+    cursor: text;
+}
+
+.palette-search__icon {
+    font-size: 20px;
+    width: 20px;
+    height: 20px;
+    color: var(--mat-sys-on-surface-variant);
+    flex-shrink: 0;
+    opacity: 0.7;
+}
+
+.palette-search input {
+    flex: 1;
+    border: none;
+    outline: none;
+    background: transparent;
+    color: var(--mat-sys-on-surface);
+    font: inherit;
+    font-size: 0.94rem;
+    font-weight: 450;
+    width: 100%;
+    min-width: 0;
+
+    &::placeholder {
+        color: var(--mat-sys-on-surface-variant);
+        opacity: 0.55;
+    }
+
+    &::-webkit-search-cancel-button {
+        display: none;
+    }
+}
+
+.palette-search__kbd {
+    font-family: inherit;
+    font-size: 0.68rem;
+    font-weight: 500;
+    color: var(--mat-sys-on-surface-variant);
+    border: 1px solid
+        color-mix(
+            in srgb,
+            var(--mat-sys-outline-variant) 80%,
+            transparent
+        );
+    border-radius: 5px;
+    padding: 2px 5px;
+    line-height: 1;
+    flex-shrink: 0;
+    opacity: 0.7;
+}
+
+// ─── Divider ─────────────────────────────────────────────────────────────────
+.palette-divider {
+    height: 1px;
+    background: var(--app-separator);
+}
+
+// ─── Results ─────────────────────────────────────────────────────────────────
+.palette-results {
+    max-height: min(56vh, 480px);
+    overflow-y: auto;
+    overflow-x: hidden;
+    padding: 6px;
+    scrollbar-width: thin;
+    scrollbar-color: color-mix(in srgb, var(--app-muted-color) 55%, transparent)
+        transparent;
+}
+
+// ─── Group ───────────────────────────────────────────────────────────────────
+.palette-group {
+    &:not(:first-child) {
+        margin-top: 4px;
+    }
+}
+
+.palette-group__title {
+    margin: 0;
+    padding: 6px 8px 4px;
+    font-size: 0.68rem;
+    font-weight: 600;
+    color: var(--mat-sys-on-surface-variant);
+    text-transform: uppercase;
+    letter-spacing: 0.06em;
+    opacity: 0.7;
+}
+
+// ─── Command Row ─────────────────────────────────────────────────────────────
+.palette-command {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    width: 100%;
+    padding: 7px 8px;
+    border: 1px solid transparent;
+    border-radius: 9px;
+    background: transparent;
+    color: inherit;
+    text-align: left;
+    cursor: pointer;
+    transition:
+        background 0.12s ease,
+        border-color 0.12s ease;
+
+    &:hover:not(:disabled),
+    &.is-selected:not(:disabled) {
+        background: linear-gradient(
+            135deg,
+            var(--app-selection-surface-strong),
+            var(--app-selection-surface)
+        );
+        border-color: var(--app-selection-border);
+    }
+
+    &.is-selected:not(:disabled) {
+        box-shadow: 0 1px 4px -2px var(--app-selection-glow);
+
+        .palette-command__icon {
+            background: color-mix(
+                in srgb,
+                var(--app-selection-color) 22%,
+                transparent
+            );
+            color: var(--app-selection-color);
+        }
+
+        .palette-command__label {
+            color: var(--app-selection-color);
+        }
+    }
+
+    &:disabled {
+        cursor: not-allowed;
+        opacity: 0.4;
+    }
+}
+
+.palette-command__icon {
+    width: 28px;
+    height: 28px;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    border-radius: 7px;
+    background: color-mix(
+        in srgb,
+        var(--mat-sys-on-surface-variant) 10%,
+        transparent
+    );
+    color: var(--mat-sys-on-surface-variant);
+    flex-shrink: 0;
+    transition:
+        background 0.12s ease,
+        color 0.12s ease;
+
+    mat-icon {
+        font-size: 17px;
+        width: 17px;
+        height: 17px;
+    }
+}
+
+.palette-command__label {
+    font-size: 0.84rem;
+    font-weight: 530;
+    letter-spacing: -0.006em;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    min-width: 0;
+    transition: color 0.12s ease;
+}
+
+.palette-command__desc {
+    margin-left: auto;
+    font-size: 0.74rem;
+    color: var(--mat-sys-on-surface-variant);
+    opacity: 0.65;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    flex-shrink: 1;
+    min-width: 0;
+    padding-left: 12px;
+}
+
+// ─── Empty State ─────────────────────────────────────────────────────────────
+.palette-empty {
+    padding: 20px 14px;
+    text-align: center;
+    color: var(--mat-sys-on-surface-variant);
+    font-size: 0.82rem;
+    opacity: 0.7;
+}

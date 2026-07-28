@@ -1,0 +1,17 @@
+{
+    "name": "providers-import-feature",
+    "$schema": "../../../../node_modules/nx/schemas/project-schema.json",
+    "sourceRoot": "libs/providers/import/feature/src",
+    "prefix": "lib",
+    "projectType": "library",
+    "tags": [
+        "scope:providers",
+        "domain:providers-import",
+        "type:feature"
+    ],
+    "targets": {
+        "lint": {
+            "executor": "@nx/eslint:lint"
+        }
+    }
+}

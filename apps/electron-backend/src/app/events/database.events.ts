@@ -1,0 +1,22 @@
+/**
+ * Database IPC event handlers for Electron
+ * Provides database operations to the renderer process
+ */
+
+import { ipcMain } from 'electron';
+
+import './database/category.events';
+import './database/content.events';
+import './database/epg-db.events';
+import './database/favorites.events';
+import './database/playback-position.events';
+import './database/playlist.events';
+import './database/recently-viewed.events';
+import './database/tmdb.events';
+import './database/xtream.events';
+
+export default class DatabaseEvents {
+    static bootstrapDatabaseEvents(): Electron.IpcMain {
+        return ipcMain;
+    }
+}

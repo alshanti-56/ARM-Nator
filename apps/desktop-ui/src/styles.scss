@@ -1,0 +1,254 @@
+@use '../../../libs/ui/components/src/lib/resizable/resizable.scss';
+@use './settings-theme';
+@use './cover-size';
+
+// ─── Tailwind CSS ─────────────────────────────────────────────────────────────
+// Preflight is disabled in tailwind.config.js to avoid conflicts with
+// Angular Material. Only components + utilities are loaded.
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+// ─── Third-party ─────────────────────────────────────────────────────────────
+@import 'material-design-icons-iconfont/dist/material-design-icons.css';
+
+// ─── Bundled Fonts ────────────────────────────────────────────────────────────
+@import '@fontsource/dm-sans/400.css';
+@import '@fontsource/dm-sans/500.css';
+@import '@fontsource/dm-sans/600.css';
+@import '@fontsource/roboto/300.css';
+@import '@fontsource/roboto/400.css';
+@import '@fontsource/roboto/500.css';
+@import '@fontsource/jetbrains-mono/400.css';
+@import '@fontsource/jetbrains-mono/500.css';
+@import '@fontsource/crimson-pro/400.css';
+@import '@fontsource/crimson-pro/600.css';
+@import '@fontsource/crimson-pro/700.css';
+
+// ─── Shared Components ────────────────────────────────────────────────────────
+
+// Always-visible themed scrollbar. Apply to scroll containers that should
+// reserve gutter and not rely on macOS overlay scrollbars (which auto-fade).
+// Selector is doubled (.app-scrollbar.app-scrollbar) throughout so the rules
+// outrank both component-scoped overflow declarations and the global
+// `.dark-theme ::-webkit-scrollbar` block below.
+.app-scrollbar.app-scrollbar {
+    // !important so the utility wins over component-scoped overflow rules
+    // (Angular ViewEncapsulation adds an attribute selector that pushes
+    // host specificity above the doubled class selector).
+    overflow-y: scroll !important;
+    scrollbar-gutter: stable;
+    scrollbar-width: thin;
+    scrollbar-color: color-mix(in srgb, var(--app-muted-color) 55%, transparent)
+        transparent;
+
+    &::-webkit-scrollbar {
+        width: 10px;
+        height: 10px;
+    }
+
+    &::-webkit-scrollbar-track {
+        background: transparent;
+    }
+
+    &::-webkit-scrollbar-thumb {
+        background-color: color-mix(
+            in srgb,
+            var(--app-muted-color) 70%,
+            transparent
+        );
+        border-radius: 999px;
+        border: 2px solid transparent;
+        background-clip: content-box;
+        min-height: 32px;
+
+        &:hover {
+            background-color: var(--app-muted-color);
+            background-clip: content-box;
+        }
+    }
+}
+
+// Shared count-badge pill. Section headers (dashboard rails, content rails)
+// and dense list rows (category sidebars) share a single visual treatment so
+// "count" reads consistently across the app. Theme-aware via --app-muted-color.
+.app-count-badge {
+    display: inline-flex;
+    align-items: center;
+    flex-shrink: 0;
+    font-size: 0.78rem;
+    font-weight: 500;
+    line-height: 1;
+    color: var(--app-muted-color, #8891a4);
+    font-variant-numeric: tabular-nums;
+    padding: 2px 8px;
+    border-radius: 999px;
+    background: color-mix(
+        in srgb,
+        var(--app-muted-color, #8891a4) 18%,
+        transparent
+    );
+    letter-spacing: 0;
+}
+
+app-root.macos-platform .current-playlist {
+    padding-top: 30px;
+}
+
+// Windows/Linux frameless title bar: reserve room in top-aligned drag
+// regions for the renderer-drawn window controls (3 × 46px buttons).
+// Body-level class so it also reaches cdk-overlay content (multi-EPG).
+body.frameless-platform .workspace-header {
+    padding-right: 150px;
+}
+
+body.frameless-platform #epg-navigation {
+    padding-right: 150px;
+}
+
+// ─── Base ─────────────────────────────────────────────────────────────────────
+// Native UI (scrollbars, form controls, popups) must follow the app theme,
+// not the OS preference. Chromium colors unstyled/native scrollbars from the
+// element's color-scheme, so declare it explicitly for both themes.
+html {
+    color-scheme: light;
+}
+
+// The root scroller (html) sits outside body.dark-theme, so flip it via
+// :has(); the color-scheme declaration in .dark-theme below keeps the body
+// subtree covered in engines without :has() support.
+html:has(> body.dark-theme) {
+    color-scheme: dark;
+}
+
+body,
+html {
+    user-select: none;
+    margin: 0;
+    padding: 0;
+    height: 100%;
+    font-family:
+        'DM Sans',
+        'Roboto',
+        -apple-system,
+        BlinkMacSystemFont,
+        'Segoe UI',
+        'Helvetica Neue',
+        Arial,
+        sans-serif;
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
+}
+
+// Re-enable context menu and text selection for input fields
+input,
+textarea {
+    user-select: text;
+}
+
+@media (display-mode: standalone) {
+    body {
+        overscroll-behavior-y: contain;
+        overflow: hidden;
+    }
+}
+
+// ─── Utilities ────────────────────────────────────────────────────────────────
+.mat-tab-label-active {
+    opacity: 1 !important;
+}
+
+input,
+button,
+textarea,
+:focus {
+    outline: none;
+}
+
+// ─── Dark Theme ───────────────────────────────────────────────────────────────
+.dark-theme {
+    background: var(--mat-sys-surface) !important;
+    color-scheme: dark;
+
+    // Refined scrollbar for dark mode
+    ::-webkit-scrollbar {
+        width: 6px;
+        height: 6px;
+    }
+
+    ::-webkit-scrollbar-track {
+        background: transparent;
+    }
+
+    ::-webkit-scrollbar-thumb {
+        background-color: color-mix(
+            in srgb,
+            var(--app-muted-color) 70%,
+            transparent
+        );
+        border-radius: 999px;
+
+        &:hover {
+            background-color: var(--app-muted-color);
+        }
+    }
+}
+
+.scroll-viewport-portals {
+    min-height: calc(100vh - 170px) !important;
+    overflow-x: hidden !important;
+}
+
+.mat-drawer-inner-container {
+    overflow: hidden !important;
+}
+
+.cdk-overlay-backdrop {
+    backdrop-filter: blur(4px);
+}
+
+// Command palette dialog — the palette-shell renders its own background, border,
+// radius and shadow, so strip MDC's dialog surface chrome to avoid a darker
+// halo peeking out behind the rounded corners.
+.workspace-command-palette-overlay .mat-mdc-dialog-surface {
+    background: transparent;
+    box-shadow: none;
+    border-radius: 14px;
+    padding: 0;
+    overflow: visible;
+}
+
+.workspace-shortcuts-overlay,
+.workspace-shortcuts-overlay .mat-mdc-dialog-surface,
+.workspace-shortcuts-overlay .mat-mdc-dialog-container {
+    app-region: no-drag;
+}
+
+.workspace-shortcuts-overlay .mat-mdc-dialog-surface {
+    background: transparent;
+    box-shadow: none;
+    border-radius: 14px;
+    padding: 0;
+    overflow: visible;
+}
+
+.mat-mdc-snack-bar-container.settings-snackbar {
+    margin-bottom: calc(76px + env(safe-area-inset-bottom, 0px));
+}
+
+// WCAG-friendly visually-hidden helper — content stays in the
+// accessibility tree and DOM query results but occupies no layout box.
+// Used where a visible heading would duplicate adjacent navigation
+// context (e.g. Settings page title that the left rail already
+// announces).
+.visually-hidden {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    padding: 0;
+    margin: -1px;
+    overflow: hidden;
+    clip: rect(0, 0, 0, 0);
+    white-space: nowrap;
+    border: 0;
+}

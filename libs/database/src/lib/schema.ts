@@ -1,0 +1,395 @@
+/**
+ * Drizzle ORM schema for ARM-Nator database
+ * This schema defines the structure for Xtream Codes API data storage
+ *
+ * Single source of truth for database schema - used by:
+ * - electron-backend (full read-write access)
+ * - agent-backend (read-only access for AI queries)
+ */
+
+import { sql } from 'drizzle-orm';
+import {
+    index,
+    integer,
+    sqliteTable,
+    text,
+    uniqueIndex,
+} from 'drizzle-orm/sqlite-core';
+
+// Manual EPG-to-channel mappings live in their own schema module; re-export
+// them so `import * as schema from './schema'` keeps a complete namespace.
+export * from './epg-mapping.schema';
+
+// Playlists table
+export const playlists = sqliteTable('playlists', {
+    id: text('id').primaryKey(),
+    name: text('name').notNull(),
+    serverUrl: text('serverUrl'),
+    username: text('username'),
+    password: text('password'),
+    dateCreated: text('date_created').default(sql`CURRENT_TIMESTAMP`),
+    lastUpdated: text('last_updated'),
+    type: text('type', {
+        enum: ['xtream', 'stalker', 'm3u-file', 'm3u-text', 'm3u-url'],
+    }).notNull(),
+    userAgent: text('userAgent'),
+    origin: text('origin'),
+    referrer: text('referrer'),
+    filePath: text('filePath'),
+    epgUrls: text('epg_urls'),
+    detectedEpgUrls: text('detected_epg_urls'),
+    manualEpgUrls: text('manual_epg_urls'),
+    disabledEpgUrls: text('disabled_epg_urls'),
+    autoRefresh: integer('autoRefresh', { mode: 'boolean' }).default(false),
+    macAddress: text('macAddress'),
+    url: text('url'),
+    portalUrl: text('portal_url'),
+    count: integer('count'),
+    importDate: text('import_date'),
+    updateDate: integer('update_date'),
+    position: integer('position'),
+    favorites: text('favorites'),
+    recentlyViewed: text('recently_viewed'),
+    payload: text('payload'),
+    lastUsage: text('last_usage'),
+});
+
+// App key-value state table (e.g. one-time migration flags)
+export const appState = sqliteTable('app_state', {
+    key: text('key').primaryKey(),
+    value: text('value').notNull(),
+    updatedAt: text('updated_at').default(sql`CURRENT_TIMESTAMP`),
+});
+
+// Categories table
+export const categories = sqliteTable(
+    'categories',
+    {
+        id: integer('id').primaryKey({ autoIncrement: true }),
+        playlistId: text('playlist_id')
+            .notNull()
+            .references(() => playlists.id, { onDelete: 'cascade' }),
+        name: text('name').notNull(),
+        type: text('type', { enum: ['live', 'movies', 'series'] }).notNull(),
+        xtreamId: integer('xtream_id').notNull(),
+        hidden: integer('hidden', { mode: 'boolean' }).default(false),
+    },
+    (table) => ({
+        playlistIdx: index('idx_categories_playlist').on(table.playlistId),
+        typeIdx: index('idx_categories_type').on(table.type),
+        playlistTypeXtreamUnique: uniqueIndex(
+            'categories_playlist_type_xtream_unique'
+        ).on(table.playlistId, table.type, table.xtreamId),
+        // Partial covering index for visible categories — see connection.ts
+        // for the full rationale. SQLite can satisfy joins + hidden filter
+        // directly from this index for the dashboard / search queries.
+        visibleIdx: index('idx_categories_visible')
+            .on(table.id, table.playlistId, table.type)
+            .where(sql`hidden = 0`),
+    })
+);
+
+// Content table (streams/VODs/series)
+export const content = sqliteTable(
+    'content',
+    {
+        id: integer('id').primaryKey({ autoIncrement: true }),
+        categoryId: integer('category_id')
+            .notNull()
+            .references(() => categories.id, { onDelete: 'cascade' }),
+        title: text('title').notNull(),
+        rating: text('rating'),
+        added: text('added'),
+        posterUrl: text('poster_url'),
+        backdropUrl: text('backdrop_url'),
+        epgChannelId: text('epg_channel_id'),
+        tvArchive: integer('tv_archive'),
+        tvArchiveDuration: integer('tv_archive_duration'),
+        directSource: text('direct_source'),
+        xtreamId: integer('xtream_id').notNull(),
+        type: text('type', { enum: ['live', 'movie', 'series'] }).notNull(),
+    },
+    (table) => ({
+        typeIdx: index('idx_content_type').on(table.type),
+        categoryIdx: index('idx_content_category').on(table.categoryId),
+        titleIdx: index('idx_content_title').on(table.title),
+        xtreamIdx: index('idx_content_xtream').on(table.xtreamId),
+        epgChannelIdx: index('idx_content_epg_channel').on(
+            table.epgChannelId
+        ),
+        categoryTypeXtreamUnique: uniqueIndex(
+            'content_category_type_xtream_unique'
+        ).on(table.categoryId, table.type, table.xtreamId),
+        typeAddedIdx: index('idx_content_type_added').on(
+            table.type,
+            table.added
+        ),
+    })
+);
+
+// Recently viewed table
+export const recentlyViewed = sqliteTable(
+    'recently_viewed',
+    {
+        id: integer('id').primaryKey({ autoIncrement: true }),
+        contentId: integer('content_id')
+            .notNull()
+            .references(() => content.id, { onDelete: 'cascade' }),
+        playlistId: text('playlist_id')
+            .notNull()
+            .references(() => playlists.id, { onDelete: 'cascade' }),
+        viewedAt: text('viewed_at').default(sql`CURRENT_TIMESTAMP`),
+    },
+    (table) => ({
+        contentPlaylistUnique: uniqueIndex(
+            'recently_viewed_content_playlist_unique'
+        ).on(table.contentId, table.playlistId),
+        playlistIdx: index('recently_viewed_playlist_idx').on(table.playlistId),
+        viewedAtIdx: index('recently_viewed_viewed_at_idx').on(table.viewedAt),
+        playlistViewedIdx: index('recently_viewed_playlist_viewed_idx').on(
+            table.playlistId,
+            sql`${table.viewedAt} DESC`
+        ),
+    })
+);
+
+// Favorites table
+export const favorites = sqliteTable(
+    'favorites',
+    {
+        id: integer('id').primaryKey({ autoIncrement: true }),
+        contentId: integer('content_id')
+            .notNull()
+            .references(() => content.id, { onDelete: 'cascade' }),
+        playlistId: text('playlist_id')
+            .notNull()
+            .references(() => playlists.id, { onDelete: 'cascade' }),
+        addedAt: text('added_at').default(sql`CURRENT_TIMESTAMP`),
+        /** Display order position in the global favorites list (lower = first) */
+        position: integer('position').default(0),
+    },
+    (table) => ({
+        contentPlaylistUnique: uniqueIndex(
+            'favorites_content_playlist_unique'
+        ).on(table.contentId, table.playlistId),
+        playlistIdx: index('favorites_playlist_idx').on(table.playlistId),
+        contentIdx: index('favorites_content_idx').on(table.contentId),
+        playlistPositionIdx: index('favorites_playlist_position_idx').on(
+            table.playlistId,
+            table.position,
+            sql`${table.addedAt} DESC`
+        ),
+    })
+);
+
+// EPG Channels table
+export const epgChannels = sqliteTable(
+    'epg_channels',
+    {
+        id: text('id').primaryKey(), // Channel ID from EPG source
+        displayName: text('display_name').notNull(),
+        iconUrl: text('icon_url'),
+        url: text('url'),
+        sourceUrl: text('source_url').notNull(), // Which EPG URL this came from
+        updatedAt: text('updated_at').default(sql`CURRENT_TIMESTAMP`),
+    },
+    (table) => ({
+        sourceIdx: index('idx_epg_channels_source').on(table.sourceUrl),
+        nameIdx: index('idx_epg_channels_name').on(table.displayName),
+    })
+);
+
+// EPG Programs table
+export const epgPrograms = sqliteTable(
+    'epg_programs',
+    {
+        id: integer('id').primaryKey({ autoIncrement: true }),
+        channelId: text('channel_id')
+            .notNull()
+            .references(() => epgChannels.id, { onDelete: 'cascade' }),
+        start: text('start').notNull(), // ISO datetime
+        stop: text('stop').notNull(), // ISO datetime
+        title: text('title').notNull(),
+        description: text('description'),
+        category: text('category'),
+        iconUrl: text('icon_url'),
+        rating: text('rating'),
+        episodeNum: text('episode_num'),
+        sourceUrl: text('source_url'),
+    },
+    (table) => ({
+        channelIdx: index('idx_epg_programs_channel').on(table.channelId),
+        sourceIdx: index('idx_epg_programs_source').on(table.sourceUrl),
+        startIdx: index('idx_epg_programs_start').on(table.start),
+        stopIdx: index('idx_epg_programs_stop').on(table.stop),
+        timeRangeIdx: index('idx_epg_programs_time_range').on(
+            table.channelId,
+            table.start,
+            table.stop
+        ),
+        sourceTimeRangeIdx: index('idx_epg_programs_source_time_range').on(
+            table.sourceUrl,
+            table.channelId,
+            table.start,
+            table.stop
+        ),
+    })
+);
+
+// Playback Positions table
+export const playbackPositions = sqliteTable(
+    'playback_positions',
+    {
+        id: integer('id').primaryKey({ autoIncrement: true }),
+        playlistId: text('playlist_id')
+            .notNull()
+            .references(() => playlists.id, { onDelete: 'cascade' }),
+        // For VOD: store xtream_id of the movie
+        // For Series: store episode ID (from XtreamSerieEpisode.id)
+        contentXtreamId: integer('content_xtream_id').notNull(),
+        // 'vod' | 'episode'
+        contentType: text('content_type', {
+            enum: ['vod', 'episode'],
+        }).notNull(),
+        // For episodes: store series xtream_id for grouping
+        seriesXtreamId: integer('series_xtream_id'),
+        // For episodes: store season and episode numbers for display
+        seasonNumber: integer('season_number'),
+        episodeNumber: integer('episode_number'),
+        // Playback position in seconds
+        positionSeconds: integer('position_seconds').notNull().default(0),
+        // Total duration in seconds (for percentage calculation)
+        durationSeconds: integer('duration_seconds'),
+        // Last updated timestamp
+        updatedAt: text('updated_at').default(sql`CURRENT_TIMESTAMP`),
+    },
+    (table) => ({
+        // Unique constraint: one position per content per playlist
+        contentPlaylistUnique: uniqueIndex(
+            'playback_positions_content_playlist_unique'
+        ).on(table.contentXtreamId, table.playlistId, table.contentType),
+        playlistIdx: index('playback_positions_playlist_idx').on(
+            table.playlistId
+        ),
+        seriesIdx: index('playback_positions_series_idx').on(
+            table.seriesXtreamId
+        ),
+        updatedIdx: index('playback_positions_updated_idx').on(table.updatedAt),
+        playlistUpdatedIdx: index('playback_positions_playlist_updated_idx').on(
+            table.playlistId,
+            sql`${table.updatedAt} DESC`
+        ),
+    })
+);
+
+// Type exports for TypeScript
+export type Playlist = typeof playlists.$inferSelect;
+export type NewPlaylist = typeof playlists.$inferInsert;
+export type AppState = typeof appState.$inferSelect;
+export type NewAppState = typeof appState.$inferInsert;
+
+export type Category = typeof categories.$inferSelect;
+export type NewCategory = typeof categories.$inferInsert;
+
+export type Content = typeof content.$inferSelect;
+export type NewContent = typeof content.$inferInsert;
+
+export type RecentlyViewed = typeof recentlyViewed.$inferSelect;
+export type NewRecentlyViewed = typeof recentlyViewed.$inferInsert;
+
+export type Favorite = typeof favorites.$inferSelect;
+export type NewFavorite = typeof favorites.$inferInsert;
+
+export type EpgChannel = typeof epgChannels.$inferSelect;
+export type NewEpgChannel = typeof epgChannels.$inferInsert;
+
+export type EpgProgramDb = typeof epgPrograms.$inferSelect;
+export type NewEpgProgramDb = typeof epgPrograms.$inferInsert;
+
+export type PlaybackPosition = typeof playbackPositions.$inferSelect;
+export type NewPlaybackPosition = typeof playbackPositions.$inferInsert;
+
+// Downloads table
+export const downloads = sqliteTable(
+    'downloads',
+    {
+        id: integer('id').primaryKey({ autoIncrement: true }),
+        playlistId: text('playlist_id')
+            .notNull()
+            .references(() => playlists.id, { onDelete: 'cascade' }),
+        // Content identifiers
+        xtreamId: integer('xtream_id').notNull(),
+        contentType: text('content_type', {
+            enum: ['vod', 'episode'],
+        }).notNull(),
+        // For episodes: store series info
+        seriesXtreamId: integer('series_xtream_id'),
+        seasonNumber: integer('season_number'),
+        episodeNumber: integer('episode_number'),
+        // Download metadata
+        title: text('title').notNull(),
+        url: text('url').notNull(),
+        fileName: text('file_name'),
+        filePath: text('file_path'),
+        posterUrl: text('poster_url'),
+        requestHeaders: text('request_headers'),
+        resumeValidator: text('resume_validator'),
+        // Download progress
+        status: text('status', {
+            enum: [
+                'queued',
+                'downloading',
+                'paused',
+                'completed',
+                'failed',
+                'canceled',
+            ],
+        })
+            .notNull()
+            .default('queued'),
+        bytesDownloaded: integer('bytes_downloaded').default(0),
+        totalBytes: integer('total_bytes'),
+        errorMessage: text('error_message'),
+        // Timestamps
+        createdAt: text('created_at').default(sql`CURRENT_TIMESTAMP`),
+        updatedAt: text('updated_at').default(sql`CURRENT_TIMESTAMP`),
+    },
+    (table) => ({
+        playlistIdx: index('downloads_playlist_idx').on(table.playlistId),
+        statusIdx: index('downloads_status_idx').on(table.status),
+        xtreamPlaylistUnique: uniqueIndex(
+            'downloads_xtream_playlist_unique'
+        ).on(table.xtreamId, table.playlistId, table.contentType),
+    })
+);
+
+export type Download = typeof downloads.$inferSelect;
+export type NewDownload = typeof downloads.$inferInsert;
+
+// TMDB metadata cache table.
+// Two row kinds share the table, discriminated by the lookup_key prefix:
+// - 'id:<tmdbId>'                 → full TMDB details payload (JSON)
+// - 'title:<normalized>|year:<y>' → search resolution; tmdb_id NULL means
+//                                   "no confident match" (negative cache)
+export const tmdbMetadata = sqliteTable(
+    'tmdb_metadata',
+    {
+        id: integer('id').primaryKey({ autoIncrement: true }),
+        mediaType: text('media_type', { enum: ['movie', 'tv', 'person'] }).notNull(),
+        lookupKey: text('lookup_key').notNull(),
+        language: text('language').notNull(),
+        tmdbId: integer('tmdb_id'),
+        payload: text('payload'),
+        fetchedAt: text('fetched_at').default(sql`CURRENT_TIMESTAMP`),
+    },
+    (table) => ({
+        lookupUnique: uniqueIndex('tmdb_metadata_lookup_unique').on(
+            table.mediaType,
+            table.lookupKey,
+            table.language
+        ),
+    })
+);
+
+export type TmdbMetadata = typeof tmdbMetadata.$inferSelect;
+export type NewTmdbMetadata = typeof tmdbMetadata.$inferInsert;

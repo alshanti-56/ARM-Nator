@@ -1,0 +1,41 @@
+@switch (status()) {
+    @case ('loading') {
+        <span class="status status--loading">
+            <mat-progress-spinner diameter="14" mode="indeterminate" />
+            <span class="status__label">{{ 'EPG.LOADING' | translate }}</span>
+        </span>
+    }
+    @case ('queued') {
+        <span class="status status--queued">
+            <mat-icon>schedule</mat-icon>
+            <span class="status__label">{{ 'EPG.QUEUED' | translate }}</span>
+        </span>
+    }
+    @case ('fresh') {
+        <span class="status status--fresh">
+            <mat-icon>check_circle</mat-icon>
+            <span class="status__label">{{
+                'SETTINGS.EPG_STATUS_FRESH' | translate
+            }}</span>
+        </span>
+    }
+    @case ('stale') {
+        <span class="status status--stale">
+            <mat-icon>schedule</mat-icon>
+            <span class="status__label">{{
+                'SETTINGS.EPG_STATUS_STALE' | translate
+            }}</span>
+        </span>
+    }
+    @case ('error') {
+        <span
+            class="status status--error"
+            [matTooltip]="errorMessage() ?? ''"
+        >
+            <mat-icon>error</mat-icon>
+            <span class="status__label">{{
+                'SETTINGS.EPG_STATUS_ERROR' | translate
+            }}</span>
+        </span>
+    }
+}

@@ -1,0 +1,61 @@
+<div class="palette-shell">
+    <label class="palette-search">
+        <mat-icon class="palette-search__icon">search</mat-icon>
+        <input
+            #queryInput
+            type="search"
+            spellcheck="false"
+            [value]="query()"
+            (input)="onQueryInput($event)"
+            (keydown)="onInputKeydown($event)"
+            [placeholder]="
+                'WORKSPACE.COMMAND_PALETTE.SEARCH_PLACEHOLDER' | translate
+            "
+            [attr.aria-label]="
+                'WORKSPACE.COMMAND_PALETTE.SEARCH_LABEL' | translate
+            "
+        />
+        <kbd class="palette-search__kbd">&#8984;K</kbd>
+    </label>
+
+    @if (commandGroups().length > 0) {
+        <div class="palette-divider"></div>
+
+        <div class="palette-results">
+            @for (group of commandGroups(); track group.group) {
+                <section class="palette-group">
+                    <h3 class="palette-group__title">
+                        {{ getGroupTitleKey(group.group) | translate }}
+                    </h3>
+                    @for (command of group.items; track command.id) {
+                        <button
+                            type="button"
+                            class="palette-command"
+                            [class.is-selected]="isCommandSelected(command)"
+                            [disabled]="!command.enabled"
+                            (mouseenter)="onCommandHover(command)"
+                            (click)="onCommandClick(command)"
+                        >
+                            <span class="palette-command__icon">
+                                <mat-icon>{{ command.icon }}</mat-icon>
+                            </span>
+                            <span class="palette-command__label">{{
+                                command.label
+                            }}</span>
+                            @if (command.description) {
+                                <span class="palette-command__desc">{{
+                                    command.description
+                                }}</span>
+                            }
+                        </button>
+                    }
+                </section>
+            }
+        </div>
+    } @else {
+        <div class="palette-divider"></div>
+        <div class="palette-empty">
+            {{ 'WORKSPACE.COMMAND_PALETTE.EMPTY' | translate }}
+        </div>
+    }
+</div>

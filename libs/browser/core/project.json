@@ -1,0 +1,13 @@
+{
+  "name": "browser-core",
+  "$schema": "../../../node_modules/nx/schemas/project-schema.json",
+  "sourceRoot": "libs/browser/core/src",
+  "prefix": "lib",
+  "projectType": "library",
+  "tags": ["scope:shared", "domain:browser", "type:util"],
+  "targets": {
+    "lint": {
+      "executor": "@nx/eslint:lint"
+    }
+  }
+}

@@ -1,0 +1,85 @@
+<div class="recently-added-page">
+    <h2 class="recently-added-page__title">
+        {{ 'PORTALS.SIDEBAR.RECENTLY_ADDED' | translate }}
+    </h2>
+
+    @if (isLoading()) {
+        <!-- Three skeleton rails cover the typical shape of this view. -->
+        @for (_ of [1, 2, 3]; track $index) {
+            <section class="recently-added-page__skeleton-rail">
+                <div
+                    class="recently-added-page__skeleton-header"
+                    aria-hidden="true"
+                ></div>
+                <div
+                    class="recently-added-page__skeleton-track"
+                    aria-hidden="true"
+                >
+                    @for (slot of skeletonSlots; track slot) {
+                        <div class="recently-added-page__skeleton-card"></div>
+                    }
+                </div>
+            </section>
+        }
+    } @else {
+        @if (recentlyAddedVod().length > 0) {
+            <app-content-rail-shell
+                class="recently-added-page__rail"
+                [label]="'PORTALS.SIDEBAR.MOVIES' | translate"
+                [totalCount]="recentlyAddedVod().length"
+                [seeAllLink]="vodSeeAllLink()"
+                [seeAllLabel]="vodSeeAllLabel()"
+            >
+                @for (item of recentlyAddedVod(); track item.xtream_id) {
+                    <app-content-card
+                        [title]="item.title || item.name || ''"
+                        [posterUrl]="item.poster_url || item.stream_icon"
+                        [type]="'movie'"
+                        [date]="getDate(item)"
+                        (cardClick)="openItem(item, 'vod')"
+                    />
+                }
+            </app-content-rail-shell>
+        }
+
+        @if (recentlyAddedSeries().length > 0) {
+            <app-content-rail-shell
+                class="recently-added-page__rail"
+                [label]="'PORTALS.SIDEBAR.SERIES' | translate"
+                [totalCount]="recentlyAddedSeries().length"
+                [seeAllLink]="seriesSeeAllLink()"
+                [seeAllLabel]="seriesSeeAllLabel()"
+            >
+                @for (item of recentlyAddedSeries(); track item.xtream_id) {
+                    <app-content-card
+                        [title]="item.title || item.name || ''"
+                        [posterUrl]="item.poster_url || item.cover"
+                        [type]="'series'"
+                        [date]="getDate(item, true)"
+                        (cardClick)="openItem(item, 'series')"
+                    />
+                }
+            </app-content-rail-shell>
+        }
+
+        @if (recentlyAddedLive().length > 0) {
+            <app-content-rail-shell
+                class="recently-added-page__rail"
+                [label]="'PORTALS.SIDEBAR.LIVE_TV' | translate"
+                [totalCount]="recentlyAddedLive().length"
+                [seeAllLink]="liveSeeAllLink()"
+                [seeAllLabel]="liveSeeAllLabel()"
+            >
+                @for (item of recentlyAddedLive(); track item.xtream_id) {
+                    <app-content-card
+                        [title]="item.title || item.name || ''"
+                        [posterUrl]="item.poster_url || item.stream_icon"
+                        [type]="'live'"
+                        [date]="getDate(item)"
+                        (cardClick)="openItem(item, 'live')"
+                    />
+                }
+            </app-content-rail-shell>
+        }
+    }
+</div>

@@ -1,0 +1,192 @@
+{
+    "name": "desktop-ui",
+    "$schema": "../../node_modules/nx/schemas/project-schema.json",
+    "projectType": "application",
+    "prefix": "app",
+    "sourceRoot": "apps/desktop-ui/src",
+    "tags": [
+        "scope:app",
+        "domain:desktop-ui",
+        "type:app"
+    ],
+    "targets": {
+        "build": {
+            "executor": "@angular/build:application",
+            "outputs": [
+                "{workspaceRoot}/dist/apps/desktop-ui"
+            ],
+            "options": {
+                "outputPath": {
+                    "base": "dist/apps/desktop-ui",
+                    "browser": ""
+                },
+                "polyfills": [
+                    "zone.js"
+                ],
+                "tsConfig": "apps/desktop-ui/tsconfig.app.json",
+                "inlineStyleLanguage": "scss",
+                "serviceWorker": "ngsw-config.json",
+                "assets": [
+                    "apps/desktop-ui/src/favicon.ico",
+                    "apps/desktop-ui/src/assets",
+                    "apps/desktop-ui/src/manifest.webmanifest"
+                ],
+                "styles": [
+                    "apps/desktop-ui/src/styles.scss",
+                    "apps/desktop-ui/src/m3-theme.scss"
+                ],
+                "allowedCommonJsDependencies": [
+                    "iptv-playlist-parser",
+                    "mpegts.js",
+                    "global/window",
+                    "global/document",
+                    "mux.js/lib/tools/parse-sidx",
+                    "mux.js/lib/utils/clock",
+                    "keycode",
+                    "safe-json-parse/tuple",
+                    "@xmldom/xmldom",
+                    "url-toolkit"
+                ]
+            },
+            "configurations": {
+                "production": {
+                    "baseHref": "./",
+                    "budgets": [
+                        {
+                            "type": "initial",
+                            "maximumWarning": "4.5mb",
+                            "maximumError": "5mb"
+                        },
+                        {
+                            "type": "anyComponentStyle",
+                            "maximumWarning": "12.5kb",
+                            "maximumError": "15kb"
+                        }
+                    ],
+                    "optimization": {
+                        "scripts": true,
+                        "styles": {
+                            "minify": true,
+                            "inlineCritical": false,
+                            "removeSpecialComments": true
+                        },
+                        "fonts": true
+                    },
+                    "outputHashing": "all",
+                    "fileReplacements": [
+                        {
+                            "replace": "apps/desktop-ui/src/environments/environment.ts",
+                            "with": "apps/desktop-ui/src/environments/environment.prod.ts"
+                        }
+                    ]
+                },
+                "pwa": {
+                    "baseHref": "/",
+                    "budgets": [
+                        {
+                            "type": "initial",
+                            "maximumWarning": "4.5mb",
+                            "maximumError": "5mb"
+                        },
+                        {
+                            "type": "anyComponentStyle",
+                            "maximumWarning": "12.5kb",
+                            "maximumError": "15kb"
+                        }
+                    ],
+                    "outputHashing": "all",
+                    "optimization": {
+                        "scripts": true,
+                        "styles": {
+                            "minify": true,
+                            "inlineCritical": false,
+                            "removeSpecialComments": true
+                        },
+                        "fonts": true
+                    },
+                    "extractLicenses": true,
+                    "sourceMap": false,
+                    "fileReplacements": [
+                        {
+                            "replace": "apps/desktop-ui/src/environments/environment.ts",
+                            "with": "apps/desktop-ui/src/environments/environment.prod.ts"
+                        }
+                    ]
+                },
+                "development": {
+                    "serviceWorker": false,
+                    "optimization": false,
+                    "extractLicenses": false,
+                    "sourceMap": true
+                },
+                "electron-performance": {
+                    "baseHref": "./",
+                    "serviceWorker": false,
+                    "optimization": {
+                        "scripts": true,
+                        "styles": {
+                            "minify": true,
+                            "inlineCritical": false,
+                            "removeSpecialComments": true
+                        },
+                        "fonts": true
+                    },
+                    "outputHashing": "all",
+                    "sourceMap": true,
+                    "fileReplacements": [
+                        {
+                            "replace": "apps/desktop-ui/src/environments/environment.ts",
+                            "with": "apps/desktop-ui/src/environments/environment.prod.ts"
+                        }
+                    ]
+                }
+            },
+            "defaultConfiguration": "production"
+        },
+        "build-performance": {
+            "executor": "nx:run-commands",
+            "options": {
+                "command": "pnpm nx run desktop-ui:build:electron-performance"
+            }
+        },
+        "serve": {
+            "continuous": true,
+            "executor": "@angular/build:dev-server",
+            "configurations": {
+                "production": {
+                    "buildTarget": "desktop-ui:build:production"
+                },
+                "pwa": {
+                    "buildTarget": "desktop-ui:build:pwa"
+                },
+                "development": {
+                    "buildTarget": "desktop-ui:build:development"
+                }
+            },
+            "defaultConfiguration": "development",
+            "options": {
+                "proxyConfig": "apps/desktop-ui/proxy.conf.json",
+                "prebundle": true
+            }
+        },
+        "extract-i18n": {
+            "executor": "@angular/build:extract-i18n",
+            "options": {
+                "buildTarget": "desktop-ui:build"
+            }
+        },
+        "lint": {
+            "executor": "@nx/eslint:lint"
+        },
+        "serve-static": {
+            "continuous": true,
+            "executor": "@nx/web:file-server",
+            "options": {
+                "buildTarget": "desktop-ui:build:pwa",
+                "port": 4200,
+                "staticFilePath": "dist/apps/desktop-ui",
+                "spa": true
+            }
+        }
+    }
+}

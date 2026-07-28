@@ -1,0 +1,110 @@
+{
+  "compileOnSave": false,
+  "compilerOptions": {
+    "rootDir": ".",
+    "sourceMap": true,
+    "declaration": false,
+    "moduleResolution": "bundler",
+    "esModuleInterop": true,
+    "emitDecoratorMetadata": true,
+    "experimentalDecorators": true,
+    "importHelpers": true,
+    "target": "es2015",
+    "module": "esnext",
+    "lib": ["es2020", "dom"],
+    "skipLibCheck": true,
+    "skipDefaultLibCheck": true,
+    "baseUrl": ".",
+    "paths": {
+      "@arm-nator/browser/core": ["libs/browser/core/src/index.ts"],
+      "@arm-nator/player/core": ["libs/player/core/src/index.ts"],
+      "@arm-nator/tools/core": ["libs/tools/core/src/index.ts"],
+      "@arm-nator/player/ui/external-player-info-dialog": [
+        "libs/player/ui/src/lib/external-player-info-dialog/external-player-info-dialog.component.ts"
+      ],
+      "@arm-nator/player/ui/embedded-mpv-player": [
+        "libs/player/ui/src/lib/embedded-mpv-player/index.ts"
+      ],
+      "@arm-nator/player/ui": ["libs/player/ui/src/index.ts"],
+      "@arm-nator/providers/catalog/feature": [
+        "libs/providers/catalog/feature/src/index.ts"
+      ],
+      "@arm-nator/providers/import/feature": [
+        "libs/providers/import/feature/src/index.ts"
+      ],
+      "@arm-nator/providers/shared/playlist-ui": [
+        "libs/providers/shared/playlist-ui/src/index.ts"
+      ],
+      "@arm-nator/providers/shared/playlist-util": [
+        "libs/providers/shared/playlist-util/src/index.ts"
+      ],
+      "@arm-nator/providers/shared/ui": [
+        "libs/providers/shared/ui/src/index.ts"
+      ],
+      "@arm-nator/providers/shared/data-access": [
+        "libs/providers/shared/data-access/src/index.ts"
+      ],
+      "@arm-nator/providers/shared/util": [
+        "libs/providers/shared/util/src/index.ts"
+      ],
+      "@arm-nator/providers/m3u/feature-player": [
+        "libs/providers/m3u/feature-player/src/index.ts"
+      ],
+      "@arm-nator/providers/m3u/state": [
+        "libs/providers/m3u/state/src/index.ts"
+      ],
+      "@arm-nator/providers/m3u/utils": [
+        "libs/providers/m3u/utils/src/index.ts"
+      ],
+      "@arm-nator/providers/xtream/feature": [
+        "libs/providers/xtream/feature/src/index.ts"
+      ],
+      "@arm-nator/providers/xtream/data-access": [
+        "libs/providers/xtream/data-access/src/index.ts"
+      ],
+      "@arm-nator/epg/ui": ["libs/epg/ui/src/index.ts"],
+      "@arm-nator/epg/ui/date": ["libs/epg/ui/src/lib/epg-date.ts"],
+      "@arm-nator/epg/ui/progress-panel": [
+        "libs/epg/ui/src/lib/epg-progress-panel/epg-progress-panel.component.ts"
+      ],
+      "@arm-nator/database": ["libs/database/src/index.ts"],
+      "@arm-nator/database/schema": ["libs/database/src/lib/schema.ts"],
+      "@arm-nator/database/path-utils": [
+        "libs/database/src/lib/path-utils.ts"
+      ],
+      "@arm-nator/settings/ui": ["libs/settings/ui/src/index.ts"],
+      "@arm-nator/settings/data-access": [
+        "libs/settings/data-access/src/index.ts"
+      ],
+      "@arm-nator/epg/data-access": ["libs/epg/data-access/src/index.ts"],
+      "@arm-nator/workspace/shell/feature": [
+        "libs/workspace/shell/feature/src/index.ts"
+      ],
+      "@arm-nator/workspace/shell/util": [
+        "libs/workspace/shell/util/src/index.ts"
+      ],
+      "@arm-nator/pipes": ["libs/ui/pipes/src/index.ts"],
+      "@arm-nator/ui/components": ["libs/ui/components/src/index.ts"],
+      "@arm-nator/shared/testing": ["libs/shared/testing/src/index.ts"],
+      "@arm-nator/shared/logging": ["libs/shared/logging/src/index.ts"],
+      "@arm-nator/services": ["libs/services/src/index.ts"],
+      "@arm-nator/shared/interfaces": ["libs/shared/interfaces/src/index.ts"],
+      "@arm-nator/shared/interfaces/ipc-commands": [
+        "libs/shared/interfaces/src/lib/ipc-commands.ts"
+      ],
+      "@arm-nator/ui/shared-portals": ["libs/ui/shared-portals/src/index.ts"],
+      "@arm-nator/workspace/dashboard/feature": [
+        "libs/workspace/dashboard/feature/src/index.ts"
+      ],
+      "@arm-nator/workspace/dashboard/data-access": [
+        "libs/workspace/dashboard/data-access/src/index.ts"
+      ],
+      "@package": ["./package.json"],
+      "@arm-nator/shared/marketing-fixtures": [
+        "./libs/shared/marketing-fixtures/src/index.ts"
+      ]
+    }
+  },
+  "exclude": ["node_modules", "tmp"],
+  "files": ["global.d.ts"]
+}

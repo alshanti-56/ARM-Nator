@@ -1,0 +1,140 @@
+@use '../../../../../../ui/styles/portal-layout' as portal;
+
+@include portal.live-layout;
+
+:host {
+    min-height: 0;
+    background: var(--mat-sys-surface);
+}
+
+.sidebar {
+    > app-channel-list-loading-state {
+        flex: 1;
+        min-height: 0;
+        overflow: hidden;
+    }
+
+    app-sidebar {
+        flex: 1;
+        min-height: 0;
+        overflow: hidden;
+    }
+
+    .sidebar-collapse-toggle {
+        position: absolute;
+        top: 6px;
+        right: 6px;
+        z-index: 3;
+        width: 32px;
+        height: 32px;
+        opacity: 0.7;
+        transition: opacity 0.15s ease;
+        padding: 0;
+
+        &:hover,
+        &:focus-visible {
+            opacity: 1;
+        }
+    }
+}
+
+.content-container {
+    min-width: 0;
+    background: var(--mat-sys-surface);
+}
+
+.video-player {
+    background: #000;
+
+    &:has(> app-audio-player) {
+        background: var(--mat-sys-surface);
+    }
+
+    > app-audio-player,
+    > app-html-video-player,
+    > app-art-player {
+        flex: 1;
+        min-height: 0;
+        display: block;
+    }
+}
+
+.epg {
+    border-top: 1px solid var(--mat-sys-outline-variant);
+    background: var(--mat-sys-surface);
+}
+
+.epg-content {
+    > app-epg-list {
+        flex: 1;
+        min-height: 0;
+    }
+}
+
+.channel-number-overlay {
+    position: fixed;
+    top: 50%;
+    left: 50%;
+    transform: translate(-50%, -50%);
+    z-index: 1000;
+    pointer-events: none;
+}
+
+.channel-number-display {
+    min-width: 120px;
+    padding: 2rem 3rem;
+    border: 2px solid rgba(255, 255, 255, 0.1);
+    border-radius: 16px;
+    background: rgba(0, 0, 0, 0.85);
+    box-shadow: 0 8px 32px rgba(0, 0, 0, 0.5);
+    color: #fff;
+    font-family: 'DM Sans', sans-serif;
+    font-size: 6rem;
+    font-weight: 700;
+    letter-spacing: 0.05em;
+    text-align: center;
+    animation: scaleIn 0.15s ease-out;
+}
+
+@keyframes scaleIn {
+    from {
+        opacity: 0;
+        transform: scale(0.8);
+    }
+
+    to {
+        opacity: 1;
+        transform: scale(1);
+    }
+}
+
+@media only screen and (max-width: 599px) {
+    :host {
+        flex-direction: column-reverse;
+    }
+
+    .sidebar {
+        width: 100%;
+        min-width: 100%;
+        max-width: 100%;
+        height: 50vh;
+        border-right: none;
+        border-top: 1px solid var(--mat-sys-outline-variant);
+
+        // Sidebar collapse uses width=0 on desktop; on mobile the rail flips
+        // to a bottom drawer so collapse it via height instead.
+        &.sidebar-collapsed {
+            width: 100% !important;
+            min-width: 100% !important;
+            height: 0 !important;
+        }
+    }
+
+    .content-container {
+        height: 50vh;
+    }
+
+    .sidebar-restore {
+        display: none;
+    }
+}

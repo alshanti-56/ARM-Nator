@@ -1,0 +1,242 @@
+<ng-content select="ng-template[unifiedCollectionDetail]"></ng-content>
+
+@if (detailContext(); as detailContext) {
+    <ng-container
+        [ngTemplateOutlet]="detailTemplate()?.templateRef ?? null"
+        [ngTemplateOutletContext]="detailContext"
+    />
+} @else if (isLoading()) {
+    <div class="collection-header">
+        <span class="collection-title">{{ title() | translate }}</span>
+        <div class="collection-header-toggles">
+            <span class="toggle-placeholder"></span>
+            @if (showScopeToggle()) {
+                <span
+                    class="toggle-placeholder toggle-placeholder--scope"
+                ></span>
+            }
+        </div>
+    </div>
+    @if (selectedContentType() === 'live') {
+        <div class="skeleton-list">
+            <app-channel-list-skeleton
+                [count]="12"
+                [showEpg]="true"
+                [actionCount]="1"
+            />
+        </div>
+    } @else {
+        <div class="skeleton-grid">
+            @for (card of skeletonCards; track card) {
+                <div class="grid-skeleton-card" aria-hidden="true">
+                    <div class="grid-skeleton-thumb">
+                        <span class="grid-skeleton-badge"></span>
+                    </div>
+                    <div class="grid-skeleton-title">
+                        <span
+                            class="grid-skeleton-line grid-skeleton-line--primary"
+                        ></span>
+                        <span
+                            class="grid-skeleton-line grid-skeleton-line--secondary"
+                        ></span>
+                    </div>
+                </div>
+            }
+        </div>
+    }
+} @else {
+    <div class="collection-header">
+        <span class="collection-title">{{ title() | translate }}</span>
+
+        @if (showFavSortButton()) {
+            <button
+                type="button"
+                mat-icon-button
+                class="favorites-sort-button"
+                [matMenuTriggerFor]="favoritesSortMenu"
+                [matTooltip]="
+                    ('WORKSPACE.SORT_LABEL' | translate) +
+                    (favSortLabelKey() | translate)
+                "
+                [attr.aria-label]="'WORKSPACE.SORT_LABEL' | translate"
+            >
+                <mat-icon>sort_by_alpha</mat-icon>
+            </button>
+            <mat-menu #favoritesSortMenu="matMenu">
+                @for (option of favSortOptions; track option.mode) {
+                    <button
+                        mat-menu-item
+                        (click)="setFavSortMode(option.mode)"
+                    >
+                        <mat-icon>{{ option.icon }}</mat-icon>
+                        <span>{{ option.translationKey | translate }}</span>
+                        @if (favSortMode() === option.mode) {
+                            <mat-icon class="sort-check">check</mat-icon>
+                        }
+                    </button>
+                }
+            </mat-menu>
+        }
+
+        @if (showSidebarToggle()) {
+            <button
+                type="button"
+                mat-icon-button
+                class="collection-sidebar-toggle"
+                [attr.aria-label]="
+                    (isSidebarCollapsed()
+                        ? 'LAYOUT.SHOW_CHANNELS_LIST'
+                        : 'LAYOUT.HIDE_CHANNELS_LIST'
+                    ) | translate
+                "
+                [matTooltip]="'LAYOUT.TOGGLE_SIDEBAR_TOOLTIP' | translate"
+                [attr.aria-pressed]="isSidebarCollapsed()"
+                (click)="toggleSidebar()"
+            >
+                <mat-icon>{{
+                    isSidebarCollapsed() ? 'chevron_right' : 'chevron_left'
+                }}</mat-icon>
+            </button>
+        }
+
+        <div class="collection-header-toggles">
+            @if (showContentToggle()) {
+                <mat-button-toggle-group
+                    class="content-toggle"
+                    [value]="selectedContentType()"
+                    (change)="onContentTypeChange($event.value)"
+                    hideSingleSelectionIndicator
+                >
+                    @if (hasLive()) {
+                        <mat-button-toggle value="live">
+                            {{ 'PORTALS.LIVE_TV' | translate }}
+                        </mat-button-toggle>
+                    }
+                    @if (hasMovies()) {
+                        <mat-button-toggle value="movie">
+                            {{ 'PORTALS.MOVIES' | translate }}
+                        </mat-button-toggle>
+                    }
+                    @if (hasSeries()) {
+                        <mat-button-toggle value="series">
+                            {{ 'PORTALS.SERIES' | translate }}
+                        </mat-button-toggle>
+                    }
+                </mat-button-toggle-group>
+            }
+
+            @if (showScopeToggle()) {
+                <mat-button-toggle-group
+                    class="scope-toggle"
+                    [value]="scope()"
+                    (change)="onScopeChange($event.value)"
+                    hideSingleSelectionIndicator
+                >
+                    <mat-button-toggle value="playlist">
+                        <mat-icon>playlist_play</mat-icon>
+                        <span class="toggle-label">{{
+                            'PORTALS.THIS_PLAYLIST' | translate
+                        }}</span>
+                    </mat-button-toggle>
+                    <mat-button-toggle value="all">
+                        <mat-icon>public</mat-icon>
+                        <span class="toggle-label">{{
+                            'PORTALS.ALL_PLAYLISTS' | translate
+                        }}</span>
+                    </mat-button-toggle>
+                </mat-button-toggle-group>
+            }
+
+            @if (currentTypeItems().length > 0) {
+                <button
+                    type="button"
+                    mat-icon-button
+                    (click)="clearAllCurrent()"
+                    [matTooltip]="
+                        clearButtonTooltipKey()
+                            | translate
+                                : {
+                                      type:
+                                          currentTypeLabelKey() | translate,
+                                  }
+                    "
+                    [attr.aria-label]="
+                        clearButtonTooltipKey()
+                            | translate
+                                : {
+                                      type:
+                                          currentTypeLabelKey() | translate,
+                                  }
+                    "
+                >
+                    <mat-icon>delete_sweep</mat-icon>
+                </button>
+            }
+        </div>
+    </div>
+
+    @switch (selectedContentType()) {
+        @case ('live') {
+            @if (hasLive()) {
+                <app-unified-live-tab
+                    [items]="liveItems()"
+                    [mode]="mode()"
+                    [searchTerm]="workspaceSearchTerm()"
+                    [autoOpenItem]="pendingAutoOpenLiveItem()"
+                    [favoriteUids]="favoriteUidSet()"
+                    [sortMode]="favSortMode()"
+                    [isSidebarCollapsed]="isSidebarCollapsed()"
+                    (removeItem)="onRemoveItem($event)"
+                    (favoriteToggled)="onFavoriteToggled($event)"
+                    (reorderItems)="onReorder($event)"
+                    (itemPlayed)="onItemPlayed($event)"
+                    (autoOpenHandled)="onLiveAutoOpenHandled()"
+                />
+            }
+        }
+        @case ('movie') {
+            @if (hasMovies()) {
+                <app-unified-grid-tab
+                    [items]="movieItems()"
+                    [mode]="mode()"
+                    [contentType]="'movie'"
+                    [searchTerm]="workspaceSearchTerm()"
+                    (itemSelected)="onGridItemSelected($event)"
+                    (removeItem)="onRemoveItem($event)"
+                />
+            }
+        }
+        @case ('series') {
+            @if (hasSeries()) {
+                <app-unified-grid-tab
+                    [items]="seriesItems()"
+                    [mode]="mode()"
+                    [contentType]="'series'"
+                    [searchTerm]="workspaceSearchTerm()"
+                    (itemSelected)="onGridItemSelected($event)"
+                    (removeItem)="onRemoveItem($event)"
+                />
+            }
+        }
+    }
+
+    @if (!hasLive() && !hasMovies() && !hasSeries()) {
+        @if (workspaceSearchTerm()) {
+            <div class="empty-state">
+                <mat-icon class="empty-icon">search_off</mat-icon>
+                <p class="empty-title">
+                    {{ 'WORKSPACE.GLOBAL_FAVORITES.NO_RESULTS' | translate }}
+                </p>
+            </div>
+        } @else {
+            <app-empty-state
+                type="no-data"
+                [icon]="emptyStateIcon()"
+                [titleKey]="emptyStateTitleKey()"
+                [descriptionKey]="emptyStateBodyKey()"
+                secondaryActionLabelKey="WORKSPACE.SHELL.GO_TO_DASHBOARD"
+                (secondaryActionClicked)="goToDashboard()"
+            />
+        }
+    }
+}

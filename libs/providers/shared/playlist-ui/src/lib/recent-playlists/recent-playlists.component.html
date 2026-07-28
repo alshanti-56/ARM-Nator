@@ -1,0 +1,45 @@
+@if (playlistsData(); as data) {
+    @if (data.playlists.length === 0) {
+        @if (data.totalCount === 0) {
+            <!-- Welcome state: no playlists at all -->
+            <app-empty-state
+                [type]="'welcome-sources'"
+                [showElectronOnlyValueProps]="isElectron"
+                (addPlaylistClicked)="onAddPlaylist($event)"
+            />
+        } @else {
+            <!-- No results state: search/filter returned nothing -->
+            <app-empty-state [type]="'no-results'" />
+        }
+    } @else {
+        <div
+            class="playlists-list"
+            cdkDropList
+            [cdkDropListDisabled]="!isCustomSortActive()"
+            (cdkDropListDropped)="drop($event, data.playlists)"
+        >
+            @for (
+                item of data.playlists;
+                track item._id;
+                let last = $last
+            ) {
+                <app-playlist-item
+                    [item]="item"
+                    [isSelected]="activePlaylistId() === item._id"
+                    [showActions]="!sidebarMode()"
+                    [isDraggable]="isCustomSortActive()"
+                    [isRefreshing]="isRefreshPending(item._id)"
+                    [isDeleting]="isDeletePending(item._id)"
+                    [busyMessage]="getBusyMessage(item)"
+                    [busyProgress]="getBusyProgress(item._id)"
+                    [canCancelBusyAction]="canCancelBusyOperation(item)"
+                    (editPlaylistClicked)="openInfoDialog($event)"
+                    (playlistClicked)="getPlaylist(item)"
+                    (refreshClicked)="refreshPlaylist($event)"
+                    (removeClicked)="removeClicked(item)"
+                    (cancelBusyActionClicked)="cancelBusyOperation(item)"
+                />
+            }
+        </div>
+    }
+}

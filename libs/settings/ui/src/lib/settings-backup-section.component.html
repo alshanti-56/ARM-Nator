@@ -1,0 +1,77 @@
+<section
+    class="settings-group"
+    [class.settings-group--active]="activeSection() === 'backup'"
+    id="backup"
+>
+    <header class="settings-group__header">
+        <div class="settings-group__header-icon">
+            <mat-icon>backup</mat-icon>
+        </div>
+        <div class="settings-group__header-text">
+            <h3>{{ 'SETTINGS.BACKUP' | translate }}</h3>
+            <p>{{ 'SETTINGS.BACKUP_DESCRIPTION' | translate }}</p>
+        </div>
+    </header>
+
+    <div class="setting-item">
+        <div class="setting-item__meta">
+            <h4>{{ 'SETTINGS.IMPORT_EXPORT_DATA' | translate }}</h4>
+            <p>
+                {{ 'SETTINGS.IMPORT_EXPORT_DATA_DESCRIPTION' | translate }}
+            </p>
+        </div>
+        <div class="setting-item__control inline-actions">
+            <button
+                mat-button
+                class="inline-actions__button"
+                [disabled]="isRemovingAllPlaylists() || isExportingData()"
+                (click)="
+                    $event.preventDefault();
+                    $event.stopPropagation();
+                    importData.emit()
+                "
+            >
+                {{ 'SETTINGS.IMPORT_DATA' | translate }}
+            </button>
+            <button
+                mat-button
+                class="inline-actions__button"
+                [class.inline-actions__button--busy]="isExportingData()"
+                [disabled]="isRemovingAllPlaylists() || isExportingData()"
+                [attr.aria-busy]="isExportingData()"
+                (click)="
+                    $event.preventDefault();
+                    $event.stopPropagation();
+                    exportData.emit()
+                "
+            >
+                @if (isExportingData()) {
+                    <mat-progress-spinner
+                        class="button-spinner"
+                        diameter="16"
+                        mode="indeterminate"
+                    />
+                    <span class="inline-actions__label">{{
+                        'SETTINGS.EXPORTING_DATA' | translate
+                    }}</span>
+                } @else {
+                    <span class="inline-actions__label">{{
+                        'SETTINGS.EXPORT_DATA' | translate
+                    }}</span>
+                }
+            </button>
+        </div>
+    </div>
+
+    @if (isPwa()) {
+        <div class="settings-note">
+            {{ 'SETTINGS.EPG_NOTE' | translate }}
+            &nbsp;<a
+                href="https://github.com/4gray/arm-nator/releases"
+                target="_blank"
+                rel="noreferrer"
+                >{{ 'SETTINGS.EPG_NOTE_URL_TEXT' | translate }}</a
+            >
+        </div>
+    }
+</section>

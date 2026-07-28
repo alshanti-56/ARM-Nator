@@ -1,0 +1,267 @@
+<section class="rail" [attr.data-test-id]="testId()">
+    <header class="rail__header">
+        <h2 class="rail__title">
+            <span class="rail__label">{{ label() }}</span>
+            @if ((totalCount() ?? items().length) > 0) {
+                <span class="rail__count app-count-badge" aria-hidden="true">{{
+                    totalCount() ?? items().length
+                }}</span>
+            }
+        </h2>
+        @if (seeAllLink(); as link) {
+            <a
+                class="rail__see-all"
+                [routerLink]="link"
+                [state]="seeAllState() ?? {}"
+                [attr.data-test-id]="testId() ? testId() + '-manage-all' : null"
+            >
+                <span class="rail__see-all-label">
+                    @if ((totalCount() ?? items().length) > items().length) {
+                        {{
+                            'WORKSPACE.DASHBOARD.SEE_ALL_COUNT'
+                                | translate
+                                    : {
+                                          count:
+                                              totalCount() ?? items().length,
+                                      }
+                        }}
+                    } @else {
+                        {{ 'WORKSPACE.DASHBOARD.SEE_ALL' | translate }}
+                    }
+                </span>
+                <mat-icon>chevron_right</mat-icon>
+            </a>
+        }
+    </header>
+
+    <div class="rail__viewport">
+        <button
+            type="button"
+            class="rail__chev rail__chev--left"
+            [class.rail__chev--visible]="canScrollLeft()"
+            (click)="scrollBy(-1)"
+            aria-label="Scroll left"
+            tabindex="-1"
+        >
+            <mat-icon>chevron_left</mat-icon>
+        </button>
+
+        <div
+            #track
+            class="rail__track"
+            [attr.data-layout]="layout()"
+            (scroll)="onScroll()"
+            role="list"
+        >
+            @for (card of items(); track card.id) {
+                @if (layout() === 'channel') {
+                    <div
+                        class="rail__card rail__card--channel"
+                        role="listitem"
+                        [attr.title]="cardTitle(card)"
+                        [attr.data-test-id]="
+                            testId() ? testId() + '-card' : null
+                        "
+                    >
+                        <a
+                            class="rail__channel-link"
+                            [routerLink]="card.link"
+                            [queryParams]="card.queryParams ?? null"
+                            [state]="card.state"
+                        >
+                            <div class="rail__channel-row">
+                                <div
+                                    class="rail__channel-logo"
+                                    [class.rail__channel-logo--fallback]="
+                                        !card.imageUrl ||
+                                        failedImages()[card.id]
+                                    "
+                                >
+                                    @if (
+                                        card.imageUrl &&
+                                        !failedImages()[card.id]
+                                    ) {
+                                        <img
+                                            [src]="card.imageUrl"
+                                            [alt]="cardTitle(card)"
+                                            loading="lazy"
+                                            decoding="async"
+                                            (error)="markFailed(card.id)"
+                                        />
+                                    } @else {
+                                        <mat-icon>{{ card.icon }}</mat-icon>
+                                    }
+                                </div>
+                                <div class="rail__channel-meta">
+                                    <span class="rail__channel-name">{{
+                                        cardTitle(card)
+                                    }}</span>
+                                    <span class="rail__channel-now">
+                                        @if (card.nowPlayingTitle) {
+                                            {{ card.nowPlayingTitle }}
+                                        } @else if (card.subtitle) {
+                                            {{ card.subtitle }}
+                                        }
+                                    </span>
+                                </div>
+                            </div>
+                            <div class="rail__channel-progress-row">
+                                <span class="rail__channel-live-chip"
+                                    >LIVE</span
+                                >
+                                <span
+                                    class="rail__channel-progress"
+                                    [class.rail__channel-progress--idle]="
+                                        card.nowPlayingProgress === null ||
+                                        card.nowPlayingProgress === undefined
+                                    "
+                                >
+                                    <i
+                                        [style.width.%]="
+                                            card.nowPlayingProgress ?? 0
+                                        "
+                                    ></i>
+                                </span>
+                                @if (card.nowPlayingTimeRange) {
+                                    <span class="rail__channel-time">{{
+                                        card.nowPlayingTimeRange
+                                    }}</span>
+                                }
+                            </div>
+                        </a>
+                    </div>
+                } @else {
+                    <div
+                        class="rail__card"
+                        role="listitem"
+                        [attr.title]="cardTitle(card)"
+                        [attr.data-test-id]="
+                            testId() ? testId() + '-card' : null
+                        "
+                    >
+                        <a
+                            class="rail__card-link"
+                            [routerLink]="card.link"
+                            [queryParams]="card.queryParams ?? null"
+                            [state]="card.state"
+                        >
+                            <div
+                                class="rail__art"
+                                [class.rail__art--live]="
+                                    card.contentType === 'live'
+                                "
+                                [style.aspect-ratio]="aspectRatio()"
+                            >
+                                @if (
+                                    card.imageUrl && !failedImages()[card.id]
+                                ) {
+                                    @if (card.contentType === 'live') {
+                                        <span
+                                            class="rail__art-bg"
+                                            aria-hidden="true"
+                                            [style.background-image]="
+                                                'url(' + card.imageUrl + ')'
+                                            "
+                                        ></span>
+                                    }
+                                    <img
+                                        [src]="card.imageUrl"
+                                        [alt]="cardTitle(card)"
+                                        loading="lazy"
+                                        decoding="async"
+                                        (error)="markFailed(card.id)"
+                                    />
+                                } @else {
+                                    <div class="rail__art-fallback">
+                                        <mat-icon>{{ card.icon }}</mat-icon>
+                                    </div>
+                                }
+
+                                @if (card.watchProgress !== null && card.watchProgress !== undefined) {
+                                    <span
+                                        class="rail__art-progress"
+                                        aria-hidden="true"
+                                    >
+                                        <i
+                                            [style.width.%]="card.watchProgress"
+                                        ></i>
+                                    </span>
+                                }
+                            </div>
+
+                            <div class="rail__meta">
+                                <span class="rail__card-title">{{
+                                    cardTitle(card)
+                                }}</span>
+                                <span class="rail__card-meta-row">
+                                    @if (card.episodeBadge) {
+                                        <span class="rail__card-episode">{{
+                                            card.episodeBadge
+                                        }}</span>
+                                    }
+                                    @if (card.subtitle) {
+                                        <span class="rail__card-subtitle">{{
+                                            card.subtitle
+                                        }}</span>
+                                    }
+                                </span>
+                            </div>
+                        </a>
+
+                        @if (card.actions && card.actions.length > 0) {
+                            <button
+                                type="button"
+                                mat-icon-button
+                                class="rail__action-trigger"
+                                [matMenuTriggerFor]="cardActionMenu"
+                                [matMenuTriggerData]="{ card: card }"
+                                [attr.aria-label]="'SHOW_MORE' | translate"
+                                [attr.data-test-id]="
+                                    testId() ? testId() + '-card-actions' : null
+                                "
+                                (click)="stopActionEvent($event)"
+                            >
+                                <mat-icon>more_vert</mat-icon>
+                            </button>
+                        }
+                    </div>
+                }
+            }
+        </div>
+
+        <mat-menu
+            #cardActionMenu="matMenu"
+            panelClass="dashboard-rail-action-menu"
+            xPosition="before"
+        >
+            <ng-template matMenuContent let-card="card">
+                @for (action of card.actions ?? []; track action.id) {
+                    <button
+                        mat-menu-item
+                        type="button"
+                        [disabled]="action.disabled"
+                        [class.rail__menu-action--danger]="action.destructive"
+                        [class.rail__menu-action--separated]="
+                            action.separatorBefore
+                        "
+                        (click)="selectAction(card, action, $event)"
+                    >
+                        <mat-icon>{{ action.icon }}</mat-icon>
+                        <span>{{ action.labelKey | translate }}</span>
+                    </button>
+                }
+            </ng-template>
+        </mat-menu>
+
+        <button
+            type="button"
+            class="rail__chev rail__chev--right"
+            [class.rail__chev--visible]="canScrollRight()"
+            (click)="scrollBy(1)"
+            aria-label="Scroll right"
+            tabindex="-1"
+        >
+            <mat-icon>chevron_right</mat-icon>
+        </button>
+    </div>
+</section>
