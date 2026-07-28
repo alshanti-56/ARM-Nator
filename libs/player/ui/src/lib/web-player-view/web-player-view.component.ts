@@ -98,6 +98,7 @@ export class WebPlayerViewComponent {
     duration: number;
   }>();
   readonly externalFallbackRequested = output<PlaybackFallbackRequest>();
+  readonly playbackDiagnosticChange = output<PlaybackDiagnostic | null>();
   readonly playbackEnded = output<void>();
   readonly previousEpisodeRequested = output<void>();
   readonly nextEpisodeRequested = output<void>();
@@ -232,10 +233,12 @@ export class WebPlayerViewComponent {
   handlePlaybackIssue(issue: PlaybackDiagnostic | null): void {
     if (this.selectedPlayer() === VideoPlayer.EmbeddedMpv) {
       this.playbackDiagnostic.set(null);
+      this.playbackDiagnosticChange.emit(null);
       return;
     }
 
     this.playbackDiagnostic.set(issue);
+    this.playbackDiagnosticChange.emit(issue);
   }
 
   requestExternalFallback(player: ExternalPlayerName): void {
@@ -255,6 +258,7 @@ export class WebPlayerViewComponent {
     const playback = this.resolvedPlayback();
 
     this.playbackDiagnostic.set(null);
+    this.playbackDiagnosticChange.emit(null);
     this.reloadToken.update((value) => value + 1);
     this.setChannel(playback);
   }

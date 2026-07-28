@@ -174,9 +174,11 @@
       <section class="player-card">
         <app-web-player-view
           [streamUrl]="current.streamUrl"
-                    [title]="current.title"
+          [title]="current.title"
           [playback]="current"
           [playerOverride]="selectedEngine()"
+          (timeUpdate)="onTimeUpdate($event)"
+          (playbackDiagnosticChange)="onDiagnostic($event)"
           (externalFallbackRequested)="openFallback($event)"
         />
       </section>
@@ -192,5 +194,82 @@
         </div>
       </section>
     }
+  }
+
+  @if (playback()) {
+    <section class="diagnostics-card">
+      <header class="diagnostics-heading">
+        <div class="section-heading">
+          <mat-icon>troubleshoot</mat-icon>
+          <div>
+            <h2>Playback Diagnostics</h2>
+            <p>Unredacted local session report.</p>
+          </div>
+        </div>
+        <div class="diagnostic-actions">
+          <button
+            mat-button
+            type="button"
+            [cdkCopyToClipboard]="diagnosticReport()"
+          >
+            <mat-icon>content_copy</mat-icon>
+            Copy report
+          </button>
+          <button mat-button type="button" (click)="exportDiagnostics()">
+            <mat-icon>download</mat-icon>
+            Export JSON
+          </button>
+        </div>
+      </header>
+
+      <div class="diagnostics-layout">
+        <div class="runtime-metrics">
+          <div>
+            <span>Position</span>
+            <strong>{{ formatTime(currentTime()) }}</strong>
+          </div>
+          <div>
+            <span>Duration</span>
+            <strong>{{
+              duration() > 0 ? formatTime(duration()) : "Live / unknown"
+            }}</strong>
+          </div>
+          <div>
+            <span>Engine</span>
+            <strong>{{ selectedEngine() }}</strong>
+          </div>
+          <div>
+            <span>Result</span>
+            <strong>{{ diagnostic()?.code ?? "No error" }}</strong>
+          </div>
+        </div>
+
+        <div class="timeline">
+          @for (event of timeline(); track event.id) {
+            <article [attr.data-level]="event.level">
+              <span class="timeline-dot"></span>
+              <div>
+                <header>
+                  <strong>{{ event.title }}</strong>
+                  <time>{{ event.timestamp | date: "HH:mm:ss.SSS" }}</time>
+                </header>
+                @if (event.details) {
+                  <code>{{ event.details }}</code>
+                }
+              </div>
+            </article>
+          } @empty {
+            <div class="timeline-empty">No playback events yet.</div>
+          }
+        </div>
+      </div>
+
+      @if (diagnostic(); as issue) {
+        <details class="raw-diagnostic">
+          <summary>Raw diagnostic details</summary>
+          <pre>{{ issue | json }}</pre>
+        </details>
+      }
+    </section>
   }
 </section>

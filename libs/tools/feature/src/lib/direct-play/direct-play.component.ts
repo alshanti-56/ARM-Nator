@@ -1,4 +1,5 @@
 import { ClipboardModule } from "@angular/cdk/clipboard";
+import { DatePipe, JsonPipe } from "@angular/common";
 import {
   ChangeDetectionStrategy,
   Component,
@@ -19,6 +20,7 @@ import {
   isManagedExternalPlayer,
 } from "@arm-nator/player/core";
 import {
+  type PlaybackDiagnostic,
   type PlaybackFallbackRequest,
   WebPlayerViewComponent,
 } from "@arm-nator/player/ui";
@@ -34,11 +36,21 @@ interface DirectPlaybackInfo {
   readonly headerCount: number;
 }
 
+interface DiagnosticTimelineItem {
+  readonly id: number;
+  readonly timestamp: number;
+  readonly level: "info" | "warning" | "error";
+  readonly title: string;
+  readonly details?: string;
+}
+
 @Component({
   selector: "app-direct-play",
   imports: [
     ClipboardModule,
+    DatePipe,
     FormsModule,
+    JsonPipe,
     MatButtonModule,
     MatCheckboxModule,
     MatFormFieldModule,
@@ -61,6 +73,11 @@ export class DirectPlayComponent {
     "ready" | "opening" | "playing" | "external" | "error"
   >("ready");
   readonly errorMessage = signal("");
+  readonly currentTime = signal(0);
+  readonly duration = signal(0);
+  readonly diagnostic = signal<PlaybackDiagnostic | null>(null);
+  readonly timeline = signal<readonly DiagnosticTimelineItem[]>([]);
+  private diagnosticSequence = 0;
 
   url = "";
   title = "";
@@ -110,8 +127,17 @@ export class DirectPlayComponent {
     };
 
     this.playback.set(playback);
+    this.currentTime.set(0);
+    this.duration.set(0);
+    this.diagnostic.set(null);
+    this.timeline.set([]);
     this.errorMessage.set("");
     this.status.set("opening");
+    this.recordEvent(
+      "info",
+      "Playback requested",
+      `${this.selectedEngine()} · ${this.detectStreamType(streamUrl)}`,
+    );
 
     const engine = this.selectedEngine();
     if (engine === VideoPlayer.MPV || engine === VideoPlayer.VLC) {
@@ -121,34 +147,134 @@ export class DirectPlayComponent {
           engine === VideoPlayer.MPV ? "mpv" : "vlc",
         );
         this.status.set("external");
+        this.recordEvent(
+          "info",
+          "External player opened",
+          this.selectedEngine(),
+        );
       } catch (error) {
         this.errorMessage.set(
           error instanceof Error ? error.message : "External player failed.",
         );
         this.status.set("error");
+        this.recordEvent(
+          "error",
+          "External player failed",
+          this.errorMessage(),
+        );
       }
       return;
     }
 
     this.status.set("playing");
+    this.recordEvent("info", "Inline player mounted", this.selectedEngine());
   }
 
   async openFallback(request: PlaybackFallbackRequest): Promise<void> {
     try {
       await this.player.openExternalPlayback(request.playback, request.player);
       this.status.set("external");
+      this.recordEvent(
+        "warning",
+        `Fallback opened in ${request.player}`,
+        request.diagnostic.code,
+      );
     } catch (error) {
       this.errorMessage.set(
         error instanceof Error ? error.message : "External player failed.",
       );
       this.status.set("error");
+      this.recordEvent("error", "Fallback failed", this.errorMessage());
     }
+  }
+
+  onTimeUpdate(event: { currentTime: number; duration: number }): void {
+    this.currentTime.set(event.currentTime);
+    this.duration.set(event.duration);
+  }
+
+  onDiagnostic(issue: PlaybackDiagnostic | null): void {
+    this.diagnostic.set(issue);
+    if (!issue) {
+      return;
+    }
+
+    this.status.set("error");
+    this.recordEvent(
+      "error",
+      `${issue.source}: ${issue.code}`,
+      issue.details ?? issue.nativeErrorMessage,
+    );
+  }
+
+  readonly diagnosticReport = computed(() =>
+    JSON.stringify(
+      {
+        generatedAt: new Date().toISOString(),
+        status: this.status(),
+        engine: this.selectedEngine(),
+        playback: this.playback(),
+        runtime: {
+          currentTime: this.currentTime(),
+          duration: this.duration(),
+        },
+        diagnostic: this.diagnostic(),
+        timeline: this.timeline(),
+      },
+      null,
+      2,
+    ),
+  );
+
+  exportDiagnostics(): void {
+    const blob = new Blob([this.diagnosticReport()], {
+      type: "application/json",
+    });
+    const downloadUrl = URL.createObjectURL(blob);
+    const link = document.createElement("a");
+    link.href = downloadUrl;
+    link.download = `arm-nator-playback-${Date.now()}.json`;
+    link.click();
+    URL.revokeObjectURL(downloadUrl);
+  }
+
+  formatTime(seconds: number): string {
+    if (!Number.isFinite(seconds) || seconds < 0) {
+      return "00:00";
+    }
+    const wholeSeconds = Math.floor(seconds);
+    const hours = Math.floor(wholeSeconds / 3600);
+    const minutes = Math.floor((wholeSeconds % 3600) / 60);
+    const remainder = wholeSeconds % 60;
+    const base = `${minutes.toString().padStart(2, "0")}:${remainder
+      .toString()
+      .padStart(2, "0")}`;
+    return hours ? `${hours.toString().padStart(2, "0")}:${base}` : base;
   }
 
   clear(): void {
     this.playback.set(null);
     this.status.set("ready");
     this.errorMessage.set("");
+    this.currentTime.set(0);
+    this.duration.set(0);
+    this.diagnostic.set(null);
+    this.timeline.set([]);
+  }
+
+  private recordEvent(
+    level: DiagnosticTimelineItem["level"],
+    title: string,
+    details?: string,
+  ): void {
+    const event: DiagnosticTimelineItem = {
+      id: ++this.diagnosticSequence,
+      timestamp: Date.now(),
+      level,
+      title,
+      details,
+    };
+    this.timeline.update((items) => [...items, event]);
   }
 
   private parseHeaders(value: string): Record<string, string> | undefined {
