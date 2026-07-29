@@ -3,9 +3,7 @@
 const fs = require('node:fs');
 const path = require('node:path');
 const { execFileSync } = require('node:child_process');
-const {
-    validatePackagedEmbeddedMpv,
-} = require('./embedded-mpv-packaging.cjs');
+const { validatePackagedEmbeddedMpv } = require('./embedded-mpv-packaging.cjs');
 
 function getAppPath(params) {
     const appName = params.appOutDir.endsWith('.app')
@@ -63,7 +61,7 @@ function adHocSignApp(params) {
                 'macos',
                 'entitlements.mac.plist'
             ),
-            appPath,
+            appPath
         ],
         { stdio: 'inherit' }
     );
@@ -109,24 +107,19 @@ module.exports = async function afterPackHook(params) {
         params.packager.projectDir ?? process.cwd()
     );
 
-    const allowLocalHomebrewRuntime = ['1', 'true', 'yes', 'on'].includes(
-        String(
-            process.env.ARM_NATOR_ALLOW_LOCAL_HOMEBREW_PACKAGE ?? ''
-        )
-            .trim()
-            .toLowerCase()
-    );
     const errors = validatePackagedEmbeddedMpv(resourceDir, {
         platform: 'darwin',
         required: true,
         foreignArch: false,
-        executableName: params.packager.executableName,
-        allowLocalHomebrewRuntime,
+        executableName: params.packager.executableName
     });
 
     if (errors.length > 0) {
         throw new Error(
-            ['Embedded MPV macOS package validation failed.', ...errors.map((error) => `- ${error}`)].join('\n')
+            [
+                'Embedded MPV macOS package validation failed.',
+                ...errors.map((error) => `- ${error}`)
+            ].join('\n')
         );
     }
 

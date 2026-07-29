@@ -8,7 +8,7 @@ const {
     copyRuntimeToNativeBuild,
     findLibMpv,
     patchBinaryForBundledRuntime,
-    validateNoForbiddenRuntimeLinks,
+    validateNoForbiddenRuntimeLinks
 } = require('../../tools/packaging/embedded-mpv-packaging.cjs');
 
 const workspaceRoot = process.cwd();
@@ -41,10 +41,6 @@ const vendoredRuntimeRoot = path.join(
     'embedded-mpv',
     'darwin-arm64'
 );
-const homebrewIncludeDir = '/opt/homebrew/include';
-const homebrewLibDir = '/opt/homebrew/lib';
-const homebrewFallbackEnabled =
-    process.env.ARM_NATOR_EMBEDDED_MPV_ALLOW_HOMEBREW === '1';
 const embeddedMpvRequired = ['1', 'true', 'yes', 'on'].includes(
     String(process.env.ARM_NATOR_REQUIRE_EMBEDDED_MPV ?? '')
         .trim()
@@ -56,19 +52,14 @@ function log(message) {
 }
 
 function cleanOutput() {
-    for (const artifact of [
-        outputFile,
-        helperFile,
-        readerFile,
-        manifestFile,
-    ]) {
+    for (const artifact of [outputFile, helperFile, readerFile, manifestFile]) {
         fs.rmSync(artifact, { force: true });
     }
     fs.rmSync(outputLibDir, { recursive: true, force: true });
     fs.rmSync(path.join(outputDir, '.deps'), { recursive: true, force: true });
     fs.rmSync(path.join(outputDir, 'obj.target'), {
         recursive: true,
-        force: true,
+        force: true
     });
     fs.writeFileSync(
         unavailableMarkerFile,
@@ -83,7 +74,7 @@ function cleanNativeBuildIntermediates() {
     fs.rmSync(path.join(outputDir, '.deps'), { recursive: true, force: true });
     fs.rmSync(path.join(outputDir, 'obj.target'), {
         recursive: true,
-        force: true,
+        force: true
     });
 }
 
@@ -105,26 +96,7 @@ function resolveRuntime() {
             origin: 'vendored-lgpl',
             includeDir: vendoredIncludeDir,
             libDir: vendoredLibDir,
-            manifest: readRuntimeManifest(vendoredRuntimeRoot),
-        };
-    }
-
-    if (
-        homebrewFallbackEnabled &&
-        fs.existsSync(path.join(homebrewIncludeDir, 'mpv', 'client.h')) &&
-        findLibMpv(homebrewLibDir)
-    ) {
-        log(
-            'Using Homebrew libmpv as a development-only fallback. Release packaging rejects it unless explicitly allowed.'
-        );
-        return {
-            origin: 'homebrew-dev',
-            includeDir: homebrewIncludeDir,
-            libDir: homebrewLibDir,
-            manifest: {
-                warning:
-                    'Development-only runtime. Do not ship in production releases.',
-            },
+            manifest: readRuntimeManifest(vendoredRuntimeRoot)
         };
     }
 
@@ -148,7 +120,7 @@ function runNodeGyp(command, env) {
         {
             cwd: workspaceRoot,
             env,
-            stdio: 'inherit',
+            stdio: 'inherit'
         }
     );
     if (result.status !== 0) {
@@ -177,7 +149,7 @@ function main() {
         const message = [
             'No embedded MPV runtime was found for darwin-arm64.',
             `Expected a vendored runtime at ${vendoredRuntimeRoot}.`,
-            'For local development, set ARM_NATOR_EMBEDDED_MPV_ALLOW_HOMEBREW=1.',
+            'Run `pnpm embedded-mpv:runtime` to build the portable runtime.'
         ].join('\n');
         if (embeddedMpvRequired) {
             throw new Error(message);
@@ -194,8 +166,8 @@ function main() {
             runtimeManifest: {
                 platform: 'darwin',
                 targetArch: 'arm64',
-                ...runtime.manifest,
-            },
+                ...runtime.manifest
+            }
         });
         const electronVersion = require(
             path.join(workspaceRoot, 'node_modules', 'electron', 'package.json')
@@ -210,7 +182,7 @@ function main() {
             npm_config_update_binary: 'false',
             MACOSX_DEPLOYMENT_TARGET: '26.0',
             LIBMPV_INCLUDE_DIR: runtime.includeDir,
-            LIBMPV_LIBRARY_DIR: outputLibDir,
+            LIBMPV_LIBRARY_DIR: outputLibDir
         };
 
         log(
@@ -235,9 +207,9 @@ function main() {
             helperFile,
             ...runtimeManifest.dylibs.map((name) =>
                 path.join(outputLibDir, name)
-            ),
+            )
         ]);
-        if (runtime.origin === 'vendored-lgpl' && linkErrors.length > 0) {
+        if (linkErrors.length > 0) {
             throw new Error(linkErrors.join('\n'));
         }
         fs.rmSync(unavailableMarkerFile, { force: true });

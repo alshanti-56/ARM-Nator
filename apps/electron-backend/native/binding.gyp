@@ -7,7 +7,7 @@
       ],
       "include_dirs": [
         "<(module_root_dir)/../../../node_modules/.pnpm/node_modules/node-addon-api",
-        "<!(node -p \"process.env.LIBMPV_INCLUDE_DIR || '/opt/homebrew/include'\")",
+        "<!(node -e \"if (!process.env.LIBMPV_INCLUDE_DIR) throw new Error('LIBMPV_INCLUDE_DIR is required'); process.stdout.write(process.env.LIBMPV_INCLUDE_DIR)\")",
         "src"
       ],
       "defines": [
@@ -31,7 +31,7 @@
         "-framework CoreVideo",
         "-framework Foundation",
         "-framework OpenGL",
-        "<!(node -e \"const path = require('path'); const dir = process.env.LIBMPV_LIBRARY_DIR || '/opt/homebrew/lib'; process.stdout.write(path.join(dir, 'libmpv.2.dylib'))\")"
+        "<!(node -e \"const path = require('path'); const dir = process.env.LIBMPV_LIBRARY_DIR; if (!dir) throw new Error('LIBMPV_LIBRARY_DIR is required'); process.stdout.write(path.join(dir, 'libmpv.2.dylib'))\")"
       ]
     },
     {
@@ -50,7 +50,7 @@
         "helper/mpv_frame_helper.cpp"
       ],
       "include_dirs": [
-        "<!(node -p \"process.env.LIBMPV_INCLUDE_DIR || '/opt/homebrew/include'\")",
+        "<!(node -e \"if (!process.env.LIBMPV_INCLUDE_DIR) throw new Error('LIBMPV_INCLUDE_DIR is required'); process.stdout.write(process.env.LIBMPV_INCLUDE_DIR)\")",
         "helper"
       ],
       "cflags_cc": [
@@ -67,7 +67,7 @@
       },
       "libraries": [
         "-framework OpenGL",
-        "<!(node -e \"const path = require('path'); const dir = process.env.LIBMPV_LIBRARY_DIR || '/opt/homebrew/lib'; process.stdout.write(path.join(dir, 'libmpv.2.dylib'))\")"
+        "<!(node -e \"const path = require('path'); const dir = process.env.LIBMPV_LIBRARY_DIR; if (!dir) throw new Error('LIBMPV_LIBRARY_DIR is required'); process.stdout.write(path.join(dir, 'libmpv.2.dylib'))\")"
       ]
     }
   ]

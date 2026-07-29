@@ -20,10 +20,12 @@
     "tv"
   ],
   "scripts": {
-    "dev": "ARM_NATOR_EMBEDDED_MPV_ALLOW_HOMEBREW=1 ARM_NATOR_REQUIRE_EMBEDDED_MPV=1 nx serve electron-backend",
-    "build": "ARM_NATOR_EMBEDDED_MPV_ALLOW_HOMEBREW=1 ARM_NATOR_REQUIRE_EMBEDDED_MPV=1 nx run-many -t build --projects=desktop-ui,electron-backend --configuration=production",
-    "package": "ARM_NATOR_EMBEDDED_MPV_ALLOW_HOMEBREW=1 ARM_NATOR_ALLOW_LOCAL_HOMEBREW_PACKAGE=1 ARM_NATOR_REQUIRE_EMBEDDED_MPV=1 ARM_NATOR_ADHOC_SIGN=1 nx run electron-backend:package --configuration=production",
-    "embedded-mpv:build": "ARM_NATOR_EMBEDDED_MPV_ALLOW_HOMEBREW=1 nx run electron-backend:build-embedded-mpv",
+    "dev": "ARM_NATOR_REQUIRE_EMBEDDED_MPV=1 nx serve electron-backend",
+    "build": "ARM_NATOR_REQUIRE_EMBEDDED_MPV=1 nx run-many -t build --projects=desktop-ui,electron-backend --configuration=production",
+    "prepackage": "pnpm embedded-mpv:runtime",
+    "package": "ARM_NATOR_REQUIRE_EMBEDDED_MPV=1 ARM_NATOR_ADHOC_SIGN=1 nx run electron-backend:package --configuration=production",
+    "embedded-mpv:runtime": "node tools/embedded-mpv/ensure-macos-runtime.mjs",
+    "embedded-mpv:build": "ARM_NATOR_REQUIRE_EMBEDDED_MPV=1 nx run electron-backend:build-embedded-mpv",
     "graphify:runs": "node tools/graphify-runs.mjs",
     "player:fixtures": "node tools/player-stream-fixtures.mjs",
     "clean": "rm -rf dist tmp apps/electron-backend/native/build"

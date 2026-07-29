@@ -13,10 +13,8 @@ Release builds use a pinned, LGPL-compatible, dynamically linked runtime:
 - Runtime versions, sources, build flags, licenses, and checksums are recorded
   in `runtime-manifest.json`.
 
-Homebrew mpv is a development-only fallback. It requires
-`ARM_NATOR_EMBEDDED_MPV_ALLOW_HOMEBREW=1`. Production package validation
-rejects it unless `ARM_NATOR_ALLOW_LOCAL_HOMEBREW_PACKAGE=1` is explicitly
-set for a local ad-hoc package.
+Homebrew is not used. Development, production builds, and packaged apps all
+require the vendored runtime.
 
 ## Generated layout
 
@@ -34,12 +32,14 @@ The generated runtime contents are ignored by Git.
 Build the pinned macOS arm64 runtime:
 
 ```bash
-node tools/embedded-mpv/build-macos-runtime.mjs /tmp/arm-nator-mpv
+pnpm embedded-mpv:runtime
 ```
 
-Stage it into the repository:
+This builds the runtime when it is missing and stages it into the repository.
+The lower-level commands remain available when a clean rebuild is required:
 
 ```bash
+node tools/embedded-mpv/build-macos-runtime.mjs /tmp/arm-nator-mpv
 node tools/embedded-mpv/stage-macos-runtime.mjs /tmp/arm-nator-mpv
 ```
 
@@ -62,6 +62,7 @@ apps/electron-backend/native/build/Release/
 
 ## Packaging
 
+The `prepackage` lifecycle ensures the portable runtime exists.
 `electron-after-pack.cjs` copies the native output into
 `app.asar.unpacked/electron-backend/native`, verifies that all required arm64
 artifacts exist, rejects Homebrew and other absolute runtime links for release

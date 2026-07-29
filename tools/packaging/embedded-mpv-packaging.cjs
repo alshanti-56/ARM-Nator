@@ -7,7 +7,7 @@ const { spawnSync } = require('node:child_process');
 function run(command, args) {
     const result = spawnSync(command, args, {
         encoding: 'utf8',
-        stdio: ['ignore', 'pipe', 'pipe'],
+        stdio: ['ignore', 'pipe', 'pipe']
     });
     if (result.error) {
         throw result.error;
@@ -23,7 +23,7 @@ function run(command, args) {
 function commandExists(command) {
     return (
         spawnSync('/usr/bin/which', [command], {
-            stdio: 'ignore',
+            stdio: 'ignore'
         }).status === 0
     );
 }
@@ -155,7 +155,7 @@ function patchDylibIds(libDir) {
         run('/usr/bin/install_name_tool', [
             '-id',
             `@loader_path/${path.basename(dylibPath)}`,
-            dylibPath,
+            dylibPath
         ]);
     }
 }
@@ -171,7 +171,7 @@ function patchBinaryDependencies(binaryPath, outputLibDir, loaderPrefix) {
                 '-change',
                 dependencyPath,
                 `${loaderPrefix}/${dependencyName}`,
-                binaryPath,
+                binaryPath
             ]);
         }
     }
@@ -183,7 +183,7 @@ function adHocSignBinary(binaryPath) {
         '--sign',
         '-',
         '--timestamp=none',
-        binaryPath,
+        binaryPath
     ]);
 }
 
@@ -191,7 +191,7 @@ function copyRuntimeToNativeBuild({
     runtimeLibDir,
     outputLibDir,
     runtimeOrigin,
-    runtimeManifest,
+    runtimeManifest
 }) {
     const libMpvPath = findLibMpv(runtimeLibDir);
     if (!libMpvPath) {
@@ -234,7 +234,7 @@ function copyRuntimeToNativeBuild({
         dylibs: listDylibs(outputLibDir).map((filePath) =>
             path.basename(filePath)
         ),
-        ...runtimeManifest,
+        ...runtimeManifest
     };
     fs.writeFileSync(
         path.join(path.dirname(outputLibDir), 'embedded-mpv-runtime.json'),
@@ -302,7 +302,9 @@ function validatePackagedEmbeddedMpv(resourceDir, options = {}) {
         errors.push('Embedded MPV packaging supports darwin only.');
     }
     if (process.platform !== 'darwin' || process.arch !== 'arm64') {
-        errors.push('macOS arm64 package validation requires an Apple Silicon Mac.');
+        errors.push(
+            'macOS arm64 package validation requires an Apple Silicon Mac.'
+        );
     }
     for (const artifact of [addonPath, helperPath, readerPath, manifestPath]) {
         if (!fs.existsSync(artifact)) {
@@ -314,12 +316,8 @@ function validatePackagedEmbeddedMpv(resourceDir, options = {}) {
     }
     if (fs.existsSync(manifestPath)) {
         try {
-            const manifest = JSON.parse(
-                fs.readFileSync(manifestPath, 'utf8')
-            );
-            const allowedOrigins = options.allowLocalHomebrewRuntime
-                ? ['vendored-lgpl', 'homebrew-dev']
-                : ['vendored-lgpl'];
+            const manifest = JSON.parse(fs.readFileSync(manifestPath, 'utf8'));
+            const allowedOrigins = ['vendored-lgpl'];
             if (!allowedOrigins.includes(manifest.origin)) {
                 errors.push(
                     `Embedded MPV runtime origin must be ${allowedOrigins.join(
@@ -347,7 +345,7 @@ function validatePackagedEmbeddedMpv(resourceDir, options = {}) {
         ...validateNoForbiddenRuntimeLinks([
             addonPath,
             helperPath,
-            ...listDylibs(libDir),
+            ...listDylibs(libDir)
         ])
     );
     return errors;
@@ -365,5 +363,5 @@ module.exports = {
     patchAddonForBundledRuntime: patchBinaryForBundledRuntime,
     patchBinaryForBundledRuntime,
     validateNoForbiddenRuntimeLinks,
-    validatePackagedEmbeddedMpv,
+    validatePackagedEmbeddedMpv
 };
