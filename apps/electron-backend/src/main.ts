@@ -8,7 +8,6 @@ import ElectronEvents from './app/events/electron.events';
 import EmbeddedMpvEvents, {
     shutdownEmbeddedMpv,
 } from './app/events/embedded-mpv.events';
-import EpgEvents from './app/events/epg.events';
 import { shutdownMpvSession } from './app/events/mpv-session.service';
 import PlayerEvents from './app/events/player.events';
 import { shutdownVlcSession } from './app/events/vlc-session.service';
@@ -103,17 +102,12 @@ export default class Main {
         SettingsEvents.bootstrapSettingsEvents();
         XtreamEvents.bootstrapXtreamEvents();
         DatabaseEvents.bootstrapDatabaseEvents();
-        EpgEvents.bootstrapEpgEvents();
 
-        // Load the renderer only after IPC handlers are registered. On slower
-        // Linux CI hosts the renderer can otherwise invoke Electron bridge IPC
-        // before the main process has installed handlers.
+        // Load the renderer only after IPC handlers are registered.
         await App.loadMainWindow();
 
-        // Initialize the database after the first renderer load is underway so
-        // Linux Electron E2E can observe a BrowserWindow even when SQLite
-        // startup or download recovery is slow. IPC handlers call getDatabase()
-        // lazily and share the same initialization promise.
+        // Initialize the database after the first renderer load is underway.
+        // IPC handlers call getDatabase() lazily and share the same promise.
         await initDatabase();
 
         if (isStartupTraceEnabled()) {

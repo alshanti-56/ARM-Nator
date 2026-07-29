@@ -1,183 +1,147 @@
 import {
-    ChangeDetectionStrategy,
-    Component,
-    computed,
-    inject,
-    input,
-    output,
-    signal,
-    viewChild,
-} from '@angular/core';
-import { MatDialog } from '@angular/material/dialog';
-import { MatIconModule } from '@angular/material/icon';
-import { MatMenuModule, MatMenuTrigger } from '@angular/material/menu';
-import { TranslatePipe } from '@ngx-translate/core';
-import { EpgRuntimeBridgeService } from '@arm-nator/epg/data-access';
-import { resolveChannelEpgLookupKey } from '@arm-nator/providers/m3u/state';
-import { Channel, EpgProgram } from '@arm-nator/shared/interfaces';
-import { EpgMappingDialogComponent } from '../epg-mapping-dialog/epg-mapping-dialog.component';
-import { ChannelDetailsDialogComponent } from '../channel-details-dialog/channel-details-dialog.component';
-import { resolveChannelLogo } from '../channel-logo-fallback.util';
-import {
-    calculateEpgProgress,
-    resolveChannelEpgProgram,
-} from '../epg-enrichment.util';
-import { ChannelListItemComponent } from '../channel-list-item/channel-list-item.component';
+  ChangeDetectionStrategy,
+  Component,
+  computed,
+  inject,
+  input,
+  output,
+  signal,
+  viewChild,
+} from "@angular/core";
+import { MatDialog } from "@angular/material/dialog";
+import { MatIconModule } from "@angular/material/icon";
+import { MatMenuModule, MatMenuTrigger } from "@angular/material/menu";
+import { TranslatePipe } from "@ngx-translate/core";
+import { Channel } from "@arm-nator/shared/interfaces";
+
+import { ChannelDetailsDialogComponent } from "../channel-details-dialog/channel-details-dialog.component";
+import { resolveChannelLogo } from "../channel-logo-fallback.util";
+import { ChannelListItemComponent } from "../channel-list-item/channel-list-item.component";
 
 export interface RecentViewItem {
-    channel: Channel;
-    viewedAt: string;
+  channel: Channel;
+  viewedAt: string;
 }
 
 @Component({
-    selector: 'app-recent-view',
-    templateUrl: './recent-view.component.html',
-    styleUrls: ['./recent-view.component.scss'],
-    changeDetection: ChangeDetectionStrategy.OnPush,
-    imports: [
-        ChannelListItemComponent,
-        MatIconModule,
-        MatMenuModule,
-        TranslatePipe,
-    ],
+  selector: "app-recent-view",
+  templateUrl: "./recent-view.component.html",
+  styleUrls: ["./recent-view.component.scss"],
+  changeDetection: ChangeDetectionStrategy.OnPush,
+  imports: [
+    ChannelListItemComponent,
+    MatIconModule,
+    MatMenuModule,
+    TranslatePipe,
+  ],
 })
 export class RecentViewComponent {
-    private readonly dialog = inject(MatDialog);
-    private readonly epgBridge = inject(EpgRuntimeBridgeService);
-    readonly supportsEpgMapping = this.epgBridge.supportsEpgMapping;
+  private readonly dialog = inject(MatDialog);
 
-    readonly contextMenuTrigger =
-        viewChild.required<MatMenuTrigger>('contextMenuTrigger');
+  readonly contextMenuTrigger =
+    viewChild.required<MatMenuTrigger>("contextMenuTrigger");
 
-    readonly recentItems = input.required<RecentViewItem[]>();
-    readonly searchTerm = input('');
-    readonly channelEpgMap = input.required<Map<string, EpgProgram | null>>();
-    readonly channelIconMap = input.required<Map<string, string>>();
-    readonly progressTick = input.required<number>();
-    readonly shouldShowEpg = input.required<boolean>();
-    readonly openOnDoubleClick = input(false);
-    readonly activeChannelUrl = input<string | undefined>();
+  readonly recentItems = input.required<RecentViewItem[]>();
+  readonly searchTerm = input("");
+  readonly channelIconMap = input.required<Map<string, string>>();
+  readonly progressTick = input.required<number>();
+  readonly openOnDoubleClick = input(false);
+  readonly activeChannelUrl = input<string | undefined>();
 
-    readonly channelSelected = output<Channel>();
-    readonly channelPlaybackRequested = output<Channel>();
-    readonly removeRecent = output<string>();
+  readonly channelSelected = output<Channel>();
+  readonly channelPlaybackRequested = output<Channel>();
+  readonly removeRecent = output<string>();
 
-    readonly contextMenuChannel = signal<Channel | null>(null);
-    readonly contextMenuPosition = signal({
-        x: '0px',
-        y: '0px',
+  readonly contextMenuChannel = signal<Channel | null>(null);
+  readonly contextMenuPosition = signal({
+    x: "0px",
+    y: "0px",
+  });
+
+  readonly filteredRecentItems = computed(() => {
+    const recentItems = this.recentItems();
+    const term = this.searchTerm().trim().toLowerCase();
+
+    if (!term) {
+      return recentItems;
+    }
+
+    return recentItems.filter(({ channel }) =>
+      `${channel.name ?? ""} ${channel.group?.title ?? ""}`
+        .toLowerCase()
+        .includes(term),
+    );
+  });
+
+  readonly enrichedRecentItems = computed(() => {
+    const recentItems = this.filteredRecentItems();
+    const iconMap = this.channelIconMap();
+    return recentItems.map(({ channel, viewedAt }) => {
+      return {
+        channel,
+        viewedAt,
+        logo: resolveChannelLogo(channel, iconMap),
+      };
+    });
+  });
+
+  trackByFn(_: number, item: RecentViewItem): string {
+    return item.channel?.url;
+  }
+
+  onChannelClick(channel: Channel): void {
+    this.channelSelected.emit(channel);
+  }
+
+  onChannelActivate(channel: Channel): void {
+    if (this.openOnDoubleClick()) {
+      this.channelPlaybackRequested.emit(channel);
+    }
+  }
+
+  onRemoveRecent(channel: Channel, event: MouseEvent): void {
+    event.stopPropagation();
+    this.removeRecent.emit(channel.url);
+  }
+
+  onChannelContextMenu(channel: Channel, event: MouseEvent): void {
+    this.contextMenuChannel.set(channel);
+    this.contextMenuPosition.set({
+      x: `${event.clientX}px`,
+      y: `${event.clientY}px`,
     });
 
-    readonly filteredRecentItems = computed(() => {
-        const recentItems = this.recentItems();
-        const term = this.searchTerm().trim().toLowerCase();
+    const trigger = this.contextMenuTrigger();
+    if (trigger.menuOpen) {
+      trigger.closeMenu();
+    }
 
-        if (!term) {
-            return recentItems;
-        }
-
-        return recentItems.filter(({ channel }) =>
-            `${channel.name ?? ''} ${channel.group?.title ?? ''}`
-                .toLowerCase()
-                .includes(term)
-        );
+    queueMicrotask(() => {
+      this.contextMenuTrigger().openMenu();
     });
+  }
 
-    readonly enrichedRecentItems = computed(() => {
-        const recentItems = this.filteredRecentItems();
-        const epgMap = this.channelEpgMap();
-        const iconMap = this.channelIconMap();
-        this.progressTick();
+  openChannelDetails(): void {
+    const channel = this.contextMenuChannel();
+    if (!channel) {
+      return;
+    }
 
-        return recentItems.map(({ channel, viewedAt }) => {
-            const epgProgram = resolveChannelEpgProgram(channel, epgMap);
-
-            return {
-                channel,
-                viewedAt,
-                epgProgram,
-                logo: resolveChannelLogo(channel, iconMap),
-                progressPercentage: calculateEpgProgress(epgProgram),
-            };
-        });
+    this.contextMenuTrigger().closeMenu();
+    this.dialog.open(ChannelDetailsDialogComponent, {
+      data: channel,
+      maxWidth: "720px",
+      width: "calc(100vw - 32px)",
     });
+  }
 
-    trackByFn(_: number, item: RecentViewItem): string {
-        return item.channel?.url;
+  removeContextMenuChannel(): void {
+    const channel = this.contextMenuChannel();
+    if (!channel) {
+      return;
     }
 
-    onChannelClick(channel: Channel): void {
-        this.channelSelected.emit(channel);
-    }
-
-    onChannelActivate(channel: Channel): void {
-        if (this.openOnDoubleClick()) {
-            this.channelPlaybackRequested.emit(channel);
-        }
-    }
-
-    onRemoveRecent(channel: Channel, event: MouseEvent): void {
-        event.stopPropagation();
-        this.removeRecent.emit(channel.url);
-    }
-
-    onChannelContextMenu(channel: Channel, event: MouseEvent): void {
-        this.contextMenuChannel.set(channel);
-        this.contextMenuPosition.set({
-            x: `${event.clientX}px`,
-            y: `${event.clientY}px`,
-        });
-
-        const trigger = this.contextMenuTrigger();
-        if (trigger.menuOpen) {
-            trigger.closeMenu();
-        }
-
-        queueMicrotask(() => {
-            this.contextMenuTrigger().openMenu();
-        });
-    }
-
-    openEpgMapping(): void {
-        const channel = this.contextMenuChannel();
-        if (!channel) {
-            return;
-        }
-
-        this.contextMenuTrigger().closeMenu();
-        const channelKey = resolveChannelEpgLookupKey(channel);
-        if (!channelKey) {
-            return;
-        }
-
-        EpgMappingDialogComponent.open(this.dialog, {
-            channelKey,
-            channelName: channel.name ?? channelKey,
-        });
-    }
-
-
-    openChannelDetails(): void {
-        const channel = this.contextMenuChannel();
-        if (!channel) {
-            return;
-        }
-
-        this.contextMenuTrigger().closeMenu();
-        this.dialog.open(ChannelDetailsDialogComponent, {
-            data: channel,
-            maxWidth: '720px',
-            width: 'calc(100vw - 32px)',
-        });
-    }
-
-    removeContextMenuChannel(): void {
-        const channel = this.contextMenuChannel();
-        if (!channel) {
-            return;
-        }
-
-        this.contextMenuTrigger().closeMenu();
-        this.removeRecent.emit(channel.url);
-    }
+    this.contextMenuTrigger().closeMenu();
+    this.removeRecent.emit(channel.url);
+  }
 }

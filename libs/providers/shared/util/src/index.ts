@@ -13,7 +13,6 @@ export * from './lib/portal-shell-actions';
 export * from './lib/portal-collection-context';
 export * from './lib/portal-collection-context.service';
 export * from './lib/portal-collection-items';
-export * from './lib/live-epg-panel-state';
 export * from './lib/live-sidebar-state';
 export * from './lib/live-layout-sidebar-state.service';
 export * from './lib/keyboard';

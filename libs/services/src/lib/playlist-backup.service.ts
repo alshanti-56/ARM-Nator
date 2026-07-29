@@ -358,15 +358,7 @@ export class PlaylistBackupService {
     }
 
     private buildSettingsPayload(): PlaylistBackupSettings | undefined {
-        const epgUrls = this.normalizeSettingsUrls(
-            this.settingsStore.getSettings().epgUrl ?? []
-        );
-
-        if (epgUrls.length === 0) {
-            return undefined;
-        }
-
-        return { epgUrls };
+        return undefined;
     }
 
     private parseManifest(json: string): PlaylistBackupManifestV1 {
@@ -736,19 +728,7 @@ export class PlaylistBackupService {
     private async restoreSettings(
         settings: PlaylistBackupSettings | undefined
     ): Promise<void> {
-        if (!settings?.epgUrls) {
-            return;
-        }
-
-        const existingSettings = this.settingsStore.getSettings();
-        const mergedEpgUrls = this.mergeUrls(
-            settings.epgUrls,
-            existingSettings.epgUrl ?? []
-        );
-
-        await this.settingsStore.updateSettings({
-            epgUrl: mergedEpgUrls,
-        });
+        void settings;
     }
 
     private async restoreXtreamEntry(

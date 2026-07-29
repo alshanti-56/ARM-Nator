@@ -1,12 +1,9 @@
 /* eslint-disable @typescript-eslint/no-unused-vars */
 import {
     EmbeddedMpvBounds,
-    EmbeddedMpvRecordingStartOptions,
     EmbeddedMpvSession,
     EmbeddedMpvSupport,
 } from './embedded-mpv-session.interface';
-import { EpgChannelMetadata } from './epg-channel-metadata.model';
-import { EpgProgram } from './epg-program.model';
 import { ExternalPlayerSession } from './external-player-session.interface';
 import {
     GlobalSearchPaginationOptions,
@@ -72,18 +69,7 @@ export const ELECTRON_BRIDGE_PLAYLIST_TYPES = {
 export type ElectronBridgePlaylistType =
     (typeof ELECTRON_BRIDGE_PLAYLIST_TYPES)[keyof typeof ELECTRON_BRIDGE_PLAYLIST_TYPES];
 
-export const ELECTRON_BRIDGE_EPG_PROGRESS_STATUSES = {
-    Complete: 'complete',
-    Error: 'error',
-    Loading: 'loading',
-    Queued: 'queued',
-} as const;
-
-export type ElectronBridgeEpgProgressStatus =
-    (typeof ELECTRON_BRIDGE_EPG_PROGRESS_STATUSES)[keyof typeof ELECTRON_BRIDGE_EPG_PROGRESS_STATUSES];
-
 export const ELECTRON_BRIDGE_SECURITY_ERROR_CODES = {
-    EpgPrivateNetworkBlocked: 'epg-private-network-blocked',
     InvalidTlsCertificate: 'invalid-tls-certificate',
 } as const;
 
@@ -162,62 +148,8 @@ export interface ElectronBridgeXtreamProbeResult {
     url: string;
 }
 
-export interface ElectronBridgeEpgFetchResult extends ElectronBridgeResult {
-    message?: string;
-    skipped?: string[];
-}
-
 export interface ElectronBridgeTrustOptions {
-    trustedPrivateNetworkEpgUrls?: string[];
     trustedInsecureTlsHosts?: string[];
-}
-
-export interface ElectronBridgeEpgFreshnessResult {
-    staleUrls: string[];
-    freshUrls: string[];
-}
-
-export interface ElectronBridgeEpgMapping {
-    id: number;
-    channelKey: string;
-    epgChannelId: string;
-    playlistId: string | null;
-}
-
-export interface ElectronBridgeEpgSearchResult {
-    id: string;
-    displayName: string;
-    iconUrl: string | null;
-}
-
-export interface ElectronBridgeEpgLookupOptions {
-    sourceUrls?: string[];
-}
-
-export interface ElectronBridgeEpgProgressStats {
-    totalChannels: number;
-    totalPrograms: number;
-}
-
-export interface ElectronBridgeEpgProgress {
-    url: string;
-    status: ElectronBridgeEpgProgressStatus;
-    stats?: ElectronBridgeEpgProgressStats;
-    error?: string;
-    errorCode?: ElectronBridgeSecurityErrorCode;
-    errorHost?: string;
-    queuePosition?: number;
-}
-
-export interface ElectronBridgeEpgChannelSummary {
-    id: string;
-    displayName: string;
-}
-
-export interface ElectronBridgeEpgChannelListResult {
-    channels: ElectronBridgeEpgChannelSummary[];
-    /** Always empty for this endpoint; retained for wire-format compatibility. */
-    programs: [];
 }
 
 

@@ -184,40 +184,6 @@
     font-variant-numeric: tabular-nums;
 }
 
-.player-controls__recording-status {
-    display: flex;
-    align-items: center;
-    gap: 6px;
-    min-width: 0;
-    color: rgba(255, 255, 255, 0.78);
-    font-size: 0.72rem;
-    font-variant-numeric: tabular-nums;
-}
-
-.player-controls__recording-status mat-icon {
-    flex: 0 0 auto;
-    width: 16px;
-    height: 16px;
-    font-size: 16px;
-    color: #ffffff;
-}
-
-.player-controls__recording-status span {
-    min-width: 0;
-    overflow: hidden;
-    text-overflow: ellipsis;
-    white-space: nowrap;
-}
-
-.player-controls__recording-status--active {
-    color: var(--mat-sys-error, #ff5252);
-    font-weight: 700;
-}
-
-.player-controls__recording-status--active mat-icon {
-    color: var(--mat-sys-error, #ff5252);
-}
-
 .player-controls__live-badge {
     display: inline-flex;
     align-items: center;
@@ -254,10 +220,6 @@
 .player-controls__popover-anchor {
     position: relative;
     display: flex;
-}
-
-.player-controls__record-button--active {
-    color: var(--mat-sys-error, #ff5252) !important;
 }
 
 // Scope to :host — the controls render directly under the component host

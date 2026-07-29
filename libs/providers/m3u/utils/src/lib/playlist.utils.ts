@@ -1,4 +1,11 @@
-import { Channel, Playlist } from '@arm-nator/shared/interfaces';
+import {
+    Channel,
+    createRandomId,
+    ParsedPlaylist,
+    ParsedPlaylistItem,
+    Playlist,
+} from '@arm-nator/shared/interfaces';
+import { extractDrmFromRaw } from './kodiprop.utils';
 
 /**
  * Aggregates favorite channels as objects from all available playlists
@@ -59,18 +66,56 @@ export const getFilenameFromUrl = (value: string): string => {
     return 'Untitled playlist';
 };
 
-export {
-    createPlaylistObject,
-    extractM3uEpgUrls,
-    filterPlaylistEpgUrlsForFetch,
-    getExtensionFromUrl,
-    getStreamExtensionFromUrl,
-    M3U_AUTO_IMPORT_EPG_URL_LIMIT,
-    M3U_RECOMMENDED_EPG_URL_LIMIT,
-    normalizeEpgUrls,
-    resolveM3uEpgUrlSelection,
-    resolvePlaylistEpgSourceState,
-    type M3uEpgUrlSelection,
-    type PlaylistEpgSourceState,
-    type PlaylistEpgSourceStateInput,
-} from './playlist-epg.utils';
+export const createPlaylistObject = (
+    name: string,
+    playlist: ParsedPlaylist,
+    urlOrPath?: string,
+    uploadType?: 'URL' | 'FILE' | 'TEXT'
+): Playlist => ({
+    _id: createRandomId(),
+    filename: name,
+    title: name,
+    count: playlist.items.length,
+    playlist: {
+        ...playlist,
+        items: playlist.items.map((item: ParsedPlaylistItem) => {
+            const drm = extractDrmFromRaw(item.raw);
+            return {
+                ...item,
+                id: createRandomId(),
+                ...(drm ? { drm } : {}),
+            };
+        }),
+    },
+    importDate: new Date().toISOString(),
+    lastUsage: new Date().toISOString(),
+    favorites: [],
+    autoRefresh: false,
+    ...(uploadType === 'URL' ? { url: urlOrPath } : {}),
+    ...(uploadType === 'FILE' ? { filePath: urlOrPath } : {}),
+});
+
+export const getExtensionFromUrl = (url: string): string | undefined => {
+    const path = url.split(/[#?]/)[0];
+    const lastSegment = path.split('/').pop() || '';
+    const dotIndex = lastSegment.lastIndexOf('.');
+    if (dotIndex < 1) return undefined;
+    const extension = lastSegment.slice(dotIndex + 1).trim();
+    return extension || undefined;
+};
+
+export const getStreamExtensionFromUrl = (
+    url: string
+): string | undefined => {
+    try {
+        const parsedUrl = new URL(url, 'http://arm-nator.local');
+        const queryExtension = parsedUrl.searchParams
+            .get('extension')
+            ?.trim()
+            .replace(/^\.+/, '')
+            .toLowerCase();
+        return queryExtension || getExtensionFromUrl(url);
+    } catch {
+        return getExtensionFromUrl(url);
+    }
+};

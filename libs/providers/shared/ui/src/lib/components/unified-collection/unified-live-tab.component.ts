@@ -1,9 +1,7 @@
-/* eslint-disable max-lines */
 import {
     ChangeDetectionStrategy,
     Component,
     computed,
-    DestroyRef,
     effect,
     inject,
     input,
@@ -12,55 +10,26 @@ import {
 } from '@angular/core';
 import { MatButtonModule } from '@angular/material/button';
 import { MatIconModule } from '@angular/material/icon';
-import { MatProgressSpinnerModule } from '@angular/material/progress-spinner';
-import { MatSnackBar } from '@angular/material/snack-bar';
-import { TranslatePipe, TranslateService } from '@ngx-translate/core';
-import {
-    applyChannelNameStrip,
-    getM3uArchiveDays,
-    isM3uCatchupPlaybackSupported,
-    resolveM3uCatchupUrl,
-} from '@arm-nator/providers/m3u/utils';
-import {
-    DEFAULT_FAVORITES_CHANNEL_SORT_MODE,
-    FavoritesChannelSortMode,
-    LiveEpgPanelState,
-    matchesOpenLiveCollectionItem,
-    OpenLiveCollectionItemState,
-    PORTAL_PLAYER,
-    persistLiveEpgPanelState,
-    restoreLiveEpgPanelState,
-    UnifiedCollectionItem,
-    UnifiedFavoriteChannel,
-} from '@arm-nator/providers/shared/util';
+import { TranslatePipe } from '@ngx-translate/core';
 import {
     ResolvedLiveCollectionDetail,
     StreamResolverService,
     UnifiedRecentDataService,
 } from '@arm-nator/providers/shared/data-access';
 import {
-    EpgDateNavigationDirection,
-    EpgListViewComponent,
-    EpgProgramActivationEvent,
-    EpgTimelineComponent,
-    getTodayEpgDateKey,
-    shiftEpgDateKey,
-} from '@arm-nator/epg/ui';
-import {
-    getLiveEpgPanelSummary,
-    toEpgProgram,
-    toEpochSeconds,
-    toLiveEpgPanelSummary,
-} from './unified-live-epg-summary.util';
+    DEFAULT_FAVORITES_CHANNEL_SORT_MODE,
+    FavoritesChannelSortMode,
+    matchesOpenLiveCollectionItem,
+    OpenLiveCollectionItemState,
+    PORTAL_PLAYER,
+    UnifiedCollectionItem,
+    UnifiedFavoriteChannel,
+} from '@arm-nator/providers/shared/util';
+import { AudioPlayerComponent } from '@arm-nator/player/ui';
+import { ResizableDirective } from '@arm-nator/ui/components';
+import { SettingsStore } from '@arm-nator/services';
 import { GlobalFavoritesListComponent } from '../global-favorites-list/global-favorites-list.component';
 import { PortalEmptyStateComponent } from '../portal-empty-state/portal-empty-state.component';
-import {
-    AudioPlayerComponent,
-    type PlaybackFallbackRequest,
-} from '@arm-nator/player/ui';
-import { ResizableDirective } from '@arm-nator/ui/components';
-import { RuntimeCapabilitiesService, SettingsStore } from '@arm-nator/services';
-import { EpgProgram } from '@arm-nator/shared/interfaces';
 
 @Component({
     selector: 'app-unified-live-tab',
@@ -69,12 +38,9 @@ import { EpgProgram } from '@arm-nator/shared/interfaces';
     changeDetection: ChangeDetectionStrategy.OnPush,
     imports: [
         AudioPlayerComponent,
-        EpgListViewComponent,
-        EpgTimelineComponent,
         GlobalFavoritesListComponent,
         MatButtonModule,
         MatIconModule,
-        MatProgressSpinnerModule,
         PortalEmptyStateComponent,
         ResizableDirective,
         TranslatePipe,
@@ -89,153 +55,29 @@ export class UnifiedLiveTabComponent {
     readonly sortMode = input<FavoritesChannelSortMode>(
         DEFAULT_FAVORITES_CHANNEL_SORT_MODE
     );
+    readonly isSidebarCollapsed = input(false);
 
     readonly removeItem = output<UnifiedCollectionItem>();
     readonly favoriteToggled = output<UnifiedCollectionItem>();
     readonly reorderItems = output<UnifiedCollectionItem[]>();
     readonly itemPlayed = output<UnifiedCollectionItem>();
     readonly autoOpenHandled = output<void>();
-    readonly isSidebarCollapsed = input(false);
 
     private readonly streamResolver = inject(StreamResolverService);
     private readonly recentData = inject(UnifiedRecentDataService);
-    private readonly runtime = inject(RuntimeCapabilitiesService);
     private readonly settingsStore = inject(SettingsStore);
     private readonly portalPlayer = inject(PORTAL_PLAYER);
-    private readonly destroyRef = inject(DestroyRef);
-    private readonly snackBar = inject(MatSnackBar);
-    private readonly translate = inject(TranslateService);
-
-    readonly player = this.settingsStore.player;
-    readonly supportsEpg = this.runtime.supportsEpg;
-    readonly isEmbeddedPlayer = computed(() =>
-        this.portalPlayer.isEmbeddedPlayer()
-    );
 
     readonly activeDetail = signal<ResolvedLiveCollectionDetail | null>(null);
     readonly activeUid = signal<string | null>(null);
-    /** Full collection item for the active selection — used to read
-     *  portal archive fields (tvArchive/tvArchiveDuration) and to
-     *  supply credentials for Xtream catch-up URL resolution. */
-    readonly activeItem = signal<UnifiedCollectionItem | null>(null);
     readonly isSelecting = signal(false);
-    readonly epgMap = signal<Map<string, EpgProgram | null>>(new Map());
     readonly progressTick = signal(0);
-    readonly liveEpgPanelState = signal<LiveEpgPanelState>(
-        restoreLiveEpgPanelState()
+    readonly isEmbeddedPlayer = computed(() =>
+        this.portalPlayer.isEmbeddedPlayer()
     );
-    readonly selectedLiveEpgDate = signal(getTodayEpgDateKey());
-    /** Catch-up override for the active M3U channel; null = live playback. */
-    readonly activeTimeshift = signal<{
-        url: string;
-        program: EpgProgram;
-    } | null>(null);
-    readonly activeTimeshiftProgram = computed(
-        () => this.activeTimeshift()?.program ?? null
-    );
-    /** Playback target for the inline player, honouring a catch-up override. */
-    readonly inlinePlayback = computed(() => {
-        const playback = this.activeDetail()?.playback ?? null;
-        const timeshift = this.activeTimeshift();
-        if (!playback || !timeshift) {
-            return playback;
-        }
-
-        return {
-            ...playback,
-            streamUrl: timeshift.url,
-            isLive: false,
-        };
-    });
     readonly currentStreamUrl = computed(
-        () => this.inlinePlayback()?.streamUrl ?? ''
+        () => this.activeDetail()?.playback.streamUrl ?? ''
     );
-    readonly isM3uSelection = computed(
-        () => this.activeDetail()?.epgMode === 'm3u'
-    );
-    readonly currentPortalEpgItems = computed(
-        () => this.activeDetail()?.epgItems ?? []
-    );
-    readonly currentM3uPrograms = computed(() => {
-        const detail = this.activeDetail();
-        if (detail?.epgMode !== 'm3u') {
-            return [];
-        }
-
-        if (detail.channel?.radio === 'true') {
-            return [];
-        }
-
-        return detail.epgPrograms ?? [];
-    });
-    readonly currentM3uChannel = computed(() => {
-        const detail = this.activeDetail();
-        if (detail?.epgMode !== 'm3u') {
-            return null;
-        }
-
-        return detail.channel ?? null;
-    });
-    readonly currentM3uArchivePlaybackAvailable = computed(() =>
-        isM3uCatchupPlaybackSupported(this.currentM3uChannel())
-    );
-    /** Portal EPG items normalised to the timeline programme shape. */
-    readonly currentPortalEpgPrograms = computed<EpgProgram[]>(() =>
-        this.currentPortalEpgItems().map((item) => toEpgProgram(item))
-    );
-    readonly timelinePrograms = computed<EpgProgram[]>(() =>
-        this.isM3uSelection()
-            ? this.currentM3uPrograms()
-            : this.currentPortalEpgPrograms()
-    );
-    readonly timelineChannelName = computed(() =>
-        applyChannelNameStrip(
-            this.currentM3uChannel()?.name ??
-                this.activeDetail()?.playback?.title,
-            this.settingsStore.stripCountryPrefix?.()
-        )
-    );
-    readonly timelineChannelLogo = computed(
-        () =>
-            this.currentM3uChannel()?.tvg?.logo ??
-            this.activeDetail()?.playback?.thumbnail ??
-            ''
-    );
-    readonly timelineArchiveAvailable = computed(() => {
-        if (this.isM3uSelection()) {
-            return this.currentM3uArchivePlaybackAvailable();
-        }
-
-        // Portal archive: tvArchive === 1 means the provider has
-        // timeshift / archive enabled for this channel.
-        const item = this.activeItem();
-        return (
-            Number(item?.tvArchive ?? 0) === 1 &&
-            Number(item?.tvArchiveDuration ?? 0) > 0
-        );
-    });
-    /**
-     * Catch-up window (days) for the active channel, so the timeline can
-     * gate "Watch" to programmes inside it. Without this the timeline defaults
-     * `archiveDays` to 0 (treated as unlimited) and offers catch-up on
-     * programmes older than the real archive window.
-     *
-     * M3U: reads catchup-days / timeshift / tvg-rec from the channel attrs.
-     * Portal: tvArchiveDuration is already in days — pass it through,
-     * matching `live-stream-layout.controlledArchiveDays`.
-     */
-    readonly timelineArchiveDays = computed(() => {
-        if (!this.timelineArchiveAvailable()) return 0;
-
-        if (this.isM3uSelection()) {
-            return getM3uArchiveDays(this.currentM3uChannel());
-        }
-
-        return Math.max(
-            0,
-            Number(this.activeItem()?.tvArchiveDuration ?? 0) || 0
-        );
-    });
     readonly activeRadioChannel = computed(() => {
         const channel = this.activeDetail()?.channel ?? null;
         return channel?.radio === 'true' ? channel : null;
@@ -243,29 +85,9 @@ export class UnifiedLiveTabComponent {
     readonly isRadioSelection = computed(
         () => this.activeRadioChannel() !== null
     );
-    readonly shouldUseInlinePlayer = computed(() => {
-        return this.isRadioSelection() || this.isEmbeddedPlayer();
-    });
-    readonly isLiveEpgPanelCollapsed = computed(
-        () => this.liveEpgPanelState() === 'collapsed'
+    readonly shouldUseInlinePlayer = computed(
+        () => this.isRadioSelection() || this.isEmbeddedPlayer()
     );
-    /** Live EPG panel layout chosen in settings; hosts swap timeline ↔ list. */
-    readonly epgViewMode = this.settingsStore.resolvedEpgViewMode;
-    readonly liveEpgPanelSummary = computed(() => {
-        const timeshift = this.activeTimeshift();
-        if (timeshift) {
-            // Archive summary is frozen — don't track the 30s progress tick.
-            return toLiveEpgPanelSummary(timeshift.program);
-        }
-        this.progressTick();
-        return getLiveEpgPanelSummary(this.activeDetail());
-    });
-    readonly liveEpgPanelSummaryLabelKey = computed(() =>
-        this.activeTimeshift()
-            ? 'EPG.ARCHIVE_PLAYBACK'
-            : 'EPG.CURRENT_PROGRAM'
-    );
-
     readonly channelsForList = computed((): UnifiedFavoriteChannel[] =>
         this.items().map((item) => ({
             uid: item.uid,
@@ -291,242 +113,51 @@ export class UnifiedLiveTabComponent {
 
     constructor() {
         effect(() => {
-            const items = this.items();
-            if (this.supportsEpg) {
-                void this.loadEpgMap(items);
-            } else {
-                this.epgMap.set(new Map());
-            }
-
-            const activeUid = this.activeUid();
-            if (activeUid && !items.some((item) => item.uid === activeUid)) {
-                this.onClose();
-            }
-        });
-
-        effect(() => {
             const target = this.autoOpenItem();
             const items = this.items();
-            if (!target || items.length === 0) {
-                return;
-            }
+            if (!target || items.length === 0) return;
 
-            const matchedItem = items.find((item) =>
-                matchesOpenLiveCollectionItem(item, target)
+            const item = items.find((candidate) =>
+                matchesOpenLiveCollectionItem(candidate, target)
             );
-            if (!matchedItem) {
+            if (!item) return;
+            if (this.activeUid() === item.uid && this.activeDetail()) {
+                this.autoOpenHandled.emit();
                 return;
             }
-
-            if (this.activeUid() === matchedItem.uid) {
-                if (this.activeDetail()) {
-                    this.autoOpenHandled.emit();
-                    return;
-                }
-
-                if (this.isSelecting()) {
-                    return;
-                }
-            }
-
-            void this.activateItem(matchedItem, true);
+            if (!this.isSelecting()) void this.activateItem(item, true);
         });
-
-        const tickInterval = setInterval(
-            () => this.progressTick.update((tick) => tick + 1),
-            30_000
-        );
-        this.destroyRef.onDestroy(() => clearInterval(tickInterval));
     }
 
     async onChannelSelected(channel: UnifiedFavoriteChannel): Promise<void> {
-        const item = this.items().find(
-            (candidate) => candidate.uid === channel.uid
-        );
-        if (item) {
-            await this.activateItem(item);
-        }
+        const item = this.findItem(channel.uid);
+        if (item) await this.activateItem(item);
     }
 
     async onChannelPlaybackRequested(
         channel: UnifiedFavoriteChannel
     ): Promise<void> {
-        const item = this.items().find(
-            (candidate) => candidate.uid === channel.uid
-        );
-        if (item) {
-            await this.activateItem(item, false, true);
-        }
+        const item = this.findItem(channel.uid);
+        if (item) await this.activateItem(item, false, true);
     }
 
     onFavoriteToggled(channel: UnifiedFavoriteChannel): void {
-        const item = this.items().find(
-            (candidate) => candidate.uid === channel.uid
-        );
-        if (item) {
-            if (this.mode() === 'favorites') {
-                this.removeItem.emit(item);
-            } else {
-                this.favoriteToggled.emit(item);
-            }
-        }
+        const item = this.findItem(channel.uid);
+        if (!item) return;
+        if (this.mode() === 'favorites') this.removeItem.emit(item);
+        else this.favoriteToggled.emit(item);
     }
 
     onRemoveRequested(channel: UnifiedFavoriteChannel): void {
-        const item = this.items().find(
-            (candidate) => candidate.uid === channel.uid
-        );
-        if (item) {
-            this.removeItem.emit(item);
-        }
+        const item = this.findItem(channel.uid);
+        if (item) this.removeItem.emit(item);
     }
 
     onReorder(channels: UnifiedFavoriteChannel[]): void {
-        const reordered = channels
-            .map((channel) =>
-                this.items().find((candidate) => candidate.uid === channel.uid)
-            )
-            .filter(Boolean) as UnifiedCollectionItem[];
-        this.reorderItems.emit(reordered);
-    }
-
-    onLiveEpgPanelCollapsedChange(collapsed: boolean): void {
-        const state: LiveEpgPanelState = collapsed ? 'collapsed' : 'expanded';
-        this.liveEpgPanelState.set(state);
-        persistLiveEpgPanelState(state);
-    }
-
-    onLiveEpgDateNavigation(direction: EpgDateNavigationDirection): void {
-        this.selectedLiveEpgDate.set(
-            shiftEpgDateKey(this.selectedLiveEpgDate(), direction)
-        );
-    }
-
-    onLiveEpgSelectedDateChange(selectedDate: string): void {
-        this.selectedLiveEpgDate.set(selectedDate);
-    }
-
-    onTimelineProgramActivated(event: EpgProgramActivationEvent): void {
-        if (event.type === 'live') {
-            this.returnToLivePlayback();
-            return;
-        }
-
-        if (this.isM3uSelection()) {
-            this.activateM3uCatchup(event.program);
-        } else {
-            void this.activatePortalCatchup(event.program);
-        }
-    }
-
-    /**
-     * M3U catch-up: resolve via the M3U timeshift URL resolver.
-     */
-    private activateM3uCatchup(program: EpgProgram): void {
-        const playbackUrl = resolveM3uCatchupUrl(
-            this.currentM3uChannel(),
-            program
-        );
-        if (!playbackUrl) {
-            this.snackBar.open(
-                this.translate.instant('EPG.TIMELINE.CATCHUP_FAILED'),
-                undefined,
-                { duration: 4000 }
-            );
-            return;
-        }
-
-        this.activeTimeshift.set({ url: playbackUrl, program });
-
-        const playback = this.activeDetail()?.playback;
-        if (playback) {
-            void this.portalPlayer.openResolvedPlayback({
-                ...playback,
-                streamUrl: playbackUrl,
-                isLive: false,
-            });
-        }
-    }
-
-    /**
-     * Portal (Xtream) catch-up: compute start/stop as epoch seconds and
-     * resolve via the provider's timeshift endpoint.
-     */
-    private async activatePortalCatchup(program: EpgProgram): Promise<void> {
-        const requestId = this.selectionRequestId;
-        const item = this.activeItem();
-        if (!item?.xtreamId) {
-            this.snackBar.open(
-                this.translate.instant('EPG.TIMELINE.CATCHUP_FAILED'),
-                undefined,
-                { duration: 4000 }
-            );
-            return;
-        }
-
-        const startEpoch = toEpochSeconds(
-            program.startTimestamp,
-            program.start
-        );
-        const stopEpoch = toEpochSeconds(
-            program.stopTimestamp,
-            program.stop
-        );
-        if (startEpoch == null || stopEpoch == null) {
-            this.snackBar.open(
-                this.translate.instant('EPG.TIMELINE.CATCHUP_FAILED'),
-                undefined,
-                { duration: 4000 }
-            );
-            return;
-        }
-
-        const playbackUrl = await this.streamResolver.resolveXtreamCatchupUrl(
-            item,
-            startEpoch,
-            stopEpoch
-        );
-        if (requestId !== this.selectionRequestId) {
-            return; // switched channel — discard silently
-        }
-        if (!playbackUrl) {
-            this.snackBar.open(
-                this.translate.instant('EPG.TIMELINE.CATCHUP_FAILED'),
-                undefined,
-                { duration: 4000 }
-            );
-            return;
-        }
-
-        this.activeTimeshift.set({ url: playbackUrl, program });
-
-        const playback = this.activeDetail()?.playback;
-        if (playback) {
-            void this.portalPlayer.openResolvedPlayback({
-                ...playback,
-                streamUrl: playbackUrl,
-                isLive: false,
-            });
-        }
-    }
-
-    returnToLivePlayback(): void {
-        this.activeTimeshift.set(null);
-
-        // Inline player is already (back) on the live stream once the
-        // timeshift override is cleared. With an external player configured,
-        // "Watch live" must open it even when no archive was active — e.g.
-        // openStreamOnDoubleClick shows the guide without launching playback.
-        const playback = this.activeDetail()?.playback;
-        if (playback) {
-            void this.portalPlayer.openResolvedPlayback(playback);
-        }
-    }
-
-    handleExternalFallbackRequest(request: PlaybackFallbackRequest): void {
-        void this.portalPlayer.openExternalPlayback(
-            request.playback,
-            request.player
+        this.reorderItems.emit(
+            channels
+                .map((channel) => this.findItem(channel.uid))
+                .filter((item): item is UnifiedCollectionItem => Boolean(item))
         );
     }
 
@@ -535,17 +166,6 @@ export class UnifiedLiveTabComponent {
         this.isSelecting.set(false);
         this.activeDetail.set(null);
         this.activeUid.set(null);
-        this.activeItem.set(null);
-        this.activeTimeshift.set(null);
-    }
-
-    onEpgMappingChanged(): void {
-        void this.loadEpgMap(this.items());
-    }
-
-    private async loadEpgMap(items: UnifiedCollectionItem[]): Promise<void> {
-        const epgMap = await this.streamResolver.loadEpgForItems(items);
-        this.epgMap.set(epgMap);
     }
 
     private async activateItem(
@@ -553,43 +173,15 @@ export class UnifiedLiveTabComponent {
         isAutoOpen = false,
         startPlayback = false
     ): Promise<void> {
-        const activeDetail = this.activeDetail();
-        if (this.activeUid() === item.uid && activeDetail) {
-            if (
-                startPlayback &&
-                this.shouldOpenExternalPlayback(activeDetail, true)
-            ) {
-                void this.portalPlayer.openResolvedPlayback(
-                    activeDetail.playback
-                );
-            }
-            if (isAutoOpen) {
-                this.autoOpenHandled.emit();
-            }
-            return;
-        }
-
         const requestId = ++this.selectionRequestId;
         this.activeUid.set(item.uid);
-        this.activeItem.set(item);
         this.activeDetail.set(null);
-        this.activeTimeshift.set(null);
         this.isSelecting.set(true);
 
         try {
-            const detail =
-                item.sourceType === 'm3u'
-                    ? await this.streamResolver.resolveM3uPlaybackDetail(item)
-                    : await this.streamResolver.resolveLiveDetail(item);
-            if (requestId !== this.selectionRequestId) {
-                return;
-            }
-
+            const detail = await this.streamResolver.resolveLiveDetail(item);
+            if (requestId !== this.selectionRequestId) return;
             this.activeDetail.set(detail);
-
-            if (this.supportsEpg && detail.epgMode === 'm3u') {
-                void this.hydrateSelectedM3uPrograms(item, detail, requestId);
-            }
 
             if (
                 this.shouldUseInlinePlayer() ||
@@ -605,12 +197,10 @@ export class UnifiedLiveTabComponent {
                     this.itemPlayed.emit(updatedItem);
                 }
             } catch {
-                // Keep playback/EPG visible even if history persistence fails.
+                // Playback remains available when history persistence fails.
             }
 
-            if (requestId === this.selectionRequestId && isAutoOpen) {
-                this.autoOpenHandled.emit();
-            }
+            if (isAutoOpen) this.autoOpenHandled.emit();
         } catch {
             if (requestId === this.selectionRequestId) {
                 this.activeDetail.set(null);
@@ -625,55 +215,18 @@ export class UnifiedLiveTabComponent {
 
     private shouldOpenExternalPlayback(
         detail: ResolvedLiveCollectionDetail,
-        startPlayback = false
+        startPlayback: boolean
     ): boolean {
         if (
-            this.isRadioDetail(detail) ||
+            detail.channel?.radio === 'true' ||
             this.portalPlayer.isEmbeddedPlayer()
         ) {
             return false;
         }
-
         return !this.settingsStore.openStreamOnDoubleClick() || startPlayback;
     }
 
-    private isRadioDetail(
-        detail: ResolvedLiveCollectionDetail | null | undefined
-    ): boolean {
-        return detail?.channel?.radio === 'true';
+    private findItem(uid: string): UnifiedCollectionItem | undefined {
+        return this.items().find((item) => item.uid === uid);
     }
-
-    private async hydrateSelectedM3uPrograms(
-        item: UnifiedCollectionItem,
-        detail: ResolvedLiveCollectionDetail,
-        requestId: number
-    ): Promise<void> {
-        if (detail.epgMode !== 'm3u') {
-            return;
-        }
-
-        if (detail.channel?.radio === 'true') {
-            return;
-        }
-
-        const epgPrograms = await this.streamResolver.loadM3uProgramsForItem(
-            item,
-            detail.channel
-        );
-        if (requestId !== this.selectionRequestId) {
-            return;
-        }
-
-        this.activeDetail.update((currentDetail) => {
-            if (!currentDetail || currentDetail.epgMode !== 'm3u') {
-                return currentDetail;
-            }
-
-            return {
-                ...currentDetail,
-                epgPrograms,
-            };
-        });
-    }
-
 }

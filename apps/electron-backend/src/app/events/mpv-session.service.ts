@@ -11,7 +11,6 @@ import {
     buildExternalPlayerSpawnSpec,
     buildPlayerArgsWithCustomArguments,
     getDefaultMpvPath,
-    isRunningInFlatpak,
     normalizeCustomPlayerPath,
     parseExternalPlayerArguments,
     PlayerPathOptions,
@@ -56,8 +55,7 @@ function getMpvPath(options: PlayerPathOptions = {}): string {
 export function getMpvAvailability() {
     const context = resolveExternalPlayerLaunchContext(
         'mpv',
-        getMpvPath({ isFlatpak: isRunningInFlatpak() }),
-        { isFlatpak: isRunningInFlatpak() }
+        getMpvPath()
     );
     const spec = buildExternalPlayerSpawnSpec(context, ['--version']);
     const result = spawnSync(spec.command, spec.args, {
@@ -285,19 +283,14 @@ export async function openMpvPlayer({
     });
 
     try {
-        const isFlatpak = isRunningInFlatpak();
         const mpvLaunchContext = resolveExternalPlayerLaunchContext(
             'mpv',
-            getMpvPath({ isFlatpak }),
-            { isFlatpak }
+            getMpvPath()
         );
         const customMpvArguments = store.get(MPV_PLAYER_ARGUMENTS, '');
         const requestedReuseInstance = store.get(MPV_REUSE_INSTANCE, false);
-        const reuseInstance = shouldReuseMpvInstance(
-            requestedReuseInstance,
-            isFlatpak
-        );
-        const useMpvSocketBridge = shouldUseMpvSocketBridge(isFlatpak);
+        const reuseInstance = shouldReuseMpvInstance(requestedReuseInstance);
+        const useMpvSocketBridge = shouldUseMpvSocketBridge();
         const {
             effectiveOrigin,
             effectiveReferer,
@@ -409,10 +402,7 @@ export async function openMpvPlayer({
         const args: string[] = [];
 
         if (useMpvSocketBridge) {
-            socketPath =
-                process.platform === 'win32'
-                    ? `\\\\.\\pipe\\mpv-${Date.now()}`
-                    : `/tmp/mpvsocket-${Date.now()}`;
+            socketPath = `/tmp/mpvsocket-${Date.now()}`;
             args.push(`--input-ipc-server=${socketPath}`, '--idle=yes');
         }
 

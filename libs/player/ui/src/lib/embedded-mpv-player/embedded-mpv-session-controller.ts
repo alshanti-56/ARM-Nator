@@ -287,7 +287,7 @@ export class EmbeddedMpvSessionController {
         };
     }
 
-    // Transport/track/recording commands delegate to the command runner (owns
+    // Transport and track commands delegate to the command runner (owns
     // IPC + snapshot reconciliation). Bound fields keep the public API stable.
     readonly togglePaused = (): Promise<void> => this.commands.togglePaused();
     readonly seekBy = (deltaSeconds: number): Promise<boolean> =>
@@ -304,15 +304,6 @@ export class EmbeddedMpvSessionController {
         this.commands.setSpeed(speed);
     readonly setAspect = (aspect: string): Promise<void> =>
         this.commands.setAspect(aspect);
-    readonly startRecording = (
-        directory: string | undefined,
-        title: string
-    ): Promise<EmbeddedMpvSession['recording'] | null> =>
-        this.commands.startRecording(directory, title);
-    readonly stopRecording = (): Promise<
-        EmbeddedMpvSession['recording'] | null
-    > => this.commands.stopRecording();
-
     private async loadSupport(): Promise<void> {
         try {
             const electron = this.getElectronBridge();

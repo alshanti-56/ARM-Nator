@@ -1,227 +1,179 @@
-import { ScrollingModule } from '@angular/cdk/scrolling';
+import { ScrollingModule } from "@angular/cdk/scrolling";
 
 import {
-    ChangeDetectionStrategy,
-    Component,
-    computed,
-    inject,
-    input,
-    output,
-    signal,
-    viewChild,
-} from '@angular/core';
-import { MatButtonModule } from '@angular/material/button';
-import { MatDialog } from '@angular/material/dialog';
-import { MatIconModule } from '@angular/material/icon';
-import { MatMenuModule, MatMenuTrigger } from '@angular/material/menu';
-import { MatTooltipModule } from '@angular/material/tooltip';
-import { TranslatePipe } from '@ngx-translate/core';
-import { EpgRuntimeBridgeService } from '@arm-nator/epg/data-access';
-import { resolveChannelEpgLookupKey } from '@arm-nator/providers/m3u/state';
-import { Channel, EpgProgram } from '@arm-nator/shared/interfaces';
+  ChangeDetectionStrategy,
+  Component,
+  computed,
+  inject,
+  input,
+  output,
+  signal,
+  viewChild,
+} from "@angular/core";
+import { MatButtonModule } from "@angular/material/button";
+import { MatDialog } from "@angular/material/dialog";
+import { MatIconModule } from "@angular/material/icon";
+import { MatMenuModule, MatMenuTrigger } from "@angular/material/menu";
+import { MatTooltipModule } from "@angular/material/tooltip";
+import { TranslatePipe } from "@ngx-translate/core";
+import { Channel } from "@arm-nator/shared/interfaces";
+
 import {
-    PlaylistChannelSortMode,
-    getPlaylistChannelSortModeLabel,
-    persistPlaylistChannelSortMode,
-    restorePlaylistChannelSortMode,
-    sortPlaylistChannelItems,
-} from '../channel-list-sort.util';
-import { resolveChannelLogo } from '../channel-logo-fallback.util';
-import { buildChannelEpgMetadataMap } from '../epg-enrichment.util';
-import { ChannelDetailsDialogComponent } from '../channel-details-dialog/channel-details-dialog.component';
-import { EpgMappingDialogComponent } from '../epg-mapping-dialog/epg-mapping-dialog.component';
-import { ChannelListItemComponent } from '../channel-list-item/channel-list-item.component';
+  PlaylistChannelSortMode,
+  getPlaylistChannelSortModeLabel,
+  persistPlaylistChannelSortMode,
+  restorePlaylistChannelSortMode,
+  sortPlaylistChannelItems,
+} from "../channel-list-sort.util";
+import { resolveChannelLogo } from "../channel-logo-fallback.util";
+import { ChannelDetailsDialogComponent } from "../channel-details-dialog/channel-details-dialog.component";
+import { ChannelListItemComponent } from "../channel-list-item/channel-list-item.component";
 
-const ALL_CHANNELS_SORT_STORAGE_KEY = 'm3u-all-channels-sort-mode';
+const ALL_CHANNELS_SORT_STORAGE_KEY = "m3u-all-channels-sort-mode";
 
-export type { ChannelEpgMetadata } from '../epg-enrichment.util';
 
 @Component({
-    selector: 'app-all-channels-view',
-    templateUrl: './all-channels-view.component.html',
-    styleUrls: ['./all-channels-view.component.scss'],
-    changeDetection: ChangeDetectionStrategy.OnPush,
-    imports: [
-        ChannelListItemComponent,
-        MatButtonModule,
-        MatIconModule,
-        MatMenuModule,
-        MatTooltipModule,
-        ScrollingModule,
-        TranslatePipe,
-    ],
+  selector: "app-all-channels-view",
+  templateUrl: "./all-channels-view.component.html",
+  styleUrls: ["./all-channels-view.component.scss"],
+  changeDetection: ChangeDetectionStrategy.OnPush,
+  imports: [
+    ChannelListItemComponent,
+    MatButtonModule,
+    MatIconModule,
+    MatMenuModule,
+    MatTooltipModule,
+    ScrollingModule,
+    TranslatePipe,
+  ],
 })
 export class AllChannelsViewComponent {
-    private readonly dialog = inject(MatDialog);
-    private readonly epgBridge = inject(EpgRuntimeBridgeService);
-    readonly supportsEpgMapping = this.epgBridge.supportsEpgMapping;
+  private readonly dialog = inject(MatDialog);
 
-    readonly contextMenuTrigger =
-        viewChild.required<MatMenuTrigger>('contextMenuTrigger');
+  readonly contextMenuTrigger =
+    viewChild.required<MatMenuTrigger>("contextMenuTrigger");
 
-    /** All channels (will be filtered by search) */
-    readonly channels = input.required<Channel[]>();
-    readonly searchTerm = input('');
+  /** All channels (will be filtered by search) */
+  readonly channels = input.required<Channel[]>();
+  readonly searchTerm = input("");
+  readonly channelIconMap = input.required<Map<string, string>>();
 
-    /** EPG map for channel enrichment */
-    readonly channelEpgMap = input.required<Map<string, EpgProgram | null>>();
-    readonly channelIconMap = input.required<Map<string, string>>();
+  /** Progress tick to trigger progress recalculation */
+  readonly progressTick = input.required<number>();
+  readonly openOnDoubleClick = input(false);
 
-    /** Progress tick to trigger progress recalculation */
-    readonly progressTick = input.required<number>();
+  /** Item size for virtual scroll */
+  readonly itemSize = input.required<number>();
 
-    /** Whether to show EPG data */
-    readonly shouldShowEpg = input.required<boolean>();
-    readonly openOnDoubleClick = input(false);
+  /** Currently active channel URL */
+  readonly activeChannelUrl = input<string | undefined>();
 
-    /** Item size for virtual scroll */
-    readonly itemSize = input.required<number>();
+  /** Set of favorite channel URLs */
+  readonly favoriteIds = input<Set<string>>(new Set());
 
-    /** Currently active channel URL */
-    readonly activeChannelUrl = input<string | undefined>();
+  /** Emits when a channel is selected */
+  readonly channelSelected = output<Channel>();
+  readonly channelPlaybackRequested = output<Channel>();
 
-    /** Set of favorite channel URLs */
-    readonly favoriteIds = input<Set<string>>(new Set());
+  /** Emits when favorite is toggled */
+  readonly favoriteToggled = output<{
+    channel: Channel;
+    event: MouseEvent;
+  }>();
 
-    /** Emits when a channel is selected */
-    readonly channelSelected = output<Channel>();
-    readonly channelPlaybackRequested = output<Channel>();
+  /** Emits when the user clicks the inline collapse toggle in the list header */
+  readonly sidebarToggleRequested = output<void>();
 
-    /** Emits when favorite is toggled */
-    readonly favoriteToggled = output<{
-        channel: Channel;
-        event: MouseEvent;
-    }>();
+  readonly contextMenuChannel = signal<Channel | null>(null);
+  readonly contextMenuPosition = signal({
+    x: "0px",
+    y: "0px",
+  });
+  readonly allChannelsSortMode = signal<PlaylistChannelSortMode>(
+    restorePlaylistChannelSortMode(ALL_CHANNELS_SORT_STORAGE_KEY),
+  );
+  readonly allChannelsSortLabel = computed(() =>
+    getPlaylistChannelSortModeLabel(this.allChannelsSortMode()),
+  );
 
-    /** Emits when the user clicks the inline collapse toggle in the list header */
-    readonly sidebarToggleRequested = output<void>();
+  /**
+   * Filtered and sorted channels. Playlist order keeps the original input
+   * reference when there is no search term, so large lists avoid cloning.
+   */
+  readonly filteredChannels = computed(() => {
+    const term = this.searchTerm().trim().toLowerCase();
+    const channels = this.channels();
+    const filteredChannels = term
+      ? channels.filter((ch) => ch.name?.toLowerCase().includes(term))
+      : channels;
 
-    readonly contextMenuChannel = signal<Channel | null>(null);
-    readonly contextMenuPosition = signal({
-        x: '0px',
-        y: '0px',
-    });
-    readonly allChannelsSortMode = signal<PlaylistChannelSortMode>(
-        restorePlaylistChannelSortMode(ALL_CHANNELS_SORT_STORAGE_KEY)
+    return sortPlaylistChannelItems(
+      filteredChannels,
+      this.allChannelsSortMode(),
+      (channel) => channel?.name,
     );
-    readonly allChannelsSortLabel = computed(() =>
-        getPlaylistChannelSortModeLabel(this.allChannelsSortMode())
-    );
+  });
 
-    /**
-     * Filtered and sorted channels. Playlist order keeps the original input
-     * reference when there is no search term, so large lists avoid cloning.
-     */
-    readonly filteredChannels = computed(() => {
-        const term = this.searchTerm().trim().toLowerCase();
-        const channels = this.channels();
-        const filteredChannels = term
-            ? channels.filter((ch) => ch.name?.toLowerCase().includes(term))
-            : channels;
+  /**
+   * Resolves the channel logo. Called per visible row from the template; under
+   * OnPush + virtual scroll only ~50 rows check at a time so direct calls are
+   * cheaper than rebuilding a separate logo map per channels/iconMap change.
+   */
+  getLogoForChannel(channel: Channel): string {
+    return resolveChannelLogo(channel, this.channelIconMap());
+  }
 
-        return sortPlaylistChannelItems(
-            filteredChannels,
-            this.allChannelsSortMode(),
-            (channel) => channel?.name
-        );
+  trackByFn(_: number, channel: Channel): string {
+    return channel?.id;
+  }
+
+  onChannelClick(channel: Channel): void {
+    this.channelSelected.emit(channel);
+  }
+
+  onChannelActivate(channel: Channel): void {
+    if (this.openOnDoubleClick()) {
+      this.channelPlaybackRequested.emit(channel);
+    }
+  }
+
+  onFavoriteToggle(channel: Channel, event: MouseEvent): void {
+    this.favoriteToggled.emit({ channel, event });
+  }
+
+  setAllChannelsSortMode(mode: PlaylistChannelSortMode): void {
+    this.allChannelsSortMode.set(mode);
+    persistPlaylistChannelSortMode(ALL_CHANNELS_SORT_STORAGE_KEY, mode);
+  }
+
+  onChannelContextMenu(channel: Channel, event: MouseEvent): void {
+    this.contextMenuChannel.set(channel);
+    this.contextMenuPosition.set({
+      x: `${event.clientX}px`,
+      y: `${event.clientY}px`,
     });
 
-    /**
-     * Side-car EPG metadata keyed by channel EPG lookup key.
-     * Rebuilt every progressTick (~30 s) but only contains entries for channels
-     * that actually have EPG data — typically a small fraction of the playlist.
-     * Replaces the previous spread-clone-every-channel pattern that allocated
-     * ~90K objects per tick on large M3U playlists.
-     */
-    readonly epgMetadataMap = computed(() => {
-        // Read progressTick to create a dependency for the ~30s progress refresh.
-        this.progressTick();
-        return buildChannelEpgMetadataMap(this.channelEpgMap());
+    const trigger = this.contextMenuTrigger();
+    if (trigger.menuOpen) {
+      trigger.closeMenu();
+    }
+
+    queueMicrotask(() => {
+      this.contextMenuTrigger().openMenu();
     });
+  }
 
-    /** Resolves the EPG lookup key the side-car map is keyed by. */
-    getChannelEpgKey(channel: Channel): string {
-        return resolveChannelEpgLookupKey(channel) ?? '';
+  openChannelDetails(): void {
+    const channel = this.contextMenuChannel();
+    if (!channel) {
+      return;
     }
 
-    /**
-     * Resolves the channel logo. Called per visible row from the template; under
-     * OnPush + virtual scroll only ~50 rows check at a time so direct calls are
-     * cheaper than rebuilding a separate logo map per channels/iconMap change.
-     */
-    getLogoForChannel(channel: Channel): string {
-        return resolveChannelLogo(channel, this.channelIconMap());
-    }
-
-    trackByFn(_: number, channel: Channel): string {
-        return channel?.id;
-    }
-
-    onChannelClick(channel: Channel): void {
-        this.channelSelected.emit(channel);
-    }
-
-    onChannelActivate(channel: Channel): void {
-        if (this.openOnDoubleClick()) {
-            this.channelPlaybackRequested.emit(channel);
-        }
-    }
-
-    onFavoriteToggle(channel: Channel, event: MouseEvent): void {
-        this.favoriteToggled.emit({ channel, event });
-    }
-
-    setAllChannelsSortMode(mode: PlaylistChannelSortMode): void {
-        this.allChannelsSortMode.set(mode);
-        persistPlaylistChannelSortMode(ALL_CHANNELS_SORT_STORAGE_KEY, mode);
-    }
-
-    onChannelContextMenu(channel: Channel, event: MouseEvent): void {
-        this.contextMenuChannel.set(channel);
-        this.contextMenuPosition.set({
-            x: `${event.clientX}px`,
-            y: `${event.clientY}px`,
-        });
-
-        const trigger = this.contextMenuTrigger();
-        if (trigger.menuOpen) {
-            trigger.closeMenu();
-        }
-
-        queueMicrotask(() => {
-            this.contextMenuTrigger().openMenu();
-        });
-    }
-
-    openChannelDetails(): void {
-        const channel = this.contextMenuChannel();
-        if (!channel) {
-            return;
-        }
-
-        this.contextMenuTrigger().closeMenu();
-        this.dialog.open(ChannelDetailsDialogComponent, {
-            data: channel,
-            maxWidth: '720px',
-            width: 'calc(100vw - 32px)',
-        });
-    }
-
-    openEpgMapping(): void {
-        const channel = this.contextMenuChannel();
-        if (!channel) {
-            return;
-        }
-
-        this.contextMenuTrigger().closeMenu();
-        const channelKey = resolveChannelEpgLookupKey(channel);
-        if (!channelKey) {
-            return;
-        }
-
-        EpgMappingDialogComponent.open(this.dialog, {
-            channelKey,
-            channelName: channel.name ?? channelKey,
-        });
-    }
+    this.contextMenuTrigger().closeMenu();
+    this.dialog.open(ChannelDetailsDialogComponent, {
+      data: channel,
+      maxWidth: "720px",
+      width: "calc(100vw - 32px)",
+    });
+  }
 }

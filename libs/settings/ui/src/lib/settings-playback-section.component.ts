@@ -1,5 +1,5 @@
 import { CommonModule } from "@angular/common";
-import { Component, input, output, ViewEncapsulation } from "@angular/core";
+import { Component, input, ViewEncapsulation } from "@angular/core";
 import { FormGroup, ReactiveFormsModule } from "@angular/forms";
 import { MatButtonModule } from "@angular/material/button";
 import { MatCheckboxModule } from "@angular/material/checkbox";
@@ -52,7 +52,6 @@ export class SettingsPlaybackSectionComponent {
   readonly frameCopyActive = input(false);
   readonly supportsManagedExternalPlayers = input(false);
   readonly supportsExternalPlayerPathSettings = input(false);
-  readonly selectRecordingFolder = output<void>();
 
   isWebPlayerSelected(): boolean {
     return isWebPlayer(this.form().value.player ?? VideoPlayer.ArtPlayer);

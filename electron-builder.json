@@ -30,7 +30,7 @@
   ],
   "mac": {
     "minimumSystemVersion": "26.0",
-    "identity": "-",
+    "identity": null,
     "target": [
       {
         "target": "dmg",

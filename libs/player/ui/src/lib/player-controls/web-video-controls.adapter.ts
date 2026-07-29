@@ -111,7 +111,6 @@ export class WebVideoControlsAdapter implements PlayerController {
             audioTracks: hasAudioTracks,
             subtitles: hasSubtitles,
             aspectRatio: true,
-            recording: false,
             pictureInPicture: pictureInPicture.supported,
             seriesNavigation: !isLive && this.seriesNavigation() !== null,
         };
@@ -152,7 +151,6 @@ export class WebVideoControlsAdapter implements PlayerController {
             speedPresets: DEFAULT_SPEED_PRESETS,
             aspectRatio: this.aspectRatio(),
             aspectPresets: DEFAULT_ASPECT_PRESETS,
-            recording: { active: false, elapsedSeconds: 0, message: null },
             pictureInPictureActive: pictureInPicture.active,
             canPictureInPicture: pictureInPicture.canToggle,
             canPreviousEpisode:
@@ -271,7 +269,6 @@ export class WebVideoControlsAdapter implements PlayerController {
             }
             this.refresh();
         },
-        toggleRecording: () => undefined,
         togglePictureInPicture: () => this.pictureInPicture.toggle(),
     };
 

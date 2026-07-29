@@ -106,48 +106,6 @@
                             </span>
                         }
 
-                        @if (
-                            item.contentType === 'live' &&
-                            (item.nowPlayingTitle ||
-                                item.nowPlayingTimeRange ||
-                                (item.nowPlayingProgress !== null &&
-                                    item.nowPlayingProgress !== undefined))
-                        ) {
-                            <span
-                                class="hero__live-epg"
-                                data-test-id="dashboard-hero-live-epg"
-                            >
-                                <span class="hero__live-epg-topline">
-                                    <span class="hero__live-epg-chip"
-                                        >LIVE</span
-                                    >
-                                    @if (item.nowPlayingTimeRange) {
-                                        <span class="hero__live-epg-time">{{
-                                            item.nowPlayingTimeRange
-                                        }}</span>
-                                    }
-                                </span>
-                                @if (item.nowPlayingTitle) {
-                                    <span class="hero__live-epg-title">{{
-                                        item.nowPlayingTitle
-                                    }}</span>
-                                }
-                                <span
-                                    class="hero__live-epg-progress"
-                                    [class.hero__live-epg-progress--idle]="
-                                        item.nowPlayingProgress === null ||
-                                        item.nowPlayingProgress === undefined
-                                    "
-                                    aria-hidden="true"
-                                >
-                                    <i
-                                        [style.width.%]="
-                                            item.nowPlayingProgress ?? 0
-                                        "
-                                    ></i>
-                                </span>
-                            </span>
-                        }
 
                         @if (item.watchProgress !== null && item.watchProgress !== undefined) {
                             <span class="hero__progress" aria-hidden="true">

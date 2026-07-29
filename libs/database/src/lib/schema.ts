@@ -16,10 +16,6 @@ import {
     uniqueIndex,
 } from 'drizzle-orm/sqlite-core';
 
-// Manual EPG-to-channel mappings live in their own schema module; re-export
-// them so `import * as schema from './schema'` keeps a complete namespace.
-export * from './epg-mapping.schema';
-
 // Playlists table
 export const playlists = sqliteTable('playlists', {
     id: text('id').primaryKey(),
@@ -36,10 +32,6 @@ export const playlists = sqliteTable('playlists', {
     origin: text('origin'),
     referrer: text('referrer'),
     filePath: text('filePath'),
-    epgUrls: text('epg_urls'),
-    detectedEpgUrls: text('detected_epg_urls'),
-    manualEpgUrls: text('manual_epg_urls'),
-    disabledEpgUrls: text('disabled_epg_urls'),
     autoRefresh: integer('autoRefresh', { mode: 'boolean' }).default(false),
     macAddress: text('macAddress'),
     url: text('url'),
@@ -102,7 +94,6 @@ export const content = sqliteTable(
         added: text('added'),
         posterUrl: text('poster_url'),
         backdropUrl: text('backdrop_url'),
-        epgChannelId: text('epg_channel_id'),
         tvArchive: integer('tv_archive'),
         tvArchiveDuration: integer('tv_archive_duration'),
         directSource: text('direct_source'),
@@ -114,9 +105,6 @@ export const content = sqliteTable(
         categoryIdx: index('idx_content_category').on(table.categoryId),
         titleIdx: index('idx_content_title').on(table.title),
         xtreamIdx: index('idx_content_xtream').on(table.xtreamId),
-        epgChannelIdx: index('idx_content_epg_channel').on(
-            table.epgChannelId
-        ),
         categoryTypeXtreamUnique: uniqueIndex(
             'content_category_type_xtream_unique'
         ).on(table.categoryId, table.type, table.xtreamId),
@@ -178,60 +166,6 @@ export const favorites = sqliteTable(
             table.playlistId,
             table.position,
             sql`${table.addedAt} DESC`
-        ),
-    })
-);
-
-// EPG Channels table
-export const epgChannels = sqliteTable(
-    'epg_channels',
-    {
-        id: text('id').primaryKey(), // Channel ID from EPG source
-        displayName: text('display_name').notNull(),
-        iconUrl: text('icon_url'),
-        url: text('url'),
-        sourceUrl: text('source_url').notNull(), // Which EPG URL this came from
-        updatedAt: text('updated_at').default(sql`CURRENT_TIMESTAMP`),
-    },
-    (table) => ({
-        sourceIdx: index('idx_epg_channels_source').on(table.sourceUrl),
-        nameIdx: index('idx_epg_channels_name').on(table.displayName),
-    })
-);
-
-// EPG Programs table
-export const epgPrograms = sqliteTable(
-    'epg_programs',
-    {
-        id: integer('id').primaryKey({ autoIncrement: true }),
-        channelId: text('channel_id')
-            .notNull()
-            .references(() => epgChannels.id, { onDelete: 'cascade' }),
-        start: text('start').notNull(), // ISO datetime
-        stop: text('stop').notNull(), // ISO datetime
-        title: text('title').notNull(),
-        description: text('description'),
-        category: text('category'),
-        iconUrl: text('icon_url'),
-        rating: text('rating'),
-        episodeNum: text('episode_num'),
-        sourceUrl: text('source_url'),
-    },
-    (table) => ({
-        channelIdx: index('idx_epg_programs_channel').on(table.channelId),
-        sourceIdx: index('idx_epg_programs_source').on(table.sourceUrl),
-        startIdx: index('idx_epg_programs_start').on(table.start),
-        stopIdx: index('idx_epg_programs_stop').on(table.stop),
-        timeRangeIdx: index('idx_epg_programs_time_range').on(
-            table.channelId,
-            table.start,
-            table.stop
-        ),
-        sourceTimeRangeIdx: index('idx_epg_programs_source_time_range').on(
-            table.sourceUrl,
-            table.channelId,
-            table.start,
-            table.stop
         ),
     })
 );
@@ -299,12 +233,6 @@ export type NewRecentlyViewed = typeof recentlyViewed.$inferInsert;
 
 export type Favorite = typeof favorites.$inferSelect;
 export type NewFavorite = typeof favorites.$inferInsert;
-
-export type EpgChannel = typeof epgChannels.$inferSelect;
-export type NewEpgChannel = typeof epgChannels.$inferInsert;
-
-export type EpgProgramDb = typeof epgPrograms.$inferSelect;
-export type NewEpgProgramDb = typeof epgPrograms.$inferInsert;
 
 export type PlaybackPosition = typeof playbackPositions.$inferSelect;
 export type NewPlaybackPosition = typeof playbackPositions.$inferInsert;

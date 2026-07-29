@@ -13,13 +13,8 @@ import {
     EMBEDDED_MPV_SET_SPEED,
     EMBEDDED_MPV_SET_SUBTITLE_TRACK,
     EMBEDDED_MPV_SET_VOLUME,
-    EMBEDDED_MPV_GET_DEFAULT_RECORDING_FOLDER,
-    EMBEDDED_MPV_SELECT_RECORDING_FOLDER,
-    EMBEDDED_MPV_START_RECORDING,
-    EMBEDDED_MPV_STOP_RECORDING,
     EMBEDDED_MPV_SUPPORT,
     EmbeddedMpvBounds,
-    EmbeddedMpvRecordingStartOptions,
     ResolvedPortalPlayback,
 } from '@arm-nator/shared/interfaces';
 import {
@@ -115,30 +110,6 @@ handleEmbeddedMpv(
     EMBEDDED_MPV_SET_ASPECT,
     (sessionId: string, aspect: string) =>
         getService().setAspect(sessionId, aspect)
-);
-
-handleEmbeddedMpv(
-    'EMBEDDED_MPV_TAKE_SCREENSHOT',
-    (sessionId: string, targetPath: string) =>
-        getService().takeScreenshot(sessionId, targetPath)
-);
-
-handleEmbeddedMpv(
-    EMBEDDED_MPV_START_RECORDING,
-    (sessionId: string, options: EmbeddedMpvRecordingStartOptions) =>
-        getService().startRecording(sessionId, options)
-);
-
-handleEmbeddedMpv(EMBEDDED_MPV_STOP_RECORDING, (sessionId: string) =>
-    getService().stopRecording(sessionId)
-);
-
-handleEmbeddedMpv(EMBEDDED_MPV_GET_DEFAULT_RECORDING_FOLDER, () =>
-    getService().getDefaultRecordingFolder()
-);
-
-handleEmbeddedMpv(EMBEDDED_MPV_SELECT_RECORDING_FOLDER, () =>
-    getService().selectRecordingFolder()
 );
 
 handleEmbeddedMpv(EMBEDDED_MPV_DISPOSE_SESSION, (sessionId: string) =>

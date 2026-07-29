@@ -11,7 +11,6 @@
         [channels]="channelsForList()"
         [mode]="mode()"
         [favoriteUids]="favoriteUids()"
-        [epgMap]="epgMap()"
         [progressTick]="progressTick()"
         [activeUid]="activeUid()"
         [searchTermInput]="searchTerm()"
@@ -20,7 +19,6 @@
         (channelSelected)="onChannelSelected($event)"
         (playbackRequested)="onChannelPlaybackRequested($event)"
         (channelsReordered)="onReorder($event)"
-        (epgMappingChanged)="onEpgMappingChanged()"
         (favoriteToggled)="onFavoriteToggled($event)"
         (removeRequested)="onRemoveRequested($event)"
     />
@@ -60,74 +58,7 @@
             </div>
         }
 
-        @if (!isRadioSelection() && supportsEpg) {
-            <div
-                class="epg"
-                [class.epg--inline]="shouldUseInlinePlayer()"
-                [class.epg--list]="epgViewMode() === 'list'"
-                [class.epg-collapsed]="
-                    shouldUseInlinePlayer() && isLiveEpgPanelCollapsed()
-                "
-            >
-                <div class="epg-content">
-                    @if (epgViewMode() === 'list') {
-                        <app-epg-list-view
-                            [programs]="timelinePrograms()"
-                            [channelName]="timelineChannelName()"
-                            [channelLogo]="timelineChannelLogo()"
-                            [archivePlaybackAvailable]="timelineArchiveAvailable()"
-                            [archiveDays]="timelineArchiveDays()"
-                            [activeProgram]="activeTimeshiftProgram()"
-                            [isLivePlayback]="!activeTimeshift()"
-                            [selectedDate]="selectedLiveEpgDate()"
-                            [collapsed]="
-                                shouldUseInlinePlayer() &&
-                                isLiveEpgPanelCollapsed()
-                            "
-                            [summary]="liveEpgPanelSummary()"
-                            [summaryLabelKey]="liveEpgPanelSummaryLabelKey()"
-                            (programActivated)="
-                                onTimelineProgramActivated($event)
-                            "
-                            (returnToLive)="returnToLivePlayback()"
-                            (selectedDateChange)="
-                                onLiveEpgSelectedDateChange($event)
-                            "
-                            (collapsedChange)="
-                                onLiveEpgPanelCollapsedChange($event)
-                            "
-                        />
-                    } @else {
-                        <app-epg-timeline
-                            [programs]="timelinePrograms()"
-                            [channelName]="timelineChannelName()"
-                            [channelLogo]="timelineChannelLogo()"
-                            [archivePlaybackAvailable]="timelineArchiveAvailable()"
-                            [archiveDays]="timelineArchiveDays()"
-                            [activeProgram]="activeTimeshiftProgram()"
-                            [isLivePlayback]="!activeTimeshift()"
-                            [selectedDate]="selectedLiveEpgDate()"
-                            [collapsed]="
-                                shouldUseInlinePlayer() &&
-                                isLiveEpgPanelCollapsed()
-                            "
-                            [summary]="liveEpgPanelSummary()"
-                            [summaryLabelKey]="liveEpgPanelSummaryLabelKey()"
-                            (programActivated)="
-                                onTimelineProgramActivated($event)
-                            "
-                            (returnToLive)="returnToLivePlayback()"
-                            (selectedDateChange)="
-                                onLiveEpgSelectedDateChange($event)
-                            "
-                            (collapsedChange)="
-                                onLiveEpgPanelCollapsedChange($event)
-                            "
-                        />
-                    }
-                </div>
-            </div>
-        }
+
     } @else {
         <app-portal-empty-state
             icon="live_tv"

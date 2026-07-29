@@ -31,7 +31,6 @@ import {
 export {
   buildExternalPlayerSpawnSpec,
   buildPlayerArgsWithCustomArguments,
-  isRunningInFlatpak,
   parseExternalPlayerArguments,
   resolveExternalPlayerLaunchContext,
   shouldReuseMpvInstance,

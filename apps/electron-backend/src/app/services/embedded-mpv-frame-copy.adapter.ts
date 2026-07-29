@@ -15,10 +15,6 @@ import {
 } from './embedded-mpv-frame-copy-protocol';
 import { resolveFrameCopyHelperSpawn } from './embedded-mpv-frame-copy-spawn';
 import type {
-    EmbeddedMpvFrameCopyRuntimeMode,
-    LinuxFrameCopyHelperLaunchFileSystem,
-} from './embedded-mpv-frame-copy-runtime';
-import type {
     NativeEmbeddedMpvAddon,
     NativeEmbeddedMpvSessionSnapshot,
 } from './embedded-mpv-native.service';
@@ -38,9 +34,6 @@ import type {
 
 export interface EmbeddedMpvFrameCopyAdapterOptions {
     resolveHelperPath: () => string | null;
-    resolveRuntimeMode: () => EmbeddedMpvFrameCopyRuntimeMode | null;
-    environment?: NodeJS.ProcessEnv;
-    helperLaunchFileSystem?: LinuxFrameCopyHelperLaunchFileSystem;
     getScaleFactor: () => number;
     onFrameSourceChanged: (
         sessionId: string,
@@ -73,10 +66,7 @@ export class EmbeddedMpvFrameCopyAdapter implements NativeEmbeddedMpvAddon {
         ) {
             return false;
         }
-        return (
-            process.platform !== 'linux' ||
-            this.options.resolveRuntimeMode() !== null
-        );
+        return true;
     }
 
     createSession(
@@ -95,18 +85,14 @@ export class EmbeddedMpvFrameCopyAdapter implements NativeEmbeddedMpvAddon {
         const sessionId = `impv-fc-${randomUUID().slice(0, 8)}`;
         const plan = resolveFrameCopyHelperSpawn({
             bounds,
-            environment: this.options.environment,
-            helperLaunchFileSystem: this.options.helperLaunchFileSystem,
             helperPath,
             initialVolume,
-            resolveRuntimeMode: this.options.resolveRuntimeMode,
             scale: this.options.getScaleFactor(),
             sessionId,
         });
 
         const child = spawn(plan.command, plan.args, {
             stdio: ['pipe', 'pipe', 'pipe'],
-            ...(plan.env ? { env: plan.env } : {}),
         });
 
         console.log(
@@ -198,14 +184,6 @@ export class EmbeddedMpvFrameCopyAdapter implements NativeEmbeddedMpvAddon {
 
     setAspect(sessionId: string, aspect: string): void {
         this.send(sessionId, `aspect\tvalue=${encodeProtocolValue(aspect)}`);
-    }
-
-    startRecording(sessionId: string, targetPath: string): void {
-        this.send(sessionId, `record\tpath=${encodeProtocolValue(targetPath)}`);
-    }
-
-    stopRecording(sessionId: string): void {
-        this.send(sessionId, 'record\tpath=');
     }
 
     getSessionSnapshot(

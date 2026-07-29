@@ -37,7 +37,6 @@ export function createInitialSnapshot(): NativeEmbeddedMpvSessionSnapshot {
         selectedSubtitleTrackId: null,
         playbackSpeed: 1,
         aspectOverride: 'no',
-        recording: { active: false },
     };
 }
 

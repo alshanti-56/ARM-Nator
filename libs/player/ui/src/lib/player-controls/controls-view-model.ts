@@ -1,5 +1,5 @@
 import { Signal, computed } from '@angular/core';
-import { formatTime, volumeIcon } from './controls-format.utils';
+import { volumeIcon } from './controls-format.utils';
 import type {
     PlayerControlsCapabilities,
     PlayerControlsState,
@@ -20,7 +20,7 @@ export interface ControlsViewModelDeps {
 /**
  * Pure, framework-light bundle of the controls' derived presentation signals.
  * Keeps the component lean: it derives status flags, track availability,
- * recording status text, and the volume/fullscreen labels straight from the
+ * track availability and the volume/fullscreen labels straight from the
  * controller state + capabilities. The component still owns the auto-hide
  * visibility (which depends on transient state) and binds these by name.
  */
@@ -53,24 +53,6 @@ export function createControlsViewModel(deps: ControlsViewModelDeps) {
     const hasSubtitleTracks = computed(
         () => capabilities().subtitles && state().subtitleTracks.length > 0
     );
-    const canRecord = computed(
-        () =>
-            capabilities().recording &&
-            state().isLive &&
-            state().status !== 'error'
-    );
-    const isRecording = computed(() => state().recording.active);
-    const recordingStatusText = computed(() => {
-        if (!capabilities().recording) {
-            return '';
-        }
-        const recording = state().recording;
-        if (recording.active) {
-            return `REC ${formatTime(recording.elapsedSeconds)}`;
-        }
-        return recording.message;
-    });
-
     const volumeIconName = computed(() => volumeIcon(volume()));
     const canFullscreen = computed(
         () => capabilities().fullscreen && deps.canFullscreenNative()
@@ -103,9 +85,6 @@ export function createControlsViewModel(deps: ControlsViewModelDeps) {
         canTogglePlay,
         hasAudioTracks,
         hasSubtitleTracks,
-        canRecord,
-        isRecording,
-        recordingStatusText,
         volumeIcon: volumeIconName,
         canFullscreen,
         controlsAreVisible,

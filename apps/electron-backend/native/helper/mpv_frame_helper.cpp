@@ -1,6 +1,6 @@
 /*
  * arm-nator-mpv-helper — frame-copy embedded MPV helper process
- * (macOS + Linux + Windows; platform GL context in frame_helper_gl.h).
+ * (macOS arm64; CGL context in frame_helper_gl.h).
  *
  * One process = one playback session. Owns libmpv end to end: decodes,
  * renders offscreen at viewport size, publishes BGRA frames into a shared
@@ -73,10 +73,6 @@ struct SnapshotState {
     int64_t selectedSubtitleTrackId = -1;
     double playbackSpeed = 1;
     std::string aspectOverride = "no";
-    bool recordingActive = false;
-    std::string recordingTargetPath;
-    std::string recordingStartedAt;
-    std::string recordingError;
     std::string error;
 };
 
@@ -103,19 +99,6 @@ struct HelperState {
 HelperState g_state;
 
 constexpr uint64_t SNAPSHOT_EMIT_INTERVAL_NS = 250ull * 1000 * 1000;
-
-std::string isoTimestampNow() {
-    char buffer[32];
-    const time_t now = time(nullptr);
-    struct tm utc;
-#if defined(_WIN32)
-    gmtime_s(&utc, &now);
-#else
-    gmtime_r(&now, &utc);
-#endif
-    strftime(buffer, sizeof(buffer), "%Y-%m-%dT%H:%M:%SZ", &utc);
-    return buffer;
-}
 
 std::string tracksJson(const std::vector<TrackInfo>& tracks,
                        int64_t selectedId) {
@@ -177,14 +160,6 @@ std::string composeSnapshotLocked() {
     }
     writer.num("playbackSpeed", s.playbackSpeed);
     writer.str("aspectOverride", s.aspectOverride);
-    JsonWriter recording;
-    recording.boolean("active", s.recordingActive);
-    if (!s.recordingTargetPath.empty())
-        recording.str("targetPath", s.recordingTargetPath);
-    if (!s.recordingStartedAt.empty())
-        recording.str("startedAt", s.recordingStartedAt);
-    if (!s.recordingError.empty()) recording.str("error", s.recordingError);
-    writer.raw("recording", recording.finish());
     if (!s.error.empty()) writer.str("error", s.error);
     return writer.finish();
 }
@@ -506,15 +481,8 @@ void handleLoadCommand(const Command& command) {
     const std::string url = command.get("url");
     if (url.empty()) return;
 
-    /* Loading a replacement stream stops any active recording first,
-     * mirroring the .mm behavior. */
     {
         std::lock_guard<std::mutex> lock(g_state.mutex);
-        if (g_state.snapshot.recordingActive) {
-            setPropertyString("stream-record", "");
-            g_state.snapshot.recordingActive = false;
-            g_state.snapshot.recordingStartedAt.clear();
-        }
         g_state.snapshot.streamUrl = url;
         g_state.snapshot.error.clear();
         g_state.snapshot.status = "loading";
@@ -560,26 +528,6 @@ void handleLoadCommand(const Command& command) {
     }
 }
 
-void handleRecordCommand(const Command& command) {
-    const std::string path = command.get("path");
-    const int result = mpv_set_property_string(g_state.mpv, "stream-record",
-                                               path.c_str());
-    std::lock_guard<std::mutex> lock(g_state.mutex);
-    if (result < 0) {
-        g_state.snapshot.recordingError = mpv_error_string(result);
-    } else if (path.empty()) {
-        g_state.snapshot.recordingActive = false;
-        g_state.snapshot.recordingStartedAt.clear();
-        g_state.snapshot.recordingError.clear();
-    } else {
-        g_state.snapshot.recordingActive = true;
-        g_state.snapshot.recordingTargetPath = path;
-        g_state.snapshot.recordingStartedAt = isoTimestampNow();
-        g_state.snapshot.recordingError.clear();
-    }
-    g_state.dirty = true;
-}
-
 void handleCommand(const Command& command) {
     if (command.name == "load") {
         handleLoadCommand(command);
@@ -605,8 +553,6 @@ void handleCommand(const Command& command) {
         mpv_set_property(g_state.mpv, "speed", MPV_FORMAT_DOUBLE, &speed);
     } else if (command.name == "aspect") {
         setPropertyString("video-aspect-override", command.get("value", "no"));
-    } else if (command.name == "record") {
-        handleRecordCommand(command);
     } else if (command.name == "size") {
         const int width = (int)command.getDouble("width", 0);
         const int height = (int)command.getDouble("height", 0);
@@ -685,11 +631,7 @@ std::string libmpvClientApiVersion() {
 }
 
 std::string runtimeProbeShmName() {
-#if defined(_WIN32)
-    const uint64_t processId = (uint64_t)GetCurrentProcessId();
-#else
     const uint64_t processId = (uint64_t)getpid();
-#endif
     return "/impv-fc-runtime-probe-" + std::to_string(processId);
 }
 
@@ -794,9 +736,7 @@ int runRuntimeProbe() {
 
 int main(int argc, char** argv) {
     std::setlocale(LC_NUMERIC, "C");
-#if !defined(_WIN32)
     signal(SIGPIPE, SIG_IGN);
-#endif
     const HelperArgs args = parseArgs(argc, argv);
     if (args.runtimeProbe) {
         return runRuntimeProbe();
@@ -897,11 +837,7 @@ int main(int argc, char** argv) {
     mpv_render_context_set_update_callback(g_state.pipeline.renderContext(),
                                            onRenderUpdate, &g_state.pipeline);
 
-#if defined(_WIN32)
-    const double helperPid = (double)GetCurrentProcessId();
-#else
     const double helperPid = (double)getpid();
-#endif
     emitLine(JsonWriter()
                  .str("event", "hello")
                  .num("pid", helperPid)

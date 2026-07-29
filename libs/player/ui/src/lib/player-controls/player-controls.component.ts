@@ -127,9 +127,6 @@ export class PlayerControlsComponent implements OnDestroy {
     readonly canTogglePlay = this.vm.canTogglePlay;
     readonly hasAudioTracks = this.vm.hasAudioTracks;
     readonly hasSubtitleTracks = this.vm.hasSubtitleTracks;
-    readonly canRecord = this.vm.canRecord;
-    readonly isRecording = this.vm.isRecording;
-    readonly recordingStatusText = this.vm.recordingStatusText;
     readonly volumeIcon = this.vm.volumeIcon;
     readonly canFullscreen = this.vm.canFullscreen;
     readonly volumePercent = computed(() =>
@@ -206,14 +203,6 @@ export class PlayerControlsComponent implements OnDestroy {
                     state
                 );
                 this.visibility.scheduleHide();
-                this.feedback.flashRecordingState(state.recording, {
-                    active: this.translate.instant(
-                        'EMBEDDED_MPV.PLAYER.RECORDING'
-                    ),
-                    inactive: this.translate.instant(
-                        'EMBEDDED_MPV.PLAYER.RECORDING_SAVED'
-                    ),
-                });
             });
         });
     }
@@ -303,14 +292,6 @@ export class PlayerControlsComponent implements OnDestroy {
         this.menus.toggle(menu);
         this.reveal();
     }
-    toggleRecording(): void {
-        if (!this.canRecord()) {
-            return;
-        }
-        this.reveal({ scheduleHide: false });
-        this.controller().commands.toggleRecording();
-    }
-
     togglePictureInPicture(): void {
         this.reveal();
         const state = this.state();

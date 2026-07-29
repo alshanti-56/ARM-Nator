@@ -1,13 +1,8 @@
 /* eslint-disable max-lines */
 import { inject, Injectable } from '@angular/core';
 import { MatSnackBar } from '@angular/material/snack-bar';
-import { TranslateService } from '@ngx-translate/core';
-import {
-    aggregateFavoriteChannels,
-    createFavoritesPlaylist,
-    createPlaylistObject,
-    resolvePlaylistEpgSourceState,
-} from '@arm-nator/providers/m3u/utils';
+import { TranslateService } from '@ngx-translate/core';import { aggregateFavoriteChannels, createFavoritesPlaylist, createPlaylistObject } from '@arm-nator/providers/m3u/utils';
+
 import { NgxIndexedDBService } from 'ngx-indexed-db';
 import {
     combineLatest,
@@ -220,10 +215,6 @@ export class PlaylistsService {
             playlist: playlist.playlist,
             url: playlist.url,
             filePath: playlist.filePath,
-            epgUrls: playlist.epgUrls ?? [],
-            detectedEpgUrls: playlist.detectedEpgUrls ?? playlist.epgUrls ?? [],
-            manualEpgUrls: playlist.manualEpgUrls ?? [],
-            disabledEpgUrls: playlist.disabledEpgUrls ?? [],
             userAgent: playlist.userAgent,
             referrer: playlist.referrer,
             origin: playlist.origin,
@@ -523,26 +514,15 @@ export class PlaylistsService {
     /**
      * Canonical refresh merge shared by the single-playlist update flow and
      * the auto-refresh batch. The refreshed payload only contributes
-     * refresh-owned data (parsed content, count, EPG detection); user-owned
+     * refresh-owned data (parsed content and count); user-owned
      * state on the freshly read row — favorites, recently viewed, ordering,
-     * hidden groups, curated EPG sources — must survive the refresh write.
+     * hidden groups — must survive the refresh write.
      */
     private mergeRefreshedPlaylist(
         currentPlaylist: Playlist | undefined,
         updatedPlaylist: Playlist,
         playlistId: string
     ): Playlist {
-        const epgSourceState = resolvePlaylistEpgSourceState({
-            detectedEpgUrls:
-                updatedPlaylist.detectedEpgUrls ??
-                currentPlaylist?.detectedEpgUrls,
-            enabledEpgUrls: updatedPlaylist.epgUrls ?? currentPlaylist?.epgUrls,
-            manualEpgUrls:
-                updatedPlaylist.manualEpgUrls ?? currentPlaylist?.manualEpgUrls,
-            disabledEpgUrls:
-                updatedPlaylist.disabledEpgUrls ??
-                currentPlaylist?.disabledEpgUrls,
-        });
 
         return {
             ...currentPlaylist,
@@ -561,10 +541,6 @@ export class PlaylistsService {
                       position: currentPlaylist.position,
                   }
                 : {}),
-            epgUrls: epgSourceState.epgUrls,
-            detectedEpgUrls: epgSourceState.detectedEpgUrls,
-            manualEpgUrls: epgSourceState.manualEpgUrls,
-            disabledEpgUrls: epgSourceState.disabledEpgUrls,
             autoRefresh:
                 currentPlaylist?.autoRefresh ?? updatedPlaylist.autoRefresh,
         };
@@ -618,15 +594,6 @@ export class PlaylistsService {
             const playlist = await firstValueFrom(
                 this.getPlaylistById(updatedPlaylist._id)
             );
-            const epgSourceState = resolvePlaylistEpgSourceState({
-                detectedEpgUrls:
-                    updatedPlaylist.detectedEpgUrls ?? playlist.detectedEpgUrls,
-                enabledEpgUrls: updatedPlaylist.epgUrls ?? playlist.epgUrls,
-                manualEpgUrls:
-                    updatedPlaylist.manualEpgUrls ?? playlist.manualEpgUrls,
-                disabledEpgUrls:
-                    updatedPlaylist.disabledEpgUrls ?? playlist.disabledEpgUrls,
-            });
             const nextPlaylist: Playlist = {
                 ...playlist,
                 ...(updatedPlaylist.title != null
@@ -675,21 +642,6 @@ export class PlaylistsService {
                     ? {
                           hiddenGroupTitles: updatedPlaylist.hiddenGroupTitles,
                       }
-                    : {}),
-                ...(updatedPlaylist.detectedEpgUrls !== undefined
-                    ? { detectedEpgUrls: epgSourceState.detectedEpgUrls }
-                    : {}),
-                ...(updatedPlaylist.manualEpgUrls !== undefined
-                    ? { manualEpgUrls: epgSourceState.manualEpgUrls }
-                    : {}),
-                ...(updatedPlaylist.disabledEpgUrls !== undefined
-                    ? { disabledEpgUrls: epgSourceState.disabledEpgUrls }
-                    : {}),
-                ...(updatedPlaylist.epgUrls !== undefined ||
-                updatedPlaylist.detectedEpgUrls !== undefined ||
-                updatedPlaylist.manualEpgUrls !== undefined ||
-                updatedPlaylist.disabledEpgUrls !== undefined
-                    ? { epgUrls: epgSourceState.epgUrls }
                     : {}),
                 ...(updatedPlaylist.updateDate !== undefined
                     ? { updateDate: updatedPlaylist.updateDate }

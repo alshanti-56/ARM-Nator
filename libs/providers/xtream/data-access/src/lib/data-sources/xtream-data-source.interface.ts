@@ -50,7 +50,6 @@ export interface XtreamContentItem {
     added: string;
     poster_url: string;
     backdrop_url?: string | null;
-    epg_channel_id?: string | null;
     tv_archive?: number | null;
     tv_archive_duration?: number | null;
     direct_source?: string | null;

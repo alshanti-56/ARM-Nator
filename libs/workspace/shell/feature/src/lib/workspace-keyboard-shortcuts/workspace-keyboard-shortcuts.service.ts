@@ -39,7 +39,6 @@ export class WorkspaceKeyboardShortcutsService {
             return;
         }
 
-        const platform = this.getShortcutPlatform();
         const dialogRef = this.dialog.open<
             WorkspaceKeyboardShortcutsDialogComponent,
             WorkspaceKeyboardShortcutsDialogData
@@ -50,15 +49,11 @@ export class WorkspaceKeyboardShortcutsService {
             autoFocus: false,
             data: {
                 groups: getKeyboardShortcutGroups({
-                    isMac: platform === 'mac',
+                    isMac: true,
                     isElectron: this.runtime.isElectron,
                 }),
-                platformIcon:
-                    platform === 'mac' ? 'laptop_mac' : 'desktop_windows',
-                platformLabelKey:
-                    platform === 'mac'
-                        ? 'WORKSPACE.SHORTCUTS.PLATFORM.MAC'
-                        : 'WORKSPACE.SHORTCUTS.PLATFORM.OTHER',
+                platformIcon: 'laptop_mac',
+                platformLabelKey: 'WORKSPACE.SHORTCUTS.PLATFORM.MAC',
             },
         });
 
@@ -78,21 +73,6 @@ export class WorkspaceKeyboardShortcutsService {
 
         event.preventDefault();
         this.openShortcutsDialog();
-    }
-
-    private getShortcutPlatform(): 'mac' | 'other' {
-        if (typeof navigator === 'undefined') {
-            return 'other';
-        }
-
-        const navigatorWithUserAgentData = navigator as Navigator & {
-            userAgentData?: { platform?: string };
-        };
-        const platform =
-            navigatorWithUserAgentData.userAgentData?.platform ||
-            navigator.userAgent;
-
-        return /Mac|iPhone|iPad|iPod/i.test(platform) ? 'mac' : 'other';
     }
 
 }

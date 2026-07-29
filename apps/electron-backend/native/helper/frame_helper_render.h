@@ -14,11 +14,9 @@
 #include <mpv/client.h>
 #include <mpv/render_gl.h>
 
-#if !defined(_WIN32)
 #include <fcntl.h>
 #include <sys/mman.h>
 #include <unistd.h>
-#endif
 
 #include <atomic>
 #include <chrono>
@@ -41,12 +39,6 @@ struct ShmRing {
     uint8_t* base = nullptr;
     size_t size = 0;
     std::string name;
-#if defined(_WIN32)
-    /* Named sections are refcounted: this handle keeps the mapping alive
-     * for the helper's lifetime; readers holding views keep the memory
-     * valid after the helper exits, matching unlinked-POSIX-shm semantics. */
-    HANDLE mapping = nullptr;
-#endif
 
     bool create(const std::string& shmName, int width, int height,
                 uint32_t generation) {
@@ -57,28 +49,6 @@ struct ShmRing {
             ~(uint64_t)(FRAME_SHM_DATA_ALIGN - 1);
         const size_t total =
             (size_t)(dataOffset + FRAME_SHM_RING_SLOTS * frameBytes);
-#if defined(_WIN32)
-        char mappingName[256];
-        frame_shm_windows_name(shmName.c_str(), mappingName,
-                               sizeof(mappingName));
-        HANDLE created = CreateFileMappingA(
-            INVALID_HANDLE_VALUE, nullptr, PAGE_READWRITE,
-            (DWORD)(total >> 32), (DWORD)(total & 0xffffffffu), mappingName);
-        if (!created) return false;
-        if (GetLastError() == ERROR_ALREADY_EXISTS) {
-            /* Never adopt an existing section: its layout is unknown. The
-             * per-session UUID + generation suffix make collisions mean a
-             * bug, not a retry. */
-            CloseHandle(created);
-            return false;
-        }
-        void* mapped = MapViewOfFile(created, FILE_MAP_ALL_ACCESS, 0, 0, 0);
-        if (!mapped) {
-            CloseHandle(created);
-            return false;
-        }
-        mapping = created;
-#else
         shm_unlink(shmName.c_str());
         const int fd = shm_open(shmName.c_str(), O_CREAT | O_EXCL | O_RDWR, 0600);
         if (fd < 0) return false;
@@ -94,7 +64,6 @@ struct ShmRing {
             shm_unlink(shmName.c_str());
             return false;
         }
-#endif
         std::memset(mapped, 0, sizeof(FrameShmHeader));
         auto* hdr = static_cast<FrameShmHeader*>(mapped);
         hdr->version = FRAME_SHM_VERSION;
@@ -120,16 +89,10 @@ struct ShmRing {
     }
 
     void destroy() {
-#if defined(_WIN32)
-        if (base) UnmapViewOfFile(base);
-        if (mapping) CloseHandle(mapping);
-        mapping = nullptr;
-#else
         if (base) {
             munmap(base, size);
             shm_unlink(name.c_str());
         }
-#endif
         header = nullptr;
         base = nullptr;
         size = 0;
@@ -201,8 +164,7 @@ inline bool RenderPipeline::start(mpv_handle* mpv,
 inline bool RenderPipeline::setupGl(std::string& errorOut) {
     if (!gl_.makeCurrent(errorOut)) return false;
 
-    /* Keep the accepted renderer diagnosable. Linux already rejected earlier
-     * software tiers when a later hardware-backed EGL candidate was usable. */
+    /* Keep the accepted renderer diagnosable. */
     const GLubyte* renderer = glGetString(GL_RENDERER);
     if (renderer) {
         std::fprintf(stderr, "gl renderer: %s\n",

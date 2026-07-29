@@ -8,24 +8,8 @@ import {
   withState,
 } from "@ngrx/signals";
 import { StorageMap } from "@ngx-pwa/local-storage";
-import { firstValueFrom } from "rxjs";
-import {
-  DEFAULT_DASHBOARD_RAILS_SETTINGS,
-  DEFAULT_DIRECT_PLAY_PREFERENCES,
-  DEFAULT_TMDB_SETTINGS,
-  ElectronBridgeTrustOptions,
-  EpgViewMode,
-  Language,
-  Settings,
-  StartupBehavior,
-  STORE_KEY,
-  StreamFormat,
-  Theme,
-  VideoPlayer,
-  normalizeDashboardRailsSettings,
-  normalizeDirectPlayPreferences,
-  normalizeVideoPlayer,
-} from "@arm-nator/shared/interfaces";
+import { firstValueFrom } from "rxjs";import { DEFAULT_DASHBOARD_RAILS_SETTINGS, DEFAULT_DIRECT_PLAY_PREFERENCES, DEFAULT_TMDB_SETTINGS, ElectronBridgeTrustOptions, Language, Settings, StartupBehavior, STORE_KEY, StreamFormat, Theme, VideoPlayer, normalizeDashboardRailsSettings, normalizeDirectPlayPreferences, normalizeVideoPlayer } from "@arm-nator/shared/interfaces";
+
 import { isInlinePlayer } from "@arm-nator/player/core";
 
 const DEFAULT_SETTINGS: Settings = {
@@ -49,15 +33,10 @@ const DEFAULT_SETTINGS: Settings = {
   vlcPlayerPath: "",
   vlcPlayerArguments: "",
   vlcReuseInstance: false,
-  epgUrl: [],
   downloadFolder: "",
-  recordingFolder: "",
   embeddedMpvFrameCopy: false,
   coverSize: "medium",
-  epgViewMode: "timeline",
   dashboardRails: DEFAULT_DASHBOARD_RAILS_SETTINGS,
-  preferUploadedEpgOverXtream: false,
-  trustedPrivateNetworkEpgUrls: [],
   trustedInsecureTlsHosts: [],
   tmdb: DEFAULT_TMDB_SETTINGS,
 };
@@ -104,16 +83,6 @@ function scheduleEmbeddedMpvPrepare(): void {
 export const SettingsStore = signalStore(
   { providedIn: "root" },
   withState<Settings>(DEFAULT_SETTINGS),
-  withComputed((store) => ({
-    /**
-     * Live EPG panel layout with the `'timeline'` default applied — the
-     * single source of truth for the four live hosts, so the fallback is
-     * not duplicated per call-site.
-     */
-    resolvedEpgViewMode: computed<EpgViewMode>(
-      () => store.epgViewMode?.() ?? "timeline",
-    ),
-  })),
   withMethods((store, storage = inject(StorageMap)) => {
     let settingsLoadPromise: Promise<void> | undefined;
 
@@ -220,23 +189,13 @@ export const SettingsStore = signalStore(
           vlcPlayerPath: store.vlcPlayerPath(),
           vlcPlayerArguments: store.vlcPlayerArguments(),
           vlcReuseInstance: store.vlcReuseInstance(),
-          epgUrl: store.epgUrl(),
           downloadFolder:
             store.downloadFolder?.() ?? DEFAULT_SETTINGS.downloadFolder,
-          recordingFolder:
-            store.recordingFolder?.() ?? DEFAULT_SETTINGS.recordingFolder,
           embeddedMpvFrameCopy: store.embeddedMpvFrameCopy?.() ?? false,
           coverSize: store.coverSize?.() ?? DEFAULT_SETTINGS.coverSize,
-          epgViewMode: store.epgViewMode?.() ?? DEFAULT_SETTINGS.epgViewMode,
           dashboardRails: normalizeDashboardRailsSettings(
             store.dashboardRails?.(),
           ),
-          preferUploadedEpgOverXtream:
-            store.preferUploadedEpgOverXtream?.() ??
-            DEFAULT_SETTINGS.preferUploadedEpgOverXtream,
-          trustedPrivateNetworkEpgUrls:
-            store.trustedPrivateNetworkEpgUrls?.() ??
-            DEFAULT_SETTINGS.trustedPrivateNetworkEpgUrls,
           trustedInsecureTlsHosts:
             store.trustedInsecureTlsHosts?.() ??
             DEFAULT_SETTINGS.trustedInsecureTlsHosts,
@@ -248,15 +207,9 @@ export const SettingsStore = signalStore(
         return store.downloadFolder?.() ?? DEFAULT_SETTINGS.downloadFolder;
       },
 
-      getRecordingFolder() {
-        return store.recordingFolder?.() ?? DEFAULT_SETTINGS.recordingFolder;
-      },
-
       getTrustOptions(): ElectronBridgeTrustOptions {
         const settings = this.getSettings();
         return {
-          trustedPrivateNetworkEpgUrls:
-            settings.trustedPrivateNetworkEpgUrls ?? [],
           trustedInsecureTlsHosts: settings.trustedInsecureTlsHosts ?? [],
         };
       },

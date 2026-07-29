@@ -1,14 +1,13 @@
 import {
   CoverSize,
-  EpgViewMode,
   StartupBehavior,
   Theme,
   VideoPlayer,
 } from "@arm-nator/shared/interfaces";
+
 import { getAvailablePlayerEngines } from "@arm-nator/player/core";
 import {
   CoverSizeOption,
-  EpgViewModeOption,
   SettingsPlayerOption,
   SettingsSection,
   StartupBehaviorOption,
@@ -51,19 +50,6 @@ export const SETTINGS_COVER_SIZE_OPTIONS: CoverSizeOption[] = [
   },
 ];
 
-export const SETTINGS_EPG_VIEW_MODE_OPTIONS: EpgViewModeOption[] = [
-  {
-    value: "timeline" satisfies EpgViewMode,
-    icon: "view_timeline",
-    labelKey: "SETTINGS.EPG_VIEW_MODE_TIMELINE",
-  },
-  {
-    value: "list" satisfies EpgViewMode,
-    icon: "view_list",
-    labelKey: "SETTINGS.EPG_VIEW_MODE_LIST",
-  },
-];
-
 export const SETTINGS_STARTUP_BEHAVIOR_OPTIONS: StartupBehaviorOption[] = [
   {
     value: StartupBehavior.FirstView,
@@ -94,13 +80,7 @@ export function buildSettingsPlayerOptions({
   }).map(({ id, labelKey }) => ({ id, labelKey }));
 }
 
-export interface SettingsSectionVisibility {
-  supportsEpg: boolean;
-}
-
-export function buildSettingsSectionNavItems({
-  supportsEpg,
-}: SettingsSectionVisibility): SettingsSection[] {
+export function buildSettingsSectionNavItems(): SettingsSection[] {
   return [
     {
       id: "general",
@@ -113,12 +93,6 @@ export function buildSettingsSectionNavItems({
       label: "SETTINGS.NAV_PLAYBACK",
       icon: "play_circle",
       visible: true,
-    },
-    {
-      id: "epg",
-      label: "SETTINGS.NAV_EPG",
-      icon: "calendar_month",
-      visible: supportsEpg,
     },
     {
       id: "dashboard",

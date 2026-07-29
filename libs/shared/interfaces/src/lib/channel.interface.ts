@@ -18,7 +18,6 @@ export interface Channel {
         logo: string;
         rec: string;
     };
-    epgParams?: string;
     timeshift?: string;
     catchup?: {
         type?: string;

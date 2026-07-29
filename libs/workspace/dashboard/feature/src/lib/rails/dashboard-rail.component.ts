@@ -39,18 +39,6 @@ export interface DashboardRailCard {
     queryParams?: Record<string, string>;
     state?: Record<string, unknown>;
     actions?: DashboardRailAction[];
-    epgLookupKey?: string;
-
-    /**
-     * Optional EPG enrichment shown by the 'channel' rail layout. Populated
-     * asynchronously after the card list is computed — when null/undefined
-     * the channel card renders without the program subtitle/progress.
-     */
-    nowPlayingTitle?: string | null;
-    /** Localised time range like "12:15 – 13:40". */
-    nowPlayingTimeRange?: string | null;
-    /** 0–100, % through the current program. */
-    nowPlayingProgress?: number | null;
 
     /**
      * 0–100 watched, attached for movies/series with a resume position so

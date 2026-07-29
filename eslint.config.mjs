@@ -260,7 +260,6 @@ export default [
         files: [
             'apps/desktop-ui/src/app/app.component.ts',
             'apps/electron-backend/src/app/events/player.events.ts',
-            'libs/epg/data-access/**/*.ts',
             'libs/player/ui/**/*.ts',
         ],
         rules: {

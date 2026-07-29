@@ -156,7 +156,6 @@
     backdrop-filter: blur(6px);
 
     // LIVE stays in the app's red "broadcasting now" role across every
-    // surface (channel rows, EPG now-bar, badges). The station's extracted
     // dominant color is only used as a soft aura on the artwork.
     &.live {
         color: var(--app-live-color, #ff8f8f);

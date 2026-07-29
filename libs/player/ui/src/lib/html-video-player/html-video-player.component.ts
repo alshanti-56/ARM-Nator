@@ -233,7 +233,7 @@ export class HtmlVideoPlayerComponent implements OnInit, OnChanges, OnDestroy {
     this.syncOnlineSubtitle();
     if (channel.url) {
       this.playbackIssue.emit(null);
-      const url = channel.url + (channel.epgParams ?? "");
+      const url = channel.url;
       const extension = getPlaybackMediaExtensionFromUrl(channel.url);
 
       void window.electron

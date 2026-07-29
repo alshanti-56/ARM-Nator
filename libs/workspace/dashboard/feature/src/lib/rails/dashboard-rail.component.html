@@ -97,9 +97,7 @@
                                         cardTitle(card)
                                     }}</span>
                                     <span class="rail__channel-now">
-                                        @if (card.nowPlayingTitle) {
-                                            {{ card.nowPlayingTitle }}
-                                        } @else if (card.subtitle) {
+                                        @if (card.subtitle) {
                                             {{ card.subtitle }}
                                         }
                                     </span>
@@ -109,24 +107,6 @@
                                 <span class="rail__channel-live-chip"
                                     >LIVE</span
                                 >
-                                <span
-                                    class="rail__channel-progress"
-                                    [class.rail__channel-progress--idle]="
-                                        card.nowPlayingProgress === null ||
-                                        card.nowPlayingProgress === undefined
-                                    "
-                                >
-                                    <i
-                                        [style.width.%]="
-                                            card.nowPlayingProgress ?? 0
-                                        "
-                                    ></i>
-                                </span>
-                                @if (card.nowPlayingTimeRange) {
-                                    <span class="rail__channel-time">{{
-                                        card.nowPlayingTimeRange
-                                    }}</span>
-                                }
                             </div>
                         </a>
                     </div>

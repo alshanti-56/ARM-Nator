@@ -19,7 +19,6 @@ $my-typography: mat.m2-define-typography-config(
 // product's "active/selection" blue (#2f7bff / #78adff), so checkboxes, radio
 // buttons, raised CTAs, etc. now read as the same blue as rail selection.
 //
-// Cyan stays on tertiary so the EPG "now" indicator (which uses Material
 // tertiary surfaces) keeps its existing visual role.
 $light-theme: mat.define-theme(
     (

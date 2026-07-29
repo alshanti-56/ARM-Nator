@@ -1,7 +1,5 @@
 /* eslint-disable max-lines */
-import { EmbeddedMpvBounds, EmbeddedMpvRecordingStartOptions, EmbeddedMpvSession, EmbeddedMpvSupport } from './embedded-mpv-session.interface';
-import { EpgChannelMetadata } from './epg-channel-metadata.model';
-import { EpgProgram } from './epg-program.model';
+import { EmbeddedMpvBounds, EmbeddedMpvSession, EmbeddedMpvSupport } from './embedded-mpv-session.interface';
 import { ExternalPlayerControlAction, ExternalPlayerSession } from './external-player-session.interface';
 import { GlobalSearchPaginationOptions, GlobalSearchResult, GlobalSearchResultSource } from './global-search-result.interface';
 import { M3uFavoriteChannel } from './m3u-favorite-channel.interface';
@@ -34,15 +32,7 @@ export const ELECTRON_BRIDGE_PLAYLIST_TYPES = {
     Xtream: "xtream",
 } as const;
 export type ElectronBridgePlaylistType = (typeof ELECTRON_BRIDGE_PLAYLIST_TYPES)[keyof typeof ELECTRON_BRIDGE_PLAYLIST_TYPES];
-export const ELECTRON_BRIDGE_EPG_PROGRESS_STATUSES = {
-    Complete: "complete",
-    Error: "error",
-    Loading: "loading",
-    Queued: "queued",
-} as const;
-export type ElectronBridgeEpgProgressStatus = (typeof ELECTRON_BRIDGE_EPG_PROGRESS_STATUSES)[keyof typeof ELECTRON_BRIDGE_EPG_PROGRESS_STATUSES];
 export const ELECTRON_BRIDGE_SECURITY_ERROR_CODES = {
-    EpgPrivateNetworkBlocked: "epg-private-network-blocked",
     InvalidTlsCertificate: "invalid-tls-certificate",
 } as const;
 export type ElectronBridgeSecurityErrorCode = (typeof ELECTRON_BRIDGE_SECURITY_ERROR_CODES)[keyof typeof ELECTRON_BRIDGE_SECURITY_ERROR_CODES];
@@ -100,57 +90,8 @@ export interface ElectronBridgeXtreamProbeResult {
     status: number;
     url: string;
 }
-export interface ElectronBridgeEpgFetchResult extends ElectronBridgeResult {
-    message?: string;
-    skipped?: string[];
-}
 export interface ElectronBridgeTrustOptions {
-    trustedPrivateNetworkEpgUrls?: string[];
     trustedInsecureTlsHosts?: string[];
-}
-export interface ElectronBridgeEpgFreshnessResult {
-    staleUrls: string[];
-    freshUrls: string[];
-}
-export interface ElectronBridgeEpgMapping {
-    id: number;
-    channelKey: string;
-    epgChannelId: string;
-    playlistId: string | null;
-}
-export interface ElectronBridgeEpgSearchResult {
-    id: string;
-    displayName: string;
-    iconUrl: string | null;
-}
-export interface ElectronBridgeEpgLookupOptions {
-    sourceUrls?: string[];
-}
-export interface ElectronBridgeEpgProgressStats {
-    totalChannels: number;
-    totalPrograms: number;
-}
-export interface ElectronBridgeEpgProgress {
-    url: string;
-    status: ElectronBridgeEpgProgressStatus;
-    stats?: ElectronBridgeEpgProgressStats;
-    error?: string;
-    errorCode?: ElectronBridgeSecurityErrorCode;
-    errorHost?: string;
-    queuePosition?: number;
-}
-export interface ElectronBridgeEpgChannelSummary {
-    id: string;
-    displayName: string;
-}
-export interface ElectronBridgeEpgChannelListResult {
-    channels: ElectronBridgeEpgChannelSummary[];
-    /** Always empty for this endpoint; retained for wire-format compatibility. */
-    programs: [];
-}
-export interface ElectronBridgeEpgChannelWithPrograms extends ElectronBridgeEpgChannelSummary {
-    iconUrl: string | null;
-    programs: EpgProgram[];
 }
 export interface ElectronBridgeDbOperationEvent {
     operationId?: string;
@@ -204,7 +145,6 @@ export interface ElectronBridgeXtreamContent {
     added: string;
     poster_url: string;
     backdrop_url?: string | null;
-    epg_channel_id?: string | null;
     tv_archive?: number | null;
     tv_archive_duration?: number | null;
     direct_source?: string | null;
@@ -225,7 +165,6 @@ export type ElectronBridgeXtreamContentStream = {
     cover?: string;
     name?: string;
     title?: string;
-    epg_channel_id?: string;
     tv_archive?: string | number;
     tv_archive_duration?: string | number;
     direct_source?: string;
@@ -288,22 +227,6 @@ export interface ElectronBridgeApi {
     inspectPlaybackUrl: (url: string, headers?: Record<string, string>) => Promise<PlaybackNetworkInspection>;
     getPlayerEngineAvailability: () => Promise<PlayerEngineAvailability[]>;
     autoUpdatePlaylists: (playlists: Playlist[], options?: ElectronBridgeTrustOptions) => Promise<AutoUpdatePlaylistsResult>;
-    fetchEpg: (urls: string[], options?: ElectronBridgeTrustOptions) => Promise<ElectronBridgeEpgFetchResult>;
-    getChannelPrograms: (channelId: string, options?: ElectronBridgeEpgLookupOptions) => Promise<EpgProgram[]>;
-    getCurrentProgramsBatch: (channelIds: string[], options?: ElectronBridgeEpgLookupOptions) => Promise<Record<string, EpgProgram | null>>;
-    getEpgChannelMetadata: (channelIds: string[], options?: ElectronBridgeEpgLookupOptions) => Promise<Record<string, EpgChannelMetadata | null>>;
-    getEpgChannels: () => Promise<ElectronBridgeEpgChannelListResult>;
-    getEpgChannelsByRange: (skip: number, limit: number) => Promise<ElectronBridgeEpgChannelWithPrograms[]>;
-    forceFetchEpg: (url: string, options?: ElectronBridgeTrustOptions) => Promise<ElectronBridgeEpgFetchResult>;
-    clearEpgData: () => Promise<ElectronBridgeResult>;
-    clearEpgDataForSource: (sourceUrl: string) => Promise<ElectronBridgeResult>;
-    checkEpgFreshness: (urls: string[], maxAgeHours?: number) => Promise<ElectronBridgeEpgFreshnessResult>;
-    searchEpgPrograms: (searchTerm: string, limit?: number) => Promise<EpgProgram[]>;
-    getEpgMapping: (channelKey: string) => Promise<ElectronBridgeEpgMapping | null>;
-    getEpgMappingsBatch: (channelKeys: string[]) => Promise<Record<string, string>>;
-    setEpgMapping: (channelKey: string, epgChannelId: string, playlistId?: string) => Promise<ElectronBridgeResult>;
-    deleteEpgMapping: (channelKey: string) => Promise<ElectronBridgeResult>;
-    searchEpgChannels: (searchTerm: string, limit?: number) => Promise<ElectronBridgeEpgSearchResult[]>;
     updateSettings: (settings: Partial<Settings>) => Promise<void>;
     getAiSettings: () => Promise<ElectronBridgeAiSettings>;
     setMpvPlayerPath: (mpvPlayerPath: string) => Promise<void>;
@@ -380,7 +303,6 @@ export interface ElectronBridgeApi {
     /** Cross-playlist title matching (actor page "All portals" scope) */
     dbMatchTitles: (titles: string[]) => Promise<CatalogTitleMatch[]>;
     onPlayerError?: (callback: (data: ElectronBridgePlayerError) => void) => void;
-    onEpgProgress?: (callback: (data: ElectronBridgeEpgProgress) => void) => void;
     onDbSaveContentProgress: (callback: (count: number) => void) => void;
     removeDbSaveContentProgress: () => void;
     onDbOperationEvent?: (callback: (data: ElectronBridgeDbOperationEvent) => void) => () => void;
@@ -410,11 +332,6 @@ export interface ElectronBridgeApi {
     setEmbeddedMpvSubtitleTrack?: (sessionId: string, trackId: number) => Promise<EmbeddedMpvSession | null>;
     setEmbeddedMpvSpeed?: (sessionId: string, speed: number) => Promise<EmbeddedMpvSession | null>;
     setEmbeddedMpvAspect?: (sessionId: string, aspect: string) => Promise<EmbeddedMpvSession | null>;
-    takeEmbeddedMpvScreenshot?: (sessionId: string, targetPath: string) => Promise<void>;
-    startEmbeddedMpvRecording?: (sessionId: string, options: EmbeddedMpvRecordingStartOptions) => Promise<EmbeddedMpvSession | null>;
-    stopEmbeddedMpvRecording?: (sessionId: string) => Promise<EmbeddedMpvSession | null>;
-    getEmbeddedMpvDefaultRecordingFolder?: () => Promise<string>;
-    selectEmbeddedMpvRecordingFolder?: () => Promise<string | null>;
     disposeEmbeddedMpvSession: (sessionId: string) => Promise<EmbeddedMpvSession | null>;
     /**
      * Frame-copy engine only: start/stop the preload frame pump that

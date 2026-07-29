@@ -68,9 +68,6 @@ export class ElectronService extends DataService {
         XtreamCodeActions.GetLiveCategories,
         XtreamCodeActions.GetVodCategories,
         XtreamCodeActions.GetSeriesCategories,
-        XtreamCodeActions.GetShortEpg,
-        XtreamCodeActions.GetSimpleDataTable,
-        XtreamCodeActions.GetSimpleDateTable,
     ]);
 
     constructor() {
@@ -366,7 +363,6 @@ export class ElectronService extends DataService {
                         _id: data.id,
                     },
                     playlistId: data.id,
-                    refreshEpg: true,
                 })
             );
 

@@ -37,10 +37,7 @@ export interface UnifiedFavoriteChannel {
     /** Xtream numeric stream ID (Xtream channels only) */
     xtreamId?: number;
 
-    /**
-     * TVG id for M3U EPG lookup.
-     * For Xtream channels, also used for short-EPG lookup.
-     */
+    /** TVG identifier retained from M3U metadata. */
     tvgId?: string;
 
     /**

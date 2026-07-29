@@ -1,31 +1,9 @@
 import { app } from 'electron';
 import { accessSync, constants as fsConstants, statSync } from 'fs';
 import path from 'path';
-import { probeEmbeddedMpvFrameCopyRuntime } from './embedded-mpv-frame-copy-runtime';
-import type {
-    EmbeddedMpvFrameCopyManifestContract,
-    EmbeddedMpvFrameCopyRuntimeResult,
-} from './embedded-mpv-frame-copy-runtime';
 
-/**
- * Platform gate + helper discovery for the embedded MPV frame-copy engine,
- * shared by startup, the runtime service, and the frame-copy adapter so
- * sandbox and engine decisions cannot drift. These helpers must remain
- * callable before app.whenReady().
- *
- * macOS: Apple Silicon only (owner decision 2026-07-10) — Intel Macs keep
- * the docked native engine. Linux: x64 only — official packages validate a
- * profile manifest and run the helper's bounded EGL/libmpv capability probe;
- * ARM packages remain honestly unavailable. Windows: any arch with a helper
- * binary (WGL offscreen render; in practice x64, the only vendored runtime)
- * — the helper-presence check below is the real gate.
- */
 export function isFrameCopyPlatformSupported(): boolean {
-    return (
-        (process.platform === 'linux' && process.arch === 'x64') ||
-        process.platform === 'win32' ||
-        (process.platform === 'darwin' && process.arch === 'arm64')
-    );
+    return process.platform === 'darwin' && process.arch === 'arm64';
 }
 
 function dedupeDefinedPaths(paths: Array<string | undefined>): string[] {
@@ -74,54 +52,36 @@ function getPackagedAddonPaths(): string[] {
     ]);
 }
 
-/** Candidate locations of the embedded MPV addon, most likely first. */
 export function getEmbeddedMpvAddonCandidatePaths(): string[] {
-    const localBuildAddonPath = getLocalBuildAddonPath();
-    const distAddonPaths = getDistAddonPaths();
-    const packagedAddonPaths = getPackagedAddonPaths();
-
-    return dedupeDefinedPaths(
-        app.isPackaged
-            ? packagedAddonPaths
-            : [localBuildAddonPath, ...distAddonPaths, ...packagedAddonPaths]
-    );
+    const packagedPaths = getPackagedAddonPaths();
+    return app.isPackaged
+        ? packagedPaths
+        : dedupeDefinedPaths([
+              getLocalBuildAddonPath(),
+              ...getDistAddonPaths(),
+              ...packagedPaths,
+          ]);
 }
 
-/**
- * Resolve the first executable frame-copy helper with a readable regular-file
- * frame reader beside it. Both artifacts are required before the engine may
- * relax the renderer sandbox. Windows uses the `.exe` helper name; X_OK is an
- * existence check there, while POSIX platforms also require the execute bit.
- */
 export function resolveFrameCopyHelperPath(): string | null {
-    // Packaged startup must never fall through to cwd/dist development
-    // artifacts: doing so would let a writable launch directory supply the
-    // executable that causes BrowserWindow sandbox relaxation.
     const addonCandidates = app.isPackaged
         ? getPackagedAddonPaths()
         : [getLocalBuildAddonPath(), ...getDistAddonPaths()];
-    const helperFileName =
-        process.platform === 'win32'
-            ? 'arm-nator_mpv_helper.exe'
-            : 'arm-nator_mpv_helper';
     return (
         addonCandidates
             .map((candidatePath) => path.dirname(candidatePath))
             .map((nativeDir) => ({
-                helper: path.join(nativeDir, helperFileName),
+                helper: path.join(nativeDir, 'arm-nator_mpv_helper'),
                 reader: path.join(nativeDir, 'embedded_mpv_frame_reader.node'),
             }))
             .find(({ helper, reader }) => {
                 try {
                     accessSync(helper, fsConstants.X_OK);
                     accessSync(reader, fsConstants.R_OK);
-                    if (
-                        !statSync(helper).isFile() ||
-                        !statSync(reader).isFile()
-                    ) {
-                        return false;
-                    }
-                    return true;
+                    return (
+                        statSync(helper).isFile() &&
+                        statSync(reader).isFile()
+                    );
                 } catch {
                     return false;
                 }
@@ -129,74 +89,47 @@ export function resolveFrameCopyHelperPath(): string | null {
     );
 }
 
-type FrameCopyRuntimeProbe = (
-    helperPath: string,
-    manifestContract: EmbeddedMpvFrameCopyManifestContract
-) => EmbeddedMpvFrameCopyRuntimeResult;
-
 export type FrameCopyRuntimeAvailability =
-    | EmbeddedMpvFrameCopyRuntimeResult
-    | { usable: true };
+    | { usable: true }
+    | {
+          usable: false;
+          reason:
+              | 'unsupported-platform'
+              | 'unsupported-architecture'
+              | 'runtime-artifact-missing';
+      };
 
-let cachedDefaultRuntimeAvailability: FrameCopyRuntimeAvailability | undefined;
+let cachedAvailability: FrameCopyRuntimeAvailability | undefined;
 
 export function getFrameCopyRuntimeAvailability(
-    resolveHelper: () => string | null = resolveFrameCopyHelperPath,
-    probeRuntime: FrameCopyRuntimeProbe = probeEmbeddedMpvFrameCopyRuntime
+    resolveHelper: () => string | null = resolveFrameCopyHelperPath
 ): FrameCopyRuntimeAvailability {
-    const usesProcessDecision =
+    if (
         resolveHelper === resolveFrameCopyHelperPath &&
-        probeRuntime === probeEmbeddedMpvFrameCopyRuntime;
-    if (usesProcessDecision && cachedDefaultRuntimeAvailability !== undefined) {
-        return cachedDefaultRuntimeAvailability;
+        cachedAvailability !== undefined
+    ) {
+        return cachedAvailability;
     }
 
-    let availability: FrameCopyRuntimeAvailability;
-    if (!isFrameCopyPlatformSupported()) {
-        availability = {
-            usable: false,
-            reason:
-                process.platform === 'linux' || process.platform === 'darwin'
-                    ? 'unsupported-architecture'
-                    : 'unsupported-platform',
-        };
-    } else {
-        const helperPath = resolveHelper();
-        if (!helperPath) {
-            availability = {
-                usable: false,
-                reason: 'runtime-artifact-missing',
-            };
-        } else if (process.platform !== 'linux') {
-            availability = { usable: true };
-        } else {
-            try {
-                // app.isPackaged is the trusted boundary. Environment flags
-                // can request the feature, but cannot weaken its manifest
-                // contract or make development artifacts package-trusted.
-                availability = probeRuntime(
-                    helperPath,
-                    app.isPackaged ? 'packaged' : 'development'
-                );
-            } catch {
-                availability = {
-                    usable: false,
-                    reason: 'runtime-probe-internal-error',
-                };
-            }
-        }
-    }
-    if (usesProcessDecision) {
-        cachedDefaultRuntimeAvailability = availability;
+    const availability: FrameCopyRuntimeAvailability =
+        process.platform !== 'darwin'
+            ? { usable: false, reason: 'unsupported-platform' }
+            : process.arch !== 'arm64'
+              ? { usable: false, reason: 'unsupported-architecture' }
+              : resolveHelper()
+                ? { usable: true }
+                : { usable: false, reason: 'runtime-artifact-missing' };
+
+    if (resolveHelper === resolveFrameCopyHelperPath) {
+        cachedAvailability = availability;
     }
     return availability;
 }
 
 export function isFrameCopyRuntimeUsable(
-    resolveHelper: () => string | null = resolveFrameCopyHelperPath,
-    probeRuntime: FrameCopyRuntimeProbe = probeEmbeddedMpvFrameCopyRuntime
+    resolveHelper: () => string | null = resolveFrameCopyHelperPath
 ): boolean {
-    return getFrameCopyRuntimeAvailability(resolveHelper, probeRuntime).usable;
+    return getFrameCopyRuntimeAvailability(resolveHelper).usable;
 }
 
 export function shouldPromotePersistedFrameCopyOptIn(

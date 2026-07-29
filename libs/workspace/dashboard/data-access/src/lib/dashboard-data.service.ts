@@ -1257,11 +1257,6 @@ export class DashboardDataService {
             category_id: 'live',
             xtream_id: favoriteId,
             poster_url: channel.tvg?.logo || undefined,
-            epg_lookup_key:
-                channel.tvg?.id?.trim() ||
-                channel.tvg?.name?.trim() ||
-                channel.name?.trim() ||
-                undefined,
             source: 'm3u',
         };
     }

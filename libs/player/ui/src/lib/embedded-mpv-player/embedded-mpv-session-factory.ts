@@ -28,7 +28,6 @@ function baseSession(
         selectedSubtitleTrackId: null,
         playbackSpeed: 1,
         aspectOverride: 'no',
-        recording: { active: false },
         startedAt: now,
         updatedAt: now,
         ...overrides,

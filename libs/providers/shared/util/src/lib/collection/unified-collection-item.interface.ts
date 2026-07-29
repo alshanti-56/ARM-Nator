@@ -38,7 +38,7 @@ export interface UnifiedCollectionItem {
     /** Direct stream URL (M3U channels only) */
     streamUrl?: string;
 
-    /** Stable live-source EPG lookup key */
+    /** Stable TVG identifier from the source playlist */
     tvgId?: string;
 
     /** M3U playlist channel id used to rehydrate the full channel object */

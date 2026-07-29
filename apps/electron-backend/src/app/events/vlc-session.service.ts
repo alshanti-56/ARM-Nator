@@ -11,7 +11,6 @@ import {
     buildExternalPlayerSpawnSpec,
     buildPlayerArgsWithCustomArguments,
     getDefaultVlcPath,
-    isRunningInFlatpak,
     normalizeCustomPlayerPath,
     parseExternalPlayerArguments,
     PlayerPathOptions,
@@ -56,8 +55,7 @@ function getVlcPath(options: PlayerPathOptions = {}): string {
 export function getVlcAvailability() {
     const context = resolveExternalPlayerLaunchContext(
         'vlc',
-        getVlcPath({ isFlatpak: isRunningInFlatpak() }),
-        { isFlatpak: isRunningInFlatpak() }
+        getVlcPath()
     );
     const spec = buildExternalPlayerSpawnSpec(context, ['--version']);
     const result = spawnSync(spec.command, spec.args, {
@@ -370,18 +368,13 @@ export async function openVlcPlayer({
     });
 
     try {
-        const isFlatpak = isRunningInFlatpak();
         const vlcLaunchContext = resolveExternalPlayerLaunchContext(
             'vlc',
-            getVlcPath({ isFlatpak }),
-            { isFlatpak }
+            getVlcPath()
         );
         const customVlcArguments = store.get(VLC_PLAYER_ARGUMENTS, '');
         const requestedReuseInstance = store.get(VLC_REUSE_INSTANCE, false);
-        const reuseInstance = shouldReuseVlcInstance(
-            requestedReuseInstance,
-            isFlatpak
-        );
+        const reuseInstance = shouldReuseVlcInstance(requestedReuseInstance);
         const {
             mergedHeaders,
             effectiveOrigin,

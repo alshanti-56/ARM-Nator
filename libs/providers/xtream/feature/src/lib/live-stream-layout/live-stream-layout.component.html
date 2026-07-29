@@ -1,4 +1,3 @@
-@let isEmbeddedPlayer = usesEmbeddedPlayer();
 @let streamUrl = activeStreamUrl();
 
 @if (showLiveChannelSidebar()) {
@@ -93,18 +92,7 @@
         </button>
     }
     @if (streamUrl) {
-        @if (supportsEpg) {
-            <div
-                class="epg"
-                [class.epg--inline]="isEmbeddedPlayer"
-                [class.epg--list]="epgViewMode() === 'list'"
-                [class.epg-collapsed]="
-                    isEmbeddedPlayer && isLiveEpgPanelCollapsed()
-                "
-            >
-                <ng-container *ngTemplateOutlet="epgPanelContent" />
-            </div>
-        }
+
     } @else if (!showLiveChannelSidebar()) {
         @if (isSelectedTypeContentLoading()) {
             <div class="live-loading-content">
@@ -158,49 +146,3 @@
         />
     }
 </div>
-
-<ng-template #epgPanelContent>
-    <div class="epg-content">
-        @if (epgViewMode() === 'list') {
-            <app-epg-list-view
-                [programs]="controlledEpgPrograms()"
-                [channelName]="activePlayback()?.title ?? ''"
-                [channelLogo]="activePlayback()?.thumbnail ?? ''"
-                [sourceLabel]="'Xtream'"
-                [archivePlaybackAvailable]="archivePlaybackAvailable()"
-                [archiveDays]="controlledArchiveDays()"
-                [activeProgram]="activeCatchupProgram()"
-                [isLivePlayback]="!showReturnToLive()"
-                [loading]="isLoadingEpg()"
-                [selectedDate]="selectedLiveEpgDate()"
-                [collapsed]="usesEmbeddedPlayer() && isLiveEpgPanelCollapsed()"
-                [summary]="liveEpgPanelSummary()"
-                [summaryLabelKey]="liveEpgPanelSummaryLabelKey()"
-                (programActivated)="onProgramActivated($event)"
-                (returnToLive)="returnToLivePlayback()"
-                (selectedDateChange)="onLiveEpgSelectedDateChange($event)"
-                (collapsedChange)="onLiveEpgPanelCollapsedChange($event)"
-            />
-        } @else {
-            <app-epg-timeline
-                [programs]="controlledEpgPrograms()"
-                [channelName]="activePlayback()?.title ?? ''"
-                [channelLogo]="activePlayback()?.thumbnail ?? ''"
-                [sourceLabel]="'Xtream'"
-                [archivePlaybackAvailable]="archivePlaybackAvailable()"
-                [archiveDays]="controlledArchiveDays()"
-                [activeProgram]="activeCatchupProgram()"
-                [isLivePlayback]="!showReturnToLive()"
-                [loading]="isLoadingEpg()"
-                [selectedDate]="selectedLiveEpgDate()"
-                [collapsed]="usesEmbeddedPlayer() && isLiveEpgPanelCollapsed()"
-                [summary]="liveEpgPanelSummary()"
-                [summaryLabelKey]="liveEpgPanelSummaryLabelKey()"
-                (programActivated)="onProgramActivated($event)"
-                (returnToLive)="returnToLivePlayback()"
-                (selectedDateChange)="onLiveEpgSelectedDateChange($event)"
-                (collapsedChange)="onLiveEpgPanelCollapsedChange($event)"
-            />
-        }
-    </div>
-</ng-template>

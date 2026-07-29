@@ -60,18 +60,6 @@
     max-width: 100%;
 }
 
-.epg-title-skeleton {
-    height: 9px;
-    border-radius: 999px;
-    max-width: 100%;
-}
-
-.epg-progress-skeleton {
-    height: 6px;
-    width: 100%;
-    border-radius: 999px;
-}
-
 .action-buttons-skeleton {
     flex-shrink: 0;
     display: flex;
@@ -112,11 +100,6 @@
     .channel-logo-skeleton {
         width: 34px;
         height: 34px;
-    }
-
-    .epg-title-skeleton,
-    .epg-progress-skeleton {
-        display: none;
     }
 }
 

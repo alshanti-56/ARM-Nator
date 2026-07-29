@@ -20,9 +20,7 @@ type PreloadInvokeCase = {
 
 const playlistId = 'playlist-1';
 export const operationId = 'operation-1';
-const epgUrls = ['https://example.com/guide.xml'];
 const trustOptions = {
-    trustedPrivateNetworkEpgUrls: ['http://192.168.1.20/guide.xml'],
     trustedInsecureTlsHosts: ['playlist.local'],
 };
 const channelIds = ['channel-1', 'channel-2'];
@@ -387,79 +385,5 @@ export const dbPreloadCases: PreloadInvokeCase[] = [
         args: [[['The Matrix', 'Inception']][0]],
         channel: 'DB_MATCH_TITLES',
         forwardedArgs: [['The Matrix', 'Inception']],
-    },
-];
-
-export const epgPreloadCases: PreloadInvokeCase[] = [
-    {
-        method: 'fetchEpg',
-        args: [epgUrls, trustOptions],
-        channel: 'FETCH_EPG',
-        forwardedArgs: [{ url: epgUrls, options: trustOptions }],
-    },
-    {
-        method: 'getChannelPrograms',
-        args: ['channel-1'],
-        channel: 'GET_CHANNEL_PROGRAMS',
-        forwardedArgs: [{ channelId: 'channel-1' }],
-    },
-    {
-        method: 'getCurrentProgramsBatch',
-        args: [channelIds],
-        channel: 'GET_CURRENT_PROGRAMS_BATCH',
-        forwardedArgs: [{ channelIds }],
-    },
-    {
-        method: 'getEpgChannelMetadata',
-        args: [channelIds],
-        channel: 'EPG_GET_CHANNEL_METADATA',
-        forwardedArgs: [{ channelIds }],
-    },
-    {
-        method: 'getEpgChannels',
-        args: [],
-        channel: 'EPG_GET_CHANNELS',
-        forwardedArgs: [],
-    },
-    {
-        method: 'getEpgChannelsByRange',
-        args: [10, 20],
-        channel: 'EPG_GET_CHANNELS_BY_RANGE',
-        forwardedArgs: [{ skip: 10, limit: 20 }],
-    },
-    {
-        method: 'forceFetchEpg',
-        args: ['https://example.com/guide.xml', trustOptions],
-        channel: 'EPG_FORCE_FETCH',
-        forwardedArgs: [
-            {
-                url: 'https://example.com/guide.xml',
-                options: trustOptions,
-            },
-        ],
-    },
-    {
-        method: 'clearEpgData',
-        args: [],
-        channel: 'EPG_CLEAR_ALL',
-        forwardedArgs: [],
-    },
-    {
-        method: 'clearEpgDataForSource',
-        args: ['https://example.com/guide.xml'],
-        channel: 'EPG_CLEAR_SOURCE',
-        forwardedArgs: [{ sourceUrl: 'https://example.com/guide.xml' }],
-    },
-    {
-        method: 'checkEpgFreshness',
-        args: [epgUrls, 24],
-        channel: 'EPG_CHECK_FRESHNESS',
-        forwardedArgs: [{ urls: epgUrls, maxAgeHours: 24 }],
-    },
-    {
-        method: 'searchEpgPrograms',
-        args: ['news', 50],
-        channel: 'EPG_DB_SEARCH_PROGRAMS',
-        forwardedArgs: ['news', 50],
     },
 ];

@@ -1,10 +1,5 @@
 import { createActionGroup, emptyProps, props } from '@ngrx/store';
-import {
-    Channel,
-    EpgProgram,
-    Playlist,
-    PlaylistMeta,
-} from '@arm-nator/shared/interfaces';
+import { Channel, Playlist, PlaylistMeta } from '@arm-nator/shared/interfaces';
 
 export const PlaylistActions = createActionGroup({
     source: 'Playlists',
@@ -23,7 +18,6 @@ export const PlaylistActions = createActionGroup({
             operationId?: string;
             playlist: Playlist;
             playlistId: string;
-            refreshEpg?: boolean;
         }>(),
         'Update Many Playlists': props<{ playlists: Playlist[] }>(),
         'Parse Playlist': props<{
@@ -58,21 +52,6 @@ export const ChannelActions = createActionGroup({
         'Set Adjacent Channel As Active': props<{
             direction: 'next' | 'previous';
         }>(),
-    },
-});
-
-export const EpgActions = createActionGroup({
-    source: 'EPG',
-    events: {
-        'Set Active Epg Program': props<{ program: EpgProgram }>(),
-        'Set Active Playback Url': props<{
-            playbackUrl: string;
-            program?: EpgProgram;
-        }>(),
-        'Set Current Epg Program': props<{ program: EpgProgram }>(),
-        'Reset Active Epg Program': emptyProps(),
-        'Return To Live Playback': emptyProps(),
-        'Set Epg Available Flag': props<{ value: boolean }>(),
     },
 });
 

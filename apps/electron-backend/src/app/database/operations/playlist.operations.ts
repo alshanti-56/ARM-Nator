@@ -192,22 +192,6 @@ function buildPlaylistRow(
         origin: getStringValue(playlist.origin),
         referrer: getStringValue(playlist.referrer),
         filePath: getStringValue(playlist.filePath),
-        epgUrls:
-            playlist.epgUrls !== undefined
-                ? JSON.stringify(getStringArrayValue(playlist.epgUrls))
-                : undefined,
-        detectedEpgUrls:
-            playlist.detectedEpgUrls !== undefined
-                ? JSON.stringify(getStringArrayValue(playlist.detectedEpgUrls))
-                : undefined,
-        manualEpgUrls:
-            playlist.manualEpgUrls !== undefined
-                ? JSON.stringify(getStringArrayValue(playlist.manualEpgUrls))
-                : undefined,
-        disabledEpgUrls:
-            playlist.disabledEpgUrls !== undefined
-                ? JSON.stringify(getStringArrayValue(playlist.disabledEpgUrls))
-                : undefined,
         autoRefresh: Boolean(playlist.autoRefresh),
         macAddress: getStringValue(playlist.macAddress),
         url: type === PLAYLIST_TYPES.STALKER ? (portalUrl ?? url) : url,
@@ -254,24 +238,6 @@ export function parseAppPlaylist(
     const base = payload && typeof payload === 'object' ? payload : {};
     const favorites = parseJsonValue<unknown[]>(row.favorites, []);
     const recentlyViewed = parseJsonValue<unknown[]>(row.recentlyViewed, []);
-    const epgUrls = getStringArrayValue(
-        row.epgUrls ? parseJsonValue<unknown[]>(row.epgUrls, []) : base.epgUrls
-    );
-    const detectedEpgUrls = getStringArrayValue(
-        row.detectedEpgUrls
-            ? parseJsonValue<unknown[]>(row.detectedEpgUrls, [])
-            : (base.detectedEpgUrls ?? epgUrls)
-    );
-    const manualEpgUrls = getStringArrayValue(
-        row.manualEpgUrls
-            ? parseJsonValue<unknown[]>(row.manualEpgUrls, [])
-            : base.manualEpgUrls
-    );
-    const disabledEpgUrls = getStringArrayValue(
-        row.disabledEpgUrls
-            ? parseJsonValue<unknown[]>(row.disabledEpgUrls, [])
-            : base.disabledEpgUrls
-    );
     const importDate =
         row.importDate ?? row.dateCreated ?? new Date().toISOString();
     const portalUrl =
@@ -300,10 +266,6 @@ export function parseAppPlaylist(
                 ? (row.url ?? getStringValue(base.url))
                 : getStringValue(base.url),
         filePath: row.filePath ?? getStringValue(base.filePath),
-        epgUrls,
-        detectedEpgUrls,
-        manualEpgUrls,
-        disabledEpgUrls,
         userAgent: row.userAgent ?? getStringValue(base.userAgent),
         referrer: row.referrer ?? getStringValue(base.referrer),
         origin: row.origin ?? getStringValue(base.origin),
@@ -439,10 +401,6 @@ export async function getAppPlaylistMetas(db: AppDatabase) {
             origin: schema.playlists.origin,
             referrer: schema.playlists.referrer,
             filePath: schema.playlists.filePath,
-            epgUrls: schema.playlists.epgUrls,
-            detectedEpgUrls: schema.playlists.detectedEpgUrls,
-            manualEpgUrls: schema.playlists.manualEpgUrls,
-            disabledEpgUrls: schema.playlists.disabledEpgUrls,
             autoRefresh: schema.playlists.autoRefresh,
             macAddress: schema.playlists.macAddress,
             url: schema.playlists.url,

@@ -1,8 +1,4 @@
 import { app, BrowserWindow, Menu, screen, session, shell } from 'electron';
-import {
-    ElectronBridgeWindowState,
-    WINDOW_STATE_CHANGED,
-} from '@arm-nator/shared/interfaces';
 import { join, resolve } from 'path';
 import { fileURLToPath } from 'url';
 import { rendererAppName, rendererAppPort } from './constants';
@@ -294,73 +290,6 @@ export default class App {
         }
     }
 
-    /**
-     * Hide the native title bar on every desktop platform. macOS keeps the
-     * system traffic lights (overlay), while Windows/Linux rely on the
-     * renderer-drawn window controls (`app-window-controls`) wired up via the
-     * WINDOW:* IPC channels. `frame` stays untouched so native resize borders
-     * and snapping keep working.
-     */
-    private static getPlatformTitleBarOptions(): Electron.BrowserWindowConstructorOptions {
-        if (process.platform === 'darwin') {
-            return {
-                titleBarStyle: 'hidden',
-                titleBarOverlay: true,
-                trafficLightPosition: { x: 16, y: 20 },
-            };
-        }
-
-        return { titleBarStyle: 'hidden' };
-    }
-
-    private static attachWindowStateEvents(win: Electron.BrowserWindow): void {
-        // Only Windows/Linux render custom window controls that subscribe
-        // to these pushes; macOS keeps the native traffic lights, so
-        // sending state updates there would be dead IPC traffic.
-        if (process.platform === 'darwin') {
-            return;
-        }
-
-        // Window state is never re-read at event time: on Windows both
-        // isFullScreen() and isMaximized() can still report the
-        // pre-transition value while the matching event fires (notably for
-        // HTML-element fullscreen, i.e. the video player). Since the
-        // renderer replaces both flags on every push and no later event
-        // corrects a stale one, polling left the controls hidden forever
-        // after leaving fullscreen — and, for the companion flag, the
-        // maximize/restore glyph stuck on the wrong icon.
-        //
-        // Instead the state is seeded once here (window creation, so no
-        // transition is in flight) and each event patches only the flag it
-        // names.
-        const state: ElectronBridgeWindowState = {
-            isMaximized: win.isMaximized(),
-            isFullScreen: win.isFullScreen(),
-        };
-
-        const push = (patch: Partial<ElectronBridgeWindowState>) => {
-            Object.assign(state, patch);
-
-            if (win.isDestroyed()) {
-                return;
-            }
-
-            // A copy per push: the renderer must not observe later
-            // mutations of the tracked state.
-            win.webContents.send(WINDOW_STATE_CHANGED, { ...state });
-        };
-
-        win.on('maximize', () => push({ isMaximized: true }));
-        win.on('unmaximize', () => push({ isMaximized: false }));
-        // The html variants cover HTML-element fullscreen; not every
-        // platform/trigger emits both pairs, and duplicate pushes with the
-        // same payload are harmless.
-        win.on('enter-full-screen', () => push({ isFullScreen: true }));
-        win.on('enter-html-full-screen', () => push({ isFullScreen: true }));
-        win.on('leave-full-screen', () => push({ isFullScreen: false }));
-        win.on('leave-html-full-screen', () => push({ isFullScreen: false }));
-    }
-
     private static initMainWindow() {
         const workAreaSize = screen.getPrimaryDisplay().workAreaSize;
         const width = Math.min(1280, workAreaSize.width || 1280);
@@ -378,11 +307,12 @@ export default class App {
             ...savedWindowBounds,
             minHeight: 600,
             minWidth: 900,
-            ...App.getPlatformTitleBarOptions(),
+            titleBarStyle: 'hidden',
+            titleBarOverlay: true,
+            trafficLightPosition: { x: 16, y: 20 },
         });
         App.mainWindow.setMenu(null);
         attachWindowTrace(App.mainWindow);
-        App.attachWindowStateEvents(App.mainWindow);
         if (!savedWindowBounds) {
             App.mainWindow.center();
         }

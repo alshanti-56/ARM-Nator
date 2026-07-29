@@ -42,7 +42,6 @@ type XtreamPlaylistHeadersLike = XtreamCredentials & {
 
 type ParentPlayerStoreLike = {
     currentPlaylist?: () => XtreamPlaylistHeadersLike | null;
-    loadEpg?: () => void;
     selectedContentType?: () => 'live' | 'vod' | 'series' | undefined;
     setSelectedItem?: (item: XtreamPlayableItem) => void;
 };
@@ -105,13 +104,10 @@ export function withPlayer() {
                         item.xtream_id
                     );
 
-                    // Set selected item in parent store and load EPG
+                    // Keep the parent store selection in sync with playback.
                     const storeAny = store as ParentPlayerStoreLike;
                     if (storeAny.setSelectedItem) {
                         storeAny.setSelectedItem(item);
-                    }
-                    if (storeAny.loadEpg) {
-                        storeAny.loadEpg();
                     }
 
                     patchState(store, { streamUrl });

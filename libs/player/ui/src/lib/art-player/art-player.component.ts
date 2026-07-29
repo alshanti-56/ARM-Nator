@@ -156,7 +156,7 @@ export class ArtPlayerComponent implements OnInit, OnDestroy, OnChanges {
   private initPlayer(): void {
     this.playbackIssue.emit(null);
     const channel = this.channel();
-    const sourceUrl = channel.url + (channel.epgParams ?? "");
+    const sourceUrl = channel.url;
     const sourceSession = new ArtPlayerSourceSession({
       sharedControls: this.sharedControls,
       controlsAdapter: this.controlsAdapter,

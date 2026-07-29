@@ -1,13 +1,5 @@
-import { app, dialog, powerSaveBlocker, screen } from 'electron';
-import { spawnSync } from 'child_process';
-import {
-    closeSync,
-    existsSync,
-    mkdirSync,
-    openSync,
-    readFileSync,
-    unlinkSync,
-} from 'fs';
+import { powerSaveBlocker, screen } from 'electron';
+import { existsSync, readFileSync } from 'fs';
 import { createRequire } from 'module';
 import path from 'path';
 import App from '../app';
@@ -15,8 +7,6 @@ import {
     EmbeddedMpvAudioTrack,
     EmbeddedMpvBounds,
     EmbeddedMpvCapabilities,
-    EmbeddedMpvRecordingStartOptions,
-    EmbeddedMpvRecordingState,
     EmbeddedMpvSession,
     EmbeddedMpvSessionStatus,
     EmbeddedMpvSubtitleTrack,
@@ -35,7 +25,6 @@ import {
     isFrameCopyRuntimeUsable,
     resolveFrameCopyHelperPath,
 } from './embedded-mpv-frame-copy-platform.util';
-import type { EmbeddedMpvFrameCopyRuntimeMode } from './embedded-mpv-frame-copy-runtime';
 import { isEmbeddedMpvFeatureEnabled } from './embedded-mpv-runtime-policy.util';
 
 export interface NativeEmbeddedMpvSessionSnapshot {
@@ -58,7 +47,6 @@ export interface NativeEmbeddedMpvSessionSnapshot {
     bitrate?: number;
     droppedFrames?: number;
     bufferedSeconds?: number;
-    recording?: EmbeddedMpvRecordingState;
     error?: string;
 }
 
@@ -79,9 +67,6 @@ export interface NativeEmbeddedMpvAddon {
     setSubtitleTrack?(sessionId: string, trackId: number): void;
     setSpeed?(sessionId: string, speed: number): void;
     setAspect?(sessionId: string, aspect: string): void;
-    startRecording?(sessionId: string, targetPath: string): void;
-    stopRecording?(sessionId: string): void;
-    takeScreenshot?(sessionId: string, targetPath: string): void;
     getSessionSnapshot(
         sessionId: string
     ): NativeEmbeddedMpvSessionSnapshot | null;
@@ -99,12 +84,6 @@ interface EmbeddedMpvRuntimeSession {
 }
 
 const EMBEDDED_MPV_FRAME_COPY_ENV = 'ARM_NATOR_ENABLE_EMBEDDED_MPV_FRAME_COPY';
-const SUPPORTED_EMBEDDED_MPV_PLATFORMS = new Set<NodeJS.Platform>([
-    'darwin',
-    'win32',
-    'linux',
-]);
-
 export class EmbeddedMpvNativeService {
     private addon: NativeEmbeddedMpvAddon | null = null;
     private addonLoadError: Error | null = null;
@@ -113,13 +92,11 @@ export class EmbeddedMpvNativeService {
     private readonly pollFailuresLogged = new Set<string>();
     private powerBlockerId: number | null = null;
     private readonly loadAddonModule = createRequire(__filename);
-    private cachedLinuxMpvExecutableReason: string | null | undefined;
     private frameCopyAdapter: EmbeddedMpvFrameCopyAdapter | null = null;
 
     /**
      * Frame-copy engine: helper process + shm ring + renderer canvas.
-     * Experimental, macOS Apple Silicon (owner decision 2026-07-10), Linux
-     * x64 and Windows, opted into with
+     * Experimental, macOS Apple Silicon only, opted into with
      * ARM_NATOR_ENABLE_EMBEDDED_MPV_FRAME_COPY=1 on top of the regular
      * embedded MPV experiment flag.
      */
@@ -160,16 +137,6 @@ export class EmbeddedMpvNativeService {
         };
     }
 
-    private resolveFrameCopyRuntimeMode(): EmbeddedMpvFrameCopyRuntimeMode | null {
-        if (process.platform !== 'linux') {
-            return null;
-        }
-        const availability = getFrameCopyRuntimeAvailability();
-        return availability.usable && 'runtimeMode' in availability
-            ? availability.runtimeMode
-            : null;
-    }
-
     getFrameSource(sessionId: string): EmbeddedMpvFrameSource | null {
         return this.frameCopyAdapter?.getFrameSource(sessionId) ?? null;
     }
@@ -178,7 +145,6 @@ export class EmbeddedMpvNativeService {
         if (!this.frameCopyAdapter) {
             this.frameCopyAdapter = new EmbeddedMpvFrameCopyAdapter({
                 resolveHelperPath: resolveFrameCopyHelperPath,
-                resolveRuntimeMode: () => this.resolveFrameCopyRuntimeMode(),
                 getScaleFactor: () => this.getMainWindowScaleFactor(),
                 onFrameSourceChanged: (sessionId, source) => {
                     if (!App.mainWindow || App.mainWindow.isDestroyed()) {
@@ -219,7 +185,7 @@ export class EmbeddedMpvNativeService {
 
     /**
      * Renderer bounds arrive in CSS pixels; the native-view engines position
-     * OS windows in physical pixels (win32/linux) or points (macOS), so at
+     * the macOS NSView in points, so at
      * page zoom or display scale ≠ 100% the raw values land the video toward
      * the window's top-left corner at a fraction of its size (#1145). The
      * frame-copy engine must bypass this: it paints into a DOM canvas laid
@@ -230,9 +196,7 @@ export class EmbeddedMpvNativeService {
         bounds: EmbeddedMpvBounds
     ): EmbeddedMpvBounds {
         return toNativeViewBounds(bounds, {
-            platform: process.platform,
             zoomFactor: this.getMainWindowZoomFactor(),
-            displayScaleFactor: this.getMainWindowScaleFactor(),
         });
     }
 
@@ -242,8 +206,6 @@ export class EmbeddedMpvNativeService {
                 subtitles: true,
                 playbackSpeed: true,
                 aspectOverride: true,
-                screenshot: false,
-                recording: true,
             };
         }
         const addon = this.addon;
@@ -251,37 +213,15 @@ export class EmbeddedMpvNativeService {
             subtitles: typeof addon?.setSubtitleTrack === 'function',
             playbackSpeed: typeof addon?.setSpeed === 'function',
             aspectOverride: typeof addon?.setAspect === 'function',
-            screenshot: typeof addon?.takeScreenshot === 'function',
-            recording:
-                typeof addon?.startRecording === 'function' &&
-                typeof addon?.stopRecording === 'function',
         };
     }
 
     getSupport(): EmbeddedMpvSupport {
-        if (!SUPPORTED_EMBEDDED_MPV_PLATFORMS.has(process.platform)) {
+        if (process.platform !== 'darwin' || process.arch !== 'arm64') {
             return {
                 supported: false,
                 platform: process.platform,
-                reason: 'Embedded MPV is currently available on macOS, Windows, and Linux only.',
-            };
-        }
-
-        // The frame-copy engine renders offscreen (headless EGL on Linux,
-        // WGL on Windows) into a renderer canvas: the Linux X11/Xwayland and
-        // system-mpv requirements below only bind the native --wid engine. Both
-        // native-engine failure returns still advertise frameCopyAvailable
-        // so the Settings toggle stays reachable — otherwise the states the
-        // frame-copy engine exists to fix would hide the way to enable it.
-        if (
-            this.isUnsupportedLinuxDisplayServer() &&
-            !this.isFrameCopyEngineActive()
-        ) {
-            return {
-                supported: false,
-                platform: process.platform,
-                reason: 'Embedded MPV on Linux currently requires X11 or Xwayland. Native Wayland embedding is not supported yet.',
-                ...this.getFrameCopySupportDetails(),
+                reason: 'Embedded MPV requires macOS on Apple Silicon.',
             };
         }
 
@@ -303,17 +243,6 @@ export class EmbeddedMpvNativeService {
                 engine: 'frame-copy',
                 ...this.getFrameCopySupportDetails(),
                 capabilities: this.detectCapabilities(),
-            };
-        }
-
-        const missingLinuxMpvExecutableReason =
-            this.getMissingLinuxMpvExecutableReason();
-        if (missingLinuxMpvExecutableReason) {
-            return {
-                supported: false,
-                platform: process.platform,
-                reason: missingLinuxMpvExecutableReason,
-                ...this.getFrameCopySupportDetails(),
             };
         }
 
@@ -448,12 +377,8 @@ export class EmbeddedMpvNativeService {
     ): EmbeddedMpvSession {
         this.assertEmbeddedMpvEnabled();
         const addon = this.getAddon();
-        // The frame-copy adapter ignores the native window handle (frames go
-        // through shm to a DOM canvas), so skip resolving it — under native
-        // Wayland the handle assertion would reject an engine that does not
-        // embed into the window at all. Derive the skip from the dispatched
-        // addon rather than re-evaluating the engine gate, so the two
-        // decisions cannot disagree.
+        // The frame-copy adapter ignores the native window handle because
+        // frames travel through shared memory to a renderer canvas.
         const usesFrameCopyAddon =
             this.frameCopyAdapter !== null && addon === this.frameCopyAdapter;
         const windowHandle = usesFrameCopyAddon
@@ -494,7 +419,6 @@ export class EmbeddedMpvNativeService {
                 selectedSubtitleTrackId: null,
                 playbackSpeed: 1,
                 aspectOverride: 'no',
-                recording: { active: false },
                 startedAt,
                 updatedAt: startedAt,
             }
@@ -589,94 +513,14 @@ export class EmbeddedMpvNativeService {
         return this.refreshSession(sessionId);
     }
 
-    takeScreenshot(sessionId: string, targetPath: string): void {
-        this.assertEmbeddedMpvEnabled();
-        const addon = this.getAddon();
-        if (typeof addon.takeScreenshot !== 'function') {
-            throw new Error(
-                'Active embedded MPV engine does not support screenshots.'
-            );
-        }
-        addon.takeScreenshot(sessionId, targetPath);
-    }
-
-    startRecording(
-        sessionId: string,
-        options: EmbeddedMpvRecordingStartOptions = {}
-    ): EmbeddedMpvSession | null {
-        this.assertEmbeddedMpvEnabled();
-        const addon = this.getAddon();
-        if (
-            typeof addon.startRecording !== 'function' ||
-            typeof addon.stopRecording !== 'function'
-        ) {
-            throw new Error(
-                'Embedded MPV addon does not support stream recording. Rebuild the native addon to enable this feature.'
-            );
-        }
-
-        const session = this.getRuntimeSession(sessionId);
-        const directory =
-            options.directory?.trim() || this.getDefaultRecordingFolder();
-        mkdirSync(directory, { recursive: true });
-
-        const targetPath = this.reserveRecordingTargetPath(
-            directory,
-            options.title || session.title || 'ARM-Nator recording'
-        );
-        try {
-            addon.startRecording(sessionId, targetPath);
-        } catch (error) {
-            this.releaseReservedRecordingTargetPath(targetPath);
-            throw error;
-        }
-        return this.refreshSession(sessionId);
-    }
-
-    stopRecording(sessionId: string): EmbeddedMpvSession | null {
-        this.assertEmbeddedMpvEnabled();
-        const addon = this.getAddon();
-        if (typeof addon.stopRecording !== 'function') {
-            throw new Error(
-                'Embedded MPV addon does not support stream recording. Rebuild the native addon to enable this feature.'
-            );
-        }
-        addon.stopRecording(sessionId);
-        return this.refreshSession(sessionId);
-    }
-
-    getDefaultRecordingFolder(): string {
-        return app.getPath('downloads');
-    }
-
-    async selectRecordingFolder(): Promise<string | null> {
-        const result = await dialog.showOpenDialog({
-            properties: ['openDirectory', 'createDirectory'],
-            title: 'Select Recording Folder',
-            defaultPath: this.getDefaultRecordingFolder(),
-        });
-
-        if (result.canceled || result.filePaths.length === 0) {
-            return null;
-        }
-
-        return result.filePaths[0];
-    }
-
     disposeSession(sessionId: string): EmbeddedMpvSession | null {
         const session = this.sessions.get(sessionId);
         if (!session) {
             return null;
         }
 
-        let lastRecording: EmbeddedMpvRecordingState | undefined;
         try {
             const addon = this.getAddon();
-            try {
-                lastRecording = addon.getSessionSnapshot(sessionId)?.recording;
-            } catch {
-                lastRecording = undefined;
-            }
             addon.disposeSession(sessionId);
         } finally {
             this.sessions.delete(sessionId);
@@ -695,7 +539,6 @@ export class EmbeddedMpvNativeService {
                 selectedSubtitleTrackId: null,
                 playbackSpeed: 1,
                 aspectOverride: 'no',
-                recording: this.createClosedRecordingState(lastRecording),
                 startedAt: session.startedAt,
                 updatedAt: new Date().toISOString(),
             };
@@ -867,7 +710,6 @@ export class EmbeddedMpvNativeService {
             ...(typeof snapshot.bufferedSeconds === 'number'
                 ? { bufferedSeconds: snapshot.bufferedSeconds }
                 : {}),
-            recording: snapshot.recording ?? { active: false },
             startedAt: session.startedAt,
             updatedAt: new Date().toISOString(),
             ...(snapshot.error ? { error: snapshot.error } : {}),
@@ -949,84 +791,7 @@ export class EmbeddedMpvNativeService {
             throw new Error('The Electron main window is not available.');
         }
 
-        const windowHandle = App.mainWindow.getNativeWindowHandle();
-        if (this.isInvalidLinuxWaylandWindowHandle(windowHandle)) {
-            throw new Error(
-                'Embedded MPV on Linux requires Electron to run under X11 or Xwayland. Native Wayland embedding is not supported yet. Start ARM-Nator with --ozone-platform=x11.'
-            );
-        }
-
-        return windowHandle;
-    }
-
-    private reserveRecordingTargetPath(
-        directory: string,
-        title: string
-    ): string {
-        const baseName = this.sanitizeRecordingFileName(title);
-        const timestamp = this.formatRecordingTimestamp(new Date());
-        let candidate = path.join(directory, `${baseName}-${timestamp}.ts`);
-        let suffix = 2;
-
-        while (true) {
-            try {
-                const fd = openSync(candidate, 'wx');
-                closeSync(fd);
-                return candidate;
-            } catch (error) {
-                if ((error as NodeJS.ErrnoException).code === 'EEXIST') {
-                    candidate = path.join(
-                        directory,
-                        `${baseName}-${timestamp}-${suffix}.ts`
-                    );
-                    suffix += 1;
-                    continue;
-                }
-
-                throw error;
-            }
-        }
-    }
-
-    private releaseReservedRecordingTargetPath(targetPath: string): void {
-        try {
-            unlinkSync(targetPath);
-        } catch {
-            // Ignore cleanup failures; the start error is more useful.
-        }
-    }
-
-    private createClosedRecordingState(
-        recording?: EmbeddedMpvRecordingState
-    ): EmbeddedMpvRecordingState {
-        return {
-            active: false,
-            ...(recording?.targetPath
-                ? { targetPath: recording.targetPath }
-                : {}),
-            ...(recording?.error ? { error: recording.error } : {}),
-        };
-    }
-
-    private sanitizeRecordingFileName(title: string): string {
-        const normalized = title
-            .replace(/[<>:"/\\|?*\u0000-\u001f]/g, '_')
-            .replace(/\s+/g, ' ')
-            .trim();
-        return (normalized || 'ARM-Nator recording').slice(0, 120);
-    }
-
-    private formatRecordingTimestamp(date: Date): string {
-        const parts = [
-            date.getFullYear(),
-            date.getMonth() + 1,
-            date.getDate(),
-            date.getHours(),
-            date.getMinutes(),
-            date.getSeconds(),
-        ].map((part) => String(part).padStart(2, '0'));
-
-        return `${parts[0]}${parts[1]}${parts[2]}-${parts[3]}${parts[4]}${parts[5]}`;
+        return App.mainWindow.getNativeWindowHandle();
     }
 
     private assertEmbeddedMpvEnabled(): void {
@@ -1035,69 +800,6 @@ export class EmbeddedMpvNativeService {
                 'Embedded MPV Beta is disabled by the current runtime policy.'
             );
         }
-    }
-
-    private isUnsupportedLinuxDisplayServer(): boolean {
-        if (process.platform !== 'linux' || !process.env.WAYLAND_DISPLAY) {
-            return false;
-        }
-
-        return !process.env.DISPLAY || !this.isLinuxX11OzoneRequested();
-    }
-
-    private isLinuxX11OzoneRequested(): boolean {
-        return (
-            app.commandLine.getSwitchValue('ozone-platform').toLowerCase() ===
-            'x11'
-        );
-    }
-
-    private getMissingLinuxMpvExecutableReason(): string | null {
-        if (process.platform !== 'linux') {
-            return null;
-        }
-
-        if (this.cachedLinuxMpvExecutableReason !== undefined) {
-            return this.cachedLinuxMpvExecutableReason;
-        }
-
-        const result = spawnSync('mpv', ['--version'], {
-            stdio: 'ignore',
-            timeout: 3000,
-        });
-        this.cachedLinuxMpvExecutableReason =
-            result.status === 0 ? null : this.getLinuxMpvMissingMessage();
-        return this.cachedLinuxMpvExecutableReason;
-    }
-
-    private getLinuxMpvMissingMessage(): string {
-        // Flatpak/Snap sandboxes cannot see a host-installed mpv, so telling
-        // the user to install it would send them down a dead end.
-        if (process.env.FLATPAK_ID || process.env.SNAP) {
-            return 'Embedded MPV is not available in sandboxed Flatpak/Snap packages because they cannot access a system mpv executable. Use the built-in player, or install the .deb/.rpm/AppImage package to enable Embedded MPV.';
-        }
-
-        return 'Embedded MPV on Linux requires the mpv executable on PATH. Install the mpv package for your distribution and restart ARM-Nator.';
-    }
-
-    private isInvalidLinuxWaylandWindowHandle(windowHandle: Buffer): boolean {
-        if (
-            process.platform !== 'linux' ||
-            !process.env.WAYLAND_DISPLAY ||
-            !process.env.DISPLAY
-        ) {
-            return false;
-        }
-
-        if (windowHandle.length === 0) {
-            return false;
-        }
-
-        const windowHandleValue =
-            windowHandle.length >= 4
-                ? windowHandle.readUInt32LE(0)
-                : windowHandle.readUIntLE(0, windowHandle.length);
-        return windowHandleValue <= 1;
     }
 
     private getAddon(): NativeEmbeddedMpvAddon {
@@ -1194,28 +896,10 @@ export class EmbeddedMpvNativeService {
     }
 
     private getRuntimeLibraryCandidates(nativeDir: string): string[] {
-        switch (process.platform) {
-            case 'darwin':
-                return [
-                    path.join(nativeDir, 'lib', 'libmpv.2.dylib'),
-                    path.join(nativeDir, 'lib', 'libmpv.dylib'),
-                ];
-            case 'win32':
-                return [
-                    path.join(nativeDir, 'lib', 'mpv-2.dll'),
-                    path.join(nativeDir, 'lib', 'libmpv-2.dll'),
-                    path.join(nativeDir, 'mpv-2.dll'),
-                    path.join(nativeDir, 'libmpv-2.dll'),
-                    path.join(nativeDir, 'lib', 'mpv.dll'),
-                    path.join(nativeDir, 'lib', 'libmpv.dll'),
-                    path.join(nativeDir, 'mpv.dll'),
-                    path.join(nativeDir, 'libmpv.dll'),
-                ];
-            case 'linux':
-                return [];
-            default:
-                return [];
-        }
+        return [
+            path.join(nativeDir, 'lib', 'libmpv.2.dylib'),
+            path.join(nativeDir, 'lib', 'libmpv.dylib'),
+        ];
     }
 }
 

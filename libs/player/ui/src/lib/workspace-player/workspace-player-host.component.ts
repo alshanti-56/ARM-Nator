@@ -92,56 +92,6 @@ export class WorkspacePlayerHostComponent {
         );
     }
 
-    async takeScreenshot(): Promise<void> {
-        const timestamp = Date.now();
-        try {
-            const canvas = this.element.querySelector(
-                'canvas[data-embedded-mpv-frame]'
-            ) as HTMLCanvasElement | null;
-            if (canvas?.width && canvas.height) {
-                this.downloadDataUrl(
-                    canvas.toDataURL('image/png'),
-                    `arm-nator-frame-${timestamp}.png`
-                );
-                return;
-            }
-
-            const sessionId = this.snapshot()?.engine?.sessionId;
-            if (
-                sessionId &&
-                window.electron?.takeEmbeddedMpvScreenshot &&
-                window.electron?.saveFileDialog
-            ) {
-                const targetPath = await window.electron.saveFileDialog(
-                    `arm-nator-frame-${timestamp}.png`,
-                    [{ name: 'PNG image', extensions: ['png'] }]
-                );
-                if (targetPath) {
-                    await window.electron.takeEmbeddedMpvScreenshot(
-                        sessionId,
-                        targetPath
-                    );
-                }
-                return;
-            }
-
-            const video = this.element.querySelector('video');
-            if (!video?.videoWidth || !video.videoHeight) {
-                return;
-            }
-            const output = document.createElement('canvas');
-            output.width = video.videoWidth;
-            output.height = video.videoHeight;
-            output.getContext('2d')?.drawImage(video, 0, 0);
-            this.downloadDataUrl(
-                output.toDataURL('image/png'),
-                `arm-nator-frame-${timestamp}.png`
-            );
-        } catch {
-            // Cross-origin web video may intentionally prevent canvas capture.
-        }
-    }
-
     onTimeUpdate(event: {
         currentTime: number;
         duration: number;
@@ -149,10 +99,4 @@ export class WorkspacePlayerHostComponent {
         this.state.onTimeUpdate(event);
     }
 
-    private downloadDataUrl(dataUrl: string, filename: string): void {
-        const link = document.createElement('a');
-        link.download = filename;
-        link.href = dataUrl;
-        link.click();
-    }
 }

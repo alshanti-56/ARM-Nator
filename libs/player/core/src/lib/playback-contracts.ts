@@ -39,8 +39,6 @@ export interface PlaybackCapabilities {
   readonly speed: boolean;
   readonly subtitles: boolean;
   readonly audioTracks: boolean;
-  readonly screenshots: boolean;
-  readonly recording: boolean;
   readonly pictureInPicture: boolean;
 }
 

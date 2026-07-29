@@ -1,5 +1,4 @@
 import { on } from '@ngrx/store';
-import { Channel } from '@arm-nator/shared/interfaces';
 import { ChannelActions } from '../actions';
 import { PlaylistState } from '../state';
 
@@ -13,12 +12,9 @@ export const channelReducers = [
     on(
         ChannelActions.setActiveChannelSuccess,
         (state, action): PlaylistState => {
-            const { channel } = action;
             return {
                 ...state,
-                active: { ...channel, epgParams: '' } as Channel,
-                activePlaybackUrl: null,
-                activeEpgProgram: undefined,
+                active: action.channel,
             };
         }
     ),
@@ -26,8 +22,6 @@ export const channelReducers = [
         return {
             ...state,
             active: undefined,
-            activePlaybackUrl: null,
-            activeEpgProgram: undefined,
         };
     }),
     on(ChannelActions.setChannels, (state, action): PlaylistState => {

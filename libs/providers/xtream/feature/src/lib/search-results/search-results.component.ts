@@ -1,550 +1,537 @@
 /* eslint-disable max-lines */
 import {
-    AfterViewInit,
-    ChangeDetectionStrategy,
-    Component,
-    computed,
-    effect,
-    inject,
-    Inject,
-    Optional,
-    signal,
-    viewChild,
-} from '@angular/core';
-import { Location } from '@angular/common';
-import { FormsModule } from '@angular/forms';
-import { MatIconButton } from '@angular/material/button';
-import { MatCheckboxModule } from '@angular/material/checkbox';
+  AfterViewInit,
+  ChangeDetectionStrategy,
+  Component,
+  computed,
+  effect,
+  inject,
+  Inject,
+  Optional,
+  signal,
+  viewChild,
+} from "@angular/core";
+import { Location } from "@angular/common";
+import { FormsModule } from "@angular/forms";
+import { MatIconButton } from "@angular/material/button";
+import { MatCheckboxModule } from "@angular/material/checkbox";
 import {
-    MAT_DIALOG_DATA,
-    MatDialogModule,
-    MatDialogRef,
-} from '@angular/material/dialog';
-import { MatIcon } from '@angular/material/icon';
-import { MatProgressSpinner } from '@angular/material/progress-spinner';
-import { ActivatedRoute, Router } from '@angular/router';
-import { TranslatePipe } from '@ngx-translate/core';
-import { DatabaseService } from '@arm-nator/services';
-import { ContentCardComponent } from '@arm-nator/providers/shared/ui';
-import { SearchLayoutComponent } from '@arm-nator/providers/shared/ui';
+  MAT_DIALOG_DATA,
+  MatDialogModule,
+  MatDialogRef,
+} from "@angular/material/dialog";
+import { MatIcon } from "@angular/material/icon";
+import { MatProgressSpinner } from "@angular/material/progress-spinner";
+import { ActivatedRoute, Router } from "@angular/router";
+import { TranslatePipe } from "@ngx-translate/core";
+import { DatabaseService } from "@arm-nator/services";
+import { ContentCardComponent } from "@arm-nator/providers/shared/ui";
+import { SearchLayoutComponent } from "@arm-nator/providers/shared/ui";
 import {
-    buildXtreamNavigationTarget,
-    isWorkspaceLayoutRoute,
-    queryParamSignal,
-} from '@arm-nator/providers/shared/util';
-import { createLogger } from '@arm-nator/providers/shared/util';
-import { SearchFilters } from '@arm-nator/providers/xtream/data-access';
-import { XtreamStore } from '@arm-nator/providers/xtream/data-access';
+  buildXtreamNavigationTarget,
+  isWorkspaceLayoutRoute,
+  queryParamSignal,
+} from "@arm-nator/providers/shared/util";
+import { createLogger } from "@arm-nator/providers/shared/util";
+import { SearchFilters } from "@arm-nator/providers/xtream/data-access";
+import { XtreamStore } from "@arm-nator/providers/xtream/data-access";
 import {
-    ContentType,
-    XtreamSearchResultItem,
-} from '@arm-nator/providers/xtream/data-access';
+  ContentType,
+  XtreamSearchResultItem,
+} from "@arm-nator/providers/xtream/data-access";
 import {
-    GlobalSearchResult,
-    isM3uGlobalSearchResult,
-} from '@arm-nator/shared/interfaces';
+  GlobalSearchResult,
+  isM3uGlobalSearchResult,
+} from "@arm-nator/shared/interfaces";
 
 interface SearchResultsData {
-    isGlobalSearch: boolean;
-    initialQuery?: string;
+  isGlobalSearch: boolean;
+  initialQuery?: string;
 }
 
 interface GlobalSearchResultGroup {
-    playlistId: string;
-    playlistName: string;
-    items: XtreamSearchResultItem[];
+  playlistId: string;
+  playlistName: string;
+  items: XtreamSearchResultItem[];
 }
 
 const GLOBAL_SEARCH_PAGE_SIZE = 100;
 
 function groupResultsByPlaylistId(
-    items: XtreamSearchResultItem[]
+  items: XtreamSearchResultItem[],
 ): GlobalSearchResultGroup[] {
-    const groups = new Map<string, GlobalSearchResultGroup>();
+  const groups = new Map<string, GlobalSearchResultGroup>();
 
-    for (const item of items) {
-        const playlistId = String(item.playlist_id ?? 'unknown');
-        const playlistName = String(item.playlist_name ?? playlistId);
-        const group = groups.get(playlistId) ?? {
-            playlistId,
-            playlistName,
-            items: [],
-        };
-        group.items.push(item);
-        groups.set(playlistId, group);
-    }
+  for (const item of items) {
+    const playlistId = String(item.playlist_id ?? "unknown");
+    const playlistName = String(item.playlist_name ?? playlistId);
+    const group = groups.get(playlistId) ?? {
+      playlistId,
+      playlistName,
+      items: [],
+    };
+    group.items.push(item);
+    groups.set(playlistId, group);
+  }
 
-    return [...groups.values()];
+  return [...groups.values()];
 }
 
 @Component({
-    selector: 'app-search-results',
-    changeDetection: ChangeDetectionStrategy.OnPush,
-    imports: [
-        ContentCardComponent,
-        FormsModule,
-        MatCheckboxModule,
-        MatDialogModule,
-        MatIcon,
-        MatIconButton,
-        MatProgressSpinner,
-        SearchLayoutComponent,
-        TranslatePipe,
-    ],
-    providers: [],
-    templateUrl: './search-results.component.html',
-    styleUrls: ['./search-results.component.scss'],
+  selector: "app-search-results",
+  changeDetection: ChangeDetectionStrategy.OnPush,
+  imports: [
+    ContentCardComponent,
+    FormsModule,
+    MatCheckboxModule,
+    MatDialogModule,
+    MatIcon,
+    MatIconButton,
+    MatProgressSpinner,
+    SearchLayoutComponent,
+    TranslatePipe,
+  ],
+  providers: [],
+  templateUrl: "./search-results.component.html",
+  styleUrls: ["./search-results.component.scss"],
 })
 export class SearchResultsComponent implements AfterViewInit {
-    readonly searchLayoutComponent = viewChild(SearchLayoutComponent);
-    readonly xtreamStore = inject(XtreamStore);
-    readonly router = inject(Router);
-    readonly activatedRoute = inject(ActivatedRoute);
-    readonly databaseService = inject(DatabaseService);
-    private readonly location = inject(Location);
-    private readonly logger = createLogger('XtreamSearchResults');
-    readonly isWorkspaceLayout = isWorkspaceLayoutRoute(this.activatedRoute);
-    readonly routeSearchTerm = queryParamSignal(
-        this.activatedRoute,
-        'q',
-        (value) => (value ?? '').trim()
-    );
+  readonly searchLayoutComponent = viewChild(SearchLayoutComponent);
+  readonly xtreamStore = inject(XtreamStore);
+  readonly router = inject(Router);
+  readonly activatedRoute = inject(ActivatedRoute);
+  readonly databaseService = inject(DatabaseService);
+  private readonly location = inject(Location);
+  private readonly logger = createLogger("XtreamSearchResults");
+  readonly isWorkspaceLayout = isWorkspaceLayoutRoute(this.activatedRoute);
+  readonly routeSearchTerm = queryParamSignal(
+    this.activatedRoute,
+    "q",
+    (value) => (value ?? "").trim(),
+  );
 
-    /** Search term from store */
-    readonly searchTerm = this.xtreamStore.searchTerm;
+  /** Search term from store */
+  readonly searchTerm = this.xtreamStore.searchTerm;
 
-    /** Search filters from store */
-    readonly filters = this.xtreamStore.searchFilters;
-    private globalSearchRequestVersion = 0;
-    private lastGlobalSearchTerm = '';
-    private lastGlobalSearchTypes: string[] = [];
-    private lastGlobalSearchExcludeHidden?: boolean;
-    readonly hasMoreGlobalResults = signal(false);
-    readonly isLoadingMoreGlobalResults = signal(false);
+  /** Search filters from store */
+  readonly filters = this.xtreamStore.searchFilters;
+  private globalSearchRequestVersion = 0;
+  private lastGlobalSearchTerm = "";
+  private lastGlobalSearchTypes: string[] = [];
+  private lastGlobalSearchExcludeHidden?: boolean;
+  readonly hasMoreGlobalResults = signal(false);
+  readonly isLoadingMoreGlobalResults = signal(false);
 
-    private static readonly GROUP_BY_STORAGE_KEY =
-        'global-search-group-by-playlist';
-    private static readonly EXCLUDE_HIDDEN_STORAGE_KEY =
-        'xtream-search-exclude-hidden';
-    private static readonly TYPE_FILTERS_STORAGE_KEY =
-        'global-search-type-filters';
+  private static readonly GROUP_BY_STORAGE_KEY =
+    "global-search-group-by-playlist";
+  private static readonly EXCLUDE_HIDDEN_STORAGE_KEY =
+    "xtream-search-exclude-hidden";
+  private static readonly TYPE_FILTERS_STORAGE_KEY =
+    "global-search-type-filters";
 
-    isGlobalSearch = false;
+  isGlobalSearch = false;
 
-    /** Whether to group global search results by playlist */
-    readonly groupByPlaylist = signal(
-        localStorage.getItem(SearchResultsComponent.GROUP_BY_STORAGE_KEY) !==
-            'false'
-    );
+  /** Whether to group global search results by playlist */
+  readonly groupByPlaylist = signal(
+    localStorage.getItem(SearchResultsComponent.GROUP_BY_STORAGE_KEY) !==
+      "false",
+  );
 
-    /** Whether to exclude content from hidden categories */
-    readonly excludeHidden = signal(
-        localStorage.getItem(
-            SearchResultsComponent.EXCLUDE_HIDDEN_STORAGE_KEY
-        ) === 'true'
-    );
+  /** Whether to exclude content from hidden categories */
+  readonly excludeHidden = signal(
+    localStorage.getItem(SearchResultsComponent.EXCLUDE_HIDDEN_STORAGE_KEY) ===
+      "true",
+  );
 
-    readonly filterConfig = [
-        {
-            key: 'live' as keyof SearchFilters,
-            label: 'Live TV',
-            translationKey: 'PORTALS.SIDEBAR.LIVE_TV',
-        },
-        {
-            key: 'movie' as keyof SearchFilters,
-            label: 'Movies',
-            translationKey: 'PORTALS.SIDEBAR.MOVIES',
-        },
-        {
-            key: 'series' as keyof SearchFilters,
-            label: 'Series',
-            translationKey: 'PORTALS.SIDEBAR.SERIES',
-        },
-    ];
+  readonly filterConfig = [
+    {
+      key: "live" as keyof SearchFilters,
+      label: "Live TV",
+      translationKey: "PORTALS.SIDEBAR.LIVE_TV",
+    },
+    {
+      key: "movie" as keyof SearchFilters,
+      label: "Movies",
+      translationKey: "PORTALS.SIDEBAR.MOVIES",
+    },
+    {
+      key: "series" as keyof SearchFilters,
+      label: "Series",
+      translationKey: "PORTALS.SIDEBAR.SERIES",
+    },
+  ];
 
-    /** Grouped results computed once per result change (avoids recalculating on every CD cycle) */
-    readonly groupedResults = computed(() => {
-        const results = this.xtreamStore.searchResults();
-        if (!this.isGlobalSearch) {
-            return [];
+  /** Grouped results computed once per result change (avoids recalculating on every CD cycle) */
+  readonly groupedResults = computed(() => {
+    const results = this.xtreamStore.searchResults();
+    if (!this.isGlobalSearch) {
+      return [];
+    }
+    return groupResultsByPlaylistId(results);
+  });
+
+  constructor(
+    @Optional() @Inject(MAT_DIALOG_DATA) data: SearchResultsData | null,
+    @Optional() public dialogRef: MatDialogRef<SearchResultsComponent>,
+  ) {
+    this.isGlobalSearch =
+      data?.isGlobalSearch ||
+      this.activatedRoute.snapshot.data?.["isGlobalSearch"] === true;
+    const initialQuery = (data?.initialQuery ?? "").trim();
+
+    if (this.isGlobalSearch) {
+      const savedFilters = localStorage.getItem(
+        SearchResultsComponent.TYPE_FILTERS_STORAGE_KEY,
+      );
+      if (savedFilters) {
+        try {
+          const parsed = JSON.parse(savedFilters) as Partial<SearchFilters>;
+          this.xtreamStore.setSearchFilters({
+            live: parsed.live !== false,
+            movie: parsed.movie !== false,
+            series: parsed.series !== false,
+          });
+        } catch {
+          // Ignore malformed storage value and keep defaults.
         }
-        return groupResultsByPlaylistId(results);
+      }
+
+      if (initialQuery) {
+        this.xtreamStore.setSearchTerm(initialQuery);
+      }
+    }
+
+    effect((onCleanup) => {
+      const term = this.searchTerm();
+      if (term.length >= this.minSearchLength) {
+        const timeout = setTimeout(() => this.executeSearch(), 300);
+        onCleanup(() => clearTimeout(timeout));
+      } else if (term.length < this.minSearchLength) {
+        this.clearResultsOnly();
+      }
     });
 
-    constructor(
-        @Optional() @Inject(MAT_DIALOG_DATA) data: SearchResultsData | null,
-        @Optional() public dialogRef: MatDialogRef<SearchResultsComponent>
+    effect(() => {
+      if (!this.isWorkspaceLayout) {
+        return;
+      }
+
+      const queryTerm = this.routeSearchTerm();
+      if (queryTerm === this.searchTerm()) {
+        return;
+      }
+
+      this.xtreamStore.setSearchTerm(queryTerm);
+    });
+  }
+
+  ngAfterViewInit() {
+    this.xtreamStore.setSelectedContentType("vod");
+    if (this.showInlineSearchInput) {
+      setTimeout(() => {
+        this.searchLayoutComponent()?.focusSearchInput();
+      });
+    }
+  }
+
+  executeSearch() {
+    const filters = this.filters();
+    const types = Object.entries(filters)
+      .filter(([, enabled]) => enabled)
+      .map(([type]) => type);
+    const excludeHidden = this.excludeHidden();
+
+    if (this.isGlobalSearch) {
+      this.searchGlobal(this.searchTerm(), types, excludeHidden);
+    } else {
+      this.xtreamStore.searchContent({
+        term: this.searchTerm(),
+        types,
+        excludeHidden,
+      });
+    }
+  }
+
+  /**
+   * Update search term in the store
+   */
+  updateSearchTerm(term: string) {
+    this.xtreamStore.setSearchTerm(term);
+  }
+
+  /**
+   * Update a single filter in the store
+   */
+  updateFilter(key: keyof SearchFilters, value: boolean) {
+    this.xtreamStore.updateSearchFilter(key, value);
+
+    if (this.isGlobalSearch) {
+      localStorage.setItem(
+        SearchResultsComponent.TYPE_FILTERS_STORAGE_KEY,
+        JSON.stringify(this.xtreamStore.searchFilters()),
+      );
+    }
+
+    if (this.searchTerm().length >= this.minSearchLength) {
+      this.executeSearch();
+    }
+  }
+
+  /**
+   * Clear only the results, not the search term/filters
+   */
+  private clearResultsOnly() {
+    this.globalSearchRequestVersion++;
+    this.xtreamStore.setIsSearching(false);
+    this.hasMoreGlobalResults.set(false);
+    this.isLoadingMoreGlobalResults.set(false);
+    this.lastGlobalSearchTerm = "";
+    this.lastGlobalSearchTypes = [];
+    this.lastGlobalSearchExcludeHidden = undefined;
+    this.xtreamStore.setGlobalSearchResults([]);
+  }
+
+  async searchGlobal(
+    term: string,
+    types: string[],
+    excludeHidden?: boolean,
+    append = false,
+  ) {
+    const trimmedTerm =
+      term.trim() || (append ? this.lastGlobalSearchTerm : "");
+    const effectiveTypes =
+      append && this.lastGlobalSearchTypes.length > 0
+        ? this.lastGlobalSearchTypes
+        : types;
+    const effectiveExcludeHidden =
+      append && this.lastGlobalSearchExcludeHidden !== undefined
+        ? this.lastGlobalSearchExcludeHidden
+        : excludeHidden;
+
+    if (
+      trimmedTerm.length < this.minSearchLength ||
+      effectiveTypes.length === 0
     ) {
-        this.isGlobalSearch =
-            data?.isGlobalSearch ||
-            this.activatedRoute.snapshot.data?.['isGlobalSearch'] === true;
-        const initialQuery = (data?.initialQuery ?? '').trim();
-
-        if (this.isGlobalSearch) {
-            const savedFilters = localStorage.getItem(
-                SearchResultsComponent.TYPE_FILTERS_STORAGE_KEY
-            );
-            if (savedFilters) {
-                try {
-                    const parsed = JSON.parse(
-                        savedFilters
-                    ) as Partial<SearchFilters>;
-                    this.xtreamStore.setSearchFilters({
-                        live: parsed.live !== false,
-                        movie: parsed.movie !== false,
-                        series: parsed.series !== false,
-                    });
-                } catch {
-                    // Ignore malformed storage value and keep defaults.
-                }
-            }
-
-            if (initialQuery) {
-                this.xtreamStore.setSearchTerm(initialQuery);
-            }
-        }
-
-        effect((onCleanup) => {
-            const term = this.searchTerm();
-            if (term.length >= this.minSearchLength) {
-                const timeout = setTimeout(() => this.executeSearch(), 300);
-                onCleanup(() => clearTimeout(timeout));
-            } else if (term.length < this.minSearchLength) {
-                this.clearResultsOnly();
-            }
-        });
-
-        effect(() => {
-            if (!this.isWorkspaceLayout) {
-                return;
-            }
-
-            const queryTerm = this.routeSearchTerm();
-            if (queryTerm === this.searchTerm()) {
-                return;
-            }
-
-            this.xtreamStore.setSearchTerm(queryTerm);
-        });
+      this.clearResultsOnly();
+      return;
     }
 
-    ngAfterViewInit() {
-        this.xtreamStore.setSelectedContentType('vod');
-        if (this.showInlineSearchInput) {
-            setTimeout(() => {
-                this.searchLayoutComponent()?.focusSearchInput();
-            });
-        }
+    if (
+      append &&
+      (!this.hasMoreGlobalResults() ||
+        this.isLoadingMoreGlobalResults() ||
+        this.xtreamStore.isSearching())
+    ) {
+      return;
     }
 
-    executeSearch() {
-        const filters = this.filters();
-        const types = Object.entries(filters)
-            .filter(([, enabled]) => enabled)
-            .map(([type]) => type);
-        const excludeHidden = this.excludeHidden();
+    const requestVersion = ++this.globalSearchRequestVersion;
+    const offset = append ? this.getCurrentGlobalSearchResults().length : 0;
 
-        if (this.isGlobalSearch) {
-            this.searchGlobal(this.searchTerm(), types, excludeHidden);
-        } else {
-            this.xtreamStore.searchContent({
-                term: this.searchTerm(),
-                types,
-                excludeHidden,
-            });
-        }
+    if (append) {
+      this.isLoadingMoreGlobalResults.set(true);
+    } else {
+      this.lastGlobalSearchTerm = trimmedTerm;
+      this.lastGlobalSearchTypes = [...effectiveTypes];
+      this.lastGlobalSearchExcludeHidden = effectiveExcludeHidden;
+      this.hasMoreGlobalResults.set(false);
+      this.isLoadingMoreGlobalResults.set(false);
+      this.xtreamStore.setIsSearching(true);
     }
 
-    /**
-     * Update search term in the store
-     */
-    updateSearchTerm(term: string) {
-        this.xtreamStore.setSearchTerm(term);
-    }
+    try {
+      const results = await this.databaseService.globalSearchContent(
+        trimmedTerm,
+        effectiveTypes,
+        effectiveExcludeHidden,
+        undefined,
+        {
+          limit: GLOBAL_SEARCH_PAGE_SIZE + 1,
+          offset,
+        },
+      );
 
-    /**
-     * Update a single filter in the store
-     */
-    updateFilter(key: keyof SearchFilters, value: boolean) {
-        this.xtreamStore.updateSearchFilter(key, value);
+      if (requestVersion !== this.globalSearchRequestVersion) {
+        return;
+      }
 
-        if (this.isGlobalSearch) {
-            localStorage.setItem(
-                SearchResultsComponent.TYPE_FILTERS_STORAGE_KEY,
-                JSON.stringify(this.xtreamStore.searchFilters())
-            );
-        }
-
-        if (this.searchTerm().length >= this.minSearchLength) {
-            this.executeSearch();
-        }
-    }
-
-    /**
-     * Clear only the results, not the search term/filters
-     */
-    private clearResultsOnly() {
-        this.globalSearchRequestVersion++;
+      if (results && Array.isArray(results)) {
+        const visibleResults = results.slice(0, GLOBAL_SEARCH_PAGE_SIZE);
+        this.hasMoreGlobalResults.set(results.length > GLOBAL_SEARCH_PAGE_SIZE);
+        this.xtreamStore.setGlobalSearchResults(
+          append
+            ? [...this.getCurrentGlobalSearchResults(), ...visibleResults]
+            : visibleResults,
+        );
+      } else {
         this.xtreamStore.setIsSearching(false);
         this.hasMoreGlobalResults.set(false);
+      }
+    } catch (error) {
+      if (requestVersion !== this.globalSearchRequestVersion) {
+        return;
+      }
+
+      this.logger.error("Error in global search", error);
+      if (append) {
+        this.hasMoreGlobalResults.set(false);
+      } else {
+        this.xtreamStore.resetSearchResults();
+      }
+    } finally {
+      if (requestVersion === this.globalSearchRequestVersion) {
         this.isLoadingMoreGlobalResults.set(false);
-        this.lastGlobalSearchTerm = '';
-        this.lastGlobalSearchTypes = [];
-        this.lastGlobalSearchExcludeHidden = undefined;
-        this.xtreamStore.setGlobalSearchResults([]);
-    }
-
-    async searchGlobal(
-        term: string,
-        types: string[],
-        excludeHidden?: boolean,
-        append = false
-    ) {
-        const trimmedTerm =
-            term.trim() || (append ? this.lastGlobalSearchTerm : '');
-        const effectiveTypes =
-            append && this.lastGlobalSearchTypes.length > 0
-                ? this.lastGlobalSearchTypes
-                : types;
-        const effectiveExcludeHidden =
-            append && this.lastGlobalSearchExcludeHidden !== undefined
-                ? this.lastGlobalSearchExcludeHidden
-                : excludeHidden;
-
-        if (
-            trimmedTerm.length < this.minSearchLength ||
-            effectiveTypes.length === 0
-        ) {
-            this.clearResultsOnly();
-            return;
+        if (!append) {
+          this.xtreamStore.setIsSearching(false);
         }
+      }
+    }
+  }
 
-        if (
-            append &&
-            (!this.hasMoreGlobalResults() ||
-                this.isLoadingMoreGlobalResults() ||
-                this.xtreamStore.isSearching())
-        ) {
-            return;
-        }
-
-        const requestVersion = ++this.globalSearchRequestVersion;
-        const offset = append ? this.getCurrentGlobalSearchResults().length : 0;
-
-        if (append) {
-            this.isLoadingMoreGlobalResults.set(true);
-        } else {
-            this.lastGlobalSearchTerm = trimmedTerm;
-            this.lastGlobalSearchTypes = [...effectiveTypes];
-            this.lastGlobalSearchExcludeHidden = effectiveExcludeHidden;
-            this.hasMoreGlobalResults.set(false);
-            this.isLoadingMoreGlobalResults.set(false);
-            this.xtreamStore.setIsSearching(true);
-        }
-
-        try {
-            const results = await this.databaseService.globalSearchContent(
-                trimmedTerm,
-                effectiveTypes,
-                effectiveExcludeHidden,
-                undefined,
-                {
-                    limit: GLOBAL_SEARCH_PAGE_SIZE + 1,
-                    offset,
-                }
-            );
-
-            if (requestVersion !== this.globalSearchRequestVersion) {
-                return;
-            }
-
-            if (results && Array.isArray(results)) {
-                const visibleResults = results.slice(
-                    0,
-                    GLOBAL_SEARCH_PAGE_SIZE
-                );
-                this.hasMoreGlobalResults.set(
-                    results.length > GLOBAL_SEARCH_PAGE_SIZE
-                );
-                this.xtreamStore.setGlobalSearchResults(
-                    append
-                        ? [
-                              ...this.getCurrentGlobalSearchResults(),
-                              ...visibleResults,
-                          ]
-                        : visibleResults
-                );
-            } else {
-                this.xtreamStore.setIsSearching(false);
-                this.hasMoreGlobalResults.set(false);
-            }
-        } catch (error) {
-            if (requestVersion !== this.globalSearchRequestVersion) {
-                return;
-            }
-
-            this.logger.error('Error in global search', error);
-            if (append) {
-                this.hasMoreGlobalResults.set(false);
-            } else {
-                this.xtreamStore.resetSearchResults();
-            }
-        } finally {
-            if (requestVersion === this.globalSearchRequestVersion) {
-                this.isLoadingMoreGlobalResults.set(false);
-                if (!append) {
-                    this.xtreamStore.setIsSearching(false);
-                }
-            }
-        }
+  async loadMoreGlobalResults(): Promise<void> {
+    if (!this.isGlobalSearch) {
+      return;
     }
 
-    async loadMoreGlobalResults(): Promise<void> {
-        if (!this.isGlobalSearch) {
-            return;
-        }
+    const filters = this.filters();
+    const types = Object.entries(filters)
+      .filter(([, enabled]) => enabled)
+      .map(([type]) => type);
 
-        const filters = this.filters();
-        const types = Object.entries(filters)
-            .filter(([, enabled]) => enabled)
-            .map(([type]) => type);
+    await this.searchGlobal(
+      this.searchTerm(),
+      types,
+      this.excludeHidden(),
+      true,
+    );
+  }
 
-        await this.searchGlobal(
-            this.searchTerm(),
-            types,
-            this.excludeHidden(),
-            true
-        );
+  selectItem(item: XtreamSearchResultItem) {
+    if (isM3uGlobalSearchResult(item as GlobalSearchResult)) {
+      this.selectM3uItem(item as GlobalSearchResult);
+      return;
     }
 
-    selectItem(item: XtreamSearchResultItem) {
-        if (isM3uGlobalSearchResult(item as GlobalSearchResult)) {
-            this.selectM3uItem(item as GlobalSearchResult);
-            return;
-        }
-
-        const playlistId = item.playlist_id ?? this.xtreamStore.playlistId();
-        if (!playlistId) {
-            return;
-        }
-
-        const type = (item.type === 'movie' ? 'vod' : item.type) as ContentType;
-        const navigationType =
-            item.type === 'movie'
-                ? 'movie'
-                : item.type === 'series'
-                  ? 'series'
-                  : 'live';
-        this.xtreamStore.setSelectedContentType(type);
-
-        const navigation = buildXtreamNavigationTarget({
-            playlistId,
-            type: navigationType,
-            categoryId: item.category_id,
-            itemId: item.xtream_id,
-            title: item.title,
-            imageUrl: item.poster_url,
-        });
-
-        if (this.isGlobalSearch) {
-            this.dialogRef?.close();
-        }
-
-        void this.router.navigate(navigation.link, {
-            state: navigation.state,
-        });
+    const playlistId = item.playlist_id ?? this.xtreamStore.playlistId();
+    if (!playlistId) {
+      return;
     }
 
-    onCloseDialog() {
-        this.dialogRef?.close();
+    const type = (item.type === "movie" ? "vod" : item.type) as ContentType;
+    const navigationType =
+      item.type === "movie"
+        ? "movie"
+        : item.type === "series"
+          ? "series"
+          : "live";
+    this.xtreamStore.setSelectedContentType(type);
+
+    const navigation = buildXtreamNavigationTarget({
+      playlistId,
+      type: navigationType,
+      categoryId: item.category_id,
+      itemId: item.xtream_id,
+      title: item.title,
+      imageUrl: item.poster_url,
+    });
+
+    if (this.isGlobalSearch) {
+      this.dialogRef?.close();
     }
 
-    goBack(): void {
-        this.location.back();
+    void this.router.navigate(navigation.link, {
+      state: navigation.state,
+    });
+  }
+
+  onCloseDialog() {
+    this.dialogRef?.close();
+  }
+
+  goBack(): void {
+    this.location.back();
+  }
+
+  toggleGroupByPlaylist(value: boolean) {
+    this.groupByPlaylist.set(value);
+    localStorage.setItem(
+      SearchResultsComponent.GROUP_BY_STORAGE_KEY,
+      String(value),
+    );
+  }
+
+  toggleExcludeHidden(value: boolean) {
+    this.excludeHidden.set(value);
+    localStorage.setItem(
+      SearchResultsComponent.EXCLUDE_HIDDEN_STORAGE_KEY,
+      String(value),
+    );
+    if (this.searchTerm().length >= this.minSearchLength) {
+      this.executeSearch();
+    }
+  }
+
+  getGroupedResults() {
+    return this.groupedResults();
+  }
+
+  get showInlineSearchInput(): boolean {
+    return !this.isWorkspaceLayout;
+  }
+
+  get showGlobalCloseButton(): boolean {
+    return this.isGlobalSearch && !this.isWorkspaceLayout;
+  }
+
+  /**
+   * The in-portal search is a nested view (reached from the toolbar
+   * search box or an actor page); the global search is a top-level
+   * sidebar destination, and the dialog has its own close button — a
+   * back arrow there would navigate the page behind the open dialog.
+   */
+  get showBackButton(): boolean {
+    return this.isWorkspaceLayout && !this.isGlobalSearch && !this.dialogRef;
+  }
+
+  get minSearchLength(): number {
+    return this.isGlobalSearch ? 2 : 3;
+  }
+
+  get initialDescriptionKey(): string {
+    return this.isGlobalSearch
+      ? "PORTALS.SEARCH_VIEW.GLOBAL_INITIAL_DESCRIPTION"
+      : "PORTALS.SEARCH_VIEW.INITIAL_DESCRIPTION";
+  }
+
+  getDisplayType(item: XtreamSearchResultItem): string {
+    const result = item as GlobalSearchResult;
+    if (isM3uGlobalSearchResult(result) && result.radio === "true") {
+      return "radio";
     }
 
-    toggleGroupByPlaylist(value: boolean) {
-        this.groupByPlaylist.set(value);
-        localStorage.setItem(
-            SearchResultsComponent.GROUP_BY_STORAGE_KEY,
-            String(value)
-        );
+    return item.type;
+  }
+
+  private getCurrentGlobalSearchResults(): GlobalSearchResult[] {
+    return this.xtreamStore.searchResults() as GlobalSearchResult[];
+  }
+
+  private selectM3uItem(item: GlobalSearchResult): void {
+    if (!isM3uGlobalSearchResult(item)) {
+      return;
     }
 
-    toggleExcludeHidden(value: boolean) {
-        this.excludeHidden.set(value);
-        localStorage.setItem(
-            SearchResultsComponent.EXCLUDE_HIDDEN_STORAGE_KEY,
-            String(value)
-        );
-        if (this.searchTerm().length >= this.minSearchLength) {
-            this.executeSearch();
-        }
+    if (this.isGlobalSearch) {
+      this.dialogRef?.close();
     }
 
-    getGroupedResults() {
-        return this.groupedResults();
-    }
-
-    get showInlineSearchInput(): boolean {
-        return !this.isWorkspaceLayout;
-    }
-
-    get showGlobalCloseButton(): boolean {
-        return this.isGlobalSearch && !this.isWorkspaceLayout;
-    }
-
-    /**
-     * The in-portal search is a nested view (reached from the toolbar
-     * search box or an actor page); the global search is a top-level
-     * sidebar destination, and the dialog has its own close button — a
-     * back arrow there would navigate the page behind the open dialog.
-     */
-    get showBackButton(): boolean {
-        return (
-            this.isWorkspaceLayout && !this.isGlobalSearch && !this.dialogRef
-        );
-    }
-
-    get minSearchLength(): number {
-        return this.isGlobalSearch ? 2 : 3;
-    }
-
-    get initialDescriptionKey(): string {
-        return this.isGlobalSearch
-            ? 'PORTALS.SEARCH_VIEW.GLOBAL_INITIAL_DESCRIPTION'
-            : 'PORTALS.SEARCH_VIEW.INITIAL_DESCRIPTION';
-    }
-
-    getDisplayType(item: XtreamSearchResultItem): string {
-        const result = item as GlobalSearchResult;
-        if (isM3uGlobalSearchResult(result) && result.radio === 'true') {
-            return 'radio';
-        }
-
-        return item.type;
-    }
-
-    private getCurrentGlobalSearchResults(): GlobalSearchResult[] {
-        return this.xtreamStore.searchResults() as GlobalSearchResult[];
-    }
-
-    private selectM3uItem(item: GlobalSearchResult): void {
-        if (!isM3uGlobalSearchResult(item)) {
-            return;
-        }
-
-        if (this.isGlobalSearch) {
-            this.dialogRef?.close();
-        }
-
-        void this.router.navigate(
-            ['/workspace', 'playlists', item.playlist_id, 'all'],
-            {
-                state: {
-                    openM3uChannelUrl: item.stream_url,
-                },
-            }
-        );
-    }
+    void this.router.navigate(
+      ["/workspace", "playlists", item.playlist_id, "all"],
+      {
+        state: {
+          openM3uChannelUrl: item.stream_url,
+        },
+      },
+    );
+  }
 }

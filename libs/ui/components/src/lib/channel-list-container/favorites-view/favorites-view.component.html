@@ -20,15 +20,7 @@
                 "
                 [isDraggable]="!hasSearchTerm()"
                 [logo]="getLogoForChannel(channel)"
-                [showEpg]="shouldShowEpg()"
                 [isRadio]="channel?.radio === 'true'"
-                [epgProgram]="
-                    epgMetadataMap().get(getChannelEpgKey(channel))?.epgProgram
-                "
-                [progressPercentage]="
-                    epgMetadataMap().get(getChannelEpgKey(channel))
-                        ?.progressPercentage ?? 0
-                "
                 [showDetailsContextMenu]="true"
                 (clicked)="onChannelClick(channel)"
                 (activated)="onChannelActivate(channel)"
@@ -69,12 +61,7 @@
 ></div>
 
 <mat-menu #channelContextMenu="matMenu">
-    @if (supportsEpgMapping) {
-        <button mat-menu-item (click)="openEpgMapping()">
-            <mat-icon>settings_remote</mat-icon>
-            <span>{{ 'CHANNELS.MAP_EPG' | translate }}</span>
-        </button>
-    }
+
     <button mat-menu-item (click)="openChannelDetails()">
         <mat-icon>info</mat-icon>
         <span>{{ 'CHANNELS.SHOW_DETAILS' | translate }}</span>

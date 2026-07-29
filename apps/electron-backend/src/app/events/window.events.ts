@@ -1,8 +1,6 @@
 /**
- * IPC handlers for the renderer-drawn window controls used with the custom
- * title bar on Windows/Linux (`titleBarStyle: 'hidden'`). Each handler
- * resolves the window from the calling WebContents so it works without
- * coupling to the static main-window reference.
+ * IPC handlers for programmatic macOS window management. Each handler
+ * resolves the window from the calling WebContents.
  */
 
 import { BrowserWindow, ipcMain } from 'electron';
@@ -49,10 +47,6 @@ ipcMain.handle(WINDOW_TOGGLE_MAXIMIZE, (event): WindowState => {
         return getWindowState(win);
     }
 
-    // maximize()/unmaximize() complete asynchronously on Linux window
-    // managers, so re-reading isMaximized() here would race. Report the
-    // requested state instead; the WINDOW:STATE_CHANGED push stays the
-    // authoritative update once the window manager has acted.
     const shouldMaximize = !win.isMaximized();
 
     if (shouldMaximize) {

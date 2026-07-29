@@ -7,8 +7,8 @@ import { spawnSync } from 'child_process';
 
 const rawArgs = process.argv.slice(2);
 const args = rawArgs[0] === '--' ? rawArgs.slice(1) : rawArgs;
-const [arch, rawPrefix] = args;
-const validArchitectures = new Set(['arm64', 'x64']);
+const [rawPrefix] = args;
+const arch = 'arm64';
 const macosDeploymentTarget =
     process.env.MACOSX_DEPLOYMENT_TARGET ??= '26.0';
 const workspaceRoot = process.cwd();
@@ -64,12 +64,17 @@ if (process.platform !== 'darwin') {
     process.exit(1);
 }
 
-if (!validArchitectures.has(arch) || !rawPrefix) {
+if (process.arch !== 'arm64') {
+    console.error('Embedded MPV runtime builds require Apple Silicon.');
+    process.exit(1);
+}
+
+if (!rawPrefix) {
     console.error(
         [
-            'Usage: node tools/embedded-mpv/build-macos-runtime.mjs <arm64|x64> <output-prefix>',
+            'Usage: node tools/embedded-mpv/build-macos-runtime.mjs <output-prefix>',
             '',
-            'Builds a pinned LGPL-compatible macOS libmpv runtime from source.',
+            'Builds a pinned LGPL-compatible macOS arm64 libmpv runtime from source.',
         ].join('\n')
     );
     process.exit(1);

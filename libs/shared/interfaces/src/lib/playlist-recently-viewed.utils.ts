@@ -93,12 +93,6 @@ function mapM3uPlaylistRecentItems(
                 category_id: rawItem.category_id || 'live',
                 xtream_id: channelUrl,
                 poster_url: rawItem.poster_url || undefined,
-                epg_lookup_key: firstNonEmpty(
-                    rawItem.tvg_id,
-                    rawItem.tvg_name,
-                    rawItem.title,
-                    rawItem.channel_id
-                ),
                 source: 'm3u',
             });
 

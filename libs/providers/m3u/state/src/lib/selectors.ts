@@ -7,29 +7,9 @@ import { PlaylistState } from './state';
 export const selectPlaylistState =
     createFeatureSelector<PlaylistState>('playlistState');
 
-export const selectIsEpgAvailable = createSelector(
-    selectPlaylistState,
-    fromPlaylistState.selectIsEpgAvailableReducer
-);
-
 export const selectActive = createSelector(
     selectPlaylistState,
     fromPlaylistState.selectActiveReducer
-);
-
-export const selectActivePlaybackUrl = createSelector(
-    selectPlaylistState,
-    fromPlaylistState.selectActivePlaybackUrlReducer
-);
-
-export const selectActiveEpgProgram = createSelector(
-    selectPlaylistState,
-    fromPlaylistState.selectActiveEpgProgramReducer
-);
-
-export const selectCurrentEpgProgram = createSelector(
-    selectPlaylistState,
-    fromPlaylistState.selectCurrentEpgProgramReducer
 );
 
 export const selectChannelsLoading = createSelector(

@@ -70,7 +70,6 @@ interface XtreamGlobalSearchCandidate {
     rating: string | null;
     added: string | null;
     poster_url: string | null;
-    epg_channel_id: string | null;
     tv_archive: number | null;
     tv_archive_duration: number | null;
     direct_source: string | null;
@@ -286,7 +285,6 @@ async function selectXtreamGlobalSearchCandidatesWithTitleIndex(
             c.rating AS rating,
             c.added AS added,
             c.poster_url AS poster_url,
-            c.epg_channel_id AS epg_channel_id,
             c.tv_archive AS tv_archive,
             c.tv_archive_duration AS tv_archive_duration,
             c.direct_source AS direct_source,
@@ -328,7 +326,6 @@ async function selectXtreamGlobalSearchCandidatesWithFts(
             c.rating AS rating,
             c.added AS added,
             c.poster_url AS poster_url,
-            c.epg_channel_id AS epg_channel_id,
             c.tv_archive AS tv_archive,
             c.tv_archive_duration AS tv_archive_duration,
             c.direct_source AS direct_source,
@@ -505,7 +502,6 @@ function normalizeM3uChannel(value: unknown): Channel | null {
             logo: normalizeSearchText(source.tvg?.logo),
             rec: normalizeSearchText(source.tvg?.rec),
         },
-        epgParams: source.epgParams,
         timeshift: source.timeshift,
         catchup: source.catchup,
         http: {
@@ -639,7 +635,6 @@ function selectContentFields() {
         rating: schema.content.rating,
         added: schema.content.added,
         poster_url: schema.content.posterUrl,
-        epg_channel_id: schema.content.epgChannelId,
         tv_archive: schema.content.tvArchive,
         tv_archive_duration: schema.content.tvArchiveDuration,
         direct_source: schema.content.directSource,
@@ -802,7 +797,6 @@ type XtreamContentValue = {
     rating: string;
     added: string;
     posterUrl: string;
-    epgChannelId?: string | null;
     tvArchive?: number | null;
     tvArchiveDuration?: number | null;
     directSource?: string | null;
@@ -821,7 +815,6 @@ type XtreamContentSource = Record<string, unknown> & {
     cover?: string;
     name?: string;
     title?: string;
-    epg_channel_id?: string;
     tv_archive?: string | number;
     tv_archive_duration?: string | number;
     direct_source?: string;
@@ -866,10 +859,6 @@ function toXtreamContentValue(
         posterUrl: String(
             source.stream_icon || source.poster || source.cover || ''
         ),
-        epgChannelId:
-            type === 'live'
-                ? String(source.epg_channel_id ?? '').trim() || null
-                : null,
         tvArchive:
             type === 'live'
                 ? Number.parseInt(String(source.tv_archive ?? '0'), 10) || 0

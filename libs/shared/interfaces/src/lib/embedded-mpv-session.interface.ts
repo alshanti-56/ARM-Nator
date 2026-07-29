@@ -18,8 +18,6 @@ export interface EmbeddedMpvCapabilities {
     subtitles: boolean;
     playbackSpeed: boolean;
     aspectOverride: boolean;
-    screenshot: boolean;
-    recording: boolean;
 }
 
 export type EmbeddedMpvEngine = 'native' | 'frame-copy';
@@ -73,18 +71,6 @@ export interface EmbeddedMpvAudioTrack {
 
 export type EmbeddedMpvSubtitleTrack = EmbeddedMpvAudioTrack;
 
-export interface EmbeddedMpvRecordingState {
-    active: boolean;
-    targetPath?: string;
-    startedAt?: string;
-    error?: string;
-}
-
-export interface EmbeddedMpvRecordingStartOptions {
-    directory?: string;
-    title?: string;
-}
-
 export interface EmbeddedMpvSession {
     id: string;
     title: string;
@@ -108,7 +94,6 @@ export interface EmbeddedMpvSession {
     bitrate?: number;
     droppedFrames?: number;
     bufferedSeconds?: number;
-    recording?: EmbeddedMpvRecordingState;
     startedAt: string;
     updatedAt: string;
     error?: string;

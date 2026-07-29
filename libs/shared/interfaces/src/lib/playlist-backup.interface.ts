@@ -11,7 +11,6 @@ export type XtreamBackupContentType = 'live' | 'movie' | 'series';
 export type XtreamBackupCategoryType = 'live' | 'movies' | 'series';
 
 export interface PlaylistBackupSettings {
-    epgUrls: string[];
 }
 
 export interface PlaylistBackupBaseEntry {

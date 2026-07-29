@@ -1,6 +1,5 @@
 import { on } from '@ngrx/store';
 import { Channel } from '@arm-nator/shared/interfaces';
-import { resolvePlaylistEpgSourceState } from '@arm-nator/providers/m3u/utils';
 import { PlaylistActions } from '../actions';
 import { playlistsAdapter } from '../playlists.state';
 import { PlaylistState } from '../state';
@@ -36,18 +35,6 @@ export const playlistReducers = [
         const isActivePlaylist =
             state.playlists.selectedId === action.playlistId;
         const currentPlaylist = state.playlists.entities[action.playlistId];
-        const epgSourceState = resolvePlaylistEpgSourceState({
-            detectedEpgUrls:
-                playlist.detectedEpgUrls ??
-                currentPlaylist?.detectedEpgUrls,
-            enabledEpgUrls: playlist.epgUrls ?? currentPlaylist?.epgUrls,
-            manualEpgUrls:
-                playlist.manualEpgUrls ??
-                currentPlaylist?.manualEpgUrls,
-            disabledEpgUrls:
-                playlist.disabledEpgUrls ??
-                currentPlaylist?.disabledEpgUrls,
-        });
         return {
             ...state,
             channels: isActivePlaylist
@@ -64,10 +51,6 @@ export const playlistReducers = [
                         count: playlist.playlist.items.length,
                         userAgent: playlist.userAgent,
                         favorites: currentPlaylist?.favorites ?? [],
-                        epgUrls: epgSourceState.epgUrls,
-                        detectedEpgUrls: epgSourceState.detectedEpgUrls,
-                        manualEpgUrls: epgSourceState.manualEpgUrls,
-                        disabledEpgUrls: epgSourceState.disabledEpgUrls,
                         autoRefresh:
                             currentPlaylist?.autoRefresh ??
                             playlist.autoRefresh,
@@ -159,16 +142,6 @@ export const playlistReducers = [
                             : {}),
                         ...(p.hiddenGroupTitles != null
                             ? { hiddenGroupTitles: p.hiddenGroupTitles }
-                            : {}),
-                        ...(p.epgUrls != null ? { epgUrls: p.epgUrls } : {}),
-                        ...(p.detectedEpgUrls != null
-                            ? { detectedEpgUrls: p.detectedEpgUrls }
-                            : {}),
-                        ...(p.manualEpgUrls != null
-                            ? { manualEpgUrls: p.manualEpgUrls }
-                            : {}),
-                        ...(p.disabledEpgUrls != null
-                            ? { disabledEpgUrls: p.disabledEpgUrls }
                             : {}),
                         ...(p.updateDate !== undefined
                             ? { updateDate: p.updateDate }

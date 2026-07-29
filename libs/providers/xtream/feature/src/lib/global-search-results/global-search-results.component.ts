@@ -1,11 +1,11 @@
-import { Component } from '@angular/core';
-import { XtreamStore } from '@arm-nator/providers/xtream/data-access';
-import { SearchResultsComponent } from '../search-results/search-results.component';
+import { Component } from "@angular/core";
+import { XtreamStore } from "@arm-nator/providers/xtream/data-access";
+import { SearchResultsComponent } from "../search-results/search-results.component";
 
 @Component({
-    selector: 'app-global-search-results',
-    imports: [SearchResultsComponent],
-    providers: [XtreamStore],
-    template: '<app-search-results/>',
+  selector: "app-global-search-results",
+  imports: [SearchResultsComponent],
+  providers: [XtreamStore],
+  template: "<app-search-results/>",
 })
 export class GlobalSearchResultsComponent {}

@@ -56,8 +56,6 @@ import {
     volumeIcon,
 } from './embedded-mpv-format.utils';
 
-const RECORDING_MESSAGE_DISMISS_DELAY_MS = 5000;
-
 @Component({
     selector: 'app-embedded-mpv-player',
     templateUrl: './embedded-mpv-player.component.html',
@@ -80,7 +78,6 @@ const RECORDING_MESSAGE_DISMISS_DELAY_MS = 5000;
 export class EmbeddedMpvPlayerComponent implements OnDestroy {
     readonly playback = input.required<ResolvedPortalPlayback>();
     readonly showControls = input(true);
-    readonly recordingFolder = input('');
     readonly seriesNavigation = input<SeriesPlaybackNavigation | null>(null);
     readonly mediaTitle = input<PlayerMediaTitle | null>(null);
 
@@ -149,8 +146,6 @@ export class EmbeddedMpvPlayerComponent implements OnDestroy {
                 subtitles: false,
                 playbackSpeed: false,
                 aspectOverride: false,
-                screenshot: false,
-                recording: false,
             }
     );
     readonly isLoading = computed(
@@ -274,16 +269,6 @@ export class EmbeddedMpvPlayerComponent implements OnDestroy {
             this.isPlaying() &&
             !this.controlsAreVisible()
     );
-    readonly canRecord = computed(
-        () =>
-            this.capabilities().recording &&
-            this.isLivePlayback() &&
-            this.isSupported() &&
-            !this.isErrored()
-    );
-    readonly isRecording = computed(
-        () => this.session()?.recording?.active === true
-    );
     readonly showSeriesNavigation = computed(
         () => !this.isLivePlayback() && this.seriesNavigation() !== null
     );
@@ -297,30 +282,8 @@ export class EmbeddedMpvPlayerComponent implements OnDestroy {
             this.showSeriesNavigation() &&
             this.seriesNavigation()?.canNext === true
     );
-    readonly recordingElapsed = computed(() => {
-        const startedAt = this.session()?.recording?.startedAt;
-        this.recordingTick();
-        if (!startedAt) {
-            return 0;
-        }
-        const startedAtMs = Date.parse(startedAt);
-        if (!Number.isFinite(startedAtMs)) {
-            return 0;
-        }
-        return Math.max(0, Math.floor((Date.now() - startedAtMs) / 1000));
-    });
-    readonly recordingStatusText = computed(() => {
-        if (this.isRecording()) {
-            return `REC ${formatTime(this.recordingElapsed())}`;
-        }
-        return this.recordingMessage();
-    });
-
     private mutedVolume = 0;
-    private recordingMessageTimer: number | null = null;
     private lastEndedSessionId: string | null = null;
-    private readonly recordingTick = signal(Date.now());
-    private readonly recordingMessage = signal<string | null>(null);
     private readonly legacyInteractions: EmbeddedMpvLegacyInteractions;
 
     private readonly onFullscreenChange = () => {
@@ -376,7 +339,6 @@ export class EmbeddedMpvPlayerComponent implements OnDestroy {
         this.sharedControls.configure({
             playback: this.playback,
             seriesNavigation: this.seriesNavigation,
-            recordingFolder: this.recordingFolder,
         });
         effect(() => {
             const support = this.support();
@@ -407,7 +369,6 @@ export class EmbeddedMpvPlayerComponent implements OnDestroy {
                     renderingEngine: support?.engine,
                     startedAt: session?.startedAt,
                     updatedAt: session?.updatedAt,
-                    recordingDestination: session?.recording?.targetPath,
                 },
             });
         });
@@ -468,7 +429,6 @@ export class EmbeddedMpvPlayerComponent implements OnDestroy {
             // not re-trigger this effect (which would tear down and recreate
             // the session, restarting the stream from the beginning).
             // Subsequent volume changes flow through controller.applyVolume.
-            this.setRecordingMessage(null);
             const teardown = this.controller.startSession(
                 viewport.nativeElement,
                 playback,
@@ -520,23 +480,10 @@ export class EmbeddedMpvPlayerComponent implements OnDestroy {
             this.playbackEnded.emit();
         });
 
-        effect((onCleanup) => {
-            if (this.isFrameCopyEngine() || !this.isRecording()) {
-                return;
-            }
-            this.recordingTick.set(Date.now());
-            const intervalId = window.setInterval(
-                () => this.recordingTick.set(Date.now()),
-                1000
-            );
-            onCleanup(() => window.clearInterval(intervalId));
-        });
-
         effect(() => {
             const isFrameCopyEngine = this.isFrameCopyEngine();
             untracked(() => {
                 this.feedback.clear();
-                this.setRecordingMessage(null);
                 this.legacyInteractions.handleEngineTransition(
                     isFrameCopyEngine
                 );
@@ -554,7 +501,6 @@ export class EmbeddedMpvPlayerComponent implements OnDestroy {
             );
         }
         this.legacyInteractions.dispose();
-        this.clearRecordingMessageTimer();
     }
 
     onPlayerInteraction(): void {
@@ -713,77 +659,6 @@ export class EmbeddedMpvPlayerComponent implements OnDestroy {
         this.legacyInteractions.scheduleControlsHide();
     }
 
-    async toggleRecording(): Promise<void> {
-        if (!this.canRecord()) {
-            return;
-        }
-
-        this.legacyInteractions.revealControls(false);
-        if (this.isRecording()) {
-            const recording = await this.controller.stopRecording();
-            if (recording?.targetPath) {
-                this.setRecordingMessage(
-                    this.translate.instant('EMBEDDED_MPV.PLAYER.SAVED_TO', {
-                        path: recording.targetPath,
-                    }),
-                    {
-                        autoDismiss: true,
-                    }
-                );
-                this.feedback.flash(
-                    'check_circle',
-                    this.translate.instant(
-                        'EMBEDDED_MPV.PLAYER.RECORDING_SAVED'
-                    ),
-                    1200
-                );
-            } else if (recording?.error) {
-                this.setRecordingMessage(recording.error);
-                this.flashRecordingFailed();
-            } else {
-                this.setRecordingMessage(
-                    this.translate.instant(
-                        'EMBEDDED_MPV.PLAYER.RECORDING_FAILED_TO_STOP'
-                    )
-                );
-                this.flashRecordingFailed();
-            }
-            this.legacyInteractions.scheduleControlsHide();
-            return;
-        }
-
-        this.setRecordingMessage(null);
-        const recording = await this.controller.startRecording(
-            this.recordingFolder(),
-            this.playback().title
-        );
-        if (recording?.active) {
-            this.feedback.flash(
-                'fiber_manual_record',
-                this.translate.instant('EMBEDDED_MPV.PLAYER.RECORDING'),
-                900
-            );
-        } else if (recording?.error) {
-            this.setRecordingMessage(recording.error);
-            this.flashRecordingFailed();
-        } else {
-            this.setRecordingMessage(
-                this.translate.instant(
-                    'EMBEDDED_MPV.PLAYER.RECORDING_FAILED_TO_START'
-                )
-            );
-            this.flashRecordingFailed();
-        }
-    }
-
-    private flashRecordingFailed(): void {
-        this.feedback.flash(
-            'error_outline',
-            this.translate.instant('EMBEDDED_MPV.PLAYER.RECORDING_FAILED'),
-            1200
-        );
-    }
-
     retry(): void {
         this.controller.retry();
     }
@@ -822,33 +697,6 @@ export class EmbeddedMpvPlayerComponent implements OnDestroy {
             ? this.translate.instant('EMBEDDED_MPV.PLAYER.ASPECT_DEFAULT')
             : aspectLabel(aspect);
     };
-
-    private setRecordingMessage(
-        message: string | null,
-        options: { autoDismiss?: boolean } = {}
-    ): void {
-        this.clearRecordingMessageTimer();
-        this.recordingMessage.set(message);
-
-        if (!message || !options.autoDismiss) {
-            return;
-        }
-
-        this.recordingMessageTimer = window.setTimeout(() => {
-            if (this.recordingMessage() === message) {
-                this.recordingMessage.set(null);
-            }
-            this.recordingMessageTimer = null;
-        }, RECORDING_MESSAGE_DISMISS_DELAY_MS);
-    }
-
-    private clearRecordingMessageTimer(): void {
-        if (this.recordingMessageTimer === null) {
-            return;
-        }
-        window.clearTimeout(this.recordingMessageTimer);
-        this.recordingMessageTimer = null;
-    }
 
     private adjustVolume(delta: number): void {
         const next = Math.max(0, Math.min(1, this.volume() + delta));

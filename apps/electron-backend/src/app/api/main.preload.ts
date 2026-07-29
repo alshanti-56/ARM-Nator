@@ -6,40 +6,8 @@ import {
 import {
     createPreloadPerformanceCapture,
     toPreloadPerformanceTargetMethod,
-} from './preload-performance-capture';
-import type {
-    EmbeddedMpvBounds,
-    EmbeddedMpvRecordingStartOptions,
-    EmbeddedMpvSession,
-    EmbeddedMpvSupport,
-    ElectronBridgeApi,
-    ElectronBridgeDbOperationEvent,
-    ElectronBridgeEpgLookupOptions,
-    ElectronBridgeEpgProgress,
-    ElectronBridgePlaybackPositionInput,
-    ElectronBridgePlaylistInput,
-    ElectronBridgePlaylistUpsertInput,
-    ElectronBridgeTrustOptions,
-    ElectronBridgeWindowState,
-    ElectronBridgeXtreamContentStream,
-    ExternalPlayerSession,
-    ExternalPlayerControlAction,
-    GlobalSearchPaginationOptions,
-    GlobalSearchResultSource,
-    PlaybackPositionData,
-    PlayerContentInfo,
-    PlaybackNetworkInspection,
-    PlayerEngineAvailability,
-    Playlist,
-    PlaylistRefreshEvent,
-    PlaylistRefreshPayload,
-    PortalDebugEvent,
-    ResolvedPortalPlayback,
-    Settings,
-    TmdbCacheEntry,
-    TmdbCacheMediaType,
-    XtreamCategory,
-} from '@arm-nator/shared/interfaces';
+} from './preload-performance-capture';import type { EmbeddedMpvBounds, EmbeddedMpvSession, EmbeddedMpvSupport, ElectronBridgeApi, ElectronBridgeDbOperationEvent, ElectronBridgePlaybackPositionInput, ElectronBridgePlaylistInput, ElectronBridgePlaylistUpsertInput, ElectronBridgeTrustOptions, ElectronBridgeWindowState, ElectronBridgeXtreamContentStream, ExternalPlayerSession, ExternalPlayerControlAction, GlobalSearchPaginationOptions, GlobalSearchResultSource, PlaybackPositionData, PlayerContentInfo, PlaybackNetworkInspection, PlayerEngineAvailability, Playlist, PlaylistRefreshEvent, PlaylistRefreshPayload, PortalDebugEvent, ResolvedPortalPlayback, Settings, TmdbCacheEntry, TmdbCacheMediaType, XtreamCategory } from '@arm-nator/shared/interfaces';
+
 import {
     DEBUG_TRACE_EVENT_CHANNEL,
     isPerformanceCaptureEnabled,
@@ -229,10 +197,6 @@ const electronApi: ElectronBridgeApi = {
         ) => callback(data);
         ipcRenderer.on(PORTAL_DEBUG_EVENT, handler);
         return () => ipcRenderer.off(PORTAL_DEBUG_EVENT, handler);
-    },
-    // EPG progress listener
-    onEpgProgress: (callback: (data: ElectronBridgeEpgProgress) => void) => {
-        ipcRenderer.on('EPG_PROGRESS_UPDATE', (_event, data) => callback(data));
     },
     // Playback position update listener - returns unsubscribe function
     onPlaybackPositionUpdate: (
@@ -481,28 +445,6 @@ const electronApi: ElectronBridgeApi = {
         aspect: string
     ): Promise<EmbeddedMpvSession | null> =>
         ipcRenderer.invoke('EMBEDDED_MPV_SET_ASPECT', sessionId, aspect),
-    takeEmbeddedMpvScreenshot: (
-        sessionId: string,
-        targetPath: string
-    ): Promise<void> =>
-        ipcRenderer.invoke(
-            'EMBEDDED_MPV_TAKE_SCREENSHOT',
-            sessionId,
-            targetPath
-        ),
-    startEmbeddedMpvRecording: (
-        sessionId: string,
-        options: EmbeddedMpvRecordingStartOptions
-    ): Promise<EmbeddedMpvSession | null> =>
-        ipcRenderer.invoke('EMBEDDED_MPV_START_RECORDING', sessionId, options),
-    stopEmbeddedMpvRecording: (
-        sessionId: string
-    ): Promise<EmbeddedMpvSession | null> =>
-        ipcRenderer.invoke('EMBEDDED_MPV_STOP_RECORDING', sessionId),
-    getEmbeddedMpvDefaultRecordingFolder: (): Promise<string> =>
-        ipcRenderer.invoke('EMBEDDED_MPV_GET_DEFAULT_RECORDING_FOLDER'),
-    selectEmbeddedMpvRecordingFolder: (): Promise<string | null> =>
-        ipcRenderer.invoke('EMBEDDED_MPV_SELECT_RECORDING_FOLDER'),
     disposeEmbeddedMpvSession: (
         sessionId: string
     ): Promise<EmbeddedMpvSession | null> =>
@@ -514,55 +456,6 @@ const electronApi: ElectronBridgeApi = {
         playlists: Playlist[],
         options?: ElectronBridgeTrustOptions
     ) => ipcRenderer.invoke('AUTO_UPDATE', playlists, options),
-    fetchEpg: (urls: string[], options?: ElectronBridgeTrustOptions) =>
-        ipcRenderer.invoke('FETCH_EPG', { url: urls, options }),
-    getChannelPrograms: (
-        channelId: string,
-        options?: ElectronBridgeEpgLookupOptions
-    ) => ipcRenderer.invoke('GET_CHANNEL_PROGRAMS', { channelId, options }),
-    getCurrentProgramsBatch: (
-        channelIds: string[],
-        options?: ElectronBridgeEpgLookupOptions
-    ) =>
-        ipcRenderer.invoke('GET_CURRENT_PROGRAMS_BATCH', {
-            channelIds,
-            options,
-        }),
-    getEpgChannelMetadata: (
-        channelIds: string[],
-        options?: ElectronBridgeEpgLookupOptions
-    ) =>
-        ipcRenderer.invoke('EPG_GET_CHANNEL_METADATA', { channelIds, options }),
-    getEpgChannels: () => ipcRenderer.invoke('EPG_GET_CHANNELS'),
-    getEpgChannelsByRange: (skip: number, limit: number) =>
-        ipcRenderer.invoke('EPG_GET_CHANNELS_BY_RANGE', { skip, limit }),
-    forceFetchEpg: (url: string, options?: ElectronBridgeTrustOptions) =>
-        ipcRenderer.invoke('EPG_FORCE_FETCH', { url, options }),
-    clearEpgData: () => ipcRenderer.invoke('EPG_CLEAR_ALL'),
-    clearEpgDataForSource: (sourceUrl: string) =>
-        ipcRenderer.invoke('EPG_CLEAR_SOURCE', { sourceUrl }),
-    checkEpgFreshness: (urls: string[], maxAgeHours?: number) =>
-        ipcRenderer.invoke('EPG_CHECK_FRESHNESS', { urls, maxAgeHours }),
-    searchEpgPrograms: (searchTerm: string, limit?: number) =>
-        ipcRenderer.invoke('EPG_DB_SEARCH_PROGRAMS', searchTerm, limit),
-    getEpgMapping: (channelKey: string) =>
-        ipcRenderer.invoke('EPG_MAPPING_GET', { channelKey }),
-    getEpgMappingsBatch: (channelKeys: string[]) =>
-        ipcRenderer.invoke('EPG_MAPPING_GET_BATCH', { channelKeys }),
-    setEpgMapping: (
-        channelKey: string,
-        epgChannelId: string,
-        playlistId?: string
-    ) =>
-        ipcRenderer.invoke('EPG_MAPPING_SET', {
-            channelKey,
-            epgChannelId,
-            playlistId,
-        }),
-    deleteEpgMapping: (channelKey: string) =>
-        ipcRenderer.invoke('EPG_MAPPING_DELETE', { channelKey }),
-    searchEpgChannels: (searchTerm: string, limit?: number) =>
-        ipcRenderer.invoke('EPG_CHANNEL_SEARCH', { searchTerm, limit }),
     setMpvPlayerPath: (mpvPlayerPath: string) =>
         ipcRenderer.invoke('SET_MPV_PLAYER_PATH', mpvPlayerPath),
     setVlcPlayerPath: (vlcPlayerPath: string) =>

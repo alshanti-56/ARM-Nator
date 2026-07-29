@@ -3,14 +3,19 @@ import path from 'path';
 
 const rawArgs = process.argv.slice(2);
 const args = rawArgs[0] === '--' ? rawArgs.slice(1) : rawArgs;
-const [arch, sourcePrefix] = args;
-const validArchitectures = new Set(['arm64', 'x64']);
+const [sourcePrefix] = args;
+const arch = 'arm64';
 const workspaceRoot = process.cwd();
 
-if (!validArchitectures.has(arch) || !sourcePrefix) {
+if (process.platform !== 'darwin' || process.arch !== 'arm64') {
+    console.error('Runtime staging requires macOS on Apple Silicon.');
+    process.exit(1);
+}
+
+if (!sourcePrefix) {
     console.error(
         [
-            'Usage: node tools/embedded-mpv/stage-macos-runtime.mjs <arm64|x64> <lgpl-runtime-prefix>',
+            'Usage: node tools/embedded-mpv/stage-macos-runtime.mjs <lgpl-runtime-prefix>',
             '',
             'The prefix must contain:',
             '- include/mpv/client.h',
@@ -26,7 +31,7 @@ const destinationRoot = path.join(
     workspaceRoot,
     'vendor',
     'embedded-mpv',
-    `darwin-${arch}`
+    'darwin-arm64'
 );
 const destinationIncludeDir = path.join(destinationRoot, 'include');
 const destinationLibDir = path.join(destinationRoot, 'lib');
@@ -160,7 +165,7 @@ try {
     );
 
     console.log(
-        `Staged embedded MPV runtime for darwin-${arch} at ${path.relative(
+        `Staged embedded MPV runtime for darwin-arm64 at ${path.relative(
             workspaceRoot,
             destinationRoot
         )}`

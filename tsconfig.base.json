@@ -63,11 +63,6 @@
       "@arm-nator/providers/xtream/data-access": [
         "libs/providers/xtream/data-access/src/index.ts"
       ],
-      "@arm-nator/epg/ui": ["libs/epg/ui/src/index.ts"],
-      "@arm-nator/epg/ui/date": ["libs/epg/ui/src/lib/epg-date.ts"],
-      "@arm-nator/epg/ui/progress-panel": [
-        "libs/epg/ui/src/lib/epg-progress-panel/epg-progress-panel.component.ts"
-      ],
       "@arm-nator/database": ["libs/database/src/index.ts"],
       "@arm-nator/database/schema": ["libs/database/src/lib/schema.ts"],
       "@arm-nator/database/path-utils": ["libs/database/src/lib/path-utils.ts"],
@@ -75,7 +70,6 @@
       "@arm-nator/settings/data-access": [
         "libs/settings/data-access/src/index.ts"
       ],
-      "@arm-nator/epg/data-access": ["libs/epg/data-access/src/index.ts"],
       "@arm-nator/workspace/shell/feature": [
         "libs/workspace/shell/feature/src/index.ts"
       ],

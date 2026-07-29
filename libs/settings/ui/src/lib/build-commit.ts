@@ -7,4 +7,4 @@
  * semver itself would flip electron-updater into prerelease mode and leak
  * into installer/artifact version fields.
  */
-export const BUILD_COMMIT = '';
+export const BUILD_COMMIT = "";

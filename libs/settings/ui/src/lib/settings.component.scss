@@ -343,61 +343,6 @@
             color-mix(in srgb, var(--app-selection-border) 36%, transparent);
 }
 
-.epg-sources {
-    width: 100%;
-    display: flex;
-    flex-direction: column;
-    gap: 8px;
-}
-
-.epg-sources-empty {
-    width: 100%;
-    display: flex;
-    flex-direction: column;
-    align-items: center;
-    text-align: center;
-    gap: 8px;
-    padding: 24px 16px 16px;
-    color: var(--mat-sys-on-surface-variant);
-
-    .epg-sources-empty__icon {
-        font-size: 40px;
-        width: 40px;
-        height: 40px;
-        opacity: 0.55;
-        margin-bottom: 4px;
-    }
-
-    .epg-sources-empty__title {
-        margin: 0;
-        font-size: 0.95rem;
-        font-weight: 600;
-        color: var(--mat-sys-on-surface);
-    }
-
-    .epg-sources-empty__hint {
-        margin: 0;
-        font-size: 0.825rem;
-        line-height: 1.5;
-        max-width: 360px;
-        opacity: 0.75;
-    }
-}
-
-.epg-source-row {
-    display: flex;
-    align-items: center;
-    gap: 6px;
-
-    .w-full {
-        width: 100%;
-    }
-
-    app-epg-source-status {
-        flex-shrink: 0;
-    }
-}
-
 .inline-actions {
     display: flex;
     justify-content: flex-end;
@@ -682,12 +627,6 @@
 
     .setting-item__control {
         justify-content: flex-start;
-
-        mat-form-field,
-        .w-full,
-        .epg-sources {
-            width: 100%;
-        }
     }
 
     .theme-switcher {

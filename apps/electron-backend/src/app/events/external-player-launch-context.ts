@@ -1,42 +1,31 @@
+import { existsSync, readdirSync } from 'fs';
 import path from 'path';
 import {
     ExternalPlayerName,
     parseExternalPlayerArguments,
     type ExternalPlayerArgumentsInput,
 } from '@arm-nator/shared/interfaces';
-import { existsSync, readdirSync } from 'fs';
 
 export type PathExists = (path: string) => boolean;
 export type ReadDirectory = (path: string) => string[];
 
-export type ExternalPlayerLaunchMode = 'direct' | 'flatpak-host';
-
 export interface PlayerPathOptions {
-    platform?: NodeJS.Platform;
-    isFlatpak?: boolean;
     pathExists?: PathExists;
     readDirectory?: ReadDirectory;
 }
 
 export interface ExternalPlayerLaunchContext {
-    mode: ExternalPlayerLaunchMode;
+    mode: 'direct';
     playerPath: string;
     command: string;
-    argsPrefix: string[];
+    argsPrefix: [];
 }
 
 export interface ExternalPlayerSpawnSpec {
-    mode: ExternalPlayerLaunchMode;
+    mode: 'direct';
     playerPath: string;
     command: string;
     args: string[];
-}
-
-export function isRunningInFlatpak(
-    pathExists: PathExists = existsSync,
-    platform: NodeJS.Platform = process.platform
-): boolean {
-    return platform === 'linux' && pathExists('/.flatpak-info');
 }
 
 export function normalizeCustomPlayerPath(
@@ -57,67 +46,28 @@ const macOSAppBundleExecutableNames: Record<ExternalPlayerName, string> = {
     vlc: 'VLC',
 };
 
-function getMacOSAppBundleExecutableName(player: ExternalPlayerName): string {
-    return macOSAppBundleExecutableNames[player];
-}
-
-function removeTrailingPathSeparators(value: string): string {
-    return value.replace(/[\\/]+$/, '') || value;
-}
-
 function resolveMacOSAppBundlePlayerPath(
     player: ExternalPlayerName,
-    playerPath: string,
-    platform: NodeJS.Platform
+    playerPath: string
 ): string {
-    if (platform !== 'darwin') {
-        return playerPath;
-    }
-
-    const appBundlePath = removeTrailingPathSeparators(playerPath);
-
-    if (!/\.app$/i.test(appBundlePath)) {
-        return playerPath;
-    }
-
-    return path.join(
-        appBundlePath,
-        'Contents',
-        'MacOS',
-        getMacOSAppBundleExecutableName(player)
-    );
+    const appBundlePath = playerPath.replace(/[\\/]+$/, '') || playerPath;
+    return /\.app$/i.test(appBundlePath)
+        ? path.join(
+              appBundlePath,
+              'Contents',
+              'MacOS',
+              macOSAppBundleExecutableNames[player]
+          )
+        : playerPath;
 }
 
 function getDefaultPlayerPath(
     player: ExternalPlayerName,
-    options: PlayerPathOptions = {}
+    options: PlayerPathOptions
 ): string {
-    const {
-        platform = process.platform,
-        isFlatpak = isRunningInFlatpak(),
-        pathExists = existsSync,
-        readDirectory = readdirSync,
-    } = options;
-
-    if (platform === 'linux' && isFlatpak) {
-        return player;
-    }
-
-    if (player === 'mpv') {
-        return getDefaultMpvPath({
-            platform,
-            isFlatpak,
-            pathExists,
-            readDirectory,
-        });
-    }
-
-    return getDefaultVlcPath({
-        platform,
-        isFlatpak,
-        pathExists,
-        readDirectory,
-    });
+    return player === 'mpv'
+        ? getDefaultMpvPath(options)
+        : getDefaultVlcPath(options);
 }
 
 export function resolveExternalPlayerLaunchContext(
@@ -125,39 +75,15 @@ export function resolveExternalPlayerLaunchContext(
     customPlayerPath?: string,
     options: PlayerPathOptions = {}
 ): ExternalPlayerLaunchContext {
-    const {
-        platform = process.platform,
-        isFlatpak = isRunningInFlatpak(),
-        pathExists = existsSync,
-        readDirectory = readdirSync,
-    } = options;
-    const playerPath =
-        normalizeCustomPlayerPath(customPlayerPath) ??
-        getDefaultPlayerPath(player, {
-            platform,
-            isFlatpak,
-            pathExists,
-            readDirectory,
-        });
-    const resolvedPlayerPath = resolveMacOSAppBundlePlayerPath(
+    const playerPath = resolveMacOSAppBundlePlayerPath(
         player,
-        playerPath,
-        platform
+        normalizeCustomPlayerPath(customPlayerPath) ??
+            getDefaultPlayerPath(player, options)
     );
-
-    if (platform === 'linux' && isFlatpak) {
-        return {
-            mode: 'flatpak-host',
-            playerPath: resolvedPlayerPath,
-            command: 'flatpak-spawn',
-            argsPrefix: ['--host', '--watch-bus', resolvedPlayerPath],
-        };
-    }
-
     return {
         mode: 'direct',
-        playerPath: resolvedPlayerPath,
-        command: resolvedPlayerPath,
+        playerPath,
+        command: playerPath,
         argsPrefix: [],
     };
 }
@@ -167,10 +93,10 @@ export function buildExternalPlayerSpawnSpec(
     playerArgs: string[]
 ): ExternalPlayerSpawnSpec {
     return {
-        mode: launchContext.mode,
+        mode: 'direct',
         playerPath: launchContext.playerPath,
         command: launchContext.command,
-        args: [...launchContext.argsPrefix, ...playerArgs],
+        args: [...playerArgs],
     };
 }
 
@@ -184,141 +110,51 @@ export function buildPlayerArgsWithCustomArguments(
 }
 
 export function shouldReuseMpvInstance(
-    requestedReuseInstance: boolean,
-    isFlatpak: boolean = isRunningInFlatpak()
+    requestedReuseInstance: boolean
 ): boolean {
-    return !isFlatpak && requestedReuseInstance;
+    return requestedReuseInstance;
 }
 
-export function shouldUseMpvSocketBridge(
-    isFlatpak: boolean = isRunningInFlatpak()
-): boolean {
-    return !isFlatpak;
+export function shouldUseMpvSocketBridge(): boolean {
+    return true;
 }
 
 export function shouldReuseVlcInstance(
-    requestedReuseInstance: boolean,
-    isFlatpak: boolean = isRunningInFlatpak()
+    requestedReuseInstance: boolean
 ): boolean {
-    return !isFlatpak && requestedReuseInstance;
+    return requestedReuseInstance;
 }
 
 export function getDefaultMpvPath(options: PlayerPathOptions = {}): string {
-    const {
-        platform = process.platform,
-        isFlatpak = isRunningInFlatpak(),
-        pathExists = existsSync,
-    } = options;
-
-    if (platform === 'linux' && isFlatpak) {
-        return 'mpv';
+    const pathExists = options.pathExists ?? existsSync;
+    for (const playerPath of [
+        '/Applications/mpv.app/Contents/MacOS/mpv',
+        '/opt/homebrew/bin/mpv',
+        '/usr/local/bin/mpv',
+    ]) {
+        if (pathExists(playerPath)) {
+            return playerPath;
+        }
     }
-
-    if (platform === 'win32') {
-        const windowsPaths = [
-            path.join('C:', 'Program Files', 'mpv', 'mpv.exe'),
-            path.join('C:', 'Program Files (x86)', 'mpv', 'mpv.exe'),
-        ];
-
-        for (const mpvPath of windowsPaths) {
-            if (pathExists(mpvPath)) {
-                return mpvPath;
-            }
-        }
-        return 'mpv';
-    } else if (platform === 'linux') {
-        const linuxPaths = [
-            '/usr/bin/mpv',
-            '/usr/local/bin/mpv',
-            '/snap/bin/mpv',
-        ];
-
-        for (const mpvPath of linuxPaths) {
-            if (pathExists(mpvPath)) {
-                return mpvPath;
-            }
-        }
-        return 'mpv';
-    } else if (platform === 'darwin') {
-        const macosPaths = [
-            '/Applications/mpv.app/Contents/MacOS/mpv',
-            '/opt/homebrew/bin/mpv',
-            '/usr/local/bin/mpv',
-        ];
-
-        for (const mpvPath of macosPaths) {
-            if (pathExists(mpvPath)) {
-                return mpvPath;
-            }
-        }
-        return 'mpv';
-    }
-
     return 'mpv';
 }
 
 export function getDefaultVlcPath(options: PlayerPathOptions = {}): string {
-    const {
-        platform = process.platform,
-        isFlatpak = isRunningInFlatpak(),
-        pathExists = existsSync,
-        readDirectory = readdirSync,
-    } = options;
-
-    if (platform === 'linux' && isFlatpak) {
-        return 'vlc';
-    }
-
-    if (platform === 'win32') {
-        const windowsPaths = [
-            path.join('C:', 'Program Files', 'VideoLAN', 'VLC', 'vlc.exe'),
-            path.join(
-                'C:',
-                'Program Files (x86)',
-                'VideoLAN',
-                'VLC',
-                'vlc.exe'
-            ),
-        ];
-
-        for (const vlcPath of windowsPaths) {
-            if (pathExists(vlcPath)) {
-                return vlcPath;
-            }
+    const pathExists = options.pathExists ?? existsSync;
+    const readDirectory = options.readDirectory ?? readdirSync;
+    for (const playerPath of [
+        '/Applications/VLC.app/Contents/MacOS/VLC',
+        ...getHomebrewCaskVlcPaths(readDirectory),
+    ]) {
+        if (pathExists(playerPath)) {
+            return playerPath;
         }
-        return 'vlc';
-    } else if (platform === 'linux') {
-        const linuxPaths = [
-            '/usr/bin/vlc',
-            '/usr/local/bin/vlc',
-            '/snap/bin/vlc',
-        ];
-
-        for (const vlcPath of linuxPaths) {
-            if (pathExists(vlcPath)) {
-                return vlcPath;
-            }
-        }
-        return 'vlc';
-    } else if (platform === 'darwin') {
-        const macosPaths = [
-            '/Applications/VLC.app/Contents/MacOS/VLC',
-            ...getHomebrewCaskVlcPaths(readDirectory),
-        ];
-
-        for (const vlcPath of macosPaths) {
-            if (pathExists(vlcPath)) {
-                return vlcPath;
-            }
-        }
-        return 'vlc';
     }
     return 'vlc';
 }
 
 function getHomebrewCaskVlcPaths(readDirectory: ReadDirectory): string[] {
     const caskroomPath = '/opt/homebrew/Caskroom/vlc';
-
     try {
         return readDirectory(caskroomPath)
             .filter((entry) => entry.trim().length > 0)

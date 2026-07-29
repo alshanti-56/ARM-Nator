@@ -7,15 +7,6 @@ export type {
     DashboardHeroBackdropSource,
 } from './lib/rails/dashboard-hero.utils';
 export {
-    buildDashboardLiveEpgDetails,
-    buildLiveEpgCardsForEnabledRails,
-    buildLiveEpgLookupKeys,
-    calcEpgProgress,
-    formatEpgTimeRange,
-    getLiveEpgProgramForCard,
-} from './lib/rails/dashboard-live-epg.utils';
-export type { DashboardLiveEpgDetails } from './lib/rails/dashboard-live-epg.utils';
-export {
     buildPlaybackPositionReloadKey,
     formatRemainingLabel,
     isContinueWatchingRecentItem,

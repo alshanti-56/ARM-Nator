@@ -40,9 +40,7 @@
             "inputs": [
                 "production",
                 "^production",
-                "{workspaceRoot}/apps/electron-backend/native/build/Release/**",
-                "{workspaceRoot}/tools/embedded-mpv/runtime-probe-contract.cjs",
-                "{workspaceRoot}/tools/embedded-mpv/runtime-probe-contract.d.cts"
+                "{workspaceRoot}/apps/electron-backend/native/build/Release/**"
             ],
             "options": {
                 "outputPath": "dist/apps/electron-backend",
@@ -139,12 +137,8 @@
             }
         },
         "lint": {
-            "inputs": [
-                "default",
-                "{workspaceRoot}/tools/embedded-mpv/runtime-probe-contract.cjs",
-                "{workspaceRoot}/tools/embedded-mpv/runtime-probe-contract.d.cts"
-            ],
-            "command": "eslint apps/electron-backend/**/*.ts \"apps/electron-backend/src/app/services/embedded-mpv-frame-copy-runtime.ts\" \"apps/electron-backend/src/app/services/embedded-mpv-frame-copy-runtime/**/*.ts\""
+            "inputs": ["default"],
+            "command": "eslint apps/electron-backend/**/*.ts"
         }
     }
 }

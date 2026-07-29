@@ -29,11 +29,8 @@ const XTREAM_ADDED_EPOCH_SECONDS_MIGRATION_KEY =
     'migration:xtream-content-added-epoch-seconds:v1';
 const CONTENT_TITLE_FTS_MIGRATION_KEY =
     'migration:content-title-fts-trigram:v1';
-const EPG_PROGRAM_SOURCE_URL_BACKFILL_MIGRATION_KEY =
-    'migration:epg-program-source-url-backfill:v1';
 const TMDB_SEARCH_LOOKUP_V2_CACHE_CLEANUP_MIGRATION_KEY =
     'migration:tmdb-search-lookup-v2-cache-cleanup:v1';
-const EPG_PROGRAM_SOURCE_URL_BACKFILL_BATCH_SIZE = 50_000;
 
 function readTraceFlag(name: string): boolean {
     const value = process.env[name]?.trim().toLowerCase();
@@ -129,10 +126,6 @@ const CREATE_TABLE_STATEMENTS = [
       origin TEXT,
       referrer TEXT,
       filePath TEXT,
-      epg_urls TEXT,
-      detected_epg_urls TEXT,
-      manual_epg_urls TEXT,
-      disabled_epg_urls TEXT,
       autoRefresh INTEGER DEFAULT 0,
       macAddress TEXT,
       url TEXT,
@@ -169,7 +162,6 @@ const CREATE_TABLE_STATEMENTS = [
       added TEXT,
       poster_url TEXT,
       backdrop_url TEXT,
-      epg_channel_id TEXT,
       tv_archive INTEGER,
       tv_archive_duration INTEGER,
       direct_source TEXT,
@@ -200,7 +192,6 @@ const CREATE_TABLE_STATEMENTS = [
     `CREATE INDEX IF NOT EXISTS idx_categories_playlist ON categories(playlist_id)`,
     `CREATE INDEX IF NOT EXISTS idx_content_title ON content(title)`,
     `CREATE INDEX IF NOT EXISTS idx_content_xtream ON content(xtream_id)`,
-    `CREATE INDEX IF NOT EXISTS idx_content_epg_channel ON content(epg_channel_id)`,
     `CREATE INDEX IF NOT EXISTS idx_content_type_added ON content(type, added)`,
     `CREATE INDEX IF NOT EXISTS idx_categories_type ON categories(type)`,
     // Partial covering index for visible categories — supports the dashboard's
@@ -240,68 +231,6 @@ const CREATE_TABLE_STATEMENTS = [
     `CREATE INDEX IF NOT EXISTS recently_viewed_playlist_idx ON recently_viewed(playlist_id)`,
     `CREATE INDEX IF NOT EXISTS recently_viewed_viewed_at_idx ON recently_viewed(viewed_at)`,
     `CREATE INDEX IF NOT EXISTS recently_viewed_playlist_viewed_idx ON recently_viewed(playlist_id, viewed_at DESC)`,
-    // EPG tables
-    `CREATE TABLE IF NOT EXISTS epg_channels (
-      id TEXT PRIMARY KEY,
-      display_name TEXT NOT NULL,
-      icon_url TEXT,
-      url TEXT,
-      source_url TEXT NOT NULL,
-      updated_at TEXT DEFAULT (datetime('now'))
-  )`,
-    `CREATE TABLE IF NOT EXISTS epg_programs (
-      id INTEGER PRIMARY KEY AUTOINCREMENT,
-      channel_id TEXT NOT NULL,
-      start TEXT NOT NULL,
-      stop TEXT NOT NULL,
-      title TEXT NOT NULL,
-      description TEXT,
-      category TEXT,
-      icon_url TEXT,
-      rating TEXT,
-      episode_num TEXT,
-      source_url TEXT,
-      FOREIGN KEY (channel_id) REFERENCES epg_channels(id) ON DELETE CASCADE
-  )`,
-    // EPG indexes
-    `CREATE INDEX IF NOT EXISTS idx_epg_channels_source ON epg_channels(source_url)`,
-    `CREATE INDEX IF NOT EXISTS idx_epg_channels_name ON epg_channels(display_name)`,
-    `CREATE INDEX IF NOT EXISTS idx_epg_programs_channel ON epg_programs(channel_id)`,
-    `CREATE INDEX IF NOT EXISTS idx_epg_programs_start ON epg_programs(start)`,
-    `CREATE INDEX IF NOT EXISTS idx_epg_programs_stop ON epg_programs(stop)`,
-    `CREATE INDEX IF NOT EXISTS idx_epg_programs_time_range ON epg_programs(channel_id, start, stop)`,
-    // FTS5 virtual table for full-text search on EPG programs
-    `CREATE VIRTUAL TABLE IF NOT EXISTS epg_programs_fts USING fts5(
-      title,
-      description,
-      category,
-      content='epg_programs',
-      content_rowid='id'
-  )`,
-    // Triggers to keep FTS index in sync with epg_programs table
-    `CREATE TRIGGER IF NOT EXISTS epg_programs_ai AFTER INSERT ON epg_programs BEGIN
-      INSERT INTO epg_programs_fts(rowid, title, description, category)
-      VALUES (new.id, new.title, new.description, new.category);
-  END`,
-    `CREATE TRIGGER IF NOT EXISTS epg_programs_ad AFTER DELETE ON epg_programs BEGIN
-      INSERT INTO epg_programs_fts(epg_programs_fts, rowid, title, description, category)
-      VALUES ('delete', old.id, old.title, old.description, old.category);
-  END`,
-    `CREATE TRIGGER IF NOT EXISTS epg_programs_au AFTER UPDATE ON epg_programs BEGIN
-      INSERT INTO epg_programs_fts(epg_programs_fts, rowid, title, description, category)
-      VALUES ('delete', old.id, old.title, old.description, old.category);
-      INSERT INTO epg_programs_fts(rowid, title, description, category)
-      VALUES (new.id, new.title, new.description, new.category);
-  END`,
-    // EPG channel mappings (manual user overrides)
-    `CREATE TABLE IF NOT EXISTS epg_channel_mappings (
-      id INTEGER PRIMARY KEY AUTOINCREMENT,
-      channel_key TEXT NOT NULL UNIQUE,
-      epg_channel_id TEXT NOT NULL,
-      playlist_id TEXT,
-      updated_at TEXT DEFAULT (datetime('now'))
-  )`,
-    `CREATE INDEX IF NOT EXISTS idx_epg_channel_mappings_playlist ON epg_channel_mappings(playlist_id)`,
     // Playback Positions table
     `CREATE TABLE IF NOT EXISTS playback_positions (
       id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -345,22 +274,14 @@ const COLUMN_MIGRATION_STATEMENTS = [
     `ALTER TABLE playlists ADD COLUMN favorites TEXT`,
     `ALTER TABLE playlists ADD COLUMN recently_viewed TEXT`,
     `ALTER TABLE playlists ADD COLUMN payload TEXT`,
-    // v1.2.1: Keep M3U-detected EPG URLs available in lightweight playlist metadata
-    `ALTER TABLE playlists ADD COLUMN epg_urls TEXT`,
-    `ALTER TABLE playlists ADD COLUMN detected_epg_urls TEXT`,
-    `ALTER TABLE playlists ADD COLUMN manual_epg_urls TEXT`,
-    `ALTER TABLE playlists ADD COLUMN disabled_epg_urls TEXT`,
     // v1.2.0 -> v1.3.0: Add position column to favorites for global favorites ordering
     `ALTER TABLE favorites ADD COLUMN position INTEGER DEFAULT 0`,
-    // v1.4.0 -> v1.5.0: Preserve Xtream live metadata required for EPG/catch-up
-    `ALTER TABLE content ADD COLUMN epg_channel_id TEXT`,
+    // v1.4.0 -> v1.5.0: Preserve Xtream live archive metadata
     `ALTER TABLE content ADD COLUMN tv_archive INTEGER`,
     `ALTER TABLE content ADD COLUMN tv_archive_duration INTEGER`,
     `ALTER TABLE content ADD COLUMN direct_source TEXT`,
     // v1.5.0 -> v1.6.0: Cinematic backdrop persisted on first detail fetch
     `ALTER TABLE content ADD COLUMN backdrop_url TEXT`,
-    // v1.7.1: Scope XMLTV programs to their source URL for playlist-local EPG lookup
-    `ALTER TABLE epg_programs ADD COLUMN source_url TEXT`,
     // Pause/resume: entity validator (ETag/Last-Modified) sent as If-Range on resume
     `ALTER TABLE downloads ADD COLUMN resume_validator TEXT`,
 ];
@@ -371,9 +292,16 @@ const INDEX_MIGRATION_STATEMENTS = [
     `CREATE UNIQUE INDEX IF NOT EXISTS content_category_type_xtream_unique ON content(category_id, type, xtream_id)`,
     // v1.6.0 -> v1.7.0: Query global favorites in stable display order
     `CREATE INDEX IF NOT EXISTS favorites_playlist_position_idx ON favorites(playlist_id, position, added_at DESC)`,
-    // v1.7.1 -> v1.7.2: Query playlist-scoped EPG by source URL and channel/time
-    `CREATE INDEX IF NOT EXISTS idx_epg_programs_source ON epg_programs(source_url)`,
-    `CREATE INDEX IF NOT EXISTS idx_epg_programs_source_time_range ON epg_programs(source_url, channel_id, start, stop)`,
+];
+
+const LEGACY_GUIDE_CLEANUP_STATEMENTS = [
+    `DROP TRIGGER IF EXISTS epg_programs_ai`,
+    `DROP TRIGGER IF EXISTS epg_programs_ad`,
+    `DROP TRIGGER IF EXISTS epg_programs_au`,
+    `DROP TABLE IF EXISTS epg_programs_fts`,
+    `DROP TABLE IF EXISTS epg_channel_mappings`,
+    `DROP TABLE IF EXISTS epg_programs`,
+    `DROP TABLE IF EXISTS epg_channels`,
 ];
 
 export const __databaseConnectionTestHooks = {
@@ -384,7 +312,6 @@ export const __databaseConnectionTestHooks = {
     ensureDownloadsPauseResumeSchema,
     normalizeXtreamContentAddedEpochs,
     ensureContentTitleFts,
-    backfillEpgProgramSourceUrls,
     cleanupLegacyTmdbSearchCache,
     runMigrations,
 } as const;
@@ -651,78 +578,6 @@ function ensureContentTitleFts(sqliteDb: Database.Database): void {
     }
 }
 
-function backfillEpgProgramSourceUrls(sqliteDb: Database.Database): void {
-    try {
-        const migrationState = sqliteDb
-            .prepare(`SELECT value FROM app_state WHERE key = ?`)
-            .get(EPG_PROGRAM_SOURCE_URL_BACKFILL_MIGRATION_KEY) as
-            | { value?: unknown }
-            | undefined;
-
-        if (migrationState?.value === 'done') {
-            return;
-        }
-
-        const backfillStatement = sqliteDb.prepare(
-            `UPDATE epg_programs
-             SET source_url = (
-                 SELECT epg_channels.source_url
-                 FROM epg_channels
-                 WHERE epg_channels.id = epg_programs.channel_id
-                 LIMIT 1
-             )
-             WHERE id IN (
-                 SELECT pending_programs.id
-                 FROM epg_programs AS pending_programs
-                 JOIN epg_channels
-                   ON epg_channels.id = pending_programs.channel_id
-                 WHERE pending_programs.source_url IS NULL
-                   AND epg_channels.source_url IS NOT NULL
-                   AND epg_channels.source_url <> ''
-                 LIMIT ${EPG_PROGRAM_SOURCE_URL_BACKFILL_BATCH_SIZE}
-             )`
-        );
-        const markMigrationDoneStatement = sqliteDb.prepare(
-            `INSERT INTO app_state (key, value, updated_at)
-             VALUES (?, 'done', datetime('now'))
-             ON CONFLICT(key) DO UPDATE SET
-                value = excluded.value,
-                updated_at = excluded.updated_at`
-        );
-
-        const executeBackfillBatch = sqliteDb.transaction((): number => {
-            const result = backfillStatement.run();
-            return typeof result === 'object' &&
-                result !== null &&
-                'changes' in result &&
-                typeof result.changes === 'number'
-                ? result.changes
-                : 0;
-        });
-        const markMigrationDone = sqliteDb.transaction(() => {
-            markMigrationDoneStatement.run(
-                EPG_PROGRAM_SOURCE_URL_BACKFILL_MIGRATION_KEY
-            );
-        });
-
-        let updatedRows = 0;
-        do {
-            updatedRows = executeBackfillBatch();
-        } while (updatedRows === EPG_PROGRAM_SOURCE_URL_BACKFILL_BATCH_SIZE);
-
-        markMigrationDone();
-    } catch (error) {
-        const message =
-            typeof error === 'object' && error !== null && 'message' in error
-                ? String((error as { message?: unknown }).message ?? error)
-                : String(error);
-
-        console.warn(
-            `EPG program source URL backfill failed (continuing): ${message}`
-        );
-    }
-}
-
 function runMigrationStatements(
     sqliteDb: Database.Database,
     statements: string[]
@@ -944,7 +799,7 @@ function runMigrations(sqliteDb: Database.Database): void {
     deduplicateXtreamCache(sqliteDb);
     normalizeXtreamContentAddedEpochs(sqliteDb);
     runMigrationStatements(sqliteDb, INDEX_MIGRATION_STATEMENTS);
-    backfillEpgProgramSourceUrls(sqliteDb);
+    runMigrationStatements(sqliteDb, LEGACY_GUIDE_CLEANUP_STATEMENTS);
 }
 
 export interface DatabaseOptions {

@@ -11,14 +11,12 @@ export const DEFAULT_PLAYER_CAPABILITIES: PlayerControlsCapabilities = {
     subtitles: false,
     playbackSpeed: false,
     aspectRatio: false,
-    recording: false,
     pictureInPicture: false,
     fullscreen: false,
     seriesNavigation: false,
     stop: true,
     restart: true,
     frameStep: false,
-    screenshot: false,
 };
 
 export const DEFAULT_SPEED_PRESETS: ReadonlyArray<PlayerPreset<number>> = [
@@ -55,7 +53,6 @@ export function createEmptyControlsState(): PlayerControlsState {
         speedPresets: DEFAULT_SPEED_PRESETS,
         aspectRatio: 'no',
         aspectPresets: DEFAULT_ASPECT_PRESETS,
-        recording: { active: false, elapsedSeconds: 0, message: null },
         pictureInPictureActive: false,
         canPictureInPicture: false,
         canPreviousEpisode: false,

@@ -29,17 +29,6 @@ async function buildWorker() {
     try {
         const workers = [
             {
-                label: 'EPG parser worker',
-                entry: path.join(
-                    __dirname,
-                    'src/app/workers/epg-parser.worker.ts'
-                ),
-                outfile: path.join(
-                    __dirname,
-                    '../../dist/apps/electron-backend/workers/epg-parser.worker.js'
-                ),
-            },
-            {
                 label: 'database worker',
                 entry: path.join(
                     __dirname,

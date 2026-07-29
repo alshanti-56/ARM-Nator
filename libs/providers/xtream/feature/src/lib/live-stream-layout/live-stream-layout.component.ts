@@ -1,652 +1,383 @@
 /* eslint-disable max-lines */
-import { NgTemplateOutlet } from '@angular/common';
 import {
-    ChangeDetectionStrategy,
-    Component,
-    DestroyRef,
-    ElementRef,
-    HostListener,
-    computed,
-    effect,
-    inject,
-    OnInit,
-    signal,
-} from '@angular/core';
-import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
-import { filter } from 'rxjs';
-import { MatButtonModule } from '@angular/material/button';
-import { MatIcon } from '@angular/material/icon';
-import { MatMenuModule } from '@angular/material/menu';
-import { MatPaginatorModule, PageEvent } from '@angular/material/paginator';
-import { MatTooltipModule } from '@angular/material/tooltip';
-import { TranslatePipe } from '@ngx-translate/core';
-import { ResizableDirective } from '@arm-nator/ui/components';
+  ChangeDetectionStrategy,
+  Component,
+  DestroyRef,
+  ElementRef,
+  HostListener,
+  computed,
+  effect,
+  inject,
+  OnInit,
+  signal,
+} from "@angular/core";
+import { takeUntilDestroyed } from "@angular/core/rxjs-interop";
+import { filter } from "rxjs";
+import { MatButtonModule } from "@angular/material/button";
+import { MatIcon } from "@angular/material/icon";
+import { MatMenuModule } from "@angular/material/menu";
+import { MatPaginatorModule, PageEvent } from "@angular/material/paginator";
+import { MatTooltipModule } from "@angular/material/tooltip";
+import { TranslatePipe } from "@ngx-translate/core";
+import { ResizableDirective } from "@arm-nator/ui/components";
 import {
-    GridListComponent,
-    PortalEmptyStateComponent,
-} from '@arm-nator/providers/shared/ui';
+  GridListComponent,
+  PortalEmptyStateComponent,
+} from "@arm-nator/providers/shared/ui";
 import {
-    LiveLayoutSidebarStateService,
-    PORTAL_PLAYER,
-    PortalChannelSortMode,
-    getPortalChannelSortModeLabel,
-    isTypingInInput,
-    isWorkspaceLayoutRoute,
-    LiveEpgPanelState,
-    persistLiveEpgPanelState,
-    persistPortalChannelSortMode,
-    queryParamSignal,
-    restoreLiveEpgPanelState,
-    restorePortalChannelSortMode,
-} from '@arm-nator/providers/shared/util';
-import {
-    FavoriteItem,
-    FavoritesService,
-    XtreamUrlService,
-    XtreamStore,
-} from '@arm-nator/providers/xtream/data-access';
-import {
-    EpgDateNavigationDirection,
-    EpgListViewComponent,
-    EpgProgramActivationEvent,
-    EpgTimelineComponent,
-    getTodayEpgDateKey,
-    shiftEpgDateKey,
-} from '@arm-nator/epg/ui';
-import { MatProgressSpinnerModule } from '@angular/material/progress-spinner';
-import { type PlaybackFallbackRequest } from '@arm-nator/player/ui';
-import { LiveEpgPanelSummary } from '@arm-nator/ui/shared-portals';
-import {
-    EpgItem,
-    EpgProgram,
-    ResolvedPortalPlayback,
-} from '@arm-nator/shared/interfaces';
-import { PortalChannelsListComponent } from '../portal-channels-list/portal-channels-list.component';
-import { ActivatedRoute, NavigationEnd, Router } from '@angular/router';
-import { RuntimeCapabilitiesService, SettingsStore } from '@arm-nator/services';
-import { LiveStreamAutoOpenStateService } from './live-stream-auto-open-state.service';
+  LiveLayoutSidebarStateService,
+  PORTAL_PLAYER,
+  PortalChannelSortMode,
+  getPortalChannelSortModeLabel,
+  isTypingInInput,
+  isWorkspaceLayoutRoute,
+  persistPortalChannelSortMode,
+  queryParamSignal,
+  restorePortalChannelSortMode,
+} from "@arm-nator/providers/shared/util";
 
-const LIVE_CHANNEL_SORT_STORAGE_KEY = 'xtream-live-channel-sort-mode';
+import {
+  FavoriteItem,
+  FavoritesService,
+  XtreamStore,
+} from "@arm-nator/providers/xtream/data-access";
+import { MatProgressSpinnerModule } from "@angular/material/progress-spinner";
+import { type PlaybackFallbackRequest } from "@arm-nator/player/ui";
+import { ResolvedPortalPlayback } from "@arm-nator/shared/interfaces";
+
+import { PortalChannelsListComponent } from "../portal-channels-list/portal-channels-list.component";
+import { ActivatedRoute, NavigationEnd, Router } from "@angular/router";
+import { RuntimeCapabilitiesService, SettingsStore } from "@arm-nator/services";
+import { LiveStreamAutoOpenStateService } from "./live-stream-auto-open-state.service";
+
+const LIVE_CHANNEL_SORT_STORAGE_KEY = "xtream-live-channel-sort-mode";
 
 interface XtreamLiveChannelItem {
-    readonly added?: string;
-    readonly category_id?: string | number;
-    readonly last_modified?: string;
-    readonly name?: string;
-    readonly poster_url?: string;
-    readonly stream_icon?: string;
-    readonly title?: string;
-    readonly tv_archive?: number | null;
-    readonly tv_archive_duration?: number | string | null;
-    readonly xtream_id: number;
+  readonly added?: string;
+  readonly category_id?: string | number;
+  readonly last_modified?: string;
+  readonly name?: string;
+  readonly poster_url?: string;
+  readonly stream_icon?: string;
+  readonly title?: string;
+  readonly tv_archive?: number | null;
+  readonly tv_archive_duration?: number | string | null;
+  readonly xtream_id: number;
 }
 
 @Component({
-    selector: 'app-live-stream-layout',
-    templateUrl: './live-stream-layout.component.html',
-    styleUrls: ['./live-stream-layout.component.scss'],
-    providers: [LiveStreamAutoOpenStateService],
-    imports: [
-        EpgListViewComponent,
-        EpgTimelineComponent,
-        MatButtonModule,
-        MatIcon,
-        MatMenuModule,
-        MatPaginatorModule,
-        MatProgressSpinnerModule,
-        MatTooltipModule,
-        NgTemplateOutlet,
-        GridListComponent,
-        PortalChannelsListComponent,
-        PortalEmptyStateComponent,
-        ResizableDirective,
-        TranslatePipe,
-    ],
-    changeDetection: ChangeDetectionStrategy.OnPush,
+  selector: "app-live-stream-layout",
+  templateUrl: "./live-stream-layout.component.html",
+  styleUrls: ["./live-stream-layout.component.scss"],
+  providers: [LiveStreamAutoOpenStateService],
+  imports: [
+    MatButtonModule,
+    MatIcon,
+    MatMenuModule,
+    MatPaginatorModule,
+    MatProgressSpinnerModule,
+    MatTooltipModule,
+    GridListComponent,
+    PortalChannelsListComponent,
+    PortalEmptyStateComponent,
+    ResizableDirective,
+    TranslatePipe,
+  ],
+  changeDetection: ChangeDetectionStrategy.OnPush,
 })
 export class LiveStreamLayoutComponent implements OnInit {
-    private readonly destroyRef = inject(DestroyRef);
-    private readonly hostElement = inject(ElementRef<HTMLElement>);
-    private readonly route = inject(ActivatedRoute);
-    private readonly router = inject(Router);
-    private readonly favoritesService = inject(FavoritesService);
-    private readonly xtreamStore = inject(XtreamStore);
-    private readonly xtreamUrlService = inject(XtreamUrlService);
-    private readonly runtime = inject(RuntimeCapabilitiesService);
-    private readonly settingsStore = inject(SettingsStore);
-    private readonly portalPlayer = inject(PORTAL_PLAYER);
-    private readonly liveSidebarStateService = inject(
-        LiveLayoutSidebarStateService
-    );
-    private readonly liveAutoOpenState = inject(LiveStreamAutoOpenStateService);
+  private readonly destroyRef = inject(DestroyRef);
+  private readonly hostElement = inject(ElementRef<HTMLElement>);
+  private readonly route = inject(ActivatedRoute);
+  private readonly router = inject(Router);
+  private readonly favoritesService = inject(FavoritesService);
+  private readonly xtreamStore = inject(XtreamStore);
+  private readonly runtime = inject(RuntimeCapabilitiesService);
+  private readonly settingsStore = inject(SettingsStore);
+  private readonly portalPlayer = inject(PORTAL_PLAYER);
+  private readonly liveSidebarStateService = inject(
+    LiveLayoutSidebarStateService,
+  );
+  private readonly liveAutoOpenState = inject(LiveStreamAutoOpenStateService);
 
-    readonly categories = this.xtreamStore.getCategoriesBySelectedType;
-    readonly categoryItemCounts = this.xtreamStore.getCategoryItemCounts;
-    readonly epgItems = this.xtreamStore.epgItems;
-    readonly currentEpgItem = this.xtreamStore.currentEpgItem;
-    readonly isSelectedTypeContentLoading =
-        this.xtreamStore.selectedTypeContentLoading;
-    readonly isLoadingEpg = this.xtreamStore.isLoadingEpg;
-    readonly selectedCategoryId = this.xtreamStore.selectedCategoryId;
-    readonly liveChannelSortMode = signal<PortalChannelSortMode>('server');
-    readonly isElectron = this.runtime.isElectron;
-    readonly supportsEpg = this.runtime.supportsEpg;
-    readonly isWorkspaceLayout = isWorkspaceLayoutRoute(this.route);
-    private readonly routeSearchTerm = queryParamSignal(
-        this.route,
-        'q',
-        (value) => (value ?? '').trim()
-    );
-    private readonly routePageIndex = queryParamSignal(
-        this.route,
-        'page',
-        (value) => this.toPageIndex(value)
-    );
-    readonly workspaceSearchTerm = computed(() =>
-        this.isWorkspaceLayout ? this.routeSearchTerm() : ''
-    );
-    readonly showLiveChannelSidebar = computed(
-        () => !!this.selectedCategoryId() || !!this.workspaceSearchTerm()
-    );
-    private readonly pendingAutoOpenLiveItemId =
-        this.liveAutoOpenState.pendingItemId;
-    readonly selectedLiveItem = computed<XtreamLiveChannelItem | null>(() => {
-        if (this.xtreamStore.selectedContentType() !== 'live') {
-            return null;
-        }
-
-        const selectedItem = this.xtreamStore.selectedItem();
-        if (!selectedItem || typeof selectedItem !== 'object') {
-            return null;
-        }
-
-        const item = selectedItem as XtreamLiveChannelItem;
-        return item.xtream_id ? item : null;
-    });
-    readonly controlledEpgPrograms = computed<EpgProgram[]>(() =>
-        this.epgItems().map((program) => this.toControlledEpgProgram(program))
-    );
-    private readonly currentTimeMs = signal(Date.now());
-    readonly activeCatchupProgram = signal<EpgProgram | null>(null);
-    readonly controlledArchiveDays = computed(() =>
-        Math.max(
-            0,
-            Number(this.selectedLiveItem()?.tv_archive_duration ?? 0) || 0
-        )
-    );
-    readonly archivePlaybackAvailable = computed(() => {
-        const selectedItem = this.selectedLiveItem();
-        return (
-            Number(selectedItem?.tv_archive ?? 0) === 1 &&
-            this.controlledArchiveDays() > 0
-        );
-    });
-    readonly hasPastPrograms = computed(() => {
-        const now = this.currentTimeMs();
-        return this.controlledEpgPrograms().some((program) => {
-            const stop = this.getProgramTimestampMilliseconds(
-                program.stop,
-                program.stopTimestamp
-            );
-            return stop !== null && stop < now;
-        });
-    });
-    readonly showArchiveUnavailableNotice = computed(
-        () =>
-            this.controlledEpgPrograms().length > 0 &&
-            this.hasPastPrograms() &&
-            !this.archivePlaybackAvailable()
-    );
-    readonly liveEpgPanelState = signal<LiveEpgPanelState>(
-        restoreLiveEpgPanelState()
-    );
-    readonly selectedLiveEpgDate = signal(getTodayEpgDateKey());
-    readonly isLiveEpgPanelCollapsed = computed(
-        () => this.liveEpgPanelState() === 'collapsed'
-    );
-    /** Live EPG panel layout chosen in settings; hosts swap timeline ↔ list. */
-    readonly epgViewMode = this.settingsStore.resolvedEpgViewMode;
-    readonly isSidebarCollapsed = this.liveSidebarStateService.isCollapsed;
-    readonly liveEpgPanelSummary = computed(() =>
-        this.toLiveEpgPanelSummary(
-            this.activeCatchupProgram() ?? this.currentEpgItem()
-        )
-    );
-    readonly liveEpgPanelSummaryLabelKey = computed(() =>
-        this.activeCatchupProgram()
-            ? 'EPG.ARCHIVE_PLAYBACK'
-            : 'EPG.CURRENT_PROGRAM'
-    );
-    readonly showReturnToLive = computed(
-        () => this.activeCatchupProgram() !== null
-    );
-    readonly liveChannelSortLabel = computed(() =>
-        getPortalChannelSortModeLabel(this.liveChannelSortMode())
-    );
-    readonly liveRootPageSizeOptions = [10, 25, 50, 100];
-    readonly liveRootItems = computed(
-        () =>
-            this.xtreamStore.getPaginatedContent() as unknown as Record<
-                string,
-                unknown
-            >[]
-    );
-    readonly liveRootItemCount = computed(
-        () => this.xtreamStore.selectItemsFromSelectedCategory().length
-    );
-    readonly liveRootSubtitle = computed(() => {
-        const count = this.liveRootItemCount();
-        return `${count} ${count === 1 ? 'channel' : 'channels'}`;
-    });
-    readonly liveRootPageIndex = this.xtreamStore.page;
-    readonly liveRootLimit = this.xtreamStore.limit;
-    readonly liveRootTotalPages = this.xtreamStore.getTotalPages;
-    readonly showLiveRootPaginator = computed(
-        () => this.liveRootItemCount() > 0
-    );
-
-    readonly selectedCategoryInfo = computed(() => {
-        const categoryId = this.selectedCategoryId();
-        if (!categoryId) return null;
-
-        const categories = this.categories();
-        const category = categories?.find(
-            (c) => (c.category_id ?? c.id) === categoryId
-        );
-        const count = this.categoryItemCounts()?.get(categoryId) ?? 0;
-
-        return {
-            name: category?.category_name ?? category?.name ?? 'Channels',
-            count,
-        };
-    });
-
-    readonly usesEmbeddedPlayer = computed(() =>
-        this.portalPlayer.isEmbeddedPlayer()
-    );
-    readonly activePlayback = signal<ResolvedPortalPlayback | null>(null);
-    readonly activeStreamUrl = computed(
-        () => this.activePlayback()?.streamUrl ?? ''
-    );
-    favorites = new Map<number, boolean>();
-
-    constructor() {
-        effect((onCleanup) => {
-            const intervalId = window.setInterval(() => {
-                this.currentTimeMs.set(Date.now());
-            }, 30_000);
-
-            onCleanup(() => clearInterval(intervalId));
-        });
-
-        effect(() => {
-            if (
-                this.xtreamStore.selectedContentType() !== 'live' ||
-                this.showLiveChannelSidebar()
-            ) {
-                return;
-            }
-
-            const pageIndex = this.routePageIndex();
-            if (this.liveRootPageIndex() !== pageIndex) {
-                this.xtreamStore.setPage(pageIndex);
-            }
-        });
-
-        // Read pending auto-open state on every NavigationEnd — covers both the
-        // initial navigation (Angular fires NavigationEnd after component creation)
-        // and re-navigation to the same /live route when the component is reused.
-        this.router.events
-            .pipe(
-                filter((e) => e instanceof NavigationEnd),
-                takeUntilDestroyed(this.destroyRef)
-            )
-            .subscribe(() => this.liveAutoOpenState.captureFromHistoryState());
-
-        effect(() => {
-            const pendingId = this.pendingAutoOpenLiveItemId();
-            if (!pendingId) {
-                return;
-            }
-
-            // Guard: only process once the live content view is active; otherwise
-            // the effect may fire while selectedContentType is still 'vod' and
-            // incorrectly conclude the channel isn't found.
-            if (this.xtreamStore.selectedContentType() !== 'live') {
-                return;
-            }
-
-            // Search across all live streams, not just the category-filtered view,
-            // so a channel from a different category can still be auto-opened.
-            const allChannels = this.getAllLiveStreams();
-            if (!Array.isArray(allChannels) || allChannels.length === 0) {
-                return;
-            }
-
-            const item = allChannels.find(
-                (channel) => Number(channel?.xtream_id) === pendingId
-            );
-            if (!item) {
-                this.pendingAutoOpenLiveItemId.set(null);
-                return;
-            }
-
-            this.playLive(item);
-            // Ensure selectedItem is set so EPG loading reflects the channel
-            // (constructStreamUrl also does this internally).
-            this.xtreamStore.setSelectedItem(
-                item as unknown as Record<string, unknown>
-            );
-            this.liveAutoOpenState.clearPendingItem();
-            this.liveAutoOpenState.clearHistoryState();
-        });
-
+  readonly categories = this.xtreamStore.getCategoriesBySelectedType;
+  readonly categoryItemCounts = this.xtreamStore.getCategoryItemCounts;
+  readonly isSelectedTypeContentLoading =
+    this.xtreamStore.selectedTypeContentLoading;
+  readonly selectedCategoryId = this.xtreamStore.selectedCategoryId;
+  readonly liveChannelSortMode = signal<PortalChannelSortMode>("server");
+  readonly isElectron = this.runtime.isElectron;
+  readonly isWorkspaceLayout = isWorkspaceLayoutRoute(this.route);
+  private readonly routeSearchTerm = queryParamSignal(
+    this.route,
+    "q",
+    (value) => (value ?? "").trim(),
+  );
+  private readonly routePageIndex = queryParamSignal(
+    this.route,
+    "page",
+    (value) => this.toPageIndex(value),
+  );
+  readonly workspaceSearchTerm = computed(() =>
+    this.isWorkspaceLayout ? this.routeSearchTerm() : "",
+  );
+  readonly showLiveChannelSidebar = computed(
+    () => !!this.selectedCategoryId() || !!this.workspaceSearchTerm(),
+  );
+  private readonly pendingAutoOpenLiveItemId =
+    this.liveAutoOpenState.pendingItemId;
+  readonly selectedLiveItem = computed<XtreamLiveChannelItem | null>(() => {
+    if (this.xtreamStore.selectedContentType() !== "live") {
+      return null;
     }
 
-    ngOnInit() {
-        this.liveChannelSortMode.set(
-            restorePortalChannelSortMode(LIVE_CHANNEL_SORT_STORAGE_KEY)
-        );
-
-        const playlist = this.xtreamStore.currentPlaylist();
-        if (playlist) {
-            this.favoritesService
-                .getFavorites(playlist.id)
-                .subscribe((favorites) => {
-                    // Map using content.id instead of xtream_id
-                    favorites.forEach((fav: FavoriteItem) => {
-                        this.favorites.set(fav.xtream_id, true);
-                    });
-                });
-        }
+    const selectedItem = this.xtreamStore.selectedItem();
+    if (!selectedItem || typeof selectedItem !== "object") {
+      return null;
     }
 
-    playLive(
-        item: XtreamLiveChannelItem,
-        startPlayback = !this.settingsStore.openStreamOnDoubleClick()
+    const item = selectedItem as XtreamLiveChannelItem;
+    return item.xtream_id ? item : null;
+  });
+  readonly isSidebarCollapsed = this.liveSidebarStateService.isCollapsed;
+  readonly liveChannelSortLabel = computed(() =>
+    getPortalChannelSortModeLabel(this.liveChannelSortMode()),
+  );
+  readonly liveRootPageSizeOptions = [10, 25, 50, 100];
+  readonly liveRootItems = computed(
+    () =>
+      this.xtreamStore.getPaginatedContent() as unknown as Record<
+        string,
+        unknown
+      >[],
+  );
+  readonly liveRootItemCount = computed(
+    () => this.xtreamStore.selectItemsFromSelectedCategory().length,
+  );
+  readonly liveRootSubtitle = computed(() => {
+    const count = this.liveRootItemCount();
+    return `${count} ${count === 1 ? "channel" : "channels"}`;
+  });
+  readonly liveRootPageIndex = this.xtreamStore.page;
+  readonly liveRootLimit = this.xtreamStore.limit;
+  readonly liveRootTotalPages = this.xtreamStore.getTotalPages;
+  readonly showLiveRootPaginator = computed(() => this.liveRootItemCount() > 0);
+
+  readonly selectedCategoryInfo = computed(() => {
+    const categoryId = this.selectedCategoryId();
+    if (!categoryId) return null;
+
+    const categories = this.categories();
+    const category = categories?.find(
+      (c) => (c.category_id ?? c.id) === categoryId,
+    );
+    const count = this.categoryItemCounts()?.get(categoryId) ?? 0;
+
+    return {
+      name: category?.category_name ?? category?.name ?? "Channels",
+      count,
+    };
+  });
+
+  readonly usesEmbeddedPlayer = computed(() =>
+    this.portalPlayer.isEmbeddedPlayer(),
+  );
+  readonly activePlayback = signal<ResolvedPortalPlayback | null>(null);
+  readonly activeStreamUrl = computed(
+    () => this.activePlayback()?.streamUrl ?? "",
+  );
+  favorites = new Map<number, boolean>();
+
+  constructor() {
+    effect(() => {
+      if (
+        this.xtreamStore.selectedContentType() !== "live" ||
+        this.showLiveChannelSidebar()
+      ) {
+        return;
+      }
+
+      const pageIndex = this.routePageIndex();
+      if (this.liveRootPageIndex() !== pageIndex) {
+        this.xtreamStore.setPage(pageIndex);
+      }
+    });
+
+    // Read pending auto-open state on every NavigationEnd — covers both the
+    // initial navigation (Angular fires NavigationEnd after component creation)
+    // and re-navigation to the same /live route when the component is reused.
+    this.router.events
+      .pipe(
+        filter((e) => e instanceof NavigationEnd),
+        takeUntilDestroyed(this.destroyRef),
+      )
+      .subscribe(() => this.liveAutoOpenState.captureFromHistoryState());
+
+    effect(() => {
+      const pendingId = this.pendingAutoOpenLiveItemId();
+      if (!pendingId) {
+        return;
+      }
+
+      // Guard: only process once the live content view is active; otherwise
+      // the effect may fire while selectedContentType is still 'vod' and
+      // incorrectly conclude the channel isn't found.
+      if (this.xtreamStore.selectedContentType() !== "live") {
+        return;
+      }
+
+      // Search across all live streams, not just the category-filtered view,
+      // so a channel from a different category can still be auto-opened.
+      const allChannels = this.getAllLiveStreams();
+      if (!Array.isArray(allChannels) || allChannels.length === 0) {
+        return;
+      }
+
+      const item = allChannels.find(
+        (channel) => Number(channel?.xtream_id) === pendingId,
+      );
+      if (!item) {
+        this.pendingAutoOpenLiveItemId.set(null);
+        return;
+      }
+
+      this.playLive(item);
+      // Keep the selected item in sync with auto-open playback.
+      this.xtreamStore.setSelectedItem(
+        item as unknown as Record<string, unknown>,
+      );
+      this.liveAutoOpenState.clearPendingItem();
+      this.liveAutoOpenState.clearHistoryState();
+    });
+  }
+
+  ngOnInit() {
+    this.liveChannelSortMode.set(
+      restorePortalChannelSortMode(LIVE_CHANNEL_SORT_STORAGE_KEY),
+    );
+
+    const playlist = this.xtreamStore.currentPlaylist();
+    if (playlist) {
+      this.favoritesService.getFavorites(playlist.id).subscribe((favorites) => {
+        // Map using content.id instead of xtream_id
+        favorites.forEach((fav: FavoriteItem) => {
+          this.favorites.set(fav.xtream_id, true);
+        });
+      });
+    }
+  }
+
+  playLive(
+    item: XtreamLiveChannelItem,
+    startPlayback = !this.settingsStore.openStreamOnDoubleClick(),
+  ) {
+    const streamUrl = this.xtreamStore.constructStreamUrl(item);
+    // Keep both root/recently-added playback and same-category replays in
+    // sync with the category rail. For already-selected channels this is a
+    // store no-op.
+    this.selectLiveItemCategory(item);
+    const playback: ResolvedPortalPlayback = {
+      streamUrl,
+      title: item.title ?? item.name ?? "",
+      thumbnail: item.poster_url ?? item.stream_icon ?? null,
+      isLive: true,
+    };
+    this.activePlayback.set(playback);
+    if (this.usesEmbeddedPlayer()) {
+      void this.portalPlayer.openResolvedPlayback(playback);
+      return;
+    }
+    if (!startPlayback) {
+      return;
+    }
+    this.xtreamStore.openPlayer(
+      streamUrl,
+      item.title ?? item.name ?? "",
+      item.poster_url ?? item.stream_icon ?? null,
+    );
+  }
+
+  setLiveChannelSortMode(mode: PortalChannelSortMode): void {
+    this.liveChannelSortMode.set(mode);
+    persistPortalChannelSortMode(LIVE_CHANNEL_SORT_STORAGE_KEY, mode);
+  }
+
+  onLiveRootPageChange(event: PageEvent): void {
+    this.xtreamStore.setPage(event.pageIndex);
+    this.xtreamStore.setLimit(event.pageSize);
+    this.scrollLiveRootGridToTop();
+
+    void this.router.navigate([], {
+      relativeTo: this.route,
+      queryParams: {
+        page: event.pageIndex > 0 ? event.pageIndex + 1 : null,
+      },
+      queryParamsHandling: "merge",
+      replaceUrl: true,
+    });
+  }
+
+  onLiveRootItemClick(item: unknown): void {
+    this.playLive(item as XtreamLiveChannelItem);
+  }
+
+  toggleSidebar(): void {
+    this.liveSidebarStateService.toggle();
+  }
+
+  @HostListener("document:keydown", ["$event"])
+  handleSidebarShortcut(event: KeyboardEvent): void {
+    if (
+      (event.metaKey || event.ctrlKey) &&
+      event.key.toLowerCase() === "b" &&
+      !isTypingInInput(event)
     ) {
-        const streamUrl = this.xtreamStore.constructStreamUrl(item);
-        this.activeCatchupProgram.set(null);
-        // Keep both root/recently-added playback and same-category replays in
-        // sync with the category rail. For already-selected channels this is a
-        // store no-op.
-        this.selectLiveItemCategory(item);
-        const playback: ResolvedPortalPlayback = {
-            streamUrl,
-            title: item.title ?? item.name ?? '',
-            thumbnail: item.poster_url ?? item.stream_icon ?? null,
-            isLive: true,
-        };
-        this.activePlayback.set(playback);
-        if (this.usesEmbeddedPlayer()) {
-            void this.portalPlayer.openResolvedPlayback(playback);
-            return;
-        }
-        if (!startPlayback) {
-            return;
-        }
-        this.xtreamStore.openPlayer(
-            streamUrl,
-            item.title ?? item.name ?? '',
-            item.poster_url ?? item.stream_icon ?? null
-        );
+      event.preventDefault();
+      this.toggleSidebar();
+    }
+  }
+
+  returnToLivePlayback(): void {
+    const selectedItem = this.selectedLiveItem();
+    if (!selectedItem?.xtream_id) {
+      return;
     }
 
-    async onProgramActivated(event: EpgProgramActivationEvent): Promise<void> {
-        const selectedItem = this.selectedLiveItem();
-        if (!selectedItem?.xtream_id) {
-            return;
-        }
+    this.playLive(selectedItem, true);
+  }
 
-        if (event.type === 'live') {
-            this.playLive(selectedItem, true);
-            return;
-        }
+  handleExternalFallbackRequest(request: PlaybackFallbackRequest): void {
+    void this.portalPlayer.openExternalPlayback(
+      request.playback,
+      request.player,
+    );
+  }
 
-        await this.playCatchup(event.program, selectedItem);
+  private getAllLiveStreams(): XtreamLiveChannelItem[] {
+    return this.xtreamStore.liveStreams() as unknown as XtreamLiveChannelItem[];
+  }
+
+  private toPageIndex(value: string | null): number {
+    const page = Number(value);
+    return Number.isInteger(page) && page > 0 ? page - 1 : 0;
+  }
+
+  private scrollLiveRootGridToTop(): void {
+    const gridList = this.hostElement.nativeElement.querySelector(
+      "app-grid-list",
+    ) as HTMLElement | null;
+    gridList?.scrollTo?.({ top: 0 });
+  }
+
+  private getVisibleChannels(): XtreamLiveChannelItem[] {
+    return this.xtreamStore.selectItemsFromSelectedCategory() as XtreamLiveChannelItem[];
+  }
+
+  private selectLiveItemCategory(item: XtreamLiveChannelItem): void {
+    const categoryId = Number(item.category_id);
+    if (Number.isFinite(categoryId) && categoryId > 0) {
+      this.xtreamStore.setSelectedCategory(categoryId);
     }
+  }
 
-    setLiveChannelSortMode(mode: PortalChannelSortMode): void {
-        this.liveChannelSortMode.set(mode);
-        persistPortalChannelSortMode(LIVE_CHANNEL_SORT_STORAGE_KEY, mode);
-    }
-
-    onLiveRootPageChange(event: PageEvent): void {
-        this.xtreamStore.setPage(event.pageIndex);
-        this.xtreamStore.setLimit(event.pageSize);
-        this.scrollLiveRootGridToTop();
-
-        void this.router.navigate([], {
-            relativeTo: this.route,
-            queryParams: {
-                page: event.pageIndex > 0 ? event.pageIndex + 1 : null,
-            },
-            queryParamsHandling: 'merge',
-            replaceUrl: true,
-        });
-    }
-
-    onLiveRootItemClick(item: unknown): void {
-        this.playLive(item as XtreamLiveChannelItem);
-    }
-
-    onLiveEpgPanelCollapsedChange(collapsed: boolean): void {
-        const state: LiveEpgPanelState = collapsed ? 'collapsed' : 'expanded';
-        this.liveEpgPanelState.set(state);
-        persistLiveEpgPanelState(state);
-    }
-
-    toggleSidebar(): void {
-        this.liveSidebarStateService.toggle();
-    }
-
-    @HostListener('document:keydown', ['$event'])
-    handleSidebarShortcut(event: KeyboardEvent): void {
-        if (
-            (event.metaKey || event.ctrlKey) &&
-            event.key.toLowerCase() === 'b' &&
-            !isTypingInInput(event)
-        ) {
-            event.preventDefault();
-            this.toggleSidebar();
-        }
-    }
-
-    onLiveEpgDateNavigation(direction: EpgDateNavigationDirection): void {
-        this.selectedLiveEpgDate.set(
-            shiftEpgDateKey(this.selectedLiveEpgDate(), direction)
-        );
-    }
-
-    onLiveEpgSelectedDateChange(selectedDate: string): void {
-        this.selectedLiveEpgDate.set(selectedDate);
-    }
-
-    returnToLivePlayback(): void {
-        const selectedItem = this.selectedLiveItem();
-        if (!selectedItem?.xtream_id) {
-            return;
-        }
-
-        this.playLive(selectedItem, true);
-    }
-
-    handleExternalFallbackRequest(request: PlaybackFallbackRequest): void {
-        void this.portalPlayer.openExternalPlayback(
-            request.playback,
-            request.player
-        );
-    }
-
-    private getAllLiveStreams(): XtreamLiveChannelItem[] {
-        return this.xtreamStore.liveStreams() as unknown as XtreamLiveChannelItem[];
-    }
-
-    private toPageIndex(value: string | null): number {
-        const page = Number(value);
-        return Number.isInteger(page) && page > 0 ? page - 1 : 0;
-    }
-
-    private scrollLiveRootGridToTop(): void {
-        const gridList = this.hostElement.nativeElement.querySelector(
-            'app-grid-list'
-        ) as HTMLElement | null;
-        gridList?.scrollTo?.({ top: 0 });
-    }
-
-    private getVisibleChannels(): XtreamLiveChannelItem[] {
-        return this.xtreamStore.selectItemsFromSelectedCategory() as XtreamLiveChannelItem[];
-    }
-
-    private selectLiveItemCategory(item: XtreamLiveChannelItem): void {
-        const categoryId = Number(item.category_id);
-        if (Number.isFinite(categoryId) && categoryId > 0) {
-            this.xtreamStore.setSelectedCategory(categoryId);
-        }
-    }
-
-    private async playCatchup(
-        program: EpgProgram,
-        item: XtreamLiveChannelItem
-    ): Promise<void> {
-        const playlist = this.xtreamStore.currentPlaylist();
-        if (!playlist) {
-            return;
-        }
-
-        const startTimestamp = this.getProgramTimestampSeconds(
-            program.start,
-            program.startTimestamp
-        );
-        const stopTimestamp = this.getProgramTimestampSeconds(
-            program.stop,
-            program.stopTimestamp
-        );
-
-        if (!startTimestamp || !stopTimestamp) {
-            return;
-        }
-
-        const catchupUrl = await this.xtreamUrlService.resolveCatchupUrl(
-            playlist.id,
-            {
-                allowedOutputFormats: playlist.allowedOutputFormats,
-                serverUrl: playlist.serverUrl,
-                username: playlist.username,
-                password: playlist.password,
-            },
-            item.xtream_id,
-            startTimestamp,
-            stopTimestamp,
-            playlist.serverTimezone
-        );
-
-        this.activeCatchupProgram.set(program);
-        const playback: ResolvedPortalPlayback = {
-            streamUrl: catchupUrl,
-            title: this.getCatchupPlaybackTitle(item, program),
-            thumbnail: item.poster_url ?? item.stream_icon ?? null,
-            isLive: false,
-        };
-        this.activePlayback.set(playback);
-        if (this.usesEmbeddedPlayer()) {
-            void this.portalPlayer.openResolvedPlayback(playback);
-            return;
-        }
-
-        this.xtreamStore.openPlayer(
-            catchupUrl,
-            this.getCatchupPlaybackTitle(item, program),
-            item.poster_url ?? item.stream_icon ?? null
-        );
-    }
-
-    private toControlledEpgProgram(program: EpgItem): EpgProgram {
-        return {
-            start: program.start,
-            stop: program.stop ?? program.end,
-            channel: program.channel_id ?? program.id,
-            title: program.title,
-            desc: program.description ?? null,
-            category: null,
-            startTimestamp: this.getProgramTimestampSeconds(
-                program.start,
-                program.start_timestamp
-            ),
-            stopTimestamp: this.getProgramTimestampSeconds(
-                program.stop ?? program.end,
-                program.stop_timestamp
-            ),
-        };
-    }
-
-    private toLiveEpgPanelSummary(
-        program: EpgItem | EpgProgram | null | undefined
-    ): LiveEpgPanelSummary | null {
-        if (!program) {
-            return null;
-        }
-
-        return {
-            title: program.title,
-            start: program.start,
-            stop: this.getProgramStop(program),
-        };
-    }
-
-    private getProgramStop(
-        program: EpgItem | EpgProgram | null | undefined
-    ): string | undefined {
-        if (!program) {
-            return undefined;
-        }
-
-        return (
-            program.stop ??
-            ('end' in program ? (program.end ?? undefined) : undefined)
-        );
-    }
-
-    private getProgramTimestampSeconds(
-        dateValue: string,
-        unixTimestampValue?: number | string | null
-    ): number | null {
-        const unixTimestamp = Number.parseInt(
-            String(unixTimestampValue ?? ''),
-            10
-        );
-        if (Number.isFinite(unixTimestamp) && unixTimestamp > 0) {
-            return unixTimestamp;
-        }
-
-        const parsedDate = Date.parse(dateValue);
-        return Number.isFinite(parsedDate)
-            ? Math.floor(parsedDate / 1000)
-            : null;
-    }
-
-    private getProgramTimestampMilliseconds(
-        dateValue: string,
-        unixTimestampValue?: number | string | null
-    ): number | null {
-        const unixTimestamp = this.getProgramTimestampSeconds(
-            dateValue,
-            unixTimestampValue
-        );
-        return unixTimestamp !== null ? unixTimestamp * 1000 : null;
-    }
-
-    private getCatchupPlaybackTitle(
-        item: XtreamLiveChannelItem,
-        program: EpgProgram
-    ): string {
-        const channelTitle = item.title ?? item.name ?? '';
-        if (!program.title) {
-            return channelTitle;
-        }
-
-        return channelTitle
-            ? `${channelTitle} - ${program.title}`
-            : program.title;
-    }
 }

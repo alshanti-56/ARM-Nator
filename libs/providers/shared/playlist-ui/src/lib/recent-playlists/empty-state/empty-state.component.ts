@@ -38,11 +38,6 @@ const FEATURE_CARDS: readonly FeatureCard[] = [
         descKey: 'HOME.PLAYLISTS.FEATURE_VOD_DESC',
     },
     {
-        icon: 'event_note',
-        titleKey: 'HOME.PLAYLISTS.FEATURE_EPG_TITLE',
-        descKey: 'HOME.PLAYLISTS.FEATURE_EPG_DESC',
-    },
-    {
         icon: 'download_for_offline',
         titleKey: 'HOME.PLAYLISTS.FEATURE_OFFLINE_TITLE',
         descKey: 'HOME.PLAYLISTS.FEATURE_OFFLINE_DESC',
@@ -57,10 +52,7 @@ const SOURCE_CARDS: readonly SourceCard[] = [
         nameKey: 'HOME.PLAYLISTS.FEATURE_M3U',
         needsKey: 'HOME.PLAYLISTS.SOURCE_M3U_NEEDS',
         addLabelKey: 'HOME.PLAYLISTS.SOURCE_M3U_ADD',
-        contentKeys: [
-            'HOME.PLAYLISTS.CONTENT_LIVE',
-            'HOME.PLAYLISTS.CONTENT_EPG',
-        ],
+        contentKeys: ['HOME.PLAYLISTS.CONTENT_LIVE'],
     },
     {
         type: 'xtream',
@@ -72,7 +64,6 @@ const SOURCE_CARDS: readonly SourceCard[] = [
             'HOME.PLAYLISTS.CONTENT_LIVE',
             'HOME.PLAYLISTS.CONTENT_VOD',
             'HOME.PLAYLISTS.CONTENT_SERIES',
-            'HOME.PLAYLISTS.CONTENT_EPG',
         ],
     },
 ];

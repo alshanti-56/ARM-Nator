@@ -39,10 +39,7 @@ export function buildPlayerStartError(
     error: Error,
     launchContext: ExternalPlayerLaunchContext
 ): Error {
-    const guidance =
-        launchContext.mode === 'flatpak-host'
-            ? `Make sure ${player} is installed on the host system and reachable via Flatpak host spawning at '${launchContext.playerPath}'.`
-            : `Make sure ${player} is installed and the path '${launchContext.playerPath}' is correct.`;
+    const guidance = `Make sure ${player} is installed and the path '${launchContext.playerPath}' is correct.`;
 
     return new Error(
         `Failed to start ${player} player: ${error.message}. ${guidance}`

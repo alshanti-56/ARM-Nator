@@ -14,7 +14,7 @@ export interface EmbeddedMpvCommandContext {
 }
 
 /**
- * Thin IPC delegators for embedded-MPV transport/track/recording commands.
+ * Thin IPC delegators for embedded-MPV transport and track commands.
  * Split out of the controller so each stays a one-liner around `guardIpc`,
  * which swallows races where the session was torn down mid-call (the next
  * broadcast snapshot resyncs state).
@@ -103,43 +103,6 @@ export class EmbeddedMpvCommandRunner {
         }
         const setAspect = electron.setEmbeddedMpvAspect;
         await this.run(id, () => setAspect(id, aspect));
-    }
-
-    async startRecording(
-        directory: string | undefined,
-        title: string
-    ): Promise<EmbeddedMpvSession['recording'] | null> {
-        const id = this.ctx.sessionId();
-        const electron = this.bridge();
-        if (!id || !electron?.startEmbeddedMpvRecording) {
-            return null;
-        }
-
-        const startEmbeddedMpvRecording = electron.startEmbeddedMpvRecording;
-        const resolvedDirectory =
-            directory?.trim() ||
-            (await electron.getEmbeddedMpvDefaultRecordingFolder?.());
-        if (this.ctx.sessionId() !== id) {
-            return null;
-        }
-        const updated = await this.run(id, () =>
-            startEmbeddedMpvRecording(id, {
-                directory: resolvedDirectory,
-                title,
-            })
-        );
-        return updated?.recording ?? null;
-    }
-
-    async stopRecording(): Promise<EmbeddedMpvSession['recording'] | null> {
-        const id = this.ctx.sessionId();
-        const electron = this.bridge();
-        if (!id || !electron?.stopEmbeddedMpvRecording) {
-            return null;
-        }
-        const stopEmbeddedMpvRecording = electron.stopEmbeddedMpvRecording;
-        const updated = await this.run(id, () => stopEmbeddedMpvRecording(id));
-        return updated?.recording ?? null;
     }
 
     /**

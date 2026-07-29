@@ -197,7 +197,6 @@ export class DirectPlayComponent implements OnDestroy {
         ["Subtitles", capabilities.subtitles],
         ["Speed", capabilities.playbackSpeed],
         ["Aspect", capabilities.aspectRatio],
-        ["Recording", capabilities.recording],
         ["Picture in picture", capabilities.pictureInPicture],
         ["Fullscreen", capabilities.fullscreen],
       ]
@@ -215,7 +214,6 @@ export class DirectPlayComponent implements OnDestroy {
           "Subtitles",
           "Speed",
           "Aspect",
-          "Recording",
           "Fullscreen",
         ];
       case VideoPlayer.ArtPlayer:
@@ -681,64 +679,6 @@ export class DirectPlayComponent implements OnDestroy {
       0,
       video.currentTime + direction * frameDuration,
     );
-  }
-
-  async takeScreenshot(): Promise<void> {
-    const video = document.querySelector(
-      ".direct-play-page video",
-    ) as HTMLVideoElement | null;
-    const embeddedCanvas = document.querySelector(
-      ".direct-play-page canvas[data-embedded-mpv-frame]",
-    ) as HTMLCanvasElement | null;
-    if (embeddedCanvas?.width && embeddedCanvas.height) {
-      const link = document.createElement("a");
-      link.download = `arm-nator-frame-${Date.now()}.png`;
-      link.href = embeddedCanvas.toDataURL("image/png");
-      link.click();
-      this.recordEvent("info", "Screenshot saved", link.download);
-      return;
-    }
-    const embeddedSessionId = this.runtimeSnapshot()?.engine?.sessionId;
-    if (
-      embeddedSessionId &&
-      window.electron?.takeEmbeddedMpvScreenshot &&
-      window.electron?.saveFileDialog
-    ) {
-      const targetPath = await window.electron.saveFileDialog(
-        `arm-nator-frame-${Date.now()}.png`,
-        [{ name: "PNG image", extensions: ["png"] }],
-      );
-      if (!targetPath) {
-        return;
-      }
-      await window.electron.takeEmbeddedMpvScreenshot(
-        embeddedSessionId,
-        targetPath,
-      );
-      this.recordEvent("info", "Screenshot saved", targetPath);
-      return;
-    }
-    if (!video || !video.videoWidth || !video.videoHeight) {
-      this.recordEvent("warning", "Screenshot unavailable");
-      return;
-    }
-    try {
-      const canvas = document.createElement("canvas");
-      canvas.width = video.videoWidth;
-      canvas.height = video.videoHeight;
-      canvas.getContext("2d")?.drawImage(video, 0, 0);
-      const link = document.createElement("a");
-      link.download = `arm-nator-frame-${Date.now()}.png`;
-      link.href = canvas.toDataURL("image/png");
-      link.click();
-      this.recordEvent("info", "Screenshot saved", link.download);
-    } catch (error) {
-      this.recordEvent(
-        "error",
-        "Screenshot failed",
-        error instanceof Error ? error.message : String(error),
-      );
-    }
   }
 
   private async inspectNetwork(

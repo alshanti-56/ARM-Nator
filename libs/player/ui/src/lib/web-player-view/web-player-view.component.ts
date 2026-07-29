@@ -179,9 +179,6 @@ export class WebPlayerViewComponent {
     }
     return { primary: title, secondary: null };
   });
-  readonly recordingFolder = computed(
-    () => this.settings()?.recordingFolder ?? "",
-  );
 
   constructor() {
     effect(() => {

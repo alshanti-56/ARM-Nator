@@ -67,8 +67,6 @@ export enum StartupBehavior {
 
 export type CoverSize = 'small' | 'medium' | 'large';
 
-/** Rendering of the live EPG panel under the player. */
-export type EpgViewMode = 'timeline' | 'list';
 
 export interface DashboardRailsSettings {
     hero: boolean;
@@ -143,7 +141,6 @@ export interface Settings {
      * missing values mean enabled. Only affects the built-in web players.
      */
     playerUpNextRail?: boolean;
-    epgUrl: string[];
     streamFormat: StreamFormat;
     openStreamOnDoubleClick: boolean;
     language: Language;
@@ -171,8 +168,6 @@ export interface Settings {
     vlcReuseInstance: boolean;
     /** Custom download folder path (uses system Downloads folder if not set) */
     downloadFolder?: string;
-    /** Custom live recording folder path (uses system Downloads folder if not set) */
-    recordingFolder?: string;
     /**
      * Embedded MPV frame-copy engine (experimental, macOS Apple Silicon and Linux).
      * Applied on the next app start — the engine relaxes the window sandbox
@@ -181,28 +176,12 @@ export interface Settings {
     embeddedMpvFrameCopy?: boolean;
     /** Cover/poster sizing preset applied across grids and rails */
     coverSize?: CoverSize;
-    /** Live EPG panel layout: horizontal timeline (default) or vertical list */
-    epgViewMode?: EpgViewMode;
     /** Per-rail dashboard visibility preferences. Missing keys default on. */
     dashboardRails?: DashboardRailsSettings;
     /**
-     * When true, the locally-parsed XMLTV programs (loaded from `epgUrl`)
-     * take precedence over the Xtream provider's EPG for live TV channels.
-     * When false (default), the Xtream provider's EPG is preferred and
-     * XMLTV is consulted only when the provider returns no programs.
-     * Only meaningful for Xtream playlists in Electron.
-     */
-    preferUploadedEpgOverXtream?: boolean;
-    /**
-     * Exact EPG source URLs the user has allowed to resolve to private/LAN
-     * network addresses. Kept source-scoped instead of disabling SSRF
-     * protection globally.
-     */
-    trustedPrivateNetworkEpgUrls?: string[];
-    /**
      * Lowercase hostnames whose invalid TLS certificates the user has chosen
      * to trust. This is host-scoped and does not disable TLS validation for
-     * unrelated playlist or EPG hosts.
+     * unrelated remote hosts.
      */
     trustedInsecureTlsHosts?: string[];
     /**

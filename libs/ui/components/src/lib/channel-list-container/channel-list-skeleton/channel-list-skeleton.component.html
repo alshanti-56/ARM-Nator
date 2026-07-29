@@ -1,7 +1,6 @@
 <div class="channel-list-skeleton" aria-hidden="true">
     @for (row of rows(); track row.index) {
         <app-channel-list-item-skeleton
-            [showEpg]="showEpg()"
             [actionCount]="actionCount()"
             [titleWidth]="row.title"
             [metaWidth]="row.meta"

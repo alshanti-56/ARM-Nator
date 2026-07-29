@@ -51,7 +51,6 @@ libs/
 │   ├── xtream/           Xtream data access and features
 │   └── shared/           normalized provider contracts and shared UI
 ├── database/             SQLite schema and shared database runtime
-├── epg/                  EPG data access and UI
 ├── settings/             settings data access and UI
 ├── shared/               interfaces and logging
 ├── ui/                   reusable non-player presentation
@@ -82,7 +81,7 @@ pnpm clean
 `pnpm dev` is the only development workflow. `pnpm build` creates the
 production desktop application, and `pnpm package` creates the ad-hoc-signed
 macOS ARM64 DMG and ZIP. There is no PWA, browser-only, performance-build,
-Linux-package, or Windows-package workflow.
+macOS arm64 packaging workflow.
 
 ## Refactoring rule
 

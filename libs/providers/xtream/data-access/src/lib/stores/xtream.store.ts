@@ -12,16 +12,8 @@ import { XtreamApiService } from '../services/xtream-api.service';
 
 // Import new feature stores
 import { TmdbEnrichmentService } from '@arm-nator/services';
-import { createLogger } from '@arm-nator/providers/shared/util';
-import {
-    withContent,
-    withEpg,
-    withPlaybackPositions,
-    withPlayer,
-    withPortal,
-    withSearch,
-    withSelection,
-} from './features';
+import { createLogger } from '@arm-nator/providers/shared/util';import { withContent, withPlaybackPositions, withPlayer, withPortal, withSearch, withSelection } from './features';
+
 import {
     enrichSerialSeasonWithTmdb,
     enrichSerialSelectionWithTmdb,
@@ -38,7 +30,6 @@ import {
  * - withContent: Categories and streams management
  * - withSelection: UI selection and pagination
  * - withSearch: Search functionality
- * - withEpg: EPG (Electronic Program Guide) data
  * - withPlayer: Stream URL construction and player integration
  * - withFavorites: Favorites management
  * - withRecentItems: Recently viewed items
@@ -54,7 +45,6 @@ export const XtreamStore = signalStore(
     withContent(),
     withSelection(),
     withSearch(),
-    withEpg(),
     withPlayer(),
     withFavorites(),
     withRecentItems(),
@@ -106,7 +96,6 @@ export const XtreamStore = signalStore(
                 store.resetContent();
                 store.resetSelection();
                 store.resetSearchResults();
-                store.clearEpg();
                 store.resetPlayer();
 
                 if (newPlaylistId) {

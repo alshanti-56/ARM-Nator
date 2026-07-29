@@ -2,7 +2,6 @@
   <app-embedded-mpv-player
     [playback]="resolvedPlayback()"
     [mediaTitle]="resolvedMediaTitle()"
-    [recordingFolder]="recordingFolder()"
     [seriesNavigation]="seriesNavigation()"
     (timeUpdate)="timeUpdate.emit($event)"
     (runtimeSnapshotChange)="runtimeSnapshotChange.emit($event)"

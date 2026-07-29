@@ -7,30 +7,13 @@
  * memory cage forbids external ArrayBuffers over foreign memory.
  *
  * Plain C N-API (no node-addon-api) so it stays ABI-stable and trivial.
- * macOS and Linux (POSIX shm) plus Windows (named file mapping; binding.gyp
- * compiles this file as C++ there because MSVC's C mode has no
- * <stdatomic.h>) — other platforms export an empty object; the TypeScript
- * side gates on platform before requiring it.
+ * macOS shared memory only. The TypeScript side gates on macOS arm64 before
+ * requiring it.
  */
 #define NAPI_VERSION 8
 #include <node_api.h>
 
-#if defined(__APPLE__) || defined(__linux__) || defined(_WIN32)
 
-#if defined(_WIN32)
-
-#include <stdint.h>
-#include <string.h>
-
-#include "../helper/frame_shm.h"
-
-/* frame_shm.h typed the fields as std::atomic in C++ mode; keep the shared
- * atomic_load_explicit call sites below spelling-compatible. */
-using std::atomic_load_explicit;
-using std::memory_order_acquire;
-using std::memory_order_relaxed;
-
-#else
 
 #include <fcntl.h>
 #include <stdatomic.h>
@@ -43,7 +26,6 @@ using std::memory_order_relaxed;
 
 #include "../helper/frame_shm.h"
 
-#endif
 
 static FrameShmHeader* g_header = NULL;
 static uint8_t* g_base = NULL;
@@ -54,11 +36,7 @@ static uint64_t now_ns(void) { return frame_shm_now_ns(); }
 
 static void unmap_current(void) {
     if (g_base) {
-#if defined(_WIN32)
-        UnmapViewOfFile(g_base);
-#else
         munmap(g_base, g_size);
-#endif
     }
     g_base = NULL;
     g_header = NULL;
@@ -91,23 +69,6 @@ static napi_value Open(napi_env env, napi_callback_info info) {
         return throw_error(env, "shm name must be a string");
     }
 
-#if defined(_WIN32)
-    char mapping_name[280];
-    frame_shm_windows_name(name, mapping_name, sizeof(mapping_name));
-    HANDLE mapping = OpenFileMappingA(FILE_MAP_READ, FALSE, mapping_name);
-    if (!mapping) return throw_error(env, "shm open failed (helper gone?)");
-    void* mapped = MapViewOfFile(mapping, FILE_MAP_READ, 0, 0, 0);
-    /* The view holds its own reference to the section object. */
-    CloseHandle(mapping);
-    if (!mapped) return throw_error(env, "shm map failed");
-    MEMORY_BASIC_INFORMATION region;
-    if (VirtualQuery(mapped, &region, sizeof(region)) == 0 ||
-        region.RegionSize < sizeof(FrameShmHeader)) {
-        UnmapViewOfFile(mapped);
-        return throw_error(env, "shm segment too small");
-    }
-    const size_t segment_size = (size_t)region.RegionSize;
-#else
     const int fd = shm_open(name, O_RDONLY, 0);
     if (fd < 0) return throw_error(env, "shm_open failed (helper gone?)");
     struct stat segment;
@@ -121,16 +82,11 @@ static napi_value Open(napi_env env, napi_callback_info info) {
     close(fd);
     if (mapped == MAP_FAILED) return throw_error(env, "mmap failed");
     const size_t segment_size = (size_t)segment.st_size;
-#endif
 
     FrameShmHeader* header = (FrameShmHeader*)mapped;
     if (header->magic != FRAME_SHM_MAGIC ||
         header->version != FRAME_SHM_VERSION) {
-#if defined(_WIN32)
-        UnmapViewOfFile(mapped);
-#else
         munmap(mapped, segment_size);
-#endif
         return throw_error(env, "frame ring not initialized yet");
     }
 
@@ -250,16 +206,5 @@ static napi_value Init(napi_env env, napi_value exports) {
     return exports;
 }
 
-#else /* no frame-copy port for this platform */
-
-static napi_value Init(napi_env env, napi_value exports) {
-    /* Frame-copy is not ported to this platform yet; loading this module
-     * here yields an empty exports object and the TS side treats it as
-     * unsupported. */
-    (void)env;
-    return exports;
-}
-
-#endif
 
 NAPI_MODULE(embedded_mpv_frame_reader, Init)

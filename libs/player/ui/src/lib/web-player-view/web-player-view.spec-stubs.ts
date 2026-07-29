@@ -45,7 +45,6 @@ export class StubArtPlayerComponent {
 export class StubEmbeddedMpvPlayerComponent {
     readonly playback = input.required<unknown>();
     readonly mediaTitle = input<unknown>(null);
-    readonly recordingFolder = input('');
     readonly seriesNavigation = input<unknown>(null);
     readonly timeUpdate = output<{ currentTime: number; duration: number }>();
     readonly playbackEnded = output<void>();

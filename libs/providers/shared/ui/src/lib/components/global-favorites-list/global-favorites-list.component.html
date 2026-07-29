@@ -36,12 +36,9 @@
             [logo]="ch.logo"
             [name]="ch.name"
             [selected]="activeUid() === ch.uid"
-            [showEpg]="true"
-            [epgProgram]="ch.currentEpgProgram"
-            [progressPercentage]="ch.progressPercentage"
             [showFavoriteButton]="true"
             [isFavorite]="isChannelFavorite(ch)"
-            [showProgramInfoButton]="true"
+            [showProgramInfoButton]="false"
             [showDetailsContextMenu]="hasChannelContextMenu(ch)"
             (clicked)="onChannelClick(ch)"
             (activated)="onChannelActivate(ch)"
@@ -61,12 +58,7 @@
 ></div>
 
 <mat-menu #channelContextMenu="matMenu">
-    @if (supportsEpgMapping) {
-        <button mat-menu-item (click)="openEpgMapping()">
-            <mat-icon>settings_remote</mat-icon>
-            <span>{{ 'CHANNELS.MAP_EPG' | translate }}</span>
-        </button>
-    }
+
     @if (contextMenuChannel()?.m3uChannel) {
         <button mat-menu-item (click)="openChannelDetails()">
             <mat-icon>info</mat-icon>

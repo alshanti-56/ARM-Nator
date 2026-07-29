@@ -1,11 +1,5 @@
-import {
-    EpgItem,
-    GlobalSearchResult,
-    XtreamCategory,
-    XtreamLiveStream,
-    XtreamSerieItem,
-    XtreamVodStream,
-} from '@arm-nator/shared/interfaces';
+import { GlobalSearchResult, XtreamCategory, XtreamLiveStream, XtreamSerieItem, XtreamVodStream } from '@arm-nator/shared/interfaces';
+
 import {
     XtreamContentItem,
     XtreamPlaylistData,
@@ -62,7 +56,6 @@ export interface XtreamState {
     importCount: number;
     itemsToImport: number;
     currentPlaylist: XtreamPlaylistData | null;
-    epgItems: EpgItem[];
     hideExternalInfoDialog: boolean;
     portalStatus: PortalStatusType;
     contentInitBlockReason: XtreamContentInitBlockReason | null;

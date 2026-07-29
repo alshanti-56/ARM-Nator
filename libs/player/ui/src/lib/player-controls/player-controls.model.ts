@@ -11,14 +11,12 @@ export interface PlayerControlsCapabilities {
     subtitles: boolean;
     playbackSpeed: boolean;
     aspectRatio: boolean;
-    recording: boolean;
     pictureInPicture: boolean;
     fullscreen: boolean;
     seriesNavigation: boolean;
     stop: boolean;
     restart: boolean;
     frameStep: boolean;
-    screenshot: boolean;
 }
 
 export interface PlayerTrack {
@@ -44,16 +42,6 @@ export interface PlayerPreset<T> {
     label: string;
 }
 
-export interface PlayerRecordingState {
-    active: boolean;
-    /** Seconds since recording started; adapter computes via a 1s tick. */
-    elapsedSeconds: number;
-    /** Persistent status text (e.g. "Saved to …" / error). null when none. */
-    message: string | null;
-    /** Changes when recording ownership moves to another playback/session. */
-    transitionKey?: string | null;
-}
-
 export interface PlayerControlsState {
     status: PlayerStatus;
     /** Loading/error text for the player surface; '' when nothing to show. */
@@ -72,7 +60,6 @@ export interface PlayerControlsState {
     speedPresets: ReadonlyArray<PlayerPreset<number>>;
     aspectRatio: string;
     aspectPresets: ReadonlyArray<PlayerPreset<string>>;
-    recording: PlayerRecordingState;
     pictureInPictureActive: boolean;
     canPictureInPicture: boolean;
     canPreviousEpisode: boolean;
@@ -89,7 +76,6 @@ export interface PlayerControlsCommands {
     setSubtitleTrack(id: number): void; // -1 = off
     setPlaybackSpeed(speed: number): void;
     setAspectRatio(value: string): void;
-    toggleRecording(): void;
     togglePictureInPicture(): void;
 }
 
@@ -151,7 +137,6 @@ export interface PlayerEngineTelemetry {
     readonly renderingEngine?: string;
     readonly startedAt?: string;
     readonly updatedAt?: string;
-    readonly recordingDestination?: string;
 }
 
 /** Read-only runtime data emitted to player hosts and diagnostics surfaces. */

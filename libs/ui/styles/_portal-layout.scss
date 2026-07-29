@@ -115,57 +115,6 @@
         }
     }
 
-    .epg {
-        flex: 1 1 0;
-        min-height: 0;
-        overflow: hidden;
-        display: flex;
-        flex-direction: column;
-        transition:
-            flex-basis 0.18s ease,
-            min-height 0.18s ease;
-
-        // Inline (player visible): the guide is a compact panel below the
-        // player, not half the screen. The responsive clamp keeps the player
-        // dominant on tall screens and shrinks the panel on short ones.
-        // External player: no .epg--inline → keeps flex:1 above and fills.
-        &.epg--inline {
-            flex: 0 0 var(--epg-inline-height, clamp(180px, 36vh, 264px));
-        }
-
-        // Vertical list view (epgViewMode = 'list'): rows need more height to
-        // be useful — raise the inline clamp only. Sets just the variable, so
-        // the later `.epg-collapsed` flex rule still wins when collapsed.
-        &.epg--list {
-            --epg-inline-height: clamp(280px, 46vh, 430px);
-        }
-
-        &.epg-collapsed {
-            flex: 0 0 56px;
-            min-height: 56px;
-        }
-
-        > app-epg-timeline,
-        > app-epg-list-view {
-            flex: 1;
-            min-height: 0;
-        }
-    }
-
-    .epg-content {
-        height: 100%;
-        min-height: 0;
-        overflow: hidden;
-        display: flex;
-        flex-direction: column;
-
-        > app-epg-timeline,
-        > app-epg-list-view {
-            flex: 1;
-            min-height: 0;
-        }
-    }
-
     // ─── Fix artplayer sizing when nested inside .video-player ───────────────
     ::ng-deep {
         .video-player
