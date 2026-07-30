@@ -136,7 +136,10 @@ export class PlayerControlsComponent implements OnDestroy {
     readonly hideCursor = this.vm.hideCursor;
     constructor() {
         this.shortcuts.attach({
-            isAvailable: () => this.shortcutsEnabled() && this.showControls(),
+            isAvailable: () =>
+                this.shortcutsEnabled() &&
+                this.showControls() &&
+                !this.host.closest('.workspace-player--mini'),
             canTogglePaused: () => this.canTogglePlay(),
             canSeek: () => this.capabilities().seek && this.state().canSeek,
             canAdjustVolume: () => this.capabilities().volume,

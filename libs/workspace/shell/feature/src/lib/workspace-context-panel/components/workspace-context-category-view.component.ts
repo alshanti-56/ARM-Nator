@@ -1,9 +1,6 @@
 import {
     ChangeDetectionStrategy,
     Component,
-    effect,
-    ElementRef,
-    inject,
     input,
     output,
 } from '@angular/core';
@@ -41,49 +38,7 @@ export class WorkspaceContextCategoryViewComponent {
     readonly interactionEnabled = input(true);
     readonly statusText = input('');
 
-    private readonly hostEl = inject(ElementRef<HTMLElement>);
-
     readonly categoryClicked = output<WorkspaceCategoryViewItem>();
-
-    constructor() {
-        effect(() => {
-            const selectedCategory = this.selectedCategoryId();
-            if (selectedCategory == null) {
-                return;
-            }
-
-            queueMicrotask(() => {
-                const container = this.hostEl.nativeElement;
-                const candidates = Array.from(
-                    container.querySelectorAll('[data-category-id]')
-                ) as HTMLElement[];
-                const selected = candidates.find(
-                    (el) =>
-                        el.dataset['categoryId'] === String(selectedCategory)
-                );
-                if (!selected) {
-                    return;
-                }
-
-                const containerRect = container.getBoundingClientRect();
-                const selectedRect = selected.getBoundingClientRect();
-                const targetTop =
-                    container.scrollTop +
-                    (selectedRect.top - containerRect.top) -
-                    container.clientHeight / 2 +
-                    selectedRect.height / 2;
-                const maxScrollTop = Math.max(
-                    0,
-                    container.scrollHeight - container.clientHeight
-                );
-
-                container.scrollTo({
-                    behavior: 'smooth',
-                    top: Math.min(maxScrollTop, Math.max(0, targetTop)),
-                });
-            });
-        });
-    }
 
     isSelected(item: WorkspaceCategoryViewItem): boolean {
         const selectedCategory = this.selectedCategoryId();

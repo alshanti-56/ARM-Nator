@@ -18,6 +18,7 @@ import { WorkspaceShellRouteStateService } from './services/workspace-shell-rout
 import { WorkspaceShellSearchSyncService } from './services/workspace-shell-search-sync.service';
 import { WorkspaceShellSearchService } from './services/workspace-shell-search.service';
 import { WorkspaceKeyboardShortcutsService } from '../workspace-keyboard-shortcuts/workspace-keyboard-shortcuts.service';
+import { WorkspaceKeyboardNavigationService } from '../workspace-keyboard-navigation/workspace-keyboard-navigation.service';
 
 @Component({
     selector: 'app-workspace-shell',
@@ -43,11 +44,15 @@ import { WorkspaceKeyboardShortcutsService } from '../workspace-keyboard-shortcu
         WorkspaceShellXtreamImportService,
         WorkspaceShellCommandPaletteService,
         WorkspaceKeyboardShortcutsService,
+        WorkspaceKeyboardNavigationService,
     ],
 })
 export class WorkspaceShellComponent {
     readonly facade = inject(WorkspaceShellFacade);
     readonly keyboardShortcuts = inject(WorkspaceKeyboardShortcutsService);
+    private readonly keyboardNavigation = inject(
+        WorkspaceKeyboardNavigationService
+    );
     private readonly header = viewChild<WorkspaceShellHeaderShortcutTarget>(
         'workspaceHeader'
     );
