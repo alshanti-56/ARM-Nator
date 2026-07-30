@@ -2,7 +2,6 @@ import { ipcMain } from 'electron';
 import {
     EMBEDDED_MPV_CREATE_SESSION,
     EMBEDDED_MPV_DISPOSE_SESSION,
-    EMBEDDED_MPV_GET_FRAME_SOURCE,
     EMBEDDED_MPV_LOAD_PLAYBACK,
     EMBEDDED_MPV_PREPARE,
     EMBEDDED_MPV_SEEK,
@@ -114,10 +113,6 @@ handleEmbeddedMpv(
 
 handleEmbeddedMpv(EMBEDDED_MPV_DISPOSE_SESSION, (sessionId: string) =>
     getService().disposeSession(sessionId)
-);
-
-handleEmbeddedMpv(EMBEDDED_MPV_GET_FRAME_SOURCE, (sessionId: string) =>
-    getService().getFrameSource(sessionId)
 );
 
 export function shutdownEmbeddedMpv(): void {

@@ -2,7 +2,6 @@ import {
   CoverSize,
   StartupBehavior,
   Theme,
-  VideoPlayer,
 } from "@arm-nator/shared/interfaces";
 
 import { getAvailablePlayerEngines } from "@arm-nator/player/core";

@@ -157,7 +157,6 @@ export class DirectPlayComponent implements OnDestroy {
         this.embeddedSupport.set({
           available: support.supported,
           reason: support.reason,
-          engine: support.engine,
         }),
       )
       .catch((error: unknown) =>
@@ -197,7 +196,6 @@ export class DirectPlayComponent implements OnDestroy {
         ["Subtitles", capabilities.subtitles],
         ["Speed", capabilities.playbackSpeed],
         ["Aspect", capabilities.aspectRatio],
-        ["Picture in picture", capabilities.pictureInPicture],
         ["Fullscreen", capabilities.fullscreen],
       ]
         .filter(([, enabled]) => enabled)

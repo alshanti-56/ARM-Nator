@@ -3,14 +3,10 @@
     class="embedded-mpv-player"
     [class.embedded-mpv-player--fullscreen]="isFullscreen()"
     [class.embedded-mpv-player--controls-enabled]="
-        !isFrameCopyEngine() && showControls() && isSupported()
+        showControls() && isSupported()
     "
-    [class.embedded-mpv-player--controls-visible]="
-        !isFrameCopyEngine() && controlsAreVisible()
-    "
-    [class.embedded-mpv-player--cursor-hidden]="
-        !isFrameCopyEngine() && hideCursor()
-    "
+    [class.embedded-mpv-player--controls-visible]="controlsAreVisible()"
+    [class.embedded-mpv-player--cursor-hidden]="hideCursor()"
     (pointerenter)="onPlayerInteraction()"
     (pointermove)="onPlayerInteraction()"
     (click)="onPlayerInteraction()"
@@ -22,15 +18,6 @@
         class="embedded-mpv-player__viewport"
         (click)="onViewportClick($event)"
     >
-        @if (isFrameCopyEngine()) {
-            <!-- Frame-copy engine: the preload frame pump paints helper
-                 frames onto this canvas. It is ordinary DOM, so controls
-                 and dialogs stack above it without native-layer tricks. -->
-            <canvas
-                class="embedded-mpv-player__frame-canvas"
-                data-embedded-mpv-frame
-            ></canvas>
-        }
         @if (isErrored()) {
             <div
                 class="embedded-mpv-player__stalled"
@@ -82,7 +69,7 @@
             </div>
         }
 
-        @if (!isFrameCopyEngine() && feedback.current(); as feedback) {
+        @if (feedback.current(); as feedback) {
             <div
                 class="embedded-mpv-player__feedback"
                 [attr.data-feedback-key]="feedback.key"
@@ -94,19 +81,7 @@
         }
     </div>
 
-    @if (isFrameCopyEngine() && isSupported()) {
-        <app-player-controls
-            [controller]="sharedControls"
-            [playerSurface]="playerSurface()"
-            [mediaTitle]="mediaTitle()"
-            [showControls]="showControls()"
-            [shortcutsEnabled]="sharedShortcutsEnabled()"
-            (previousEpisodeRequested)="requestPreviousEpisode()"
-            (nextEpisodeRequested)="requestNextEpisode()"
-        />
-    }
-
-    @if (!isFrameCopyEngine() && showControls() && isSupported()) {
+    @if (showControls() && isSupported()) {
         <div
             class="embedded-mpv-player__controls"
             [class.embedded-mpv-player__controls--visible]="
@@ -214,12 +189,10 @@
                         [disabled]="!canSeek()"
                         (click)="seekBy(10)"
                         [attr.aria-label]="
-                            'EMBEDDED_MPV.PLAYER.FORWARD_10_SECONDS'
-                                | translate
+                            'EMBEDDED_MPV.PLAYER.FORWARD_10_SECONDS' | translate
                         "
                         [matTooltip]="
-                            'EMBEDDED_MPV.PLAYER.FORWARD_10_SECONDS'
-                                | translate
+                            'EMBEDDED_MPV.PLAYER.FORWARD_10_SECONDS' | translate
                         "
                         matTooltipPosition="above"
                     >
@@ -313,9 +286,7 @@
                             >
                                 <input
                                     class="embedded-mpv-player__slider embedded-mpv-player__slider--volume"
-                                    [style.--slider-progress.%]="
-                                        volume() * 100
-                                    "
+                                    [style.--slider-progress.%]="volume() * 100"
                                     type="range"
                                     min="0"
                                     max="1"

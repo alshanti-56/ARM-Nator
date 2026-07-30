@@ -19,8 +19,7 @@ export class WorkspacePlayerStateService {
 
     readonly playback = signal<ResolvedPortalPlayback | null>(null);
     readonly engine = signal<VideoPlayer>(VideoPlayer.ArtPlayer);
-    readonly presentation =
-        signal<WorkspacePlayerPresentation>('expanded');
+    readonly presentation = signal<WorkspacePlayerPresentation>('mini');
     readonly reloadGeneration = signal(0);
     readonly runtimeSnapshot = signal<PlayerRuntimeSnapshot | null>(null);
     readonly diagnostic = signal<PlaybackDiagnostic | null>(null);
@@ -32,7 +31,8 @@ export class WorkspacePlayerStateService {
         engine: VideoPlayer,
         context?: PlayerOpenContext
     ): void {
-        if (this.playback()) {
+        const replacingPlayback = this.playback() !== null;
+        if (replacingPlayback) {
             void this.persistPosition(this.lastTimeUpdate, true);
             this.context()?.onClosed?.();
         }
@@ -43,7 +43,9 @@ export class WorkspacePlayerStateService {
         this.runtimeSnapshot.set(null);
         this.diagnostic.set(null);
         this.stopped.set(false);
-        this.presentation.set('expanded');
+        if (!replacingPlayback) {
+            this.presentation.set('mini');
+        }
         this.reloadGeneration.update((value) => value + 1);
     }
 

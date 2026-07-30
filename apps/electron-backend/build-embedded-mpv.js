@@ -21,8 +21,6 @@ const nativeRoot = path.join(
 const outputDir = path.join(nativeRoot, 'build', 'Release');
 const outputLibDir = path.join(outputDir, 'lib');
 const outputFile = path.join(outputDir, 'embedded_mpv.node');
-const helperFile = path.join(outputDir, 'arm-nator_mpv_helper');
-const readerFile = path.join(outputDir, 'embedded_mpv_frame_reader.node');
 const manifestFile = path.join(outputDir, 'embedded-mpv-runtime.json');
 const unavailableMarkerFile = path.join(
     outputDir,
@@ -52,7 +50,7 @@ function log(message) {
 }
 
 function cleanOutput() {
-    for (const artifact of [outputFile, helperFile, readerFile, manifestFile]) {
+    for (const artifact of [outputFile, manifestFile]) {
         fs.rmSync(artifact, { force: true });
     }
     fs.rmSync(outputLibDir, { recursive: true, force: true });
@@ -69,8 +67,6 @@ function cleanOutput() {
 
 function cleanNativeBuildIntermediates() {
     fs.rmSync(outputFile, { force: true });
-    fs.rmSync(helperFile, { force: true });
-    fs.rmSync(readerFile, { force: true });
     fs.rmSync(path.join(outputDir, '.deps'), { recursive: true, force: true });
     fs.rmSync(path.join(outputDir, 'obj.target'), {
         recursive: true,
@@ -192,7 +188,7 @@ function main() {
         runNodeGyp('configure', env);
         runNodeGyp('build', env);
 
-        for (const artifact of [outputFile, helperFile, readerFile]) {
+        for (const artifact of [outputFile]) {
             if (!fs.existsSync(artifact)) {
                 throw new Error(
                     `Native build finished without producing ${artifact}.`
@@ -201,10 +197,8 @@ function main() {
         }
 
         patchBinaryForBundledRuntime(outputFile, outputLibDir);
-        patchBinaryForBundledRuntime(helperFile, outputLibDir);
         const linkErrors = validateNoForbiddenRuntimeLinks([
             outputFile,
-            helperFile,
             ...runtimeManifest.dylibs.map((name) =>
                 path.join(outputLibDir, name)
             )

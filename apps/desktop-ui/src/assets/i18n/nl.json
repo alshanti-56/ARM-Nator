@@ -275,8 +275,6 @@
         "SHOW_DASHBOARD": "Dashboard tonen",
         "SHOW_DASHBOARD_DESCRIPTION": "Houd het dashboard beschikbaar in de werkruimtebalk. Wanneer uitgeschakeld, wordt Bronnen de eerste pagina van de werkruimte.",
         "VIDEO_PLAYER_DESCRIPTION": "Selecteer de standaard videospeler",
-        "WEB_PLAYER_SHARED_CONTROLS": "Uniforme bediening voor webspelers (experimenteel)",
-        "WEB_PLAYER_SHARED_CONTROLS_DESCRIPTION": "Gebruik de gedeelde ARM-Nator-bediening in HTML5 en ArtPlayer.",
         "PLAYER_AMBIENT_MODE": "Ambient achtergrond",
         "PLAYER_AMBIENT_MODE_DESCRIPTION": "Vult de ruimte rond de speler met een vervaagde, gedimde posterafbeelding in plaats van zwarte balken.",
         "PLAYER_UP_NEXT_RAIL": "Hierna-paneel met afleveringen",
@@ -381,10 +379,7 @@
         "APP_UPDATE_DOWNLOAD": "Update",
         "APP_UPDATE_INSTALL": "Restart application",
         "APP_UPDATE_OPEN_RELEASE": "Open GitHub release",
-        "APP_UPDATE_RELEASE_NOTES": "What's new",
-        "EMBEDDED_MPV_FRAME_COPY": "Embedded MPV: frame-copy-engine (experimenteel)",
-        "EMBEDDED_MPV_FRAME_COPY_DESCRIPTION": "De video wordt op het app-canvas getekend zodat menu's en dialoogvensters erboven verschijnen.",
-        "EMBEDDED_MPV_FRAME_COPY_RESTART": "Wordt van kracht na het herstarten van de app."
+        "APP_UPDATE_RELEASE_NOTES": "What's new"
     },
     "THEMES": {
         "DARK_THEME": "Donker",
@@ -433,8 +428,6 @@
             "ASPECT_RATIO": "Beeldverhouding",
             "ASPECT_TOOLTIP": "Beeldverhouding: {{aspect}}",
             "ASPECT_DEFAULT": "Standaard",
-            "ENTER_PICTURE_IN_PICTURE": "Beeld-in-beeld starten",
-            "EXIT_PICTURE_IN_PICTURE": "Beeld-in-beeld sluiten",
             "ENTER_FULLSCREEN": "Volledig scherm openen",
             "EXIT_FULLSCREEN": "Volledig scherm sluiten"
         }

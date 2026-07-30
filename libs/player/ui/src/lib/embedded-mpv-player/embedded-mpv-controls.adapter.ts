@@ -77,7 +77,6 @@ export class EmbeddedMpvControlsAdapter implements PlayerController {
             subtitles: optionalCapabilities?.subtitles ?? false,
             playbackSpeed: optionalCapabilities?.playbackSpeed ?? false,
             aspectRatio: optionalCapabilities?.aspectOverride ?? false,
-            pictureInPicture: false,
             fullscreen: true,
             seriesNavigation: !isLive && context.seriesNavigation() !== null,
             frameStep: !isLive,
@@ -142,8 +141,6 @@ export class EmbeddedMpvControlsAdapter implements PlayerController {
             speedPresets: DEFAULT_SPEED_PRESETS,
             aspectRatio: session?.aspectOverride ?? 'no',
             aspectPresets: DEFAULT_ASPECT_PRESETS,
-            pictureInPictureActive: false,
-            canPictureInPicture: false,
             canPreviousEpisode:
                 hasSeriesNavigation && seriesNavigation?.canPrevious === true,
             canNextEpisode:
@@ -160,7 +157,6 @@ export class EmbeddedMpvControlsAdapter implements PlayerController {
         setSubtitleTrack: (id) => void this.controller.setSubtitleTrack(id),
         setPlaybackSpeed: (speed) => void this.controller.setSpeed(speed),
         setAspectRatio: (value) => void this.controller.setAspect(value),
-        togglePictureInPicture: () => undefined,
     };
 
     configure(context: EmbeddedMpvControlsContext): void {

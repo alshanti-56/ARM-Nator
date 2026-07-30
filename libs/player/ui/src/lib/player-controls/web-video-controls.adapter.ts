@@ -30,7 +30,6 @@ import {
     type WebVideoMetadataOptions,
     WEB_VIDEO_EVENTS,
 } from './web-video-controls.media-helpers';
-import { WebVideoPictureInPictureController } from './web-video-picture-in-picture.controller';
 
 /**
  * Engine-agnostic accessors a web engine injects so the adapter can read/select
@@ -69,13 +68,6 @@ export class WebVideoControlsAdapter implements PlayerController {
 
     /** Bumped whenever DOM or engine-specific state must be re-read. */
     private readonly tick = signal(0);
-    private readonly pictureInPicture = new WebVideoPictureInPictureController(
-        () => ({
-            generation: this.bindingGeneration,
-            video: this.video,
-        }),
-        () => this.refresh()
-    );
     /**
      * Holds the host-supplied series-navigation signal reactively. Storing the
      * signal itself (rather than a one-time snapshot of its value) means updates
@@ -101,7 +93,6 @@ export class WebVideoControlsAdapter implements PlayerController {
             typeof this.opts.setSubtitleTrack === 'function' &&
             (this.opts.getSubtitleTracks?.().length ?? 0) > 0;
         const isLive = readVideoIsLive(this.video, this.opts);
-        const pictureInPicture = this.pictureInPicture.snapshot();
         return {
             ...DEFAULT_PLAYER_CAPABILITIES,
             seek: !isLive,
@@ -111,7 +102,6 @@ export class WebVideoControlsAdapter implements PlayerController {
             audioTracks: hasAudioTracks,
             subtitles: hasSubtitles,
             aspectRatio: true,
-            pictureInPicture: pictureInPicture.supported,
             seriesNavigation: !isLive && this.seriesNavigation() !== null,
         };
     });
@@ -133,8 +123,6 @@ export class WebVideoControlsAdapter implements PlayerController {
 
         const audioTracks = this.opts.getAudioTracks?.() ?? [];
         const subtitleTracks = this.opts.getSubtitleTracks?.() ?? [];
-        const pictureInPicture = this.pictureInPicture.snapshot();
-
         return {
             status: mapVideoStatus(video),
             statusMessage: '',
@@ -151,8 +139,6 @@ export class WebVideoControlsAdapter implements PlayerController {
             speedPresets: DEFAULT_SPEED_PRESETS,
             aspectRatio: this.aspectRatio(),
             aspectPresets: DEFAULT_ASPECT_PRESETS,
-            pictureInPictureActive: pictureInPicture.active,
-            canPictureInPicture: pictureInPicture.canToggle,
             canPreviousEpisode:
                 seriesNavCapable && seriesNav?.canPrevious === true,
             canNextEpisode: seriesNavCapable && seriesNav?.canNext === true,
@@ -269,7 +255,6 @@ export class WebVideoControlsAdapter implements PlayerController {
             }
             this.refresh();
         },
-        togglePictureInPicture: () => this.pictureInPicture.toggle(),
     };
 
     /** Binds to a `<video>` element and starts maintaining the state signal. */
@@ -307,7 +292,6 @@ export class WebVideoControlsAdapter implements PlayerController {
 
     /** Removes listeners and clears the bound element. Idempotent. */
     detach(): void {
-        const previousVideo = this.video;
         this.bindingGeneration += 1;
         this.detachFn?.();
         this.detachFn = null;
@@ -317,7 +301,6 @@ export class WebVideoControlsAdapter implements PlayerController {
         this.sampledFps = undefined;
         this.sampledBitrate = undefined;
         this.aspectRatio.set('no');
-        this.pictureInPicture.release(previousVideo);
         this.refresh();
     }
 

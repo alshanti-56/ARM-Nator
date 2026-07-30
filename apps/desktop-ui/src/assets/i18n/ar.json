@@ -275,8 +275,6 @@
         "SHOW_DASHBOARD": "عرض لوحة التحكم",
         "SHOW_DASHBOARD_DESCRIPTION": "إبقاء لوحة التحكم متاحة في شريط مساحة العمل. عند التعطيل، تصبح المصادر هي أول صفحة في مساحة العمل.",
         "VIDEO_PLAYER_DESCRIPTION": "اختر مشغل الفيديو الافتراضي",
-        "WEB_PLAYER_SHARED_CONTROLS": "عناصر تحكم موحّدة لمشغلات الويب (تجريبي)",
-        "WEB_PLAYER_SHARED_CONTROLS_DESCRIPTION": "استخدم عناصر التحكم المشتركة في ARM-Nator مع HTML5 وArtPlayer.",
         "PLAYER_AMBIENT_MODE": "ملء الخلفية المحيطة",
         "PLAYER_AMBIENT_MODE_DESCRIPTION": "تعبئة المساحة حول المشغل بنسخة مشوشة ومعتمة من الملصق بدلاً من الخطوط السوداء.",
         "PLAYER_UP_NEXT_RAIL": "شريط الحلقات التالية",
@@ -381,10 +379,7 @@
         "APP_UPDATE_DOWNLOAD": "Update",
         "APP_UPDATE_INSTALL": "Restart application",
         "APP_UPDATE_OPEN_RELEASE": "Open GitHub release",
-        "APP_UPDATE_RELEASE_NOTES": "What's new",
-        "EMBEDDED_MPV_FRAME_COPY": "MPV المدمج: محرك نسخ الإطارات (تجريبي)",
-        "EMBEDDED_MPV_FRAME_COPY_DESCRIPTION": "يُرسم الفيديو على لوحة التطبيق بحيث تظهر القوائم ومربعات الحوار فوقه.",
-        "EMBEDDED_MPV_FRAME_COPY_RESTART": "يسري المفعول بعد إعادة تشغيل التطبيق."
+        "APP_UPDATE_RELEASE_NOTES": "What's new"
     },
     "THEMES": {
         "DARK_THEME": "داكن",
@@ -433,8 +428,6 @@
             "ASPECT_RATIO": "نسبة العرض إلى الارتفاع",
             "ASPECT_TOOLTIP": "النسبة: {{aspect}}",
             "ASPECT_DEFAULT": "افتراضي",
-            "ENTER_PICTURE_IN_PICTURE": "تشغيل صورة داخل صورة",
-            "EXIT_PICTURE_IN_PICTURE": "إنهاء صورة داخل صورة",
             "ENTER_FULLSCREEN": "ملء الشاشة",
             "EXIT_FULLSCREEN": "الخروج من ملء الشاشة"
         }

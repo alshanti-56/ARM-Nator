@@ -11,7 +11,6 @@ export interface PlayerControlsCapabilities {
     subtitles: boolean;
     playbackSpeed: boolean;
     aspectRatio: boolean;
-    pictureInPicture: boolean;
     fullscreen: boolean;
     seriesNavigation: boolean;
     stop: boolean;
@@ -60,8 +59,6 @@ export interface PlayerControlsState {
     speedPresets: ReadonlyArray<PlayerPreset<number>>;
     aspectRatio: string;
     aspectPresets: ReadonlyArray<PlayerPreset<string>>;
-    pictureInPictureActive: boolean;
-    canPictureInPicture: boolean;
     canPreviousEpisode: boolean;
     canNextEpisode: boolean;
 }
@@ -76,7 +73,6 @@ export interface PlayerControlsCommands {
     setSubtitleTrack(id: number): void; // -1 = off
     setPlaybackSpeed(speed: number): void;
     setAspectRatio(value: string): void;
-    togglePictureInPicture(): void;
 }
 
 /**

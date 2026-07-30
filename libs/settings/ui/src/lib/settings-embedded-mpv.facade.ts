@@ -16,14 +16,6 @@ export class SettingsEmbeddedMpvFacade {
     () => this.runtime.isElectron && !!this.support()?.supported,
   );
 
-  readonly frameCopyAvailable = computed(
-    () => this.runtime.isElectron && !!this.support()?.frameCopyAvailable,
-  );
-
-  readonly frameCopyActive = computed(
-    () => this.support()?.engine === "frame-copy",
-  );
-
   async load(): Promise<void> {
     if (!this.runtime.isElectron) {
       this.support.set({

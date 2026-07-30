@@ -275,8 +275,6 @@
         "SHOW_DASHBOARD": "Afficher le tableau de bord",
         "SHOW_DASHBOARD_DESCRIPTION": "Garde le tableau de bord disponible dans le rail de l'espace de travail. Lorsqu'il est désactivé, Sources devient la première page de l'espace de travail.",
         "VIDEO_PLAYER_DESCRIPTION": "Sélectionnez le lecteur vidéo par défaut",
-        "WEB_PLAYER_SHARED_CONTROLS": "Commandes unifiées pour les lecteurs web (expérimental)",
-        "WEB_PLAYER_SHARED_CONTROLS_DESCRIPTION": "Utilise les commandes partagées d’ARM-Nator dans HTML5 et ArtPlayer.",
         "PLAYER_AMBIENT_MODE": "Mode ambiant",
         "PLAYER_AMBIENT_MODE_DESCRIPTION": "Remplit l'espace autour du lecteur avec une affiche floue et assombrie au lieu de barres noires simples.",
         "PLAYER_UP_NEXT_RAIL": "Rail d'épisodes « À suivre »",
@@ -381,10 +379,7 @@
         "APP_UPDATE_DOWNLOAD": "Update",
         "APP_UPDATE_INSTALL": "Restart application",
         "APP_UPDATE_OPEN_RELEASE": "Open GitHub release",
-        "APP_UPDATE_RELEASE_NOTES": "What's new",
-        "EMBEDDED_MPV_FRAME_COPY": "Embedded MPV : moteur frame-copy (expérimental)",
-        "EMBEDDED_MPV_FRAME_COPY_DESCRIPTION": "La vidéo est rendue sur le canevas de l'application, les menus et boîtes de dialogue s'affichent donc au-dessus.",
-        "EMBEDDED_MPV_FRAME_COPY_RESTART": "Prend effet après le redémarrage de l'application."
+        "APP_UPDATE_RELEASE_NOTES": "What's new"
     },
     "THEMES": {
         "DARK_THEME": "Sombre",
@@ -433,8 +428,6 @@
             "ASPECT_RATIO": "Format d'image",
             "ASPECT_TOOLTIP": "Format : {{aspect}}",
             "ASPECT_DEFAULT": "Par défaut",
-            "ENTER_PICTURE_IN_PICTURE": "Activer le mode image dans l’image",
-            "EXIT_PICTURE_IN_PICTURE": "Quitter le mode image dans l’image",
             "ENTER_FULLSCREEN": "Passer en plein écran",
             "EXIT_FULLSCREEN": "Quitter le plein écran"
         }

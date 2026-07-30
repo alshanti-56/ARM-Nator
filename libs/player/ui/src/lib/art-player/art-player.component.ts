@@ -19,10 +19,8 @@ import {
   PlayerControlsComponent,
   type PlayerMediaTitle,
   type PlayerRuntimeSnapshot,
-  WEB_PLAYER_SHARED_CONTROLS,
   WebVideoControlsAdapter,
 } from "../player-controls";
-import { SeriesPlaybackNavigationControlsComponent } from "../portal-inline-player/series-playback-navigation-controls.component";
 import type { SeriesPlaybackNavigation } from "../portal-inline-player/series-playback-navigation";
 import {
   buildArtPlayerChrome,
@@ -40,7 +38,7 @@ Artplayer.AUTO_PLAYBACK_TIMEOUT = 10000;
 
 @Component({
   selector: "app-art-player",
-  imports: [PlayerControlsComponent, SeriesPlaybackNavigationControlsComponent],
+  imports: [PlayerControlsComponent],
   providers: [WebVideoControlsAdapter],
   templateUrl: "./art-player.component.html",
   styleUrls: ["./art-player.component.scss"],
@@ -54,7 +52,6 @@ export class ArtPlayerComponent implements OnInit, OnDestroy, OnChanges {
   readonly isLive = input(true);
   readonly interactionEnabled = input(true);
   readonly mediaTitle = input<PlayerMediaTitle | null>(null);
-  readonly sharedControlsOverride = input<boolean | null>(null);
   readonly onlineSubtitleUrl = input("");
   readonly onlineSubtitleLabel = input("Online subtitle");
   readonly onlineSubtitleLanguage = input("und");
@@ -69,12 +66,6 @@ export class ArtPlayerComponent implements OnInit, OnDestroy, OnChanges {
   readonly nextEpisodeRequested = output<void>();
   readonly runtimeSnapshotChange = output<PlayerRuntimeSnapshot>();
 
-  private readonly configuredSharedControls = inject(
-    WEB_PLAYER_SHARED_CONTROLS,
-  );
-  get sharedControls(): boolean {
-    return this.sharedControlsOverride() ?? this.configuredSharedControls;
-  }
   readonly controlsAdapter = inject(WebVideoControlsAdapter);
   private readonly runtimeSnapshotEffect = effect(() => {
     this.runtimeSnapshotChange.emit({
@@ -100,11 +91,9 @@ export class ArtPlayerComponent implements OnInit, OnDestroy, OnChanges {
 
   ngOnInit(): void {
     this.seriesNavigationSignal.set(this.seriesNavigation());
-    if (this.sharedControls) {
-      this.controlsAdapter.setContext({
-        seriesNavigation: this.seriesNavigationSignal,
-      });
-    }
+    this.controlsAdapter.setContext({
+      seriesNavigation: this.seriesNavigationSignal,
+    });
     this.initPlayer();
   }
 
@@ -116,7 +105,6 @@ export class ArtPlayerComponent implements OnInit, OnDestroy, OnChanges {
     const channelChanged =
       changes["channel"] && !changes["channel"].firstChange;
     const authoritativeLiveChanged =
-      this.sharedControls &&
       changes["isLive"] &&
       !changes["isLive"].firstChange &&
       changes["isLive"].previousValue !== changes["isLive"].currentValue;
@@ -138,7 +126,6 @@ export class ArtPlayerComponent implements OnInit, OnDestroy, OnChanges {
     }
     if (changes["interactionEnabled"]?.currentValue === false) {
       exitOwnedArtPlayerFullscreen(
-        this.sharedControls,
         this.playerRoot()?.nativeElement,
         (error) =>
           debugArtPlayer("Failed to exit ArtPlayer fullscreen:", error),
@@ -158,7 +145,6 @@ export class ArtPlayerComponent implements OnInit, OnDestroy, OnChanges {
     const channel = this.channel();
     const sourceUrl = channel.url;
     const sourceSession = new ArtPlayerSourceSession({
-      sharedControls: this.sharedControls,
       controlsAdapter: this.controlsAdapter,
       isLive: () => this.isLive(),
       showCaptions: () => this.showCaptions(),
@@ -171,18 +157,14 @@ export class ArtPlayerComponent implements OnInit, OnDestroy, OnChanges {
       container: this.artplayerContainer().nativeElement,
       url: sourceUrl,
       volume: this.clampVolume(this.volume()),
-      isLive: resolveArtPlayerIsLive(
-        this.sharedControls,
-        this.isLive(),
-        channel.url,
-      ),
+      isLive: resolveArtPlayerIsLive(this.isLive()),
       autoplay: true,
       type: getArtPlayerVideoType(channel.url),
       playsInline: true,
       backdrop: true,
       mutex: true,
       theme: "#ff0000",
-      ...buildArtPlayerChrome(this.sharedControls),
+      ...buildArtPlayerChrome(),
       customType: sourceSession.customType,
     });
     this.player = player;
@@ -194,7 +176,7 @@ export class ArtPlayerComponent implements OnInit, OnDestroy, OnChanges {
       sourceUrl: channel.url,
       getStartTime: () => this.startTime(),
       getDuration: () => sourceSession.resolveDuration(player.duration),
-      persistSharedVolume: this.sharedControls,
+      persistSharedVolume: true,
       emitPlaybackIssue: (issue) => this.playbackIssue.emit(issue),
       emitTimeUpdate: (value) => this.timeUpdate.emit(value),
       emitPlaybackEnded: () => this.playbackEnded.emit(),
@@ -205,9 +187,7 @@ export class ArtPlayerComponent implements OnInit, OnDestroy, OnChanges {
     // ArtPlayer synchronously restores `artplayer_settings.volume` after
     // applying the constructor option. Shared controls use the app-wide
     // volume as authoritative, so reapply it directly to the media element.
-    if (this.sharedControls) {
-      this.applyVolume(this.volume());
-    }
+    this.applyVolume(this.volume());
   }
 
   private syncOnlineSubtitle(): void {
@@ -242,12 +222,8 @@ export class ArtPlayerComponent implements OnInit, OnDestroy, OnChanges {
     }
 
     const volume = this.clampVolume(value);
-    if (this.sharedControls) {
-      player.video.volume = volume;
-      player.video.muted = volume <= 0;
-    } else {
-      player.volume = volume;
-    }
+    player.video.volume = volume;
+    player.video.muted = volume <= 0;
   }
 
   private clampVolume(value: number): number {

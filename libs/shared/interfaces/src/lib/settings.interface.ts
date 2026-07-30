@@ -67,7 +67,6 @@ export enum StartupBehavior {
 
 export type CoverSize = 'small' | 'medium' | 'large';
 
-
 export interface DashboardRailsSettings {
     hero: boolean;
     continueWatching: boolean;
@@ -124,11 +123,6 @@ export interface Settings {
     /** Preferences used by the local Direct Play diagnostics tool. */
     directPlay?: DirectPlayPreferences;
     /**
-     * Use ARM-Nator's shared controls in HTML5 and ArtPlayer.
-     * Missing values remain off for compatibility with older saved settings.
-     */
-    webPlayerSharedControls?: boolean;
-    /**
      * Fill the empty space around the inline VOD/series player with a blurred,
      * dimmed copy of the poster (YouTube "Ambient mode" style) instead of plain
      * black bars. Off by default; only affects the built-in web players.
@@ -168,12 +162,6 @@ export interface Settings {
     vlcReuseInstance: boolean;
     /** Custom download folder path (uses system Downloads folder if not set) */
     downloadFolder?: string;
-    /**
-     * Embedded MPV frame-copy engine (experimental, macOS Apple Silicon and Linux).
-     * Applied on the next app start — the engine relaxes the window sandbox
-     * for its preload frame pump, which is fixed at window creation.
-     */
-    embeddedMpvFrameCopy?: boolean;
     /** Cover/poster sizing preset applied across grids and rails */
     coverSize?: CoverSize;
     /** Per-rail dashboard visibility preferences. Missing keys default on. */

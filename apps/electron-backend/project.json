@@ -105,6 +105,7 @@
         },
         "package": {
             "dependsOn": [
+                "desktop-ui:build",
                 "electron-backend:build",
                 "electron-backend:generate-builder-metadata"
             ],

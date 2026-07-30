@@ -31,8 +31,6 @@ import { HtmlVideoPlayerComponent } from "../html-video-player/html-video-player
 import {
   type PlayerMediaTitle,
   type PlayerRuntimeSnapshot,
-  WEB_PLAYER_SHARED_CONTROLS,
-  WEB_PLAYER_SHARED_CONTROLS_ENABLED,
 } from "../player-controls";
 import {
   type PlaybackDiagnostic,
@@ -46,13 +44,6 @@ import {
   getDiagnosticMeta,
   getDiagnosticTitleKey,
 } from "./web-player-view-diagnostics.utils";
-
-function resolveWebPlayerSharedControls(): boolean {
-  const storedValue = inject(SettingsStore).webPlayerSharedControls?.();
-  return typeof storedValue === "boolean"
-    ? storedValue
-    : WEB_PLAYER_SHARED_CONTROLS_ENABLED;
-}
 
 @Component({
   selector: "app-web-player-view",
@@ -71,12 +62,6 @@ function resolveWebPlayerSharedControls(): boolean {
     MatTooltipModule,
     TranslatePipe,
   ],
-  providers: [
-    {
-      provide: WEB_PLAYER_SHARED_CONTROLS,
-      useFactory: resolveWebPlayerSharedControls,
-    },
-  ],
   encapsulation: ViewEncapsulation.None,
 })
 export class WebPlayerViewComponent {
@@ -90,7 +75,6 @@ export class WebPlayerViewComponent {
   startTime = input<number>(0);
   volume = input<number>(1);
   playerOverride = input<VideoPlayer | null>(null);
-  unifiedControls = input(true);
   reloadGeneration = input(0);
   seriesNavigation = input<SeriesPlaybackNavigation | null>(null);
   /** Display-ready title lines for the fullscreen overlay; hosts with richer

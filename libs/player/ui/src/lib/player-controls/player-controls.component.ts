@@ -292,13 +292,6 @@ export class PlayerControlsComponent implements OnDestroy {
         this.menus.toggle(menu);
         this.reveal();
     }
-    togglePictureInPicture(): void {
-        this.reveal();
-        const state = this.state();
-        if (this.capabilities().pictureInPicture && state.canPictureInPicture) {
-            this.controller().commands.togglePictureInPicture();
-        }
-    }
     async toggleFullscreen(): Promise<void> {
         this.reveal();
         if (!this.canFullscreen()) {

@@ -275,8 +275,6 @@
         "SHOW_DASHBOARD": "Panoyu göster",
         "SHOW_DASHBOARD_DESCRIPTION": "Panoyu çalışma alanı kenar çubuğunda erişilebilir tutun. Devre dışı bırakıldığında, ilk çalışma alanı sayfası Kaynaklar olur.",
         "VIDEO_PLAYER_DESCRIPTION": "Varsayılan video oynatıcıyı seçin",
-        "WEB_PLAYER_SHARED_CONTROLS": "Web oynatıcıları için birleşik kontroller (deneysel)",
-        "WEB_PLAYER_SHARED_CONTROLS_DESCRIPTION": "HTML5 ve ArtPlayer'da ARM-Nator'ın ortak kontrollerini kullan.",
         "PLAYER_AMBIENT_MODE": "Ortam ışığı dolgusu",
         "PLAYER_AMBIENT_MODE_DESCRIPTION": "Oynatıcının çevresindeki boşluğu siyah çubuklar yerine bulanık ve karartılmış bir poster ile doldurur.",
         "PLAYER_UP_NEXT_RAIL": "Sıradaki bölümler paneli",
@@ -381,10 +379,7 @@
         "APP_UPDATE_DOWNLOAD": "Update",
         "APP_UPDATE_INSTALL": "Restart application",
         "APP_UPDATE_OPEN_RELEASE": "Open GitHub release",
-        "APP_UPDATE_RELEASE_NOTES": "What's new",
-        "EMBEDDED_MPV_FRAME_COPY": "Embedded MPV: frame-copy motoru (deneysel)",
-        "EMBEDDED_MPV_FRAME_COPY_DESCRIPTION": "Video uygulama tuvaline çizilir, böylece menüler ve iletişim kutuları üzerinde görüntülenir.",
-        "EMBEDDED_MPV_FRAME_COPY_RESTART": "Uygulama yeniden başlatıldıktan sonra geçerli olur."
+        "APP_UPDATE_RELEASE_NOTES": "What's new"
     },
     "THEMES": {
         "DARK_THEME": "Koyu",
@@ -433,8 +428,6 @@
             "ASPECT_RATIO": "En boy oranı",
             "ASPECT_TOOLTIP": "En boy oranı: {{aspect}}",
             "ASPECT_DEFAULT": "Varsayılan",
-            "ENTER_PICTURE_IN_PICTURE": "Resim içinde resim modunu aç",
-            "EXIT_PICTURE_IN_PICTURE": "Resim içinde resim modundan çık",
             "ENTER_FULLSCREEN": "Tam ekrana geç",
             "EXIT_FULLSCREEN": "Tam ekrandan çık"
         }

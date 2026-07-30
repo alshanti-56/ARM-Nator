@@ -275,8 +275,6 @@
         "SHOW_DASHBOARD": "Паказаць панэль",
         "SHOW_DASHBOARD_DESCRIPTION": "Пакідаць панэль даступнай у бакавой панэлі працоўнай прасторы. Калі адключана, першай старонкай працоўнай прасторы становяцца «Крыніцы».",
         "VIDEO_PLAYER_DESCRIPTION": "Выбраць стандартны відэапрайгравальнік",
-        "WEB_PLAYER_SHARED_CONTROLS": "Адзіныя элементы кіравання для вэб-прайгравальнікаў (эксперыментальна)",
-        "WEB_PLAYER_SHARED_CONTROLS_DESCRIPTION": "Выкарыстоўваць агульныя элементы кіравання ARM-Nator у HTML5 і ArtPlayer.",
         "PLAYER_AMBIENT_MODE": "Атмасфернае запаўненне",
         "PLAYER_AMBIENT_MODE_DESCRIPTION": "Запаўніць прастор вакол плэйра размытай, затемнёнай вокладкай замяст чорных палос.",
         "PLAYER_UP_NEXT_RAIL": "Панэль наступных эпізодаў",
@@ -381,10 +379,7 @@
         "APP_UPDATE_DOWNLOAD": "Update",
         "APP_UPDATE_INSTALL": "Restart application",
         "APP_UPDATE_OPEN_RELEASE": "Open GitHub release",
-        "APP_UPDATE_RELEASE_NOTES": "What's new",
-        "EMBEDDED_MPV_FRAME_COPY": "Embedded MPV: рухавік frame-copy (эксперыментальна)",
-        "EMBEDDED_MPV_FRAME_COPY_DESCRIPTION": "Відэа малюецца на канвасе праграмы, таму меню і дыялогі паказваюцца па-над ім.",
-        "EMBEDDED_MPV_FRAME_COPY_RESTART": "Пачне дзейнічаць пасля перазапуску праграмы."
+        "APP_UPDATE_RELEASE_NOTES": "What's new"
     },
     "THEMES": {
         "DARK_THEME": "Цёмная",
@@ -433,8 +428,6 @@
             "ASPECT_RATIO": "Суадносіны бакоў",
             "ASPECT_TOOLTIP": "Суадносіны: {{aspect}}",
             "ASPECT_DEFAULT": "Па змаўчанні",
-            "ENTER_PICTURE_IN_PICTURE": "Уключыць рэжым «выява ў выяве»",
-            "EXIT_PICTURE_IN_PICTURE": "Выйсці з рэжыму «выява ў выяве»",
             "ENTER_FULLSCREEN": "Увайсці ў поўнаэкранны рэжым",
             "EXIT_FULLSCREEN": "Выйсці з поўнаэкраннага рэжыму"
         }

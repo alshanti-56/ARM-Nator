@@ -7,15 +7,6 @@ import type {
 export interface WebVideoHlsControlsConfig {
     showCaptions: () => boolean;
     refresh: () => void;
-    /**
-     * Vendor-chrome hosts pass a "playback started" probe. Its presence
-     * switches the caption preference from authoritative (shared controls, the
-     * default) to source-default: the preference seeds each new source and
-     * stops being enforced once the probe returns true, so the engine's own
-     * caption menu keeps working. Shared controls omit it — they own the
-     * caption UI themselves and route user intent through `setSubtitleTrack`.
-     */
-    playbackStarted?: () => boolean;
 }
 
 export class WebVideoHlsControls {
@@ -157,20 +148,6 @@ export class WebVideoHlsControls {
 
         if (!this.config.showCaptions()) {
             const selectedTrack = this.readSelectedSubtitleTrack();
-            if (this.config.playbackStarted) {
-                if (this.config.playbackStarted() || selectedTrack === null) {
-                    return;
-                }
-                // Deselect instead of hiding: hls.js keeps `subtitleDisplay`
-                // authoritative over the track the vendor caption menu picks,
-                // so suppressing display would make that menu inert. A `-1`
-                // assignment also clears hls.js' own default-track selection,
-                // so it will not reselect one behind the user's back.
-                this.suppressedSubtitleTrack = selectedTrack;
-                this.setSubtitleTrackValue(-1);
-                return;
-            }
-
             // HLS may choose its default track while display is suppressed.
             // Explicit user-off remains owned by subtitleOverride === -1 above.
             if (selectedTrack !== null) {

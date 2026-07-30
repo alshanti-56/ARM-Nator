@@ -2,7 +2,6 @@ import { ipcMain } from 'electron';
 import { normalizeExternalPlayerArguments } from '@arm-nator/shared/interfaces';
 import { redactSensitiveData } from '@arm-nator/shared/logging';
 import {
-    EMBEDDED_MPV_FRAME_COPY,
     MPV_PLAYER_ARGUMENTS,
     MPV_REUSE_INSTANCE,
     store,
@@ -41,13 +40,7 @@ ipcMain.handle('SETTINGS_UPDATE', (_event, arg) => {
         store.set(MPV_REUSE_INSTANCE, arg.mpvReuseInstance);
     }
 
-    // Applied on the next app start (window sandbox is fixed at creation).
-    if (arg.embeddedMpvFrameCopy !== undefined) {
-        store.set(EMBEDDED_MPV_FRAME_COPY, !!arg.embeddedMpvFrameCopy);
-    }
-
     if (arg.vlcReuseInstance !== undefined) {
         store.set(VLC_REUSE_INSTANCE, arg.vlcReuseInstance);
     }
-
 });

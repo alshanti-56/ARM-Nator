@@ -1,31 +1,7 @@
 import { getPlaybackMediaExtensionFromUrl } from '../playback-diagnostics/playback-diagnostics.util';
 
-/**
- * ArtPlayer option overrides for the legacy and shared-control surfaces.
- *
- * The flag-off branch deliberately mirrors the existing runtime options. The
- * flag-on branch disables every optional ArtPlayer interaction owner; a
- * transparent capture surface blocks the core click/double-click handlers that
- * ArtPlayer installs independently of these options.
- */
-export function buildArtPlayerChrome(
-    sharedControls: boolean
-): Record<string, unknown> {
-    if (!sharedControls) {
-        return {
-            pip: true,
-            autoPlayback: true,
-            autoSize: true,
-            autoMini: true,
-            setting: true,
-            playbackRate: true,
-            aspectRatio: true,
-            fullscreen: true,
-            fullscreenWeb: true,
-            airplay: true,
-        };
-    }
-
+/** Disable ArtPlayer chrome so ARM-Nator's controls are the sole owner. */
+export function buildArtPlayerChrome(): Record<string, unknown> {
     return {
         controls: [],
         pip: false,
@@ -49,16 +25,9 @@ export function buildArtPlayerChrome(
 }
 
 export function resolveArtPlayerIsLive(
-    sharedControls: boolean,
-    authoritativeIsLive: boolean,
-    url: string
+    authoritativeIsLive: boolean
 ): boolean {
-    if (sharedControls) {
-        return authoritativeIsLive;
-    }
-
-    const extension = getPlaybackMediaExtensionFromUrl(url);
-    return extension === 'm3u8' || extension === 'ts' || !extension;
+    return authoritativeIsLive;
 }
 
 export function getArtPlayerVideoType(url: string): string {
@@ -82,12 +51,10 @@ export function getArtPlayerVideoType(url: string): string {
 }
 
 export function exitOwnedArtPlayerFullscreen(
-    sharedControls: boolean,
     surface: HTMLElement | undefined,
     reportError: (error: unknown) => void
 ): void {
     if (
-        !sharedControls ||
         document.fullscreenElement !== surface ||
         typeof document.exitFullscreen !== 'function'
     ) {

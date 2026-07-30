@@ -275,8 +275,6 @@
         "SHOW_DASHBOARD": "顯示儀表板",
         "SHOW_DASHBOARD_DESCRIPTION": "在工作區側邊欄保留儀表板。停用時，「來源」將成為工作區的第一個頁面。",
         "VIDEO_PLAYER_DESCRIPTION": "選擇預設影片播放器",
-        "WEB_PLAYER_SHARED_CONTROLS": "Web 播放器統一控制項（實驗性）",
-        "WEB_PLAYER_SHARED_CONTROLS_DESCRIPTION": "在 HTML5 和 ArtPlayer 中使用 ARM-Nator 的共用控制項。",
         "PLAYER_AMBIENT_MODE": "環境背景填充",
         "PLAYER_AMBIENT_MODE_DESCRIPTION": "用模糊、昏暗的海報填充播放器周圍的空間，取代純黑色邊框。",
         "PLAYER_UP_NEXT_RAIL": "即將播放集數側欄",
@@ -381,10 +379,7 @@
         "APP_UPDATE_DOWNLOAD": "Update",
         "APP_UPDATE_INSTALL": "Restart application",
         "APP_UPDATE_OPEN_RELEASE": "Open GitHub release",
-        "APP_UPDATE_RELEASE_NOTES": "What's new",
-        "EMBEDDED_MPV_FRAME_COPY": "內嵌 MPV：幀複製引擎（實驗性）",
-        "EMBEDDED_MPV_FRAME_COPY_DESCRIPTION": "影片會繪製到應用程式畫布上，選單和對話框可顯示在其上方。",
-        "EMBEDDED_MPV_FRAME_COPY_RESTART": "重新啟動應用程式後生效。"
+        "APP_UPDATE_RELEASE_NOTES": "What's new"
     },
     "THEMES": {
         "DARK_THEME": "深色",
@@ -433,8 +428,6 @@
             "ASPECT_RATIO": "長寬比",
             "ASPECT_TOOLTIP": "長寬比：{{aspect}}",
             "ASPECT_DEFAULT": "預設",
-            "ENTER_PICTURE_IN_PICTURE": "進入子母畫面",
-            "EXIT_PICTURE_IN_PICTURE": "退出子母畫面",
             "ENTER_FULLSCREEN": "進入全螢幕",
             "EXIT_FULLSCREEN": "離開全螢幕"
         }

@@ -39,7 +39,6 @@ export interface PlaybackCapabilities {
   readonly speed: boolean;
   readonly subtitles: boolean;
   readonly audioTracks: boolean;
-  readonly pictureInPicture: boolean;
 }
 
 export interface PlaybackTrack {

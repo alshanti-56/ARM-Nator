@@ -24,7 +24,6 @@ import {
     EmbeddedMpvAudioTrack,
     ResolvedPortalPlayback,
 } from '@arm-nator/shared/interfaces';
-import { PlayerControlsComponent } from '../player-controls/player-controls.component';
 import type {
     PlayerMediaTitle,
     PlayerRuntimeSnapshot,
@@ -66,7 +65,6 @@ import {
         MatIconModule,
         MatProgressSpinnerModule,
         MatTooltipModule,
-        PlayerControlsComponent,
         TranslatePipe,
     ],
     providers: [EmbeddedMpvControlsAdapter, EmbeddedMpvSessionController],
@@ -118,13 +116,6 @@ export class EmbeddedMpvPlayerComponent implements OnDestroy {
 
     readonly viewport = viewChild<ElementRef<HTMLDivElement>>('viewport');
     readonly playerRoot = viewChild<ElementRef<HTMLDivElement>>('playerRoot');
-    readonly playerSurface = computed(
-        () => this.playerRoot()?.nativeElement ?? null
-    );
-    readonly sharedShortcutsEnabled = computed(
-        () => !this.overlayVisibility.overlayActive()
-    );
-
     readonly support = this.controller.support;
     readonly session = this.controller.session;
     readonly stalled = this.controller.stalled;
@@ -137,9 +128,6 @@ export class EmbeddedMpvPlayerComponent implements OnDestroy {
     readonly aspectPresets = ASPECT_PRESETS;
 
     readonly isSupported = computed(() => this.support()?.supported ?? false);
-    readonly isFrameCopyEngine = computed(
-        () => this.support()?.engine === 'frame-copy'
-    );
     readonly capabilities = computed(
         () =>
             this.support()?.capabilities ?? {
@@ -297,7 +285,7 @@ export class EmbeddedMpvPlayerComponent implements OnDestroy {
 
     constructor() {
         this.legacyInteractions = new EmbeddedMpvLegacyInteractions({
-            isAvailable: () => !this.isFrameCopyEngine(),
+            isAvailable: () => true,
             playerRoot: () => this.playerRoot()?.nativeElement ?? null,
             menus: this.menus,
             controlsVisible: this.controlsVisible,
@@ -366,7 +354,6 @@ export class EmbeddedMpvPlayerComponent implements OnDestroy {
                     supportReason: support?.reason,
                     sessionId: session?.id,
                     sessionStatus: session?.status,
-                    renderingEngine: support?.engine,
                     startedAt: session?.startedAt,
                     updatedAt: session?.updatedAt,
                 },
@@ -381,13 +368,6 @@ export class EmbeddedMpvPlayerComponent implements OnDestroy {
         }
 
         this.controller.setBoundsProvider((host) => {
-            // The frame-copy engine paints into an ordinary DOM canvas:
-            // dialogs and overlays stack above it natively, so the
-            // hide-offscreen compositor workaround must not shrink its
-            // render size.
-            if (this.isFrameCopyEngine()) {
-                return measureBounds(host);
-            }
             if (this.overlayVisibility.overlayActive()) {
                 return HIDDEN_BOUNDS;
             }
@@ -478,16 +458,6 @@ export class EmbeddedMpvPlayerComponent implements OnDestroy {
 
             this.lastEndedSessionId = session.id;
             this.playbackEnded.emit();
-        });
-
-        effect(() => {
-            const isFrameCopyEngine = this.isFrameCopyEngine();
-            untracked(() => {
-                this.feedback.clear();
-                this.legacyInteractions.handleEngineTransition(
-                    isFrameCopyEngine
-                );
-            });
         });
     }
 

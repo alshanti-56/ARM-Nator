@@ -1,4 +1,3 @@
-/* eslint-disable max-lines */
 import { EmbeddedMpvBounds, EmbeddedMpvSession, EmbeddedMpvSupport } from './embedded-mpv-session.interface';
 import { ExternalPlayerControlAction, ExternalPlayerSession } from './external-player-session.interface';
 import { GlobalSearchPaginationOptions, GlobalSearchResult, GlobalSearchResultSource } from './global-search-result.interface';
@@ -333,12 +332,4 @@ export interface ElectronBridgeApi {
     setEmbeddedMpvSpeed?: (sessionId: string, speed: number) => Promise<EmbeddedMpvSession | null>;
     setEmbeddedMpvAspect?: (sessionId: string, aspect: string) => Promise<EmbeddedMpvSession | null>;
     disposeEmbeddedMpvSession: (sessionId: string) => Promise<EmbeddedMpvSession | null>;
-    /**
-     * Frame-copy engine only: start/stop the preload frame pump that
-     * uploads helper frames onto the renderer's
-     * `<canvas data-embedded-mpv-frame>` element. Optional because older
-     * preload builds do not ship the pump.
-     */
-    attachEmbeddedMpvFrameView?: (sessionId: string) => Promise<boolean>;
-    detachEmbeddedMpvFrameView?: () => void;
 }

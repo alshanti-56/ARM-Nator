@@ -11,6 +11,5 @@ export * from './controls-view-model';
 export * from './controls-visibility';
 export * from './controls-volume';
 export * from './controls-format.utils';
-export * from './web-player-controls.flag';
 export * from './web-video-controls.adapter';
 export * from './web-video-controls.host';

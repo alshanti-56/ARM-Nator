@@ -275,8 +275,6 @@
         "SHOW_DASHBOARD": "Dashboard anzeigen",
         "SHOW_DASHBOARD_DESCRIPTION": "Dashboard in der Workspace-Leiste verfügbar halten. Wenn deaktiviert, wird Quellen zur ersten Workspace-Seite.",
         "VIDEO_PLAYER_DESCRIPTION": "Wählen Sie den Standard-Videoplayer aus",
-        "WEB_PLAYER_SHARED_CONTROLS": "Einheitliche Steuerung für Web-Player (experimentell)",
-        "WEB_PLAYER_SHARED_CONTROLS_DESCRIPTION": "Verwendet die gemeinsamen ARM-Nator-Steuerelemente in HTML5 und ArtPlayer.",
         "PLAYER_AMBIENT_MODE": "Umgebungs-Hintergrund",
         "PLAYER_AMBIENT_MODE_DESCRIPTION": "Füllt den Bereich um den Player mit einem unscharfen, gedimmten Poster auf, anstelle von einfachen schwarzen Balken.",
         "PLAYER_UP_NEXT_RAIL": "Folgenleiste „Als Nächstes“",
@@ -381,10 +379,7 @@
         "APP_UPDATE_DOWNLOAD": "Update",
         "APP_UPDATE_INSTALL": "Restart application",
         "APP_UPDATE_OPEN_RELEASE": "Open GitHub release",
-        "APP_UPDATE_RELEASE_NOTES": "What's new",
-        "EMBEDDED_MPV_FRAME_COPY": "Embedded MPV: Frame-Copy-Engine (experimentell)",
-        "EMBEDDED_MPV_FRAME_COPY_DESCRIPTION": "Das Video wird auf die App-Leinwand gerendert, sodass Menüs und Dialoge darüber liegen.",
-        "EMBEDDED_MPV_FRAME_COPY_RESTART": "Wird nach einem Neustart der App wirksam."
+        "APP_UPDATE_RELEASE_NOTES": "What's new"
     },
     "THEMES": {
         "DARK_THEME": "Dunkel",
@@ -433,8 +428,6 @@
             "ASPECT_RATIO": "Seitenverhältnis",
             "ASPECT_TOOLTIP": "Seitenverhältnis: {{aspect}}",
             "ASPECT_DEFAULT": "Standard",
-            "ENTER_PICTURE_IN_PICTURE": "Bild-in-Bild starten",
-            "EXIT_PICTURE_IN_PICTURE": "Bild-in-Bild beenden",
             "ENTER_FULLSCREEN": "Vollbild aktivieren",
             "EXIT_FULLSCREEN": "Vollbild beenden"
         }

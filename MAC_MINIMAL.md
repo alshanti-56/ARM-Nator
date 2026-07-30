@@ -45,7 +45,7 @@ this Mac. That allowance is explicit to this command and is not suitable for a
 publicly distributed release.
 
 Embedded MPV is mandatory in development and packaged builds. Development
-startup and packaging fail if its native addon, helper, frame reader, runtime
+startup and packaging fail if its native addon or bundled runtime
 manifest, or libmpv runtime is missing or invalid.
 
 ## Retained applications

@@ -1,12 +1,38 @@
 import { contextBridge, ipcRenderer, webUtils } from 'electron';
 import {
-    attachEmbeddedMpvFrameView,
-    detachEmbeddedMpvFrameView,
-} from './embedded-mpv-frame-pump';
-import {
     createPreloadPerformanceCapture,
     toPreloadPerformanceTargetMethod,
-} from './preload-performance-capture';import type { EmbeddedMpvBounds, EmbeddedMpvSession, EmbeddedMpvSupport, ElectronBridgeApi, ElectronBridgeDbOperationEvent, ElectronBridgePlaybackPositionInput, ElectronBridgePlaylistInput, ElectronBridgePlaylistUpsertInput, ElectronBridgeTrustOptions, ElectronBridgeWindowState, ElectronBridgeXtreamContentStream, ExternalPlayerSession, ExternalPlayerControlAction, GlobalSearchPaginationOptions, GlobalSearchResultSource, PlaybackPositionData, PlayerContentInfo, PlaybackNetworkInspection, PlayerEngineAvailability, Playlist, PlaylistRefreshEvent, PlaylistRefreshPayload, PortalDebugEvent, ResolvedPortalPlayback, Settings, TmdbCacheEntry, TmdbCacheMediaType, XtreamCategory } from '@arm-nator/shared/interfaces';
+} from './preload-performance-capture';
+import type {
+    EmbeddedMpvBounds,
+    EmbeddedMpvSession,
+    EmbeddedMpvSupport,
+    ElectronBridgeApi,
+    ElectronBridgeDbOperationEvent,
+    ElectronBridgePlaybackPositionInput,
+    ElectronBridgePlaylistInput,
+    ElectronBridgePlaylistUpsertInput,
+    ElectronBridgeTrustOptions,
+    ElectronBridgeWindowState,
+    ElectronBridgeXtreamContentStream,
+    ExternalPlayerSession,
+    ExternalPlayerControlAction,
+    GlobalSearchPaginationOptions,
+    GlobalSearchResultSource,
+    PlaybackPositionData,
+    PlayerContentInfo,
+    PlaybackNetworkInspection,
+    PlayerEngineAvailability,
+    Playlist,
+    PlaylistRefreshEvent,
+    PlaylistRefreshPayload,
+    PortalDebugEvent,
+    ResolvedPortalPlayback,
+    Settings,
+    TmdbCacheEntry,
+    TmdbCacheMediaType,
+    XtreamCategory,
+} from '@arm-nator/shared/interfaces';
 
 import {
     DEBUG_TRACE_EVENT_CHANNEL,
@@ -449,9 +475,6 @@ const electronApi: ElectronBridgeApi = {
         sessionId: string
     ): Promise<EmbeddedMpvSession | null> =>
         ipcRenderer.invoke('EMBEDDED_MPV_DISPOSE_SESSION', sessionId),
-    attachEmbeddedMpvFrameView: (sessionId: string): Promise<boolean> =>
-        attachEmbeddedMpvFrameView(sessionId),
-    detachEmbeddedMpvFrameView: (): void => detachEmbeddedMpvFrameView(),
     autoUpdatePlaylists: (
         playlists: Playlist[],
         options?: ElectronBridgeTrustOptions

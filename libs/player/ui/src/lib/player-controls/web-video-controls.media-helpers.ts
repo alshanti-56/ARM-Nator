@@ -35,8 +35,6 @@ export const WEB_VIDEO_EVENTS = [
     'waiting',
     'playing',
     'error',
-    'enterpictureinpicture',
-    'leavepictureinpicture',
 ] as const;
 
 export function toggleVideoPlay(video: HTMLVideoElement | null): void {

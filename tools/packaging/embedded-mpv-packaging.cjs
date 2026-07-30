@@ -292,8 +292,6 @@ function validatePackagedEmbeddedMpv(resourceDir, options = {}) {
         'native'
     );
     const addonPath = path.join(nativeDir, 'embedded_mpv.node');
-    const helperPath = path.join(nativeDir, 'arm-nator_mpv_helper');
-    const readerPath = path.join(nativeDir, 'embedded_mpv_frame_reader.node');
     const manifestPath = path.join(nativeDir, 'embedded-mpv-runtime.json');
     const libDir = path.join(nativeDir, 'lib');
     const errors = [];
@@ -306,7 +304,7 @@ function validatePackagedEmbeddedMpv(resourceDir, options = {}) {
             'macOS arm64 package validation requires an Apple Silicon Mac.'
         );
     }
-    for (const artifact of [addonPath, helperPath, readerPath, manifestPath]) {
+    for (const artifact of [addonPath, manifestPath]) {
         if (!fs.existsSync(artifact)) {
             errors.push(`Missing embedded MPV artifact: ${artifact}`);
         }
@@ -344,7 +342,6 @@ function validatePackagedEmbeddedMpv(resourceDir, options = {}) {
     errors.push(
         ...validateNoForbiddenRuntimeLinks([
             addonPath,
-            helperPath,
             ...listDylibs(libDir)
         ])
     );

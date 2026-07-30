@@ -1,8 +1,7 @@
-import { computed, inject } from "@angular/core";
+import { inject } from "@angular/core";
 import {
   patchState,
   signalStore,
-  withComputed,
   withHooks,
   withMethods,
   withState,
@@ -15,7 +14,6 @@ import { isInlinePlayer } from "@arm-nator/player/core";
 const DEFAULT_SETTINGS: Settings = {
   player: VideoPlayer.ArtPlayer,
   directPlay: DEFAULT_DIRECT_PLAY_PREFERENCES,
-  webPlayerSharedControls: false,
   playerAmbientMode: false,
   playerUpNextRail: true,
   streamFormat: StreamFormat.AutoStreamFormat,
@@ -34,7 +32,6 @@ const DEFAULT_SETTINGS: Settings = {
   vlcPlayerArguments: "",
   vlcReuseInstance: false,
   downloadFolder: "",
-  embeddedMpvFrameCopy: false,
   coverSize: "medium",
   dashboardRails: DEFAULT_DASHBOARD_RAILS_SETTINGS,
   trustedInsecureTlsHosts: [],
@@ -103,8 +100,6 @@ export const SettingsStore = signalStore(
               directPlay: normalizeDirectPlayPreferences(
                 storedSettings.directPlay,
               ),
-              webPlayerSharedControls:
-                storedSettings.webPlayerSharedControls === true,
               dashboardRails: normalizeDashboardRailsSettings(
                 storedSettings.dashboardRails,
               ),
@@ -128,12 +123,6 @@ export const SettingsStore = signalStore(
       async updateSettings(settings: Partial<Settings>) {
         patchState(store, {
           ...settings,
-          ...(settings.webPlayerSharedControls !== undefined
-            ? {
-                webPlayerSharedControls:
-                  settings.webPlayerSharedControls === true,
-              }
-            : {}),
           ...(settings.dashboardRails !== undefined
             ? {
                 dashboardRails: normalizeDashboardRailsSettings(
@@ -166,7 +155,6 @@ export const SettingsStore = signalStore(
         return {
           player: store.player(),
           directPlay: normalizeDirectPlayPreferences(store.directPlay?.()),
-          webPlayerSharedControls: store.webPlayerSharedControls?.() === true,
           playerAmbientMode:
             store.playerAmbientMode?.() ?? DEFAULT_SETTINGS.playerAmbientMode,
           playerUpNextRail:
@@ -191,7 +179,6 @@ export const SettingsStore = signalStore(
           vlcReuseInstance: store.vlcReuseInstance(),
           downloadFolder:
             store.downloadFolder?.() ?? DEFAULT_SETTINGS.downloadFolder,
-          embeddedMpvFrameCopy: store.embeddedMpvFrameCopy?.() ?? false,
           coverSize: store.coverSize?.() ?? DEFAULT_SETTINGS.coverSize,
           dashboardRails: normalizeDashboardRailsSettings(
             store.dashboardRails?.(),

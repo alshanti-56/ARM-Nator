@@ -84,16 +84,6 @@ export class EmbeddedMpvLegacyInteractions {
         return this.deps.isAvailable();
     }
 
-    handleEngineTransition(isFrameCopyEngine: boolean): void {
-        if (!isFrameCopyEngine) {
-            return;
-        }
-        this.clearControlsHideTimer();
-        this.clearVolumeCloseTimer();
-        this.clearViewportClickTimer();
-        this.deps.menus.closeAll();
-    }
-
     onPlayerInteraction(): void {
         if (!this.deps.isAvailable()) {
             return;

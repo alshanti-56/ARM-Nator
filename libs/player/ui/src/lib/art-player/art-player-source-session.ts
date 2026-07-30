@@ -18,16 +18,12 @@ import {
     type WebVideoControlsSource,
     WebVideoSourceControlsBridge,
 } from '../web-video-support/web-video-source-controls.bridge';
-import { WebVideoSourceTracks } from '../web-video-support/web-video-source-tracks';
 import {
     MpegTsLiveRecovery,
     createMpegTsConfig,
     isRecoverableMpegTsLiveFailure,
 } from '../web-video-support/mpegts-live-recovery';
-import { addHlsAudioTrackSettings } from './art-player-audio-tracks';
-
 export interface ArtPlayerSourceSessionConfig {
-    sharedControls: boolean;
     controlsAdapter: WebVideoControlsAdapter;
     isLive: () => boolean;
     showCaptions: () => boolean;
@@ -55,11 +51,6 @@ export class ArtPlayerSourceSession {
 
     private player: Artplayer | null = null;
     private controlsBridge: WebVideoSourceControlsBridge | null = null;
-    /**
-     * Legacy (ArtPlayer chrome) counterpart of {@link controlsBridge}: keeps
-     * the `showCaptions` preference authoritative without a controls adapter.
-     */
-    private captionTracks: WebVideoSourceTracks | null = null;
     private pendingControlsSource: WebVideoControlsSource = { kind: 'native' };
     private hls: Hls | null = null;
     private hlsManifestListener:
@@ -91,16 +82,6 @@ export class ArtPlayerSourceSession {
         }
 
         this.player = player;
-        if (!this.config.sharedControls) {
-            this.captionTracks = new WebVideoSourceTracks({
-                video: player.video,
-                showCaptions: this.config.showCaptions,
-                vendorCaptionControls: true,
-            });
-            this.captionTracks.setSource(this.pendingControlsSource);
-            return;
-        }
-
         const bridge = new WebVideoSourceControlsBridge({
             video: player.video,
             adapter: this.config.controlsAdapter,
@@ -114,7 +95,6 @@ export class ArtPlayerSourceSession {
 
     refreshInputs(): void {
         this.controlsBridge?.refreshInputs();
-        this.captionTracks?.refreshInputs();
     }
 
     resolveDuration(fallbackDuration: number): number {
@@ -132,8 +112,6 @@ export class ArtPlayerSourceSession {
         this.destroyed = true;
         this.controlsBridge?.destroy();
         this.controlsBridge = null;
-        this.captionTracks?.destroy();
-        this.captionTracks = null;
         this.destroyHls();
         this.destroyMpegTs();
         this.mpegTsRecovery.destroy();
@@ -172,9 +150,7 @@ export class ArtPlayerSourceSession {
             hls.attachMedia(video);
             this.bindControlsSource({ kind: 'hls', hls });
             hls.loadSource(url);
-            if (!this.config.sharedControls) {
-                addHlsAudioTrackSettings(art, hls);
-            }
+            void art;
             return;
         }
 
@@ -267,7 +243,6 @@ export class ArtPlayerSourceSession {
 
     private prepareForSourceChange(): void {
         this.controlsBridge?.clearSource();
-        this.captionTracks?.clearSource();
         this.destroyHls();
         this.destroyMpegTs();
         this.shakaSession?.stop();
@@ -287,7 +262,6 @@ export class ArtPlayerSourceSession {
     private bindControlsSource(source: WebVideoControlsSource): void {
         this.pendingControlsSource = source;
         this.controlsBridge?.setSource(source);
-        this.captionTracks?.setSource(source);
     }
 
     private destroyHls(): void {
@@ -354,7 +328,7 @@ export class ArtPlayerSourceSession {
     }
 
     private isMpegTsLive(): boolean {
-        return this.config.sharedControls ? this.config.isLive() : true;
+        return this.config.isLive();
     }
 
     private handleHlsManifestParsed(

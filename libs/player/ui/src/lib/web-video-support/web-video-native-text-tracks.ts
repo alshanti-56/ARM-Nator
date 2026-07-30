@@ -12,14 +12,6 @@ export interface WebVideoNativeTextTracksConfig {
     showCaptions: () => boolean;
     refresh: () => void;
     includeTrack?: (track: TextTrack) => boolean;
-    /**
-     * Vendor-chrome hosts pass a "playback started" probe. Its presence
-     * switches the caption preference from authoritative (shared controls, the
-     * default) to source-default: the preference seeds each new source and
-     * stops being enforced once the probe returns true, so the native caption
-     * menu keeps working. Shared controls omit it.
-     */
-    playbackStarted?: () => boolean;
 }
 
 export class WebVideoNativeTextTracks {
@@ -148,11 +140,6 @@ export class WebVideoNativeTextTracks {
         }
 
         if (!this.config.showCaptions()) {
-            if (this.config.playbackStarted?.()) {
-                // Source-default mode: the native caption menu owns the
-                // selection once playback is running.
-                return;
-            }
             for (const { track } of tracks) {
                 if (track.mode !== 'showing') {
                     continue;

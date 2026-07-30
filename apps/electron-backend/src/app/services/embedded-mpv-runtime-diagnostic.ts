@@ -1,20 +1,20 @@
 import { writeSync } from 'fs';
 import {
-    getFrameCopyRuntimeAvailability,
-    type FrameCopyRuntimeAvailability,
-} from './embedded-mpv-frame-copy-platform.util';
+    getEmbeddedMpvRuntimeAvailability,
+    type EmbeddedMpvRuntimeAvailability,
+} from './embedded-mpv-platform.util';
 
 export const EMBEDDED_MPV_RUNTIME_PROBE_SWITCH = '--embedded-mpv-runtime-probe';
 
 interface EmbeddedMpvRuntimeDiagnosticDependencies {
     exit(code: number): void;
-    getRuntimeAvailability(): FrameCopyRuntimeAvailability;
+    getRuntimeAvailability(): EmbeddedMpvRuntimeAvailability;
     writeStdout(output: string): void;
 }
 
 const defaultDependencies: EmbeddedMpvRuntimeDiagnosticDependencies = {
     exit: (code) => process.exit(code),
-    getRuntimeAvailability: getFrameCopyRuntimeAvailability,
+    getRuntimeAvailability: getEmbeddedMpvRuntimeAvailability,
     writeStdout: (output) => {
         writeSync(process.stdout.fd, output);
     },

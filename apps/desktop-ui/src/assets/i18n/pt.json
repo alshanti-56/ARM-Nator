@@ -275,8 +275,6 @@
         "SHOW_DASHBOARD": "Mostrar dashboard",
         "SHOW_DASHBOARD_DESCRIPTION": "Mantém o Dashboard disponível na barra lateral do espaço de trabalho. Quando desativado, Fontes torna-se a primeira página do espaço de trabalho.",
         "VIDEO_PLAYER_DESCRIPTION": "Selecionar reprodutor de vídeo padrão",
-        "WEB_PLAYER_SHARED_CONTROLS": "Controlos unificados para leitores web (experimental)",
-        "WEB_PLAYER_SHARED_CONTROLS_DESCRIPTION": "Usa os controlos partilhados do ARM-Nator em HTML5 e ArtPlayer.",
         "PLAYER_AMBIENT_MODE": "Preenchimento de fundo ambiente",
         "PLAYER_AMBIENT_MODE_DESCRIPTION": "Preenche o espaço ao redor do reprodutor com um pôster desfocado e escurecido em vez de barras pretas simples.",
         "PLAYER_UP_NEXT_RAIL": "Painel de próximos episódios",
@@ -381,10 +379,7 @@
         "APP_UPDATE_DOWNLOAD": "Update",
         "APP_UPDATE_INSTALL": "Restart application",
         "APP_UPDATE_OPEN_RELEASE": "Open GitHub release",
-        "APP_UPDATE_RELEASE_NOTES": "What's new",
-        "EMBEDDED_MPV_FRAME_COPY": "Embedded MPV: motor frame-copy (experimental)",
-        "EMBEDDED_MPV_FRAME_COPY_DESCRIPTION": "O vídeo é desenhado na tela da aplicação, para que menus e diálogos fiquem por cima.",
-        "EMBEDDED_MPV_FRAME_COPY_RESTART": "Entra em vigor após reiniciar a aplicação."
+        "APP_UPDATE_RELEASE_NOTES": "What's new"
     },
     "THEMES": {
         "DARK_THEME": "Escuro",
@@ -433,8 +428,6 @@
             "ASPECT_RATIO": "Proporção da imagem",
             "ASPECT_TOOLTIP": "Proporção: {{aspect}}",
             "ASPECT_DEFAULT": "Padrão",
-            "ENTER_PICTURE_IN_PICTURE": "Ativar imagem em imagem",
-            "EXIT_PICTURE_IN_PICTURE": "Sair de imagem em imagem",
             "ENTER_FULLSCREEN": "Entrar em tela cheia",
             "EXIT_FULLSCREEN": "Sair da tela cheia"
         }

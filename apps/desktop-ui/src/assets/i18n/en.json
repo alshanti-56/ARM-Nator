@@ -275,8 +275,6 @@
         "SHOW_DASHBOARD": "Show dashboard",
         "SHOW_DASHBOARD_DESCRIPTION": "Keep Dashboard available in the workspace rail. When disabled, Sources becomes the first workspace page.",
         "VIDEO_PLAYER_DESCRIPTION": "Select default video player",
-        "WEB_PLAYER_SHARED_CONTROLS": "Unified controls for web players (experimental)",
-        "WEB_PLAYER_SHARED_CONTROLS_DESCRIPTION": "Use ARM-Nator's shared controls in HTML5, and ArtPlayer.",
         "PLAYER_AMBIENT_MODE": "Ambient background fill",
         "PLAYER_AMBIENT_MODE_DESCRIPTION": "Fill the space around the player with a blurred, dimmed poster instead of plain black bars.",
         "PLAYER_UP_NEXT_RAIL": "Up Next episode rail",
@@ -381,10 +379,7 @@
         "APP_UPDATE_DOWNLOAD": "Update",
         "APP_UPDATE_INSTALL": "Restart application",
         "APP_UPDATE_OPEN_RELEASE": "Open GitHub release",
-        "APP_UPDATE_RELEASE_NOTES": "What's new",
-        "EMBEDDED_MPV_FRAME_COPY": "Embedded MPV: frame-copy engine (experimental)",
-        "EMBEDDED_MPV_FRAME_COPY_DESCRIPTION": "Render video onto the app canvas so menus and dialogs stack above it.",
-        "EMBEDDED_MPV_FRAME_COPY_RESTART": "Takes effect after restarting the app."
+        "APP_UPDATE_RELEASE_NOTES": "What's new"
     },
     "THEMES": {
         "DARK_THEME": "Dark",
@@ -433,8 +428,6 @@
             "ASPECT_RATIO": "Aspect ratio",
             "ASPECT_TOOLTIP": "Aspect: {{aspect}}",
             "ASPECT_DEFAULT": "Default",
-            "ENTER_PICTURE_IN_PICTURE": "Enter picture-in-picture",
-            "EXIT_PICTURE_IN_PICTURE": "Exit picture-in-picture",
             "ENTER_FULLSCREEN": "Enter fullscreen",
             "EXIT_FULLSCREEN": "Exit fullscreen"
         }

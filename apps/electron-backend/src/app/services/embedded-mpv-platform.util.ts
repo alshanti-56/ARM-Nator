@@ -1,10 +1,6 @@
 import { app } from 'electron';
-import { accessSync, constants as fsConstants, statSync } from 'fs';
+import { existsSync } from 'fs';
 import path from 'path';
-
-export function isFrameCopyPlatformSupported(): boolean {
-    return process.platform === 'darwin' && process.arch === 'arm64';
-}
 
 function dedupeDefinedPaths(paths: Array<string | undefined>): string[] {
     return [
@@ -63,33 +59,7 @@ export function getEmbeddedMpvAddonCandidatePaths(): string[] {
           ]);
 }
 
-export function resolveFrameCopyHelperPath(): string | null {
-    const addonCandidates = app.isPackaged
-        ? getPackagedAddonPaths()
-        : [getLocalBuildAddonPath(), ...getDistAddonPaths()];
-    return (
-        addonCandidates
-            .map((candidatePath) => path.dirname(candidatePath))
-            .map((nativeDir) => ({
-                helper: path.join(nativeDir, 'arm-nator_mpv_helper'),
-                reader: path.join(nativeDir, 'embedded_mpv_frame_reader.node'),
-            }))
-            .find(({ helper, reader }) => {
-                try {
-                    accessSync(helper, fsConstants.X_OK);
-                    accessSync(reader, fsConstants.R_OK);
-                    return (
-                        statSync(helper).isFile() &&
-                        statSync(reader).isFile()
-                    );
-                } catch {
-                    return false;
-                }
-            })?.helper ?? null
-    );
-}
-
-export type FrameCopyRuntimeAvailability =
+export type EmbeddedMpvRuntimeAvailability =
     | { usable: true }
     | {
           usable: false;
@@ -99,43 +69,22 @@ export type FrameCopyRuntimeAvailability =
               | 'runtime-artifact-missing';
       };
 
-let cachedAvailability: FrameCopyRuntimeAvailability | undefined;
+let cachedAvailability: EmbeddedMpvRuntimeAvailability | undefined;
 
-export function getFrameCopyRuntimeAvailability(
-    resolveHelper: () => string | null = resolveFrameCopyHelperPath
-): FrameCopyRuntimeAvailability {
-    if (
-        resolveHelper === resolveFrameCopyHelperPath &&
-        cachedAvailability !== undefined
-    ) {
+export function getEmbeddedMpvRuntimeAvailability(): EmbeddedMpvRuntimeAvailability {
+    if (cachedAvailability !== undefined) {
         return cachedAvailability;
     }
 
-    const availability: FrameCopyRuntimeAvailability =
+    const availability: EmbeddedMpvRuntimeAvailability =
         process.platform !== 'darwin'
             ? { usable: false, reason: 'unsupported-platform' }
             : process.arch !== 'arm64'
               ? { usable: false, reason: 'unsupported-architecture' }
-              : resolveHelper()
+              : getEmbeddedMpvAddonCandidatePaths().some(existsSync)
                 ? { usable: true }
                 : { usable: false, reason: 'runtime-artifact-missing' };
 
-    if (resolveHelper === resolveFrameCopyHelperPath) {
-        cachedAvailability = availability;
-    }
+    cachedAvailability = availability;
     return availability;
-}
-
-export function isFrameCopyRuntimeUsable(
-    resolveHelper: () => string | null = resolveFrameCopyHelperPath
-): boolean {
-    return getFrameCopyRuntimeAvailability(resolveHelper).usable;
-}
-
-export function shouldPromotePersistedFrameCopyOptIn(
-    storedEnabled: boolean,
-    explicitEnv: string | undefined,
-    runtimeUsable: () => boolean = isFrameCopyRuntimeUsable
-): boolean {
-    return explicitEnv === undefined && storedEnabled && runtimeUsable();
 }

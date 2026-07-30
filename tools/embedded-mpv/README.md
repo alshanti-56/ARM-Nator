@@ -43,7 +43,7 @@ node tools/embedded-mpv/build-macos-runtime.mjs /tmp/arm-nator-mpv
 node tools/embedded-mpv/stage-macos-runtime.mjs /tmp/arm-nator-mpv
 ```
 
-Build the Electron native addon and helper:
+Build the Electron native addon:
 
 ```bash
 pnpm embedded-mpv:build
@@ -54,8 +54,6 @@ The build produces:
 ```text
 apps/electron-backend/native/build/Release/
   embedded_mpv.node
-  embedded_mpv_frame_reader.node
-  arm-nator_mpv_helper
   embedded-mpv-runtime.json
   lib/*.dylib
 ```
@@ -68,5 +66,5 @@ The `prepackage` lifecycle ensures the portable runtime exists.
 artifacts exist, rejects Homebrew and other absolute runtime links for release
 packages, and validates the dylib closure with `otool`.
 
-The application, native addon, helper, runtime manifest, and dylibs are all
+The application, native addon, runtime manifest, and dylibs are all
 macOS arm64-only and have a deployment target of macOS 26.0.

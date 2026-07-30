@@ -275,8 +275,6 @@
         "SHOW_DASHBOARD": "Vezérlőpult megjelenítése",
         "SHOW_DASHBOARD_DESCRIPTION": "A Vezérlőpult maradjon elérhető a munkaterület oldalsávjában. Kikapcsolásakor a Források lesz a munkaterület első oldala.",
         "VIDEO_PLAYER_DESCRIPTION": "Az alapértelmezett videólejátszó kiválasztása",
-        "WEB_PLAYER_SHARED_CONTROLS": "Egységes vezérlők a webes lejátszókhoz (kísérleti)",
-        "WEB_PLAYER_SHARED_CONTROLS_DESCRIPTION": "Az ARM-Nator közös vezérlőinek használata a HTML5- és ArtPlayer-lejátszóban.",
         "PLAYER_AMBIENT_MODE": "Ambient background fill",
         "PLAYER_AMBIENT_MODE_DESCRIPTION": "Fill the space around the player with a blurred, dimmed poster instead of plain black bars.",
         "PLAYER_UP_NEXT_RAIL": "„Következik” epizódsáv",
@@ -381,10 +379,7 @@
         "APP_UPDATE_DOWNLOAD": "Frissítés",
         "APP_UPDATE_INSTALL": "Alkalmazás újraindítása",
         "APP_UPDATE_OPEN_RELEASE": "GitHub-kiadás megnyitása",
-        "APP_UPDATE_RELEASE_NOTES": "Újdonságok",
-        "EMBEDDED_MPV_FRAME_COPY": "Beágyazott MPV: képkocka-másolásos megjelenítés (kísérleti)",
-        "EMBEDDED_MPV_FRAME_COPY_DESCRIPTION": "A videó megjelenítése az alkalmazás rajzfelületén, hogy a menük és párbeszédpanelek fölötte jelenhessenek meg.",
-        "EMBEDDED_MPV_FRAME_COPY_RESTART": "Az alkalmazás újraindítása után lép érvénybe."
+        "APP_UPDATE_RELEASE_NOTES": "Újdonságok"
     },
     "THEMES": {
         "DARK_THEME": "Sötét",
@@ -433,8 +428,6 @@
             "ASPECT_RATIO": "Képarány",
             "ASPECT_TOOLTIP": "Képarány: {{aspect}}",
             "ASPECT_DEFAULT": "Alapértelmezett",
-            "ENTER_PICTURE_IN_PICTURE": "Kép a képben mód bekapcsolása",
-            "EXIT_PICTURE_IN_PICTURE": "Kilépés a kép a képben módból",
             "ENTER_FULLSCREEN": "Váltás teljes képernyőre",
             "EXIT_FULLSCREEN": "Kilépés a teljes képernyős módból"
         }

@@ -13,12 +13,9 @@ import {
   VideoPlayer,
 } from "@arm-nator/shared/interfaces";
 
-export function createSettingsForm(
-  formBuilder: FormBuilder,
-) {
+export function createSettingsForm(formBuilder: FormBuilder) {
   return formBuilder.group({
     player: [VideoPlayer.ArtPlayer],
-    webPlayerSharedControls: false,
     playerAmbientMode: false,
     playerUpNextRail: true,
     streamFormat: StreamFormat.AutoStreamFormat,
@@ -47,7 +44,6 @@ export function createSettingsForm(
     vlcPlayerPath: "",
     vlcPlayerArguments: "",
     vlcReuseInstance: false,
-    embeddedMpvFrameCopy: false,
     coverSize: "medium" as CoverSize,
     tmdb: formBuilder.group({
       enabled: DEFAULT_TMDB_SETTINGS.enabled,
@@ -66,7 +62,6 @@ export function createSettingsFromFormValue(
 
   return {
     player: value.player ?? VideoPlayer.ArtPlayer,
-    webPlayerSharedControls: value.webPlayerSharedControls ?? false,
     playerAmbientMode: value.playerAmbientMode ?? false,
     playerUpNextRail: value.playerUpNextRail ?? true,
     streamFormat: value.streamFormat ?? StreamFormat.AutoStreamFormat,
@@ -89,7 +84,6 @@ export function createSettingsFromFormValue(
       value.vlcPlayerArguments,
     ),
     vlcReuseInstance: value.vlcReuseInstance ?? false,
-    embeddedMpvFrameCopy: value.embeddedMpvFrameCopy ?? false,
     coverSize: value.coverSize ?? "medium",
     trustedInsecureTlsHosts: currentSettings.trustedInsecureTlsHosts ?? [],
     tmdb: {

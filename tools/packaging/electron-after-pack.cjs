@@ -90,10 +90,6 @@ function copyEmbeddedMpvNativeOutput(resourceDir, projectDir) {
     fs.rmSync(destinationDir, { recursive: true, force: true });
     fs.cpSync(sourceDir, destinationDir, { recursive: true });
 
-    const helperPath = path.join(destinationDir, 'arm-nator_mpv_helper');
-    if (fs.existsSync(helperPath)) {
-        fs.chmodSync(helperPath, 0o755);
-    }
 }
 
 module.exports = async function afterPackHook(params) {

@@ -9,8 +9,6 @@ import {
     trace,
 } from './services/debug-trace';
 import { store, WINDOW_BOUNDS } from './services/store.service';
-import { isFrameCopyRuntimeUsable } from './services/embedded-mpv-frame-copy-platform.util';
-import { isEmbeddedMpvFeatureEnabled } from './services/embedded-mpv-runtime-policy.util';
 
 const externalBrowserProtocols = new Set(['http:', 'https:']);
 const trustedDevRendererHosts = new Set([
@@ -80,22 +78,10 @@ export function isTrustedRendererNavigationUrl(
 }
 
 export function getMainWindowWebPreferences(): Electron.BrowserWindowConstructorOptions['webPreferences'] {
-    // The frame-copy embedded MPV experiment needs the preload script to
-    // load the shm frame-reader native addon, which the renderer sandbox
-    // forbids. Only that opt-in flag relaxes the sandbox; context isolation
-    // and nodeIntegration:false stay on either way, so page code never
-    // gains Node access. Revisit before the engine can become a default.
-    const frameCopyExperiment =
-        isEmbeddedMpvFeatureEnabled() &&
-        ['1', 'true', 'yes', 'on'].includes(
-            (process.env.ARM_NATOR_ENABLE_EMBEDDED_MPV_FRAME_COPY ?? '')
-                .trim()
-                .toLowerCase()
-        ) && isFrameCopyRuntimeUsable();
     return {
         contextIsolation: true,
         nodeIntegration: false,
-        sandbox: !frameCopyExperiment,
+        sandbox: true,
         webSecurity: true,
         backgroundThrottling: false,
         preload: join(__dirname, 'main.preload.js'),
@@ -103,7 +89,10 @@ export function getMainWindowWebPreferences(): Electron.BrowserWindowConstructor
 }
 
 export async function clearElectronServiceWorkerStorage(
-    electronSession: Pick<Electron.Session, 'clearStorageData'> = session.defaultSession
+    electronSession: Pick<
+        Electron.Session,
+        'clearStorageData'
+    > = session.defaultSession
 ): Promise<void> {
     try {
         await electronSession.clearStorageData({

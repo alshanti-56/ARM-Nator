@@ -27,10 +27,8 @@ import {
   PlayerControlsComponent,
   type PlayerMediaTitle,
   type PlayerRuntimeSnapshot,
-  WEB_PLAYER_SHARED_CONTROLS,
   WebVideoControlsAdapter,
 } from "../player-controls";
-import { SeriesPlaybackNavigationControlsComponent } from "../portal-inline-player/series-playback-navigation-controls.component";
 import type { SeriesPlaybackNavigation } from "../portal-inline-player/series-playback-navigation";
 import { ShakaVideoSession } from "../shaka-engine/shaka-video-session";
 import { exitOwnedFullscreen } from "../web-video-support/exit-owned-fullscreen.util";
@@ -38,7 +36,6 @@ import {
   clearNativeVideoSources,
   setNativeVideoSource,
 } from "../web-video-support/web-video-native-source.util";
-import { WebVideoSourceTracks } from "../web-video-support/web-video-source-tracks";
 import {
   MpegTsLiveRecovery,
   createMpegTsConfig,
@@ -65,7 +62,7 @@ const debugHtmlPlayer = createDevLogger("HtmlVideoPlayer");
   selector: "app-html-video-player",
   templateUrl: "./html-video-player.component.html",
   styleUrls: ["./html-video-player.component.scss"],
-  imports: [PlayerControlsComponent, SeriesPlaybackNavigationControlsComponent],
+  imports: [PlayerControlsComponent],
   providers: [WebVideoControlsAdapter],
   standalone: true,
 })
@@ -79,7 +76,6 @@ export class HtmlVideoPlayerComponent implements OnInit, OnChanges, OnDestroy {
   readonly interactionEnabled = input(true);
   readonly showCaptions = input(false);
   readonly mediaTitle = input<PlayerMediaTitle | null>(null);
-  readonly sharedControlsOverride = input<boolean | null>(null);
   readonly onlineSubtitleUrl = input("");
   readonly onlineSubtitleLabel = input("Online subtitle");
   readonly onlineSubtitleLanguage = input("und");
@@ -93,12 +89,6 @@ export class HtmlVideoPlayerComponent implements OnInit, OnChanges, OnDestroy {
   @Output() nextEpisodeRequested = new EventEmitter<void>();
   @Output() runtimeSnapshotChange = new EventEmitter<PlayerRuntimeSnapshot>();
 
-  private readonly configuredSharedControls = inject(
-    WEB_PLAYER_SHARED_CONTROLS,
-  );
-  get sharedControls(): boolean {
-    return this.sharedControlsOverride() ?? this.configuredSharedControls;
-  }
   readonly controlsAdapter = inject(WebVideoControlsAdapter);
   private readonly runtimeSnapshotEffect = effect(() => {
     this.runtimeSnapshotChange.emit({
@@ -136,35 +126,21 @@ export class HtmlVideoPlayerComponent implements OnInit, OnChanges, OnDestroy {
   private shakaSession: ShakaVideoSession | null = null;
   private controlsSource: HtmlVideoControlsSource | null = null;
   private controlsBridge: HtmlVideoPlayerControlsBridge | null = null;
-  /**
-   * Legacy (vendor-chrome) counterpart of {@link controlsBridge}: without
-   * shared controls there is no adapter to feed, but the `showCaptions`
-   * preference still has to reach the active source engine.
-   */
-  private captionTracks: WebVideoSourceTracks | null = null;
   private videoSession: HtmlVideoElementSession | null = null;
 
   ngOnInit() {
     this.syncOnlineSubtitle();
-    if (this.sharedControls) {
-      this.seriesNavigationSignal.set(this.seriesNavigation);
-      this.controlsAdapter.setContext({
-        seriesNavigation: this.seriesNavigationSignal,
-      });
-      this.controlsBridge = new HtmlVideoPlayerControlsBridge({
-        video: this.videoPlayer.nativeElement,
-        adapter: this.controlsAdapter,
-        isLive: () => this.isLive(),
-        showCaptions: () => this.showCaptions(),
-      });
-      this.controlsBridge.attach();
-    } else {
-      this.captionTracks = new WebVideoSourceTracks({
-        video: this.videoPlayer.nativeElement,
-        showCaptions: () => this.showCaptions(),
-        vendorCaptionControls: true,
-      });
-    }
+    this.seriesNavigationSignal.set(this.seriesNavigation);
+    this.controlsAdapter.setContext({
+      seriesNavigation: this.seriesNavigationSignal,
+    });
+    this.controlsBridge = new HtmlVideoPlayerControlsBridge({
+      video: this.videoPlayer.nativeElement,
+      adapter: this.controlsAdapter,
+      isLive: () => this.isLive(),
+      showCaptions: () => this.showCaptions(),
+    });
+    this.controlsBridge.attach();
     if (this.controlsSource) {
       this.bindControlsSource(this.controlsSource);
     }
@@ -192,7 +168,6 @@ export class HtmlVideoPlayerComponent implements OnInit, OnChanges, OnDestroy {
     }
     if (changes["isLive"] || changes["showCaptions"]) {
       this.controlsBridge?.refreshInputs();
-      this.captionTracks?.refreshInputs();
     }
     if (
       changes["onlineSubtitleUrl"] ||
@@ -201,11 +176,9 @@ export class HtmlVideoPlayerComponent implements OnInit, OnChanges, OnDestroy {
     ) {
       this.syncOnlineSubtitle();
       this.controlsBridge?.refreshInputs();
-      this.captionTracks?.refreshInputs();
     }
     if (changes["interactionEnabled"]?.currentValue === false) {
       exitOwnedFullscreen(
-        this.sharedControls,
         this.playerRoot()?.nativeElement,
         (error) =>
           debugHtmlPlayer("Failed to exit HTML5 player fullscreen:", error),
@@ -303,12 +276,10 @@ export class HtmlVideoPlayerComponent implements OnInit, OnChanges, OnDestroy {
   private bindControlsSource(source: HtmlVideoControlsSource): void {
     this.controlsSource = source;
     this.controlsBridge?.setSource(source);
-    this.captionTracks?.setSource(source);
   }
 
   private clearControlsSource(): void {
     this.controlsBridge?.clearSource();
-    this.captionTracks?.clearSource();
     this.controlsSource = null;
   }
 
@@ -439,8 +410,6 @@ export class HtmlVideoPlayerComponent implements OnInit, OnChanges, OnDestroy {
     );
     this.controlsBridge?.destroy();
     this.controlsBridge = null;
-    this.captionTracks?.destroy();
-    this.captionTracks = null;
     this.controlsSource = null;
     this.videoSession?.destroy();
     this.videoSession = null;

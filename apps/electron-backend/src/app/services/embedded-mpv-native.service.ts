@@ -1,4 +1,4 @@
-import { powerSaveBlocker, screen } from 'electron';
+import { powerSaveBlocker } from 'electron';
 import { existsSync, readFileSync } from 'fs';
 import { createRequire } from 'module';
 import path from 'path';
@@ -10,21 +10,12 @@ import {
     EmbeddedMpvSession,
     EmbeddedMpvSessionStatus,
     EmbeddedMpvSubtitleTrack,
-    EmbeddedMpvEngine,
-    EmbeddedMpvFrameSource,
     EmbeddedMpvSupport,
-    EMBEDDED_MPV_FRAME_SOURCE_CHANGED,
     EMBEDDED_MPV_SESSION_UPDATE,
     ResolvedPortalPlayback,
 } from '@arm-nator/shared/interfaces';
 import { toNativeViewBounds } from './embedded-mpv-bounds.util';
-import { EmbeddedMpvFrameCopyAdapter } from './embedded-mpv-frame-copy.adapter';
-import {
-    getFrameCopyRuntimeAvailability,
-    getEmbeddedMpvAddonCandidatePaths,
-    isFrameCopyRuntimeUsable,
-    resolveFrameCopyHelperPath,
-} from './embedded-mpv-frame-copy-platform.util';
+import { getEmbeddedMpvAddonCandidatePaths } from './embedded-mpv-platform.util';
 import { isEmbeddedMpvFeatureEnabled } from './embedded-mpv-runtime-policy.util';
 
 export interface NativeEmbeddedMpvSessionSnapshot {
@@ -83,7 +74,6 @@ interface EmbeddedMpvRuntimeSession {
     lastStatus: EmbeddedMpvSessionStatus | null;
 }
 
-const EMBEDDED_MPV_FRAME_COPY_ENV = 'ARM_NATOR_ENABLE_EMBEDDED_MPV_FRAME_COPY';
 export class EmbeddedMpvNativeService {
     private addon: NativeEmbeddedMpvAddon | null = null;
     private addonLoadError: Error | null = null;
@@ -92,86 +82,6 @@ export class EmbeddedMpvNativeService {
     private readonly pollFailuresLogged = new Set<string>();
     private powerBlockerId: number | null = null;
     private readonly loadAddonModule = createRequire(__filename);
-    private frameCopyAdapter: EmbeddedMpvFrameCopyAdapter | null = null;
-
-    /**
-     * Frame-copy engine: helper process + shm ring + renderer canvas.
-     * Experimental, macOS Apple Silicon only, opted into with
-     * ARM_NATOR_ENABLE_EMBEDDED_MPV_FRAME_COPY=1 on top of the regular
-     * embedded MPV experiment flag.
-     */
-    private isFrameCopyEngineRequested(): boolean {
-        return ['1', 'true', 'yes', 'on'].includes(
-            (process.env[EMBEDDED_MPV_FRAME_COPY_ENV] ?? '')
-                .trim()
-                .toLowerCase()
-        );
-    }
-
-    private isFrameCopyEngineActive(): boolean {
-        // Requires the helper binary too: a stale opt-in (cleaned native
-        // build, bad install) must fall back to the native engine instead
-        // of leaving embedded MPV unsupported with no way to recover.
-        return this.isFrameCopyEngineRequested() && isFrameCopyRuntimeUsable();
-    }
-
-    getActiveEngine(): EmbeddedMpvEngine {
-        return this.isFrameCopyEngineActive() ? 'frame-copy' : 'native';
-    }
-
-    isFrameCopyAvailable(): boolean {
-        return isFrameCopyRuntimeUsable();
-    }
-
-    private getFrameCopySupportDetails(): Pick<
-        EmbeddedMpvSupport,
-        'frameCopyAvailable' | 'frameCopyUnavailableReason'
-    > {
-        const availability = getFrameCopyRuntimeAvailability();
-        if (!('reason' in availability)) {
-            return { frameCopyAvailable: true };
-        }
-        return {
-            frameCopyAvailable: false,
-            frameCopyUnavailableReason: availability.reason,
-        };
-    }
-
-    getFrameSource(sessionId: string): EmbeddedMpvFrameSource | null {
-        return this.frameCopyAdapter?.getFrameSource(sessionId) ?? null;
-    }
-
-    private getFrameCopyAdapter(): EmbeddedMpvFrameCopyAdapter {
-        if (!this.frameCopyAdapter) {
-            this.frameCopyAdapter = new EmbeddedMpvFrameCopyAdapter({
-                resolveHelperPath: resolveFrameCopyHelperPath,
-                getScaleFactor: () => this.getMainWindowScaleFactor(),
-                onFrameSourceChanged: (sessionId, source) => {
-                    if (!App.mainWindow || App.mainWindow.isDestroyed()) {
-                        return;
-                    }
-                    App.mainWindow.webContents.send(
-                        EMBEDDED_MPV_FRAME_SOURCE_CHANGED,
-                        { sessionId, source }
-                    );
-                },
-            });
-        }
-        return this.frameCopyAdapter;
-    }
-
-    private getMainWindowScaleFactor(): number {
-        try {
-            if (!App.mainWindow || App.mainWindow.isDestroyed()) {
-                return 1;
-            }
-            return screen.getDisplayMatching(App.mainWindow.getBounds())
-                .scaleFactor;
-        } catch {
-            return 1;
-        }
-    }
-
     private getMainWindowZoomFactor(): number {
         try {
             if (!App.mainWindow || App.mainWindow.isDestroyed()) {
@@ -187,10 +97,7 @@ export class EmbeddedMpvNativeService {
      * Renderer bounds arrive in CSS pixels; the native-view engines position
      * the macOS NSView in points, so at
      * page zoom or display scale ≠ 100% the raw values land the video toward
-     * the window's top-left corner at a fraction of its size (#1145). The
-     * frame-copy engine must bypass this: it paints into a DOM canvas laid
-     * out in CSS pixels, and its adapter already applies the display scale
-     * to the render size itself.
+     * the window's top-left corner at a fraction of its size (#1145).
      */
     private scaleBoundsForNativeView(
         bounds: EmbeddedMpvBounds
@@ -201,13 +108,6 @@ export class EmbeddedMpvNativeService {
     }
 
     private detectCapabilities(): EmbeddedMpvCapabilities {
-        if (this.isFrameCopyEngineActive()) {
-            return {
-                subtitles: true,
-                playbackSpeed: true,
-                aspectOverride: true,
-            };
-        }
         const addon = this.addon;
         return {
             subtitles: typeof addon?.setSubtitleTrack === 'function',
@@ -233,19 +133,6 @@ export class EmbeddedMpvNativeService {
             };
         }
 
-        // A requested-but-unavailable frame-copy engine (wrong platform or
-        // missing helper) intentionally falls through to the native path so
-        // embedded MPV keeps working and Settings can clear the opt-in.
-        if (this.isFrameCopyEngineActive()) {
-            return {
-                supported: true,
-                platform: process.platform,
-                engine: 'frame-copy',
-                ...this.getFrameCopySupportDetails(),
-                capabilities: this.detectCapabilities(),
-            };
-        }
-
         if (this.addon) {
             try {
                 if (!this.addon.isSupported()) {
@@ -259,8 +146,6 @@ export class EmbeddedMpvNativeService {
                 return {
                     supported: true,
                     platform: process.platform,
-                    engine: this.getActiveEngine(),
-                    ...this.getFrameCopySupportDetails(),
                     capabilities: this.detectCapabilities(),
                 };
             } catch (error) {
@@ -325,8 +210,6 @@ export class EmbeddedMpvNativeService {
             return {
                 supported: true,
                 platform: process.platform,
-                engine: this.getActiveEngine(),
-                ...this.getFrameCopySupportDetails(),
                 capabilities: this.detectCapabilities(),
             };
         } catch (error) {
@@ -357,8 +240,6 @@ export class EmbeddedMpvNativeService {
             return {
                 supported: true,
                 platform: process.platform,
-                engine: this.getActiveEngine(),
-                ...this.getFrameCopySupportDetails(),
                 capabilities: this.detectCapabilities(),
             };
         } catch (error) {
@@ -377,17 +258,10 @@ export class EmbeddedMpvNativeService {
     ): EmbeddedMpvSession {
         this.assertEmbeddedMpvEnabled();
         const addon = this.getAddon();
-        // The frame-copy adapter ignores the native window handle because
-        // frames travel through shared memory to a renderer canvas.
-        const usesFrameCopyAddon =
-            this.frameCopyAdapter !== null && addon === this.frameCopyAdapter;
-        const windowHandle = usesFrameCopyAddon
-            ? Buffer.alloc(0)
-            : this.getMainWindowHandle();
         const startedAt = new Date().toISOString();
         const sessionId = addon.createSession(
-            windowHandle,
-            usesFrameCopyAddon ? bounds : this.scaleBoundsForNativeView(bounds),
+            this.getMainWindowHandle(),
+            this.scaleBoundsForNativeView(bounds),
             title,
             initialVolume
         );
@@ -438,12 +312,9 @@ export class EmbeddedMpvNativeService {
 
     setBounds(sessionId: string, bounds: EmbeddedMpvBounds): void {
         this.assertEmbeddedMpvEnabled();
-        const addon = this.getAddon();
-        const usesFrameCopyAddon =
-            this.frameCopyAdapter !== null && addon === this.frameCopyAdapter;
-        addon.setBounds(
+        this.getAddon().setBounds(
             sessionId,
-            usesFrameCopyAddon ? bounds : this.scaleBoundsForNativeView(bounds)
+            this.scaleBoundsForNativeView(bounds)
         );
     }
 
@@ -591,8 +462,7 @@ export class EmbeddedMpvNativeService {
     /**
      * Sessions are torn down by the renderer's Angular lifecycle, which
      * never runs when the renderer crashes or hard-reloads (dev-server HMR,
-     * Cmd+R). Without this watch, native mpv handles or frame-copy helper
-     * processes leak until app shutdown.
+     * Cmd+R). Without this watch, native mpv handles leak until app shutdown.
      */
     private rendererWatchInstalled = false;
 
@@ -803,10 +673,6 @@ export class EmbeddedMpvNativeService {
     }
 
     private getAddon(): NativeEmbeddedMpvAddon {
-        if (this.isFrameCopyEngineActive()) {
-            return this.getFrameCopyAdapter();
-        }
-
         if (this.addon) {
             return this.addon;
         }

@@ -5,6 +5,7 @@ import type {
 } from '../player-controls/player-controls.model';
 import type { ShakaVideoSession } from '../shaka-engine/shaka-video-session';
 import { WebVideoHlsControls } from './web-video-hls-controls';
+import { WebVideoNativeAudioTracks } from './web-video-native-audio-tracks';
 import { WebVideoNativeTextTracks } from './web-video-native-text-tracks';
 import { WebVideoShakaControls } from './web-video-shaka-controls';
 import { ONLINE_SUBTITLE_TRACK_ID } from './online-subtitle-track';
@@ -26,13 +27,6 @@ export interface WebVideoSourceTracksConfig {
      * class purely to apply the caption preference.
      */
     refresh?: () => void;
-    /**
-     * Set by hosts that keep the engine's own caption UI (the preference-off
-     * players). The caption preference then seeds each new source instead of
-     * staying authoritative, so the vendor caption menu keeps working once
-     * playback is running. Shared controls own the caption UI and omit it.
-     */
-    vendorCaptionControls?: boolean;
 }
 
 /**
@@ -46,45 +40,35 @@ export class WebVideoSourceTracks {
     private readonly config: WebVideoSourceTracksConfig;
     private readonly hlsControls: WebVideoHlsControls;
     private readonly shakaControls: WebVideoShakaControls;
+    private readonly nativeAudioTracks: WebVideoNativeAudioTracks;
     private readonly nativeTextTracks: WebVideoNativeTextTracks;
     private source: WebVideoControlsSource | null = null;
-    private playbackStarted = false;
-    private playingListener: (() => void) | null = null;
     private destroyed = false;
 
     constructor(config: WebVideoSourceTracksConfig) {
         this.config = config;
         const refresh = () => config.refresh?.();
-        const playbackStarted = config.vendorCaptionControls
-            ? () => this.playbackStarted
-            : undefined;
         this.hlsControls = new WebVideoHlsControls({
             showCaptions: config.showCaptions,
             refresh,
-            playbackStarted,
         });
         this.shakaControls = new WebVideoShakaControls({
             showCaptions: config.showCaptions,
             refresh,
-            playbackStarted,
         });
+        this.nativeAudioTracks = new WebVideoNativeAudioTracks(
+            config.video,
+            refresh
+        );
         this.nativeTextTracks = new WebVideoNativeTextTracks({
             video: config.video,
             showCaptions: config.showCaptions,
             refresh,
-            playbackStarted,
             includeTrack: (track) =>
                 this.source?.kind === 'hls' || this.source?.kind === 'shaka'
                     ? track.id === ONLINE_SUBTITLE_TRACK_ID
                     : true,
         });
-        if (config.vendorCaptionControls) {
-            const listener = () => {
-                this.playbackStarted = true;
-            };
-            this.playingListener = listener;
-            config.video.addEventListener('playing', listener);
-        }
     }
 
     get sourceKind(): WebVideoControlsSource['kind'] | null {
@@ -98,8 +82,7 @@ export class WebVideoSourceTracks {
 
         this.clearActiveSource();
         this.source = source;
-        // A new source starts unsettled so its own defaults are seeded again.
-        this.playbackStarted = false;
+        this.nativeAudioTracks.bind();
         this.nativeTextTracks.bind();
         if (source.kind === 'hls') {
             this.hlsControls.bind(source.hls);
@@ -138,13 +121,6 @@ export class WebVideoSourceTracks {
         }
 
         this.clearSource();
-        if (this.playingListener) {
-            this.config.video.removeEventListener(
-                'playing',
-                this.playingListener
-            );
-            this.playingListener = null;
-        }
         this.destroyed = true;
     }
 
@@ -155,7 +131,9 @@ export class WebVideoSourceTracks {
         if (this.source?.kind === 'shaka') {
             return this.shakaControls.getAudioTracks();
         }
-        return [];
+        return this.source?.kind === 'native'
+            ? this.nativeAudioTracks.getAudioTracks()
+            : [];
     }
 
     setAudioTrack(id: number): void {
@@ -163,6 +141,8 @@ export class WebVideoSourceTracks {
             this.hlsControls.setAudioTrack(id);
         } else if (this.source?.kind === 'shaka') {
             this.shakaControls.setAudioTrack(id);
+        } else if (this.source?.kind === 'native') {
+            this.nativeAudioTracks.setAudioTrack(id);
         }
     }
 
@@ -229,6 +209,7 @@ export class WebVideoSourceTracks {
         } else if (this.source?.kind === 'shaka') {
             this.shakaControls.clear();
         }
+        this.nativeAudioTracks.clear();
         this.nativeTextTracks.clear();
     }
 
