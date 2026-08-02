@@ -108,15 +108,35 @@ export class CategoryContentViewComponent implements OnInit {
             this.supportsRatingSort() &&
             typeof this.catalog.setMinRating === 'function'
     );
+    readonly availableGenres = computed(() => this.catalog.availableGenres?.() ?? []);
+    readonly availableYears = computed(() => this.catalog.availableYears?.() ?? []);
+    readonly canFilterByGenre = computed(
+        () => this.availableGenres().length > 0 && typeof this.catalog.setGenreFilter === 'function'
+    );
+    readonly canFilterByYear = computed(
+        () => this.availableYears().length > 0 && typeof this.catalog.setYearFilter === 'function'
+    );
+    readonly genreFilter = computed(() =>
+        this.canFilterByGenre() ? (this.catalog.genreFilter?.() ?? null) : null
+    );
+    readonly yearFilter = computed(() =>
+        this.canFilterByYear() ? (this.catalog.yearFilter?.() ?? null) : null
+    );
     readonly minRating = computed(() =>
         this.canFilterByRating() ? (this.catalog.minRating?.() ?? null) : null
     );
     readonly ratingThresholds = [9, 8, 7, 6, 5] as const;
     readonly hasRefineControls = computed(
-        () => this.canSortContent() || this.canFilterByRating()
+        () =>
+            this.canSortContent() ||
+            this.canFilterByRating() ||
+            this.canFilterByGenre() ||
+            this.canFilterByYear()
     );
     readonly activeRefinementCount = computed(() =>
-        this.minRating() !== null ? 1 : 0
+        Number(this.minRating() !== null) +
+        Number(this.genreFilter() !== null) +
+        Number(this.yearFilter() !== null)
     );
     readonly activeSortLabelKey = computed(() => {
         switch (this.contentSortMode()) {
@@ -128,6 +148,10 @@ export class CategoryContentViewComponent implements OnInit {
                 return 'WORKSPACE.SORT_NAME_ASC';
             case 'name-desc':
                 return 'WORKSPACE.SORT_NAME_DESC';
+            case 'year-desc':
+                return 'WORKSPACE.SORT_YEAR_DESC';
+            case 'year-asc':
+                return 'WORKSPACE.SORT_YEAR_ASC';
             case 'rating-desc':
                 return 'WORKSPACE.SORT_TOP_RATED';
             case 'rating-asc':
@@ -156,6 +180,14 @@ export class CategoryContentViewComponent implements OnInit {
 
     setMinRating(value: number | null): void {
         this.catalog.setMinRating?.(value);
+    }
+
+    setGenreFilter(value: string | null): void {
+        this.catalog.setGenreFilter?.(value);
+    }
+
+    setYearFilter(value: number | null): void {
+        this.catalog.setYearFilter?.(value);
     }
 
     ngOnInit(): void {

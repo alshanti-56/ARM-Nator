@@ -32,6 +32,8 @@ import type {
     TmdbCacheEntry,
     TmdbCacheMediaType,
     XtreamCategory,
+    XtreamContentMetadata,
+    XtreamMetadataEnrichmentState,
 } from '@arm-nator/shared/interfaces';
 import type {
     BrowserViewCommand,
@@ -727,6 +729,17 @@ const electronApi: ElectronBridgeApi = {
             'DB_SET_CONTENT_BACKDROP_IF_MISSING',
             contentId,
             backdropUrl
+        ),
+    dbUpdateXtreamContentMetadata: (
+        contentId: number,
+        metadata: XtreamContentMetadata,
+        enrichment?: XtreamMetadataEnrichmentState
+    ) =>
+        ipcRenderer.invoke(
+            'DB_UPDATE_XTREAM_CONTENT_METADATA',
+            contentId,
+            metadata,
+            enrichment
         ),
     dbDeleteAllPlaylists: (operationId?: string) =>
         ipcRenderer.invoke('DB_DELETE_ALL_PLAYLISTS', operationId),

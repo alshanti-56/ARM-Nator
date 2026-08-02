@@ -47,6 +47,15 @@ export interface XtreamContentItem {
     category_id: number | string; // Can be number (DB) or string (API)
     title: string;
     rating: string;
+    genre?: string | null;
+    releaseDate?: string | null;
+    country?: string | null;
+    director?: string | null;
+    cast?: string | null;
+    description?: string | null;
+    metadata_status?: 'complete' | 'failed' | null;
+    metadata_attempted_at?: string | null;
+    metadata_retry_after?: string | null;
     added: string;
     poster_url: string;
     backdrop_url?: string | null;
@@ -69,7 +78,6 @@ export interface XtreamContentItem {
     rating_imdb?: string;
 
     // Global search result fields
-    description?: string;
     playlist_id?: string;
     playlist_name?: string;
 }

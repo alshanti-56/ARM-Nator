@@ -62,6 +62,38 @@
                                 <mat-icon>close</mat-icon>
                             </button>
                         }
+                        @if (genreFilter(); as genre) {
+                            <button
+                                type="button"
+                                mat-button
+                                class="refinement-chip metadata-refinement-chip"
+                                (click)="setGenreFilter(null)"
+                                [attr.aria-label]="
+                                    'WORKSPACE.REFINE_CLEAR_GENRE'
+                                        | translate: { value: genre }
+                                "
+                            >
+                                <mat-icon>category</mat-icon>
+                                <span class="refinement-chip-label">{{ genre }}</span>
+                                <mat-icon>close</mat-icon>
+                            </button>
+                        }
+                        @if (yearFilter(); as year) {
+                            <button
+                                type="button"
+                                mat-button
+                                class="refinement-chip metadata-refinement-chip"
+                                (click)="setYearFilter(null)"
+                                [attr.aria-label]="
+                                    'WORKSPACE.REFINE_CLEAR_YEAR'
+                                        | translate: { value: year }
+                                "
+                            >
+                                <mat-icon>calendar_today</mat-icon>
+                                <span class="refinement-chip-label">{{ year }}</span>
+                                <mat-icon>close</mat-icon>
+                            </button>
+                        }
                     </div>
                     <button
                         type="button"
@@ -132,6 +164,26 @@
                             @if (supportsRatingSort()) {
                                 <button
                                     mat-menu-item
+                                    (click)="setContentSortMode('year-desc')"
+                                >
+                                    <span>{{ 'WORKSPACE.SORT_YEAR_DESC' | translate }}</span>
+                                    @if (contentSortMode() === 'year-desc') {
+                                        <mat-icon>check</mat-icon>
+                                    }
+                                </button>
+                                <button
+                                    mat-menu-item
+                                    (click)="setContentSortMode('year-asc')"
+                                >
+                                    <span>{{ 'WORKSPACE.SORT_YEAR_ASC' | translate }}</span>
+                                    @if (contentSortMode() === 'year-asc') {
+                                        <mat-icon>check</mat-icon>
+                                    }
+                                </button>
+                            }
+                            @if (supportsRatingSort()) {
+                                <button
+                                    mat-menu-item
                                     (click)="setContentSortMode('rating-desc')"
                                 >
                                     <span>{{
@@ -183,6 +235,46 @@
                                             | translate: { value: threshold }
                                     }}</span>
                                     @if (minRating() === threshold) {
+                                        <mat-icon>check</mat-icon>
+                                    }
+                                </button>
+                            }
+                        }
+                        @if (canFilterByGenre()) {
+                            <div class="refine-menu-divider"></div>
+                            <div class="refine-menu-section-title">
+                                {{ 'WORKSPACE.REFINE_GENRE_SECTION' | translate }}
+                            </div>
+                            <button mat-menu-item (click)="setGenreFilter(null)">
+                                <span>{{ 'WORKSPACE.FILTER_GENRE_ANY' | translate }}</span>
+                                @if (genreFilter() === null) {
+                                    <mat-icon>check</mat-icon>
+                                }
+                            </button>
+                            @for (genre of availableGenres(); track genre) {
+                                <button mat-menu-item (click)="setGenreFilter(genre)">
+                                    <span>{{ genre }}</span>
+                                    @if (genreFilter() === genre) {
+                                        <mat-icon>check</mat-icon>
+                                    }
+                                </button>
+                            }
+                        }
+                        @if (canFilterByYear()) {
+                            <div class="refine-menu-divider"></div>
+                            <div class="refine-menu-section-title">
+                                {{ 'WORKSPACE.REFINE_YEAR_SECTION' | translate }}
+                            </div>
+                            <button mat-menu-item (click)="setYearFilter(null)">
+                                <span>{{ 'WORKSPACE.FILTER_YEAR_ANY' | translate }}</span>
+                                @if (yearFilter() === null) {
+                                    <mat-icon>check</mat-icon>
+                                }
+                            </button>
+                            @for (year of availableYears(); track year) {
+                                <button mat-menu-item (click)="setYearFilter(year)">
+                                    <span>{{ year }}</span>
+                                    @if (yearFilter() === year) {
                                         <mat-icon>check</mat-icon>
                                     }
                                 </button>

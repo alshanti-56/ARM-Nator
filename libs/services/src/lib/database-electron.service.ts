@@ -14,6 +14,8 @@ import type {
     XtreamBackupHiddenCategory,
     XtreamBackupRecentlyViewedItem,
     XtreamCategory,
+    XtreamContentMetadata,
+    XtreamMetadataEnrichmentState,
 } from '@arm-nator/shared/interfaces';
 
 export interface XCategoryFromDb {
@@ -30,6 +32,15 @@ export interface XtreamContent {
     category_id: number;
     title: string;
     rating: string;
+    genre?: string | null;
+    releaseDate?: string | null;
+    country?: string | null;
+    director?: string | null;
+    cast?: string | null;
+    description?: string | null;
+    metadata_status?: 'complete' | 'failed' | null;
+    metadata_attempted_at?: string | null;
+    metadata_retry_after?: string | null;
     added: string;
     poster_url: string;
     backdrop_url?: string | null;
@@ -859,6 +870,28 @@ export class DatabaseService {
             return true;
         } catch (error) {
             console.error('Error backfilling content backdrop:', error);
+            return false;
+        }
+    }
+
+    async updateXtreamContentMetadata(
+        contentId: number,
+        metadata: XtreamContentMetadata,
+        enrichment?: XtreamMetadataEnrichmentState
+    ): Promise<boolean> {
+        if (typeof window.electron?.dbUpdateXtreamContentMetadata !== 'function') {
+            return false;
+        }
+
+        try {
+            await window.electron.dbUpdateXtreamContentMetadata(
+                contentId,
+                metadata,
+                enrichment
+            );
+            return true;
+        } catch (error) {
+            console.error('Error updating content metadata:', error);
             return false;
         }
     }

@@ -1,5 +1,5 @@
 @let item = selectedItem();
-@if (selectedVodInfo(); as info) {
+@if (displayInfo(); as info) {
     <app-portal-detail-shell
         [title]="info.name || item?.movie_data?.name"
         [description]="info.description || info.plot"
@@ -29,6 +29,11 @@
             @if (info.country) {
                 <span class="details__tag">{{ info.country }}</span>
             }
+            @if (info.age || info.mpaa_rating) {
+                <span class="details__tag">{{
+                    info.age || info.mpaa_rating
+                }}</span>
+            }
         </ng-template>
 
         <ng-template appDetailMeta>
@@ -37,7 +42,12 @@
                     <span class="label">{{ 'XTREAM.ACTORS' | translate }}</span>
                     @if (info.tmdb_cast?.length) {
                         <div class="details__cast-strip">
-                            @for (member of info.tmdb_cast; track member.tmdbPersonId ? 'p' + member.tmdbPersonId : 'i' + $index) {
+                            @for (
+                                member of info.tmdb_cast;
+                                track member.tmdbPersonId
+                                    ? 'p' + member.tmdbPersonId
+                                    : 'i' + $index
+                            ) {
                                 <span
                                     class="details__cast-chip"
                                     [class.details__cast-chip--clickable]="
@@ -81,10 +91,17 @@
             }
             @if (info.director || info.tmdb_directors?.length) {
                 <div class="details__meta-item">
-                    <span class="label">{{ 'XTREAM.DIRECTOR' | translate }}</span>
+                    <span class="label">{{
+                        'XTREAM.DIRECTOR' | translate
+                    }}</span>
                     @if (info.tmdb_directors?.length) {
                         <div class="details__cast-strip">
-                            @for (member of info.tmdb_directors; track member.tmdbPersonId ? 'p' + member.tmdbPersonId : 'i' + $index) {
+                            @for (
+                                member of info.tmdb_directors;
+                                track member.tmdbPersonId
+                                    ? 'p' + member.tmdbPersonId
+                                    : 'i' + $index
+                            ) {
                                 <span
                                     class="details__cast-chip"
                                     [class.details__cast-chip--clickable]="
@@ -124,6 +141,134 @@
                         'XTREAM.KINOPOISK_RATING' | translate
                     }}</span>
                     <span class="value">{{ info.rating_kinopoisk }}</span>
+                </div>
+            }
+            @if (info.o_name && info.o_name !== info.name) {
+                <div class="details__meta-item">
+                    <span class="label">{{
+                        'XTREAM.ORIGINAL_TITLE' | translate
+                    }}</span>
+                    <span class="value">{{ info.o_name }}</span>
+                </div>
+            }
+            @if (info.releasedate) {
+                <div class="details__meta-item">
+                    <span class="label">{{
+                        'XTREAM.RELEASE_DATE' | translate
+                    }}</span>
+                    <span class="value">{{ info.releasedate }}</span>
+                </div>
+            }
+            @if (info.age || info.mpaa_rating) {
+                <div class="details__meta-item">
+                    <span class="label">{{
+                        'XTREAM.AGE_RATING' | translate
+                    }}</span>
+                    <span class="value">{{
+                        info.age || info.mpaa_rating
+                    }}</span>
+                </div>
+            }
+            @if (info.tmdb_id) {
+                <div class="details__meta-item">
+                    <span class="label">{{
+                        'XTREAM.TMDB_ID' | translate
+                    }}</span>
+                    <span class="value value--mono">{{ info.tmdb_id }}</span>
+                </div>
+            }
+            @if (
+                info.rating !== undefined &&
+                info.rating !== null &&
+                info.rating !== ''
+            ) {
+                <div class="details__meta-item">
+                    <span class="label">{{ 'XTREAM.RATING' | translate }}</span>
+                    <span class="value">{{ info.rating }}</span>
+                </div>
+            }
+            @if (info.rating_count_kinopoisk) {
+                <div class="details__meta-item">
+                    <span class="label">{{
+                        'XTREAM.RATING_COUNT' | translate
+                    }}</span>
+                    <span class="value">{{ info.rating_count_kinopoisk }}</span>
+                </div>
+            }
+            @if (info.duration_secs || info.runtime) {
+                <div class="details__meta-item">
+                    <span class="label">{{
+                        'XTREAM.RUNTIME' | translate
+                    }}</span>
+                    <span class="value">{{
+                        info.runtime || info.duration_secs + ' sec'
+                    }}</span>
+                </div>
+            }
+            @if (info.episode_run_time) {
+                <div class="details__meta-item">
+                    <span class="label">{{
+                        'XTREAM.EPISODE_RUN_TIME' | translate
+                    }}</span>
+                    <span class="value">{{ info.episode_run_time }} min</span>
+                </div>
+            }
+            @if (info.status) {
+                <div class="details__meta-item">
+                    <span class="label">{{ 'XTREAM.STATUS' | translate }}</span>
+                    <span class="value">{{ info.status }}</span>
+                </div>
+            }
+            @if (info.video.length) {
+                <div class="details__meta-item">
+                    <span class="label">{{ 'XTREAM.VIDEO' | translate }}</span>
+                    <span class="value">{{ info.video.join(', ') }}</span>
+                </div>
+            }
+            @if (info.audio.length) {
+                <div class="details__meta-item">
+                    <span class="label">{{ 'XTREAM.AUDIO' | translate }}</span>
+                    <span class="value">{{ info.audio.join(', ') }}</span>
+                </div>
+            }
+            @if (info.bitrate) {
+                <div class="details__meta-item">
+                    <span class="label">{{
+                        'XTREAM.BITRATE' | translate
+                    }}</span>
+                    <span class="value">{{ info.bitrate }}</span>
+                </div>
+            }
+            @if (item?.movie_data?.container_extension) {
+                <div class="details__meta-item">
+                    <span class="label">{{ 'XTREAM.FORMAT' | translate }}</span>
+                    <span class="value">{{
+                        item?.movie_data?.container_extension | uppercase
+                    }}</span>
+                </div>
+            }
+            @if (item?.movie_data?.stream_id) {
+                <div class="details__meta-item">
+                    <span class="label">{{
+                        'XTREAM.STREAM_ID' | translate
+                    }}</span>
+                    <span class="value value--mono">{{
+                        item?.movie_data?.stream_id
+                    }}</span>
+                </div>
+            }
+            @if (info.kinopoisk_url) {
+                <div class="details__meta-item">
+                    <span class="label">{{
+                        'XTREAM.KINOPOISK_LINK' | translate
+                    }}</span>
+                    <a
+                        class="value details__meta-link"
+                        [href]="info.kinopoisk_url"
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        >{{ info.kinopoisk_url }}</a
+                    >
                 </div>
             }
         </ng-template>
@@ -204,6 +349,16 @@
                     {{ 'PORTALS.REMOVE_FROM_FAVORITES' | translate }}
                 </button>
             }
+            <button
+                type="button"
+                class="metadata-info-btn"
+                (click)="openMetadataDialog()"
+                [disabled]="!rawMetadata().length"
+                [attr.aria-label]="'XTREAM.ALL_METADATA' | translate"
+            >
+                <mat-icon>info_outline</mat-icon>
+                {{ 'XTREAM.INFO' | translate }}
+            </button>
         </ng-template>
 
         <div detail-extras>
@@ -262,15 +417,16 @@
                         }
                         @for (
                             item of similarInPortals();
-                            track 'x' + item.match.playlistId + '-' + item.match.xtreamId
+                            track 'x' +
+                                item.match.playlistId +
+                                '-' +
+                                item.match.xtreamId
                         ) {
                             <button
                                 type="button"
                                 class="details__similar-card"
                                 [title]="
-                                    item.title +
-                                    ' — ' +
-                                    item.match.playlistName
+                                    item.title + ' — ' + item.match.playlistName
                                 "
                                 (click)="openSimilarInPortals(item)"
                             >

@@ -74,7 +74,8 @@
 
 @mixin mobile-action-buttons {
     .play-btn,
-    .favorite-btn {
+    .favorite-btn,
+    .metadata-info-btn {
         flex: 1;
         justify-content: center;
         min-height: 58px;
@@ -88,7 +89,8 @@
 
 @mixin projected-mobile-action-buttons {
     ::ng-deep .play-btn,
-    ::ng-deep .favorite-btn {
+    ::ng-deep .favorite-btn,
+    ::ng-deep .metadata-info-btn {
         flex: 1;
         justify-content: center;
         min-height: 58px;

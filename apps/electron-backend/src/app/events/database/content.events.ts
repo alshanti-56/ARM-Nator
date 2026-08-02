@@ -11,6 +11,8 @@ import {
 import type {
     GlobalSearchPaginationOptions,
     GlobalSearchResultSource,
+    XtreamContentMetadata,
+    XtreamMetadataEnrichmentState,
 } from '@arm-nator/shared/interfaces';
 
 handleWorkerRequest(
@@ -99,6 +101,19 @@ handleWorkerRequest(
     (contentId: number, backdropUrl?: string) => ({
         contentId,
         backdropUrl,
+    })
+);
+
+handleWorkerRequest(
+    'DB_UPDATE_XTREAM_CONTENT_METADATA',
+    (
+        contentId: number,
+        metadata: XtreamContentMetadata,
+        enrichment?: XtreamMetadataEnrichmentState
+    ) => ({
+        contentId,
+        metadata,
+        enrichment,
     })
 );
 

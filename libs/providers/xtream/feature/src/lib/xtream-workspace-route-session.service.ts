@@ -388,6 +388,7 @@ export class XtreamWorkspaceRouteSession {
       ) {
         await this.xtreamStore.hydrateCachedContent(cacheScope);
       }
+      this.xtreamStore.backfillXtreamCatalogMetadata(playlistId);
       return;
     }
 
@@ -403,6 +404,7 @@ export class XtreamWorkspaceRouteSession {
         sectionLoadState !== "ready")
     ) {
       await this.xtreamStore.initializeContent();
+      this.xtreamStore.backfillXtreamCatalogMetadata(playlistId);
     }
   }
 }

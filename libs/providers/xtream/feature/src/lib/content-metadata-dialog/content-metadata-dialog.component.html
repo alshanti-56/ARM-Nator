@@ -1,0 +1,34 @@
+<header mat-dialog-title class="metadata-dialog__header">
+    <div class="metadata-dialog__eyebrow">
+        <mat-icon>info_outline</mat-icon>
+        {{ 'XTREAM.ALL_METADATA' | translate }}
+    </div>
+    <h2 class="metadata-dialog__title">{{ data.title }}</h2>
+</header>
+
+<mat-dialog-content class="metadata-dialog__content">
+    @if (data.entries.length) {
+        <div class="metadata-dialog__grid">
+            @for (entry of data.entries; track entry.key) {
+                <article class="metadata-dialog__item">
+                    <span class="metadata-dialog__label">{{
+                        entry.label
+                    }}</span>
+                    <span class="metadata-dialog__value">{{
+                        entry.value
+                    }}</span>
+                </article>
+            }
+        </div>
+    } @else {
+        <p class="metadata-dialog__empty">
+            {{ 'XTREAM.NO_METADATA' | translate }}
+        </p>
+    }
+</mat-dialog-content>
+
+<mat-dialog-actions align="end" class="metadata-dialog__actions">
+    <button mat-stroked-button mat-dialog-close type="button">
+        {{ 'CLOSE' | translate }}
+    </button>
+</mat-dialog-actions>

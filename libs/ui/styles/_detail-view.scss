@@ -507,6 +507,10 @@
         @include detail-actions.favorite-button-state;
     }
 
+    .metadata-info-btn {
+        @include detail-actions.secondary-action-button;
+    }
+
     // ============================================================================
     // Content Sections - Below the hero fold
     // ============================================================================

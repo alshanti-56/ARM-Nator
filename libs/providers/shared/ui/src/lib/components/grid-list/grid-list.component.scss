@@ -103,6 +103,25 @@ mat-card:hover {
             line-height: 1.35;
             color: var(--app-body-color, var(--mat-sys-on-surface-variant));
         }
+
+        .metadata {
+            display: flex;
+            justify-content: center;
+            gap: 5px;
+            min-width: 0;
+            margin-top: 3px;
+            padding: 0 2px;
+            overflow: hidden;
+            color: var(--app-muted-color, var(--mat-sys-on-surface-variant));
+            font-size: 0.7rem;
+            line-height: 1.25;
+            white-space: nowrap;
+
+            span:last-child {
+                overflow: hidden;
+                text-overflow: ellipsis;
+            }
+        }
     }
 }
 

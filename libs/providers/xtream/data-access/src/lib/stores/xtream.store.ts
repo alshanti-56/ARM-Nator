@@ -1,24 +1,50 @@
-import { computed, inject } from '@angular/core';
-import { signalStore, withComputed, withMethods } from '@ngrx/signals';
-import { XtreamSerieDetails, XtreamVodDetails } from '@arm-nator/shared/interfaces';
+/* eslint-disable max-lines */
+import { computed, inject } from "@angular/core";
+import {
+  patchState,
+  signalStore,
+  withComputed,
+  withMethods,
+} from "@ngrx/signals";
+import {
+  CatalogMetadataRecord,
+  XtreamContentMetadata,
+  XtreamMetadataEnrichmentState,
+  XtreamSerieDetails,
+  XtreamVodDetails,
+  normalizeXtreamContentMetadata,
+} from "@arm-nator/shared/interfaces";
 
 // Import existing features that are already separate
-import { withFavorites } from '../with-favorites.feature';
-import { withRecentItems } from '../with-recent-items';
+import { withFavorites } from "../with-favorites.feature";
+import { withRecentItems } from "../with-recent-items";
 
 // Import service
-import { XTREAM_DATA_SOURCE } from '../data-sources/xtream-data-source.interface';
-import { XtreamApiService } from '../services/xtream-api.service';
+import { XTREAM_DATA_SOURCE } from "../data-sources/xtream-data-source.interface";
+import { XtreamApiService } from "../services/xtream-api.service";
 
 // Import new feature stores
-import { TmdbEnrichmentService } from '@arm-nator/services';
-import { createLogger } from '@arm-nator/providers/shared/util';import { withContent, withPlaybackPositions, withPlayer, withPortal, withSearch, withSelection } from './features';
+import { DatabaseService, TmdbEnrichmentService } from "@arm-nator/services";
+import { createLogger } from "@arm-nator/providers/shared/util";
+import {
+  withContent,
+  withPlaybackPositions,
+  withPlayer,
+  withPortal,
+  withSearch,
+  withSelection,
+} from "./features";
 
 import {
-    enrichSerialSeasonWithTmdb,
-    enrichSerialSelectionWithTmdb,
-    enrichVodSelectionWithTmdb,
-} from './xtream-tmdb-enrichment';
+  enrichSerialSeasonWithTmdb,
+  enrichSerialSelectionWithTmdb,
+  enrichVodSelectionWithTmdb,
+} from "./xtream-tmdb-enrichment";
+import {
+  backfillXtreamCatalogMetadata,
+  XtreamCatalogMetadataJob,
+  XtreamCatalogMetadataType,
+} from "./xtream-catalog-metadata-backfill";
 
 /**
  * XtreamStore - Facade composing all feature stores.
@@ -38,210 +64,395 @@ import {
  * @see docs/XTREAM_STORE_REFACTORING_PLAN.md
  */
 export const XtreamStore = signalStore(
-    { providedIn: 'root' },
+  { providedIn: "root" },
 
-    // Compose all features
-    withPortal(),
-    withContent(),
-    withSelection(),
-    withSearch(),
-    withPlayer(),
-    withFavorites(),
-    withRecentItems(),
-    withPlaybackPositions(),
+  // Compose all features
+  withPortal(),
+  withContent(),
+  withSelection(),
+  withSearch(),
+  withPlayer(),
+  withFavorites(),
+  withRecentItems(),
+  withPlaybackPositions(),
 
-    // Cross-feature computed properties
-    withComputed((store) => ({
-        /**
-         * Get global recent items (from withRecentItems)
-         */
-        globalRecentItems: computed(() => {
-            return store.recentItems();
-        }),
-    })),
+  // Cross-feature computed properties
+  withComputed((store) => ({
+    /**
+     * Get global recent items (from withRecentItems)
+     */
+    globalRecentItems: computed(() => {
+      return store.recentItems();
+    }),
+  })),
 
-    // Cross-feature methods & orchestration
-    withMethods((store) => {
-        const xtreamApiService = inject(XtreamApiService);
-        const dataSource = inject(XTREAM_DATA_SOURCE);
-        const tmdbEnrichment = inject(TmdbEnrichmentService);
-        const logger = createLogger('XtreamStore');
-        const findVodCatalogItem = (vodId: string | number) =>
-            store.vodStreams().find((item) => {
-                const candidateId =
-                    item.xtream_id ??
-                    item.stream_id ??
-                    (item as { id?: string | number }).id;
+  // Cross-feature methods & orchestration
+  withMethods((store) => {
+    const xtreamApiService = inject(XtreamApiService);
+    const dataSource = inject(XTREAM_DATA_SOURCE);
+    const databaseService = inject(DatabaseService);
+    const tmdbEnrichment = inject(TmdbEnrichmentService);
+    const logger = createLogger("XtreamStore");
+    let metadataBackfillPlaylistId: string | null = null;
+    let metadataBackfillPromise: Promise<void> | null = null;
+    let metadataBackfillGeneration = 0;
+    const findVodCatalogItem = (vodId: string | number) =>
+      store.vodStreams().find((item) => {
+        const candidateId =
+          item.xtream_id ??
+          item.stream_id ??
+          (item as { id?: string | number }).id;
 
-                return Number(candidateId) === Number(vodId);
+        return Number(candidateId) === Number(vodId);
+      });
+    const findSeriesCatalogItem = (seriesId: string | number) =>
+      store.serialStreams().find((item) => {
+        const candidateId =
+          item.series_id ??
+          (item as unknown as { xtream_id?: string | number }).xtream_id;
+        return Number(candidateId) === Number(seriesId);
+      });
+
+    const mergeCatalogMetadata = async (
+      item: CatalogMetadataRecord | undefined,
+      type: XtreamCatalogMetadataType,
+      metadata: XtreamContentMetadata,
+      enrichment?: XtreamMetadataEnrichmentState,
+      isActive: () => boolean = () => true,
+    ): Promise<void> => {
+      const contentId = Number(item?.["id"]);
+      if (!item || !Number.isInteger(contentId) || contentId <= 0) {
+        return;
+      }
+
+      await databaseService.updateXtreamContentMetadata(
+        contentId,
+        metadata,
+        enrichment,
+      );
+      if (!isActive()) return;
+
+      const merged = {
+        ...item,
+        genre: metadata.genre ?? item["genre"],
+        releaseDate: metadata.releaseDate ?? item["releaseDate"],
+        country: metadata.country ?? item["country"],
+        director: metadata.director ?? item["director"],
+        cast: metadata.cast ?? item["cast"],
+        description: metadata.description ?? item["description"],
+        rating: metadata.rating ?? item["rating"],
+        poster_url: metadata.posterUrl ?? item["poster_url"],
+        backdrop_url: metadata.backdropUrl ?? item["backdrop_url"],
+        metadata_status: enrichment?.status ?? item["metadata_status"],
+        metadata_attempted_at:
+          enrichment?.attemptedAt ?? item["metadata_attempted_at"],
+        metadata_retry_after:
+          enrichment === undefined
+            ? item["metadata_retry_after"]
+            : enrichment.retryAfter,
+      };
+
+      if (type === "movie") {
+        patchState(store, {
+          vodStreams: store
+            .vodStreams()
+            .map((candidate) =>
+              Number((candidate as { id?: number }).id) === contentId
+                ? (merged as unknown as typeof candidate)
+                : candidate,
+            ),
+        });
+      } else {
+        patchState(store, {
+          serialStreams: store
+            .serialStreams()
+            .map((candidate) =>
+              Number((candidate as { id?: number }).id) === contentId
+                ? (merged as unknown as typeof candidate)
+                : candidate,
+            ),
+        });
+      }
+
+    };
+
+    const jobXtreamId = (job: XtreamCatalogMetadataJob) => {
+      const item = job.item;
+      const xtreamIdValue =
+        job.type === "movie"
+          ? (item["xtream_id"] ?? item["stream_id"])
+          : (item["series_id"] ?? item["xtream_id"]);
+      if (
+        typeof xtreamIdValue !== "string" &&
+        typeof xtreamIdValue !== "number"
+      ) {
+        throw new Error(`Missing Xtream id for ${job.type}`);
+      }
+      return xtreamIdValue;
+    };
+
+    const backfillCatalogMetadata = async (
+      playlistId: string,
+    ): Promise<void> => {
+      if (
+        metadataBackfillPlaylistId === playlistId &&
+        metadataBackfillPromise
+      ) {
+        return metadataBackfillPromise;
+      }
+
+      const playlist = store.currentPlaylist();
+      if (!playlist || playlist.id !== playlistId) {
+        return;
+      }
+
+      const credentials = {
+        serverUrl: playlist.serverUrl,
+        username: playlist.username,
+        password: playlist.password,
+      };
+      const generation = ++metadataBackfillGeneration;
+      const isActive = () =>
+        metadataBackfillGeneration === generation &&
+        store.currentPlaylist()?.id === playlistId;
+      metadataBackfillPlaylistId = playlistId;
+      const request = backfillXtreamCatalogMetadata({
+        movies: store.vodStreams() as unknown as CatalogMetadataRecord[],
+        series: store.serialStreams() as unknown as CatalogMetadataRecord[],
+        isActive,
+        fetchDetails: async (job) => {
+          const xtreamId = jobXtreamId(job);
+          return (job.type === "movie"
+            ? await xtreamApiService.getVodInfo(credentials, xtreamId)
+            : await xtreamApiService.getSeriesInfo(
+                credentials,
+                xtreamId,
+              )) as unknown as CatalogMetadataRecord;
+        },
+        persist: (job, metadata, enrichment) =>
+          mergeCatalogMetadata(
+            job.item,
+            job.type,
+            metadata,
+            enrichment,
+            isActive,
+          ),
+        onFailure: (job, error) =>
+          logger.debug("Metadata backfill deferred", {
+            type: job.type,
+            error,
+          }),
+      }).then((completed) => {
+        if (isActive()) {
+          logger.info("Catalog metadata backfill complete", {
+            playlistId,
+            completed,
+          });
+        }
+      });
+      metadataBackfillPromise = request.finally(() => {
+        if (metadataBackfillGeneration === generation) {
+          metadataBackfillPromise = null;
+        }
+      });
+
+      return metadataBackfillPromise;
+    };
+
+    return {
+      /**
+       * Full store reset for switching between playlists
+       */
+      resetStore(newPlaylistId?: string): void {
+        // Clear the session cache for the playlist we're leaving so
+        // stale data cannot bleed into the new playlist.
+        const leavingPlaylistId = store.playlistId();
+        const preserveCancelledBlock =
+          Boolean(newPlaylistId) &&
+          leavingPlaylistId === newPlaylistId &&
+          store.contentInitBlockReason() === "cancelled";
+        if (leavingPlaylistId) {
+          dataSource.clearSessionCache(leavingPlaylistId);
+        }
+
+        store.resetPortal();
+        store.resetContent();
+        store.resetSelection();
+        store.resetSearchResults();
+        store.resetPlayer();
+        metadataBackfillGeneration += 1;
+        metadataBackfillPlaylistId = null;
+        metadataBackfillPromise = null;
+
+        if (newPlaylistId) {
+          store.setPlaylistId(newPlaylistId);
+        }
+
+        if (preserveCancelledBlock) {
+          store.setContentInitBlockReason("cancelled");
+        }
+      },
+
+      /**
+       * Initialize the store for a playlist
+       */
+      async initialize(): Promise<void> {
+        await store.fetchPlaylist();
+        await store.checkPortalStatus();
+        await store.initializeContent();
+        const playlist = store.currentPlaylist();
+        if (playlist) {
+          store.loadAllPositions(playlist.id);
+          void backfillCatalogMetadata(playlist.id);
+        }
+      },
+
+      /** Start best-effort metadata hydration for the loaded catalog. */
+      backfillXtreamCatalogMetadata(playlistId?: string): void {
+        const id = playlistId ?? store.currentPlaylist()?.id;
+        if (id) {
+          void backfillCatalogMetadata(id);
+        }
+      },
+
+      /**
+       * Fetch Xtream playlist (convenience alias)
+       */
+      async fetchXtreamPlaylist(): Promise<void> {
+        await store.fetchPlaylist();
+      },
+
+      /**
+       * Fetch VOD details with metadata
+       * Accepts object format for backward compatibility with rxMethod callers
+       */
+      fetchVodDetailsWithMetadata(params: {
+        vodId: string;
+        categoryId: number;
+      }): void {
+        const playlist = store.currentPlaylist();
+        if (!playlist) return;
+
+        store.setIsLoadingDetails(true);
+        store.setDetailsError(null);
+        xtreamApiService
+          .getVodInfo(
+            {
+              serverUrl: playlist.serverUrl,
+              username: playlist.username,
+              password: playlist.password,
+            },
+            params.vodId,
+          )
+          .then(async (vodDetails: XtreamVodDetails) => {
+            const catalogItem = findVodCatalogItem(params.vodId);
+            await mergeCatalogMetadata(
+              catalogItem as unknown as CatalogMetadataRecord | undefined,
+              "movie",
+              normalizeXtreamContentMetadata(
+                vodDetails as unknown as CatalogMetadataRecord,
+              ),
+              {
+                status: "complete",
+                attemptedAt: new Date().toISOString(),
+                retryAfter: null,
+              },
+            );
+
+            store.setSelectedCategory(params.categoryId);
+            store.setSelectedItem({
+              ...catalogItem,
+              ...vodDetails,
+              stream_id: params.vodId,
+              xtream_id: catalogItem?.xtream_id ?? Number(params.vodId),
             });
+            // Async, best-effort: patches the selection with a
+            // field-level TMDB merge once metadata arrives
+            void enrichVodSelectionWithTmdb(
+              store,
+              tmdbEnrichment,
+              params.vodId,
+            );
+          })
+          .catch((error: unknown) => {
+            logger.error("Error fetching VOD details", error);
+            store.setDetailsError(
+              error instanceof Error ? error.message : "Unknown error",
+            );
+          })
+          .finally(() => {
+            store.setIsLoadingDetails(false);
+          });
+      },
 
-        return {
-            /**
-             * Full store reset for switching between playlists
-             */
-            resetStore(newPlaylistId?: string): void {
-                // Clear the session cache for the playlist we're leaving so
-                // stale data cannot bleed into the new playlist.
-                const leavingPlaylistId = store.playlistId();
-                const preserveCancelledBlock =
-                    Boolean(newPlaylistId) &&
-                    leavingPlaylistId === newPlaylistId &&
-                    store.contentInitBlockReason() === 'cancelled';
-                if (leavingPlaylistId) {
-                    dataSource.clearSessionCache(leavingPlaylistId);
-                }
+      /**
+       * Fetch series details with metadata
+       * Accepts object format for backward compatibility with rxMethod callers
+       */
+      fetchSerialDetailsWithMetadata(params: {
+        serialId: string;
+        categoryId: number;
+      }): void {
+        const playlist = store.currentPlaylist();
+        if (!playlist) return;
 
-                store.resetPortal();
-                store.resetContent();
-                store.resetSelection();
-                store.resetSearchResults();
-                store.resetPlayer();
-
-                if (newPlaylistId) {
-                    store.setPlaylistId(newPlaylistId);
-                }
-
-                if (preserveCancelledBlock) {
-                    store.setContentInitBlockReason('cancelled');
-                }
+        store.setIsLoadingDetails(true);
+        store.setDetailsError(null);
+        xtreamApiService
+          .getSeriesInfo(
+            {
+              serverUrl: playlist.serverUrl,
+              username: playlist.username,
+              password: playlist.password,
             },
+            params.serialId,
+          )
+          .then(async (serialDetails: XtreamSerieDetails) => {
+            const catalogItem = findSeriesCatalogItem(params.serialId);
+            await mergeCatalogMetadata(
+              catalogItem as unknown as CatalogMetadataRecord | undefined,
+              "series",
+              normalizeXtreamContentMetadata(
+                serialDetails as unknown as CatalogMetadataRecord,
+              ),
+              {
+                status: "complete",
+                attemptedAt: new Date().toISOString(),
+                retryAfter: null,
+              },
+            );
+            store.setSelectedCategory(params.categoryId);
+            store.setSelectedItem({
+              ...serialDetails,
+              series_id: params.serialId,
+            });
+            void enrichSerialSelectionWithTmdb(
+              store,
+              tmdbEnrichment,
+              params.serialId,
+            );
+          })
+          .catch((error: unknown) => {
+            logger.error("Error fetching series details", error);
+            store.setDetailsError(
+              error instanceof Error ? error.message : "Unknown error",
+            );
+          })
+          .finally(() => {
+            store.setIsLoadingDetails(false);
+          });
+      },
 
-            /**
-             * Initialize the store for a playlist
-             */
-            async initialize(): Promise<void> {
-                await store.fetchPlaylist();
-                await store.checkPortalStatus();
-                await store.initializeContent();
-                const playlist = store.currentPlaylist();
-                if (playlist) {
-                    store.loadAllPositions(playlist.id);
-                }
-            },
-
-            /**
-             * Fetch Xtream playlist (convenience alias)
-             */
-            async fetchXtreamPlaylist(): Promise<void> {
-                await store.fetchPlaylist();
-            },
-
-            /**
-             * Fetch VOD details with metadata
-             * Accepts object format for backward compatibility with rxMethod callers
-             */
-            fetchVodDetailsWithMetadata(params: {
-                vodId: string;
-                categoryId: number;
-            }): void {
-                const playlist = store.currentPlaylist();
-                if (!playlist) return;
-
-                store.setIsLoadingDetails(true);
-                store.setDetailsError(null);
-                xtreamApiService
-                    .getVodInfo(
-                        {
-                            serverUrl: playlist.serverUrl,
-                            username: playlist.username,
-                            password: playlist.password,
-                        },
-                        params.vodId
-                    )
-                    .then((vodDetails: XtreamVodDetails) => {
-                        const catalogItem = findVodCatalogItem(params.vodId);
-
-                        store.setSelectedCategory(params.categoryId);
-                        store.setSelectedItem({
-                            ...catalogItem,
-                            ...vodDetails,
-                            stream_id: params.vodId,
-                            xtream_id:
-                                catalogItem?.xtream_id ?? Number(params.vodId),
-                        });
-                        // Async, best-effort: patches the selection with a
-                        // field-level TMDB merge once metadata arrives
-                        void enrichVodSelectionWithTmdb(
-                            store,
-                            tmdbEnrichment,
-                            params.vodId
-                        );
-                    })
-                    .catch((error: unknown) => {
-                        logger.error('Error fetching VOD details', error);
-                        store.setDetailsError(
-                            error instanceof Error
-                                ? error.message
-                                : 'Unknown error'
-                        );
-                    })
-                    .finally(() => {
-                        store.setIsLoadingDetails(false);
-                    });
-            },
-
-            /**
-             * Fetch series details with metadata
-             * Accepts object format for backward compatibility with rxMethod callers
-             */
-            fetchSerialDetailsWithMetadata(params: {
-                serialId: string;
-                categoryId: number;
-            }): void {
-                const playlist = store.currentPlaylist();
-                if (!playlist) return;
-
-                store.setIsLoadingDetails(true);
-                store.setDetailsError(null);
-                xtreamApiService
-                    .getSeriesInfo(
-                        {
-                            serverUrl: playlist.serverUrl,
-                            username: playlist.username,
-                            password: playlist.password,
-                        },
-                        params.serialId
-                    )
-                    .then((serialDetails: XtreamSerieDetails) => {
-                        store.setSelectedCategory(params.categoryId);
-                        store.setSelectedItem({
-                            ...serialDetails,
-                            series_id: params.serialId,
-                        });
-                        void enrichSerialSelectionWithTmdb(
-                            store,
-                            tmdbEnrichment,
-                            params.serialId
-                        );
-                    })
-                    .catch((error: unknown) => {
-                        logger.error('Error fetching series details', error);
-                        store.setDetailsError(
-                            error instanceof Error
-                                ? error.message
-                                : 'Unknown error'
-                        );
-                    })
-                    .finally(() => {
-                        store.setIsLoadingDetails(false);
-                    });
-            },
-
-            /**
-             * Lazy TMDB enrichment of one season's episodes (real names,
-             * overviews, stills). Fired by the detail view when the user
-             * opens a season; a no-op without a show-level TMDB match.
-             */
-            enrichSelectedSerialSeason(seasonKey: string): void {
-                void enrichSerialSeasonWithTmdb(
-                    store,
-                    tmdbEnrichment,
-                    seasonKey
-                );
-            },
-        };
-    })
+      /**
+       * Lazy TMDB enrichment of one season's episodes (real names,
+       * overviews, stills). Fired by the detail view when the user
+       * opens a season; a no-op without a show-level TMDB match.
+       */
+      enrichSelectedSerialSeason(seasonKey: string): void {
+        void enrichSerialSeasonWithTmdb(store, tmdbEnrichment, seasonKey);
+      },
+    };
+  }),
 );
 
 // Type alias for the store

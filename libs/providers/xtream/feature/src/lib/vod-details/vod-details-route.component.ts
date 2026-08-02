@@ -1,5 +1,5 @@
 /* eslint-disable max-lines */
-import { Location, SlicePipe } from "@angular/common";
+import { Location, SlicePipe, UpperCasePipe } from "@angular/common";
 import {
   ChangeDetectionStrategy,
   Component,
@@ -14,6 +14,7 @@ import {
 import { toSignal } from "@angular/core/rxjs-interop";
 import { MatIcon } from "@angular/material/icon";
 import { MatSnackBar } from "@angular/material/snack-bar";
+import { MatDialog } from "@angular/material/dialog";
 import { ActivatedRoute, Router } from "@angular/router";
 import { TranslateModule, TranslateService } from "@ngx-translate/core";
 import {
@@ -33,6 +34,7 @@ import {
 } from "@arm-nator/services";
 import {
   getXtreamVodInfo,
+  metadataDisplayEntries,
   normalizeTitleKeys,
   TmdbEnrichedCastMember,
   XtreamCategory,
@@ -50,6 +52,10 @@ import {
   hasUsableXtreamVodMetadata,
 } from "./vod-details-fallback.util";
 import { VodDetailsPlaybackService } from "./vod-details-playback.service";
+import {
+  ContentMetadataDialogComponent,
+  ContentMetadataDialogData,
+} from "../content-metadata-dialog/content-metadata-dialog.component";
 
 @Component({
   templateUrl: "./vod-details-route.component.html",
@@ -67,6 +73,7 @@ import { VodDetailsPlaybackService } from "./vod-details-playback.service";
     PortalDetailShellComponent,
     SafePipe,
     SlicePipe,
+    UpperCasePipe,
     TranslateModule,
   ],
 })
@@ -78,6 +85,7 @@ export class VodDetailsRouteComponent implements OnInit, OnDestroy {
   private readonly crossPortalSimilar = inject(CrossPortalSimilarService);
   private readonly xtreamStore = inject(XtreamStore);
   private readonly snackBar = inject(MatSnackBar);
+  private readonly dialog = inject(MatDialog);
   private readonly translateService = inject(TranslateService);
   private readonly playback = inject(VodDetailsPlaybackService);
   private readonly logger = createLogger("VodDetailsRoute");
@@ -170,6 +178,74 @@ export class VodDetailsRouteComponent implements OnInit, OnDestroy {
       ? getXtreamVodInfo(item)
       : null;
   });
+  /**
+   * The detail endpoint is not consistent across Xtream providers. Keep the
+   * live detail object as the source of truth, but fill its display fields
+   * from the catalog row when the endpoint omits them.
+   */
+  readonly displayInfo = computed<XtreamVodInfo | null>(() => {
+    const item = this.selectedItem();
+    const info = getXtreamVodInfo(item);
+    const catalog = this.selectedCatalogItem() as unknown as Record<
+      string,
+      unknown
+    > | null;
+
+    if (!info && !catalog) {
+      return null;
+    }
+
+    const catalogText = (...fields: string[]): string | undefined => {
+      for (const field of fields) {
+        const value = catalog?.[field];
+        if (typeof value === "string" && value.trim()) return value.trim();
+        if (typeof value === "number" && Number.isFinite(value)) {
+          return String(value);
+        }
+      }
+      return undefined;
+    };
+
+    return {
+      ...(info ?? {}),
+      name: info?.name || catalogText("title", "name") || "",
+      o_name: info?.o_name || catalogText("original_title") || "",
+      releasedate:
+        info?.releasedate || catalogText("releaseDate", "releasedate") || "",
+      genre: info?.genre || catalogText("genre") || "",
+      country: info?.country || catalogText("country") || "",
+      director: info?.director || catalogText("director") || "",
+      actors: info?.actors || catalogText("actors", "cast") || "",
+      cast: info?.cast || catalogText("cast", "actors") || "",
+      description:
+        info?.description || catalogText("description", "plot") || "",
+      plot: info?.plot || catalogText("plot", "description") || "",
+      rating_imdb: info?.rating_imdb || catalogText("rating_imdb", "rating"),
+      movie_image:
+        info?.movie_image || catalogText("poster_url", "stream_icon") || "",
+      cover_big: info?.cover_big || catalogText("poster_url") || "",
+      backdrop_path: info?.backdrop_path?.length
+        ? info.backdrop_path
+        : catalogText("backdrop_url")
+          ? [catalogText("backdrop_url") as string]
+          : [],
+      video: info?.video ?? [],
+      audio: info?.audio ?? [],
+    } as XtreamVodInfo;
+  });
+  readonly rawMetadata = computed(() => {
+    const item = this.selectedItem();
+    const info = getXtreamVodInfo(item);
+    return [
+      ...metadataDisplayEntries(
+        info as unknown as Record<string, unknown> | null,
+      ),
+      ...metadataDisplayEntries(
+        item?.movie_data as unknown as Record<string, unknown> | undefined,
+        "movie_data",
+      ),
+    ];
+  });
   readonly fallbackView = computed(() => {
     const item = this.selectedItem();
     if (!item || this.selectedVodInfo()) {
@@ -196,7 +272,7 @@ export class VodDetailsRouteComponent implements OnInit, OnDestroy {
   readonly hasPlaybackPosition = this.playback.hasPlaybackPosition;
 
   readonly trailerEmbedUrl = computed(() =>
-    youtubeEmbedUrl(this.selectedVodInfo()?.youtube_trailer),
+    youtubeEmbedUrl(this.displayInfo()?.youtube_trailer),
   );
 
   /** TMDB recommendations matched against the loaded VOD catalog */
@@ -366,7 +442,28 @@ export class VodDetailsRouteComponent implements OnInit, OnDestroy {
     );
   }
 
-  getBackdropUrl(info: XtreamVodInfo): string | undefined {
+  openMetadataDialog(): void {
+    const info = this.displayInfo();
+    const entries = this.rawMetadata();
+    if (!info || entries.length === 0) return;
+
+    this.dialog.open<ContentMetadataDialogComponent, ContentMetadataDialogData>(
+      ContentMetadataDialogComponent,
+      {
+        data: {
+          title: info.name || this.selectedItem()?.movie_data?.name || "Movie",
+          entries,
+        },
+        width: "min(820px, calc(100vw - 32px))",
+        maxWidth: "calc(100vw - 24px)",
+        maxHeight: "calc(100vh - 32px)",
+      },
+    );
+  }
+
+  getBackdropUrl(
+    info: Pick<XtreamVodInfo, "backdrop_path">,
+  ): string | undefined {
     return info.backdrop_path?.[0];
   }
 

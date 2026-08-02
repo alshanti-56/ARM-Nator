@@ -24,7 +24,13 @@ import { MatIcon } from "@angular/material/icon";
 import { MatProgressSpinner } from "@angular/material/progress-spinner";
 import { ActivatedRoute, Router } from "@angular/router";
 import { TranslatePipe } from "@ngx-translate/core";
-import { DatabaseService } from "@arm-nator/services";
+import {
+  ActorFilmographyCredit,
+  CatalogTitleMatchService,
+  DatabaseService,
+  TmdbEnrichmentService,
+  mapPersonFilmography,
+} from "@arm-nator/services";
 import { ContentCardComponent } from "@arm-nator/providers/shared/ui";
 import { SearchLayoutComponent } from "@arm-nator/providers/shared/ui";
 import {
@@ -40,8 +46,12 @@ import {
   XtreamSearchResultItem,
 } from "@arm-nator/providers/xtream/data-access";
 import {
+  CatalogTitleMatch,
   GlobalSearchResult,
+  GLOBAL_SEARCH_RESULT_SOURCES,
   isM3uGlobalSearchResult,
+  normalizeTitleKeys,
+  titleYearsCompatible,
 } from "@arm-nator/shared/interfaces";
 
 interface SearchResultsData {
@@ -56,6 +66,28 @@ interface GlobalSearchResultGroup {
 }
 
 const GLOBAL_SEARCH_PAGE_SIZE = 100;
+
+function resultIdentity(item: XtreamSearchResultItem): string {
+  return `${item.playlist_id ?? ""}:${item.type}:${item.xtream_id}`;
+}
+
+function mergeSearchResults(
+  primary: XtreamSearchResultItem[],
+  additional: XtreamSearchResultItem[],
+): XtreamSearchResultItem[] {
+  const seen = new Set(primary.map(resultIdentity));
+  return [
+    ...primary,
+    ...additional.filter((item) => {
+      const key = resultIdentity(item);
+      if (seen.has(key)) {
+        return false;
+      }
+      seen.add(key);
+      return true;
+    }),
+  ];
+}
 
 function groupResultsByPlaylistId(
   items: XtreamSearchResultItem[],
@@ -101,6 +133,8 @@ export class SearchResultsComponent implements AfterViewInit {
   readonly router = inject(Router);
   readonly activatedRoute = inject(ActivatedRoute);
   readonly databaseService = inject(DatabaseService);
+  private readonly tmdbEnrichment = inject(TmdbEnrichmentService);
+  private readonly titleMatch = inject(CatalogTitleMatchService);
   private readonly location = inject(Location);
   private readonly logger = createLogger("XtreamSearchResults");
   readonly isWorkspaceLayout = isWorkspaceLayoutRoute(this.activatedRoute);
@@ -116,6 +150,7 @@ export class SearchResultsComponent implements AfterViewInit {
   /** Search filters from store */
   readonly filters = this.xtreamStore.searchFilters;
   private globalSearchRequestVersion = 0;
+  private portalSearchRequestVersion = 0;
   private lastGlobalSearchTerm = "";
   private lastGlobalSearchTypes: string[] = [];
   private lastGlobalSearchExcludeHidden?: boolean;
@@ -244,11 +279,7 @@ export class SearchResultsComponent implements AfterViewInit {
     if (this.isGlobalSearch) {
       this.searchGlobal(this.searchTerm(), types, excludeHidden);
     } else {
-      this.xtreamStore.searchContent({
-        term: this.searchTerm(),
-        types,
-        excludeHidden,
-      });
+      void this.searchPortal(this.searchTerm(), types, excludeHidden);
     }
   }
 
@@ -282,6 +313,7 @@ export class SearchResultsComponent implements AfterViewInit {
    */
   private clearResultsOnly() {
     this.globalSearchRequestVersion++;
+    this.portalSearchRequestVersion++;
     this.xtreamStore.setIsSearching(false);
     this.hasMoreGlobalResults.set(false);
     this.isLoadingMoreGlobalResults.set(false);
@@ -340,23 +372,31 @@ export class SearchResultsComponent implements AfterViewInit {
     }
 
     try {
-      const results = await this.databaseService.globalSearchContent(
-        trimmedTerm,
-        effectiveTypes,
-        effectiveExcludeHidden,
-        undefined,
-        {
-          limit: GLOBAL_SEARCH_PAGE_SIZE + 1,
-          offset,
-        },
-      );
+      const [results, personResults] = await Promise.all([
+        this.databaseService.globalSearchContent(
+          trimmedTerm,
+          effectiveTypes,
+          effectiveExcludeHidden,
+          undefined,
+          {
+            limit: GLOBAL_SEARCH_PAGE_SIZE + 1,
+            offset,
+          },
+        ),
+        append
+          ? Promise.resolve([])
+          : this.searchActorCatalog(trimmedTerm, effectiveTypes),
+      ]);
 
       if (requestVersion !== this.globalSearchRequestVersion) {
         return;
       }
 
       if (results && Array.isArray(results)) {
-        const visibleResults = results.slice(0, GLOBAL_SEARCH_PAGE_SIZE);
+        const visibleResults = mergeSearchResults(
+          results.slice(0, GLOBAL_SEARCH_PAGE_SIZE),
+          personResults,
+        ) as GlobalSearchResult[];
         this.hasMoreGlobalResults.set(results.length > GLOBAL_SEARCH_PAGE_SIZE);
         this.xtreamStore.setGlobalSearchResults(
           append
@@ -514,6 +554,97 @@ export class SearchResultsComponent implements AfterViewInit {
 
   private getCurrentGlobalSearchResults(): GlobalSearchResult[] {
     return this.xtreamStore.searchResults() as GlobalSearchResult[];
+  }
+
+  private async searchPortal(
+    term: string,
+    types: string[],
+    excludeHidden?: boolean,
+  ): Promise<void> {
+    const requestVersion = ++this.portalSearchRequestVersion;
+    const playlistId = this.xtreamStore.playlistId();
+    const [results, personResults] = await Promise.all([
+      this.xtreamStore.searchContent({ term, types, excludeHidden }),
+      this.searchActorCatalog(term, types, playlistId ?? undefined),
+    ]);
+    if (requestVersion !== this.portalSearchRequestVersion) {
+      return;
+    }
+    this.xtreamStore.setSearchResults(
+      mergeSearchResults(results, personResults),
+    );
+  }
+
+  private async searchActorCatalog(
+    term: string,
+    types: string[],
+    playlistId?: string,
+  ): Promise<GlobalSearchResult[]> {
+    if (
+      !this.tmdbEnrichment.isEnabled() ||
+      !this.titleMatch.isAvailable ||
+      (!types.includes("movie") && !types.includes("series"))
+    ) {
+      return [];
+    }
+
+    const person = await this.tmdbEnrichment.searchPersonDetails(term);
+    if (!person) {
+      return [];
+    }
+
+    const credits = mapPersonFilmography(person).filter(
+      (credit) =>
+        (credit.mediaType === "movie" && types.includes("movie")) ||
+        (credit.mediaType === "tv" && types.includes("series")),
+    );
+    const matches = await this.titleMatch.matchTitles(
+      credits.map((credit) => credit.title),
+    );
+    return this.mapPersonMatches(matches, credits, playlistId);
+  }
+
+  private mapPersonMatches(
+    matches: CatalogTitleMatch[],
+    credits: ActorFilmographyCredit[],
+    playlistId?: string,
+  ): GlobalSearchResult[] {
+    const creditsByTitle = new Map(
+      credits.map((credit) => [
+        `${credit.mediaType}:${normalizeTitleKeys(credit.title).exact}`,
+        credit,
+      ]),
+    );
+
+    const results: GlobalSearchResult[] = [];
+    for (const match of matches) {
+      if (playlistId && match.playlistId !== playlistId) {
+        continue;
+      }
+      const mediaType = match.type === "movie" ? "movie" : "tv";
+      const credit = creditsByTitle.get(
+        `${mediaType}:${normalizeTitleKeys(match.queryTitle).exact}`,
+      );
+      if (!credit || !titleYearsCompatible(credit.year, match.trailingYear)) {
+        continue;
+      }
+
+      results.push({
+        source_type: GLOBAL_SEARCH_RESULT_SOURCES.Xtream,
+        content_type: match.type,
+        id: `${match.playlistId}:${match.type}:${match.xtreamId}`,
+        category_id: match.categoryId,
+        title: match.queryTitle,
+        rating: null,
+        added: null,
+        poster_url: credit.posterUrl,
+        xtream_id: match.xtreamId,
+        type: match.type,
+        playlist_id: match.playlistId,
+        playlist_name: match.playlistName,
+      });
+    }
+    return results;
   }
 
   private selectM3uItem(item: GlobalSearchResult): void {

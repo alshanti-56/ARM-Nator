@@ -8,6 +8,7 @@ export * from './lib/search-results/search-results.component';
 export * from './lib/serial-details/serial-details.component';
 export * from './lib/xtream-collection-detail.component';
 export * from './lib/vod-details/vod-details-route.component';
+export * from './lib/content-metadata-dialog/content-metadata-dialog.component';
 export * from './lib/xtream-content-gate.component';
 export * from './lib/xtream-catalog-facade.service';
 export * from './lib/xtream-feature.routes';

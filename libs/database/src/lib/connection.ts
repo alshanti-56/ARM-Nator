@@ -29,6 +29,8 @@ const XTREAM_ADDED_EPOCH_SECONDS_MIGRATION_KEY =
     'migration:xtream-content-added-epoch-seconds:v1';
 const CONTENT_TITLE_FTS_MIGRATION_KEY =
     'migration:content-title-fts-trigram:v1';
+const CONTENT_METADATA_FTS_MIGRATION_KEY =
+    'migration:content-metadata-fts-trigram:v1';
 const TMDB_SEARCH_LOOKUP_V2_CACHE_CLEANUP_MIGRATION_KEY =
     'migration:tmdb-search-lookup-v2-cache-cleanup:v1';
 
@@ -131,6 +133,15 @@ const CREATE_TABLE_STATEMENTS = [
       category_id INTEGER NOT NULL,
       title TEXT NOT NULL,
       rating TEXT,
+      genre TEXT,
+      release_date TEXT,
+      country TEXT,
+      director TEXT,
+      cast TEXT,
+      description TEXT,
+      metadata_status TEXT CHECK (metadata_status IN ('complete', 'failed')),
+      metadata_attempted_at TEXT,
+      metadata_retry_after TEXT,
       added TEXT,
       poster_url TEXT,
       backdrop_url TEXT,
@@ -251,6 +262,16 @@ const COLUMN_MIGRATION_STATEMENTS = [
     `ALTER TABLE content ADD COLUMN direct_source TEXT`,
     // v1.5.0 -> v1.6.0: Cinematic backdrop persisted on first detail fetch
     `ALTER TABLE content ADD COLUMN backdrop_url TEXT`,
+    // v1.7.0: Preserve searchable movie/series metadata from Xtream lists
+    `ALTER TABLE content ADD COLUMN genre TEXT`,
+    `ALTER TABLE content ADD COLUMN release_date TEXT`,
+    `ALTER TABLE content ADD COLUMN country TEXT`,
+    `ALTER TABLE content ADD COLUMN director TEXT`,
+    `ALTER TABLE content ADD COLUMN cast TEXT`,
+    `ALTER TABLE content ADD COLUMN description TEXT`,
+    `ALTER TABLE content ADD COLUMN metadata_status TEXT CHECK (metadata_status IN ('complete', 'failed'))`,
+    `ALTER TABLE content ADD COLUMN metadata_attempted_at TEXT`,
+    `ALTER TABLE content ADD COLUMN metadata_retry_after TEXT`,
 ];
 
 const INDEX_MIGRATION_STATEMENTS = [
@@ -279,6 +300,7 @@ export const __databaseConnectionTestHooks = {
     removeLegacyStalkerAndDownloads,
     normalizeXtreamContentAddedEpochs,
     ensureContentTitleFts,
+    ensureContentMetadataFts,
     cleanupLegacyTmdbSearchCache,
     runMigrations,
 } as const;
@@ -545,6 +567,96 @@ function ensureContentTitleFts(sqliteDb: Database.Database): void {
     }
 }
 
+function ensureContentMetadataFts(sqliteDb: Database.Database): void {
+    try {
+        sqliteDb.exec(`
+            CREATE VIRTUAL TABLE IF NOT EXISTS content_metadata_fts USING fts5(
+                title,
+                genre,
+                release_date,
+                country,
+                director,
+                cast,
+                description,
+                content='content',
+                content_rowid='id',
+                tokenize='trigram'
+            );
+            CREATE TRIGGER IF NOT EXISTS content_metadata_fts_ai
+            AFTER INSERT ON content BEGIN
+                INSERT INTO content_metadata_fts(
+                    rowid, title, genre, release_date, country, director, cast, description
+                ) VALUES (
+                    new.id, new.title, new.genre, new.release_date, new.country,
+                    new.director, new.cast, new.description
+                );
+            END;
+            CREATE TRIGGER IF NOT EXISTS content_metadata_fts_ad
+            AFTER DELETE ON content BEGIN
+                INSERT INTO content_metadata_fts(
+                    content_metadata_fts, rowid, title, genre, release_date,
+                    country, director, cast, description
+                ) VALUES (
+                    'delete', old.id, old.title, old.genre, old.release_date,
+                    old.country, old.director, old.cast, old.description
+                );
+            END;
+            CREATE TRIGGER IF NOT EXISTS content_metadata_fts_au
+            AFTER UPDATE ON content BEGIN
+                INSERT INTO content_metadata_fts(
+                    content_metadata_fts, rowid, title, genre, release_date,
+                    country, director, cast, description
+                ) VALUES (
+                    'delete', old.id, old.title, old.genre, old.release_date,
+                    old.country, old.director, old.cast, old.description
+                );
+                INSERT INTO content_metadata_fts(
+                    rowid, title, genre, release_date, country, director, cast, description
+                ) VALUES (
+                    new.id, new.title, new.genre, new.release_date, new.country,
+                    new.director, new.cast, new.description
+                );
+            END;
+        `);
+
+        const migrationState = sqliteDb
+            .prepare(`SELECT value FROM app_state WHERE key = ?`)
+            .get(CONTENT_METADATA_FTS_MIGRATION_KEY) as
+            | { value?: unknown }
+            | undefined;
+        if (migrationState?.value === 'done') {
+            return;
+        }
+
+        const executeMigration = sqliteDb.transaction(() => {
+            sqliteDb
+                .prepare(
+                    `INSERT INTO content_metadata_fts(content_metadata_fts)
+                     VALUES ('rebuild')`
+                )
+                .run();
+            sqliteDb
+                .prepare(
+                    `INSERT INTO app_state (key, value, updated_at)
+                     VALUES (?, 'done', datetime('now'))
+                     ON CONFLICT(key) DO UPDATE SET
+                        value = excluded.value,
+                        updated_at = excluded.updated_at`
+                )
+                .run(CONTENT_METADATA_FTS_MIGRATION_KEY);
+        });
+        executeMigration();
+    } catch (error) {
+        const message =
+            typeof error === 'object' && error !== null && 'message' in error
+                ? String((error as { message?: unknown }).message ?? error)
+                : String(error);
+        console.warn(
+            `Content metadata FTS rebuild failed (continuing): ${message}`
+        );
+    }
+}
+
 function runMigrationStatements(
     sqliteDb: Database.Database,
     statements: string[]
@@ -701,6 +813,7 @@ function runMigrations(sqliteDb: Database.Database): void {
     removeLegacyStalkerAndDownloads(sqliteDb);
     runMigrationStatements(sqliteDb, COLUMN_MIGRATION_STATEMENTS);
     ensureContentTitleFts(sqliteDb);
+    ensureContentMetadataFts(sqliteDb);
     deduplicateXtreamCache(sqliteDb);
     normalizeXtreamContentAddedEpochs(sqliteDb);
     runMigrationStatements(sqliteDb, INDEX_MIGRATION_STATEMENTS);

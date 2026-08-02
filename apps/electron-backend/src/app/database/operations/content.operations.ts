@@ -9,20 +9,19 @@ import {
     GlobalSearchResult,
     GlobalSearchResultSource,
     M3uGlobalSearchResult,
+    catalogSearchText,
     getXtreamRecentlyAddedMaxEpochSeconds,
+    normalizeXtreamContentMetadata,
     toXtreamRecentlyAddedEpochSeconds,
     XtreamGlobalSearchResult,
 } from '@arm-nator/shared/interfaces';
 import type { AppDatabase } from '../database.types';
 import {
-    buildCompoundFtsMatchQuery,
-    buildCompoundLikePatterns,
     buildContentTitleFtsMatchQuery,
     buildGlobPrefixPatterns,
     buildLikePatterns,
     buildM3uPayloadCompoundPatterns,
     buildM3uPayloadTextFieldPatterns,
-    getCompoundResidualTokenGroups,
     getSearchWordPlans,
     getSqlSearchTokenGroups,
     isShortSearchTokenGroup,
@@ -63,11 +62,20 @@ interface M3uPlaylistSearchRow {
     payload: string | null;
 }
 
-interface XtreamGlobalSearchCandidate {
-    id: number;
-    category_id: number;
+interface XtreamMetadataSearchCandidate {
     title: string;
     rating: string | null;
+    genre: string | null;
+    releaseDate: string | null;
+    country: string | null;
+    director: string | null;
+    cast: string | null;
+    description: string | null;
+}
+
+interface XtreamGlobalSearchCandidate extends XtreamMetadataSearchCandidate {
+    id: number;
+    category_id: number;
     added: string | null;
     poster_url: string | null;
     tv_archive: number | null;
@@ -156,55 +164,49 @@ function getGlobalSearchCandidateLimit(): number {
     return MAX_GLOBAL_SEARCH_CANDIDATE_LIMIT;
 }
 
-/**
- * Per-word title conditions, AND-ed by the caller. A word's condition is the
- * AND of its token-group LIKE conditions; a punctuation-joined word ("A&E")
- * additionally matches as an intact contains pattern anywhere in the title
- * (issue #1161). Composing per word keeps the other words' constraints on
- * the compound arm, so "A&E HD" cannot fill the SQL candidate limit with
- * titles that only contain "A&E".
- */
-function buildContentTitleSearchConditions(searchTerm: string) {
-    let groupIndex = 0;
+function buildContentMetadataSearchConditions(searchTerm: string) {
+    const columns = [
+        schema.content.title,
+        schema.content.genre,
+        schema.content.releaseDate,
+        schema.content.country,
+        schema.content.director,
+        schema.content.cast,
+        schema.content.description,
+    ];
 
-    return getSearchWordPlans(searchTerm)
-        .map((plan) => {
-            const tokenConditions = plan.tokenGroups
-                .map((tokens) => {
-                    const mode =
-                        groupIndex === 0 && isShortSearchTokenGroup(tokens)
-                            ? 'prefix'
-                            : 'contains';
-                    groupIndex += 1;
-                    const likeConditions = tokens.flatMap((token) =>
-                        buildLikePatterns(token, mode).map(
-                            (pattern) =>
-                                sql`${schema.content.title} LIKE ${pattern} ESCAPE '\\'`
-                        )
-                    );
-                    return or(...likeConditions);
-                })
-                .filter((condition) => condition !== undefined);
-
-            const tokenArm =
-                tokenConditions.length > 0
-                    ? and(...tokenConditions)
-                    : undefined;
-            if (plan.compound === null) {
-                return tokenArm;
-            }
-
-            const compoundConditions = buildCompoundLikePatterns(
-                plan.compound
-            ).map(
-                (pattern) =>
-                    sql`${schema.content.title} LIKE ${pattern} ESCAPE '\\'`
+    return getSqlSearchTokenGroups(searchTerm)
+        .map((tokens, index) => {
+            const mode =
+                index === 0 && isShortSearchTokenGroup(tokens)
+                    ? 'prefix'
+                    : 'contains';
+            const conditions = tokens.flatMap((token) =>
+                buildLikePatterns(token, mode).flatMap((pattern) =>
+                    columns.map(
+                        (column) => sql`${column} LIKE ${pattern} ESCAPE '\\'`
+                    )
+                )
             );
-            return tokenArm === undefined
-                ? or(...compoundConditions)
-                : or(tokenArm, ...compoundConditions);
+            return conditions.length > 0 ? or(...conditions) : undefined;
         })
         .filter((condition) => condition !== undefined);
+}
+
+function scoreXtreamMetadataMatch(
+    item: XtreamMetadataSearchCandidate,
+    searchTerm: string
+): number | null {
+    const titleScore = scoreSearchTextMatch(item.title ?? '', searchTerm);
+    if (titleScore !== null) {
+        return titleScore;
+    }
+
+    const metadataScore = scoreSearchTextMatch(
+        catalogSearchText(item as unknown as Record<string, unknown>),
+        searchTerm
+    );
+    return metadataScore === null ? null : metadataScore + 100;
 }
 
 function buildRawContentTitleSearchSql(searchTerm: string): SQL[] {
@@ -229,26 +231,6 @@ function buildRawContentTitleSearchSql(searchTerm: string): SQL[] {
             sql` OR `
         )})`;
     });
-}
-
-/**
- * Contains-mode LIKE conditions for the non-compound words of the term,
- * applied on top of the compound FTS lookup so `A&E HD` only surfaces
- * candidates that also contain `hd` (the FTS phrase can only express the
- * compound word — trigram tokens need >= 3 chars).
- */
-function buildCompoundResidualTitleSql(searchTerm: string): SQL[] {
-    return getCompoundResidualTokenGroups(searchTerm).map(
-        (tokens) =>
-            sql`(${sql.join(
-                tokens.flatMap((token) =>
-                    buildLikePatterns(token).map(
-                        (pattern) => sql`c.title LIKE ${pattern} ESCAPE '\\'`
-                    )
-                ),
-                sql` OR `
-            )})`
-    );
 }
 
 function dedupeXtreamCandidatesById(
@@ -283,6 +265,12 @@ async function selectXtreamGlobalSearchCandidatesWithTitleIndex(
             c.category_id AS category_id,
             c.title AS title,
             c.rating AS rating,
+            c.genre AS genre,
+            c.release_date AS releaseDate,
+            c.country AS country,
+            c.director AS director,
+            c.cast AS cast,
+            c.description AS description,
             c.added AS added,
             c.poster_url AS poster_url,
             c.tv_archive AS tv_archive,
@@ -324,6 +312,12 @@ async function selectXtreamGlobalSearchCandidatesWithFts(
             c.category_id AS category_id,
             c.title AS title,
             c.rating AS rating,
+            c.genre AS genre,
+            c.release_date AS releaseDate,
+            c.country AS country,
+            c.director AS director,
+            c.cast AS cast,
+            c.description AS description,
             c.added AS added,
             c.poster_url AS poster_url,
             c.tv_archive AS tv_archive,
@@ -333,11 +327,11 @@ async function selectXtreamGlobalSearchCandidatesWithFts(
             c.type AS type,
             cat.playlist_id AS playlist_id,
             p.name AS playlist_name
-        FROM content_title_fts
-        INNER JOIN content AS c ON c.id = content_title_fts.rowid
+        FROM content_metadata_fts
+        INNER JOIN content AS c ON c.id = content_metadata_fts.rowid
         INNER JOIN categories AS cat ON c.category_id = cat.id
         INNER JOIN playlists AS p ON cat.playlist_id = p.id
-        WHERE content_title_fts MATCH ${matchQuery}
+        WHERE content_metadata_fts MATCH ${matchQuery}
         AND c.type IN (${sql.join(
             types.map((type) => sql`${type}`),
             sql`, `
@@ -353,6 +347,52 @@ async function selectXtreamGlobalSearchCandidatesWithFts(
     `)) as XtreamGlobalSearchCandidate[];
 }
 
+async function selectXtreamPlaylistSearchCandidatesWithFts(
+    db: AppDatabase,
+    playlistId: string,
+    matchQuery: string,
+    types: string[],
+    excludeHidden: boolean
+): Promise<XtreamMetadataSearchCandidate[]> {
+    if (!matchQuery || types.length === 0) {
+        return [];
+    }
+
+    return (await db.all(sql`
+        SELECT
+            c.id AS id,
+            c.category_id AS category_id,
+            c.title AS title,
+            c.rating AS rating,
+            c.genre AS genre,
+            c.release_date AS releaseDate,
+            c.country AS country,
+            c.director AS director,
+            c.cast AS cast,
+            c.description AS description,
+            c.added AS added,
+            c.poster_url AS poster_url,
+            c.backdrop_url AS backdrop_url,
+            c.tv_archive AS tv_archive,
+            c.tv_archive_duration AS tv_archive_duration,
+            c.direct_source AS direct_source,
+            c.xtream_id AS xtream_id,
+            c.type AS type
+        FROM content_metadata_fts
+        INNER JOIN content AS c ON c.id = content_metadata_fts.rowid
+        INNER JOIN categories AS cat ON c.category_id = cat.id
+        WHERE content_metadata_fts MATCH ${matchQuery}
+        AND cat.playlist_id = ${playlistId}
+        AND c.type IN (${sql.join(
+            types.map((type) => sql`${type}`),
+            sql`, `
+        )})
+        ${excludeHidden ? sql`AND cat.hidden = 0` : sql``}
+        ORDER BY rank, c.title
+        LIMIT 200
+    `)) as XtreamMetadataSearchCandidate[];
+}
+
 async function selectXtreamGlobalSearchCandidatesWithContentScan(
     db: AppDatabase,
     searchTerm: string,
@@ -365,7 +405,7 @@ async function selectXtreamGlobalSearchCandidatesWithContentScan(
             schema.content.type,
             types as Array<'live' | 'movie' | 'series'>
         ),
-        ...buildContentTitleSearchConditions(searchTerm),
+        ...buildContentMetadataSearchConditions(searchTerm),
     ];
 
     if (excludeHidden) {
@@ -633,6 +673,15 @@ function selectContentFields() {
         category_id: schema.content.categoryId,
         title: schema.content.title,
         rating: schema.content.rating,
+        genre: schema.content.genre,
+        releaseDate: schema.content.releaseDate,
+        country: schema.content.country,
+        director: schema.content.director,
+        cast: schema.content.cast,
+        description: schema.content.description,
+        metadata_status: schema.content.metadataStatus,
+        metadata_attempted_at: schema.content.metadataAttemptedAt,
+        metadata_retry_after: schema.content.metadataRetryAfter,
         added: schema.content.added,
         poster_url: schema.content.posterUrl,
         tv_archive: schema.content.tvArchive,
@@ -794,6 +843,12 @@ type XtreamContentValue = {
     categoryId: number;
     title: string;
     rating: string;
+    genre?: string;
+    releaseDate?: string;
+    country?: string;
+    director?: string;
+    cast?: string;
+    description?: string;
     added: string;
     posterUrl: string;
     tvArchive?: number | null;
@@ -807,6 +862,15 @@ type XtreamContentSource = Record<string, unknown> & {
     category_id?: string | number;
     rating?: string | number;
     rating_imdb?: string;
+    genre?: string;
+    releaseDate?: string;
+    releasedate?: string;
+    country?: string;
+    director?: string;
+    actors?: string;
+    cast?: string;
+    plot?: string;
+    description?: string;
     last_modified?: string;
     added?: string;
     stream_icon?: string;
@@ -845,19 +909,24 @@ function toXtreamContentValue(
             : source.name ||
               source.title ||
               `Unknown Stream ${source.stream_id ?? ''}`.trim();
+    const metadata = normalizeXtreamContentMetadata(source);
 
     return {
         categoryId,
         title,
-        rating: String(source.rating || source.rating_imdb || ''),
+        rating: metadata.rating ?? '',
+        genre: metadata.genre,
+        releaseDate: metadata.releaseDate,
+        country: metadata.country,
+        director: metadata.director,
+        cast: metadata.cast,
+        description: metadata.description,
         added: toXtreamRecentlyAddedEpochSeconds(
             type === 'series'
                 ? source.last_modified || source.added
                 : source.added || source.last_modified
         ),
-        posterUrl: String(
-            source.stream_icon || source.poster || source.cover || ''
-        ),
+        posterUrl: metadata.posterUrl ?? '',
         tvArchive:
             type === 'live'
                 ? Number.parseInt(String(source.tv_archive ?? '0'), 10) || 0
@@ -1057,27 +1126,55 @@ export async function searchContent(
             schema.content.type,
             types as Array<'live' | 'movie' | 'series'>
         ),
-        ...buildContentTitleSearchConditions(searchTerm),
+        ...buildContentMetadataSearchConditions(searchTerm),
     ];
 
     if (excludeHidden) {
         conditions.push(eq(schema.categories.hidden, false));
     }
 
-    const candidates = await db
-        .select(selectContentFields())
-        .from(schema.content)
-        .innerJoin(
-            schema.categories,
-            eq(schema.content.categoryId, schema.categories.id)
-        )
-        .where(and(...conditions))
-        .limit(200);
+    let candidates: XtreamMetadataSearchCandidate[];
+    if (shouldUseContentTitleFts(searchTerm)) {
+        try {
+            candidates = await selectXtreamPlaylistSearchCandidatesWithFts(
+                db,
+                playlistId,
+                buildContentTitleFtsMatchQuery(searchTerm),
+                types,
+                excludeHidden
+            );
+        } catch {
+            candidates = await db
+                .select(selectContentFields())
+                .from(schema.content)
+                .innerJoin(
+                    schema.categories,
+                    eq(schema.content.categoryId, schema.categories.id)
+                )
+                .where(and(...conditions))
+                .limit(200);
+        }
+    } else {
+        candidates = await db
+            .select(selectContentFields())
+            .from(schema.content)
+            .innerJoin(
+                schema.categories,
+                eq(schema.content.categoryId, schema.categories.id)
+            )
+            .where(and(...conditions))
+            .limit(200);
+    }
 
     return candidates
         .filter(
             (item) =>
-                scoreSearchTextMatch(item.title ?? '', searchTerm) !== null
+                scoreXtreamMetadataMatch(item, searchTerm) !== null
+        )
+        .sort(
+            (left, right) =>
+                (scoreXtreamMetadataMatch(left, searchTerm) ?? Infinity) -
+                (scoreXtreamMetadataMatch(right, searchTerm) ?? Infinity)
         )
         .slice(0, 50);
 }
@@ -1102,47 +1199,26 @@ export async function globalSearch(
         let candidates: XtreamGlobalSearchCandidate[];
 
         if (shouldUseContentTitlePrefixIndex(searchTerm)) {
-            candidates = await selectXtreamGlobalSearchCandidatesWithTitleIndex(
-                db,
-                searchTerm,
-                types,
-                excludeHidden,
-                candidateLimit
-            );
-
-            // The prefix arm only sees titles that start with the short first
-            // token ("A&E" -> GLOB 'a*'), so a compound word like "a&e" is
-            // additionally looked up as a trigram FTS substring to reach
-            // titles such as "US: A&E" (issue #1161). The non-compound words
-            // of the query stay applied as LIKE conditions so this arm cannot
-            // fill the candidate limit with compound-only matches.
-            const compoundMatchQuery = buildCompoundFtsMatchQuery(searchTerm);
-            if (compoundMatchQuery) {
-                try {
-                    const compoundCandidates =
-                        await selectXtreamGlobalSearchCandidatesWithFts(
-                            db,
-                            compoundMatchQuery,
-                            types,
-                            excludeHidden,
-                            candidateLimit,
-                            buildCompoundResidualTitleSql(searchTerm)
-                        );
-                    candidates = dedupeXtreamCandidatesById([
-                        ...candidates,
-                        ...compoundCandidates,
-                    ]);
-                } catch {
-                    candidates =
-                        await selectXtreamGlobalSearchCandidatesWithContentScan(
-                            db,
-                            searchTerm,
-                            types,
-                            excludeHidden,
-                            candidateLimit
-                        );
-                }
-            }
+            const [titleCandidates, metadataCandidates] = await Promise.all([
+                selectXtreamGlobalSearchCandidatesWithTitleIndex(
+                    db,
+                    searchTerm,
+                    types,
+                    excludeHidden,
+                    candidateLimit
+                ),
+                selectXtreamGlobalSearchCandidatesWithContentScan(
+                    db,
+                    searchTerm,
+                    types,
+                    excludeHidden,
+                    candidateLimit
+                ),
+            ]);
+            candidates = dedupeXtreamCandidatesById([
+                ...titleCandidates,
+                ...metadataCandidates,
+            ]).slice(0, candidateLimit);
         } else if (shouldUseContentTitleFts(searchTerm)) {
             try {
                 candidates = await selectXtreamGlobalSearchCandidatesWithFts(
@@ -1179,8 +1255,8 @@ export async function globalSearch(
                     (
                         item
                     ): ScoredGlobalSearchResult<XtreamGlobalSearchResult> | null => {
-                        const score = scoreSearchTextMatch(
-                            item.title ?? '',
+                        const score = scoreXtreamMetadataMatch(
+                            item,
                             searchTerm
                         );
                         if (score === null) {

@@ -13,6 +13,10 @@ import { MatPaginatorModule, PageEvent } from "@angular/material/paginator";
 import { MatTooltip } from "@angular/material/tooltip";
 import { TranslatePipe } from "@ngx-translate/core";
 import { applyChannelNameStrip } from "@arm-nator/providers/m3u/utils";
+import {
+  catalogGenre,
+  catalogYear,
+} from "@arm-nator/shared/interfaces";
 import { SettingsStore } from "@arm-nator/services";
 import {
   ProgressCapsuleComponent,
@@ -148,6 +152,23 @@ function normalizeArtworkUrl(value: string | undefined): string | undefined {
               <div class="title">
                 {{ channelTitle(i) }}
               </div>
+              @if (type() === "vod" || type() === "series") {
+                @let year = resolveYear(i);
+                @let genre = resolveGenre(i);
+                @if (year || genre) {
+                  <div class="metadata" [title]="genre ?? ''">
+                    @if (year) {
+                      <span>{{ year }}</span>
+                    }
+                    @if (year && genre) {
+                      <span aria-hidden="true">·</span>
+                    }
+                    @if (genre) {
+                      <span>{{ genre }}</span>
+                    }
+                  </div>
+                }
+              }
             </mat-card-actions>
           </mat-card>
         } @empty {
@@ -219,6 +240,10 @@ export class GridListComponent {
   readonly variant = input<"poster" | "logo">("poster");
   readonly type = input<"vod" | "series" | "live" | string>("");
   protected readonly resolveRating = resolveGridRating;
+  protected readonly resolveYear = (item: GridListItem): number | null =>
+    catalogYear(item);
+  protected readonly resolveGenre = (item: GridListItem): string | undefined =>
+    catalogGenre(item);
   protected readonly resolvePoster = (item: GridListItem): string | undefined =>
     normalizeArtworkUrl(item.poster_url) ??
     normalizeArtworkUrl(item.cover) ??

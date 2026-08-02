@@ -10,6 +10,10 @@ import { Playlist } from './playlist.interface';
 import { PlaybackNetworkInspection, PlayerContentInfo, PlayerEngineAvailability, ResolvedPortalPlayback } from './portal-playback.interface';
 import { PortalDebugEvent } from './portal-debug.interface';
 import { CatalogTitleMatch } from './catalog-title-match.interface';
+import type {
+    XtreamContentMetadata,
+    XtreamMetadataEnrichmentState,
+} from './catalog-metadata.util';
 import { Settings } from './settings.interface';
 import { TmdbCacheEntry, TmdbCacheMediaType, TmdbCacheStats } from './tmdb.interface';
 import { XtreamCategory } from './xtream-category.interface';
@@ -147,6 +151,15 @@ export interface ElectronBridgeXtreamContent {
     category_id: number;
     title: string;
     rating: string;
+    genre?: string | null;
+    releaseDate?: string | null;
+    country?: string | null;
+    director?: string | null;
+    cast?: string | null;
+    description?: string | null;
+    metadata_status?: 'complete' | 'failed' | null;
+    metadata_attempted_at?: string | null;
+    metadata_retry_after?: string | null;
     added: string;
     poster_url: string;
     backdrop_url?: string | null;
@@ -295,6 +308,7 @@ export interface ElectronBridgeApi {
     dbRemoveRecentItem: (contentId: number, playlistId: string) => Promise<ElectronBridgeResult>;
     dbRemoveRecentItemsBatch: (items: ElectronBridgeRecentItemsBatchItem[]) => Promise<ElectronBridgeCountResult>;
     dbGetContentByXtreamId: (xtreamId: number, playlistId: string, contentType?: ElectronBridgePortalContentType) => Promise<ElectronBridgeXtreamContent | null>;
+    dbUpdateXtreamContentMetadata: (contentId: number, metadata: XtreamContentMetadata, enrichment?: XtreamMetadataEnrichmentState) => Promise<ElectronBridgeResult>;
     dbSetContentBackdropIfMissing: (contentId: number, backdropUrl?: string) => Promise<ElectronBridgeResult>;
     dbGetAppState: (key: string) => Promise<string | null>;
     dbSetAppState: (key: string, value: string) => Promise<ElectronBridgeResult>;

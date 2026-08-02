@@ -13,6 +13,7 @@ import {
 import { toSignal } from "@angular/core/rxjs-interop";
 import { MatIcon } from "@angular/material/icon";
 import { MatSnackBar } from "@angular/material/snack-bar";
+import { MatDialog } from "@angular/material/dialog";
 import { ActivatedRoute, Router } from "@angular/router";
 import { TranslatePipe, TranslateService } from "@ngx-translate/core";
 import {
@@ -23,6 +24,7 @@ import {
   SeasonContainerComponent,
   SeasonContainerPlaybackToggleRequest,
 } from "@arm-nator/ui/components";
+import { SafePipe } from "@arm-nator/pipes";
 import { XtreamStore } from "@arm-nator/providers/xtream/data-access";
 import {
   buildUpNextRailItems,
@@ -31,11 +33,13 @@ import {
 } from "@arm-nator/player/ui";
 import {
   normalizeTitleKeys,
+  metadataDisplayEntries,
   seriesStatusLabelKey,
   TmdbEnrichedCastMember,
   XtreamSerieDetails,
   XtreamSerieEpisode,
   XtreamSerieInfo,
+  youtubeEmbedUrl,
 } from "@arm-nator/shared/interfaces";
 import {
   CrossPortalSimilarItem,
@@ -49,6 +53,10 @@ import {
   SimilarCatalogItem,
   matchRecommendationsToCatalog,
 } from "../tmdb-similar.util";
+import {
+  ContentMetadataDialogComponent,
+  ContentMetadataDialogData,
+} from "../content-metadata-dialog/content-metadata-dialog.component";
 
 @Component({
   selector: "app-serial-details",
@@ -73,6 +81,7 @@ import {
     DetailTagsTemplateDirective,
     MatIcon,
     PortalDetailShellComponent,
+    SafePipe,
     SeasonContainerComponent,
     SlicePipe,
     TranslatePipe,
@@ -89,6 +98,7 @@ export class SerialDetailsComponent implements OnInit, OnDestroy {
   private readonly xtreamStore = inject(XtreamStore);
   private readonly playback = inject(SerialDetailsPlaybackService);
   private readonly snackBar = inject(MatSnackBar);
+  private readonly dialog = inject(MatDialog);
   private readonly translateService = inject(TranslateService);
 
   readonly selectedItem = signal<XtreamSerieDetailsView | null>(null);
@@ -97,6 +107,75 @@ export class SerialDetailsComponent implements OnInit, OnDestroy {
   readonly isLoadingDetails = this.xtreamStore.isLoadingDetails;
   readonly detailsError = this.xtreamStore.detailsError;
   readonly currentPlaylistId = signal("");
+  readonly selectedSeriesId = computed(() =>
+    Number(this.selectedItem()?.series_id ?? this.routeParams().serialId ?? 0),
+  );
+  readonly selectedCatalogItem = computed(() =>
+    this.xtreamStore
+      .serialStreams()
+      .find((item) => Number(item.series_id) === this.selectedSeriesId()),
+  );
+  /** Merge provider detail fields with the catalog cache for incomplete APIs. */
+  readonly displayInfo = computed<XtreamSerieInfo | null>(() => {
+    const item = this.selectedItem();
+    const info = item?.info && !Array.isArray(item.info) ? item.info : null;
+    const catalog = this.selectedCatalogItem() as unknown as Record<
+      string,
+      unknown
+    > | null;
+
+    if (!info && !catalog) {
+      return null;
+    }
+
+    const catalogText = (...fields: string[]): string | undefined => {
+      for (const field of fields) {
+        const value = catalog?.[field];
+        if (typeof value === "string" && value.trim()) return value.trim();
+        if (typeof value === "number" && Number.isFinite(value)) {
+          return String(value);
+        }
+      }
+      return undefined;
+    };
+
+    return {
+      ...(info ?? {}),
+      name: info?.name || catalogText("title", "name") || "",
+      cover: info?.cover || catalogText("poster_url", "stream_icon") || "",
+      plot: info?.plot || catalogText("description", "plot") || "",
+      genre: info?.genre || catalogText("genre") || "",
+      releaseDate:
+        info?.releaseDate || catalogText("releaseDate", "releasedate") || "",
+      country: info?.country || catalogText("country") || "",
+      director: info?.director || catalogText("director") || "",
+      cast: info?.cast || info?.actors || catalogText("cast", "actors") || "",
+      actors: info?.actors || catalogText("actors") || "",
+      rating: info?.rating || catalogText("rating") || "",
+      backdrop_path: info?.backdrop_path?.length
+        ? info.backdrop_path
+        : catalogText("backdrop_url")
+          ? [catalogText("backdrop_url") as string]
+          : [],
+    } as XtreamSerieInfo;
+  });
+  readonly rawMetadata = computed(() => {
+    const info = this.selectedItem()?.info;
+    return metadataDisplayEntries(
+      info && !Array.isArray(info)
+        ? (info as unknown as Record<string, unknown>)
+        : null,
+    );
+  });
+  readonly trailerEmbedUrl = computed(() =>
+    youtubeEmbedUrl(this.displayInfo()?.youtube_trailer),
+  );
+  readonly episodeCount = computed(() =>
+    Object.values(this.selectedItem()?.episodes ?? {}).reduce(
+      (total, episodes) => total + episodes.length,
+      0,
+    ),
+  );
   /** `playlistId:categoryId:serialId` of the last initialized view */
   private readonly lastInitKey = signal<string | null>(null);
   private readonly backdropBackfillKey = signal<string | null>(null);
@@ -372,7 +451,28 @@ export class SerialDetailsComponent implements OnInit, OnDestroy {
     );
   }
 
-  getBackdropUrl(info: XtreamSerieInfo): string | undefined {
+  openMetadataDialog(): void {
+    const info = this.displayInfo();
+    const entries = this.rawMetadata();
+    if (!info || entries.length === 0) return;
+
+    this.dialog.open<ContentMetadataDialogComponent, ContentMetadataDialogData>(
+      ContentMetadataDialogComponent,
+      {
+        data: {
+          title: info.name || "Series",
+          entries,
+        },
+        width: "min(820px, calc(100vw - 32px))",
+        maxWidth: "calc(100vw - 24px)",
+        maxHeight: "calc(100vh - 32px)",
+      },
+    );
+  }
+
+  getBackdropUrl(
+    info: Pick<XtreamSerieInfo, "backdrop_path">,
+  ): string | undefined {
     return info.backdrop_path?.[0];
   }
 

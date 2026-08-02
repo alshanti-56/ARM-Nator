@@ -39,6 +39,11 @@ export interface GlobalSearchBaseResult {
 
 export interface XtreamGlobalSearchResult extends GlobalSearchBaseResult {
     source_type: typeof GLOBAL_SEARCH_RESULT_SOURCES.Xtream;
+    genre?: string | null;
+    releaseDate?: string | null;
+    country?: string | null;
+    director?: string | null;
+    cast?: string | null;
     description?: string;
     backdrop_url?: string | null;
     tv_archive?: number | null;

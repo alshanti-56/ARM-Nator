@@ -44,6 +44,7 @@ import {
     searchContent,
 } from '../database/operations/content.operations';
 import { setContentBackdropIfMissing } from '../database/operations/content-backdrop.operations';
+import { updateXtreamContentMetadata } from '../database/operations/content-metadata.operations';
 import {
     clearAllPlaybackPositions,
     clearPlaybackPosition,
@@ -522,6 +523,20 @@ async function executeRequest(
                 db,
                 payload.contentId,
                 payload.backdropUrl
+            );
+        }
+
+        case 'DB_UPDATE_XTREAM_CONTENT_METADATA': {
+            const payload = message.payload as {
+                contentId: number;
+                metadata: import('@arm-nator/shared/interfaces').XtreamContentMetadata;
+                enrichment?: import('@arm-nator/shared/interfaces').XtreamMetadataEnrichmentState;
+            };
+            return updateXtreamContentMetadata(
+                db,
+                payload.contentId,
+                payload.metadata,
+                payload.enrichment
             );
         }
 

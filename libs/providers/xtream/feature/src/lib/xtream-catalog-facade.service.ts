@@ -7,6 +7,8 @@ import {
   PORTAL_CATALOG_FACADE,
 } from "@arm-nator/providers/shared/util";
 import { XtreamStore } from "@arm-nator/providers/xtream/data-access";
+import { TmdbEnrichmentService } from "@arm-nator/services";
+import { normalizeTitleKeys } from "@arm-nator/shared/interfaces";
 
 const SORT_STORAGE_KEY = "xtream-category-sort-mode";
 
@@ -15,11 +17,16 @@ const isValidSortMode = (mode: string | null): mode is PortalCatalogSortMode =>
   mode === "date-asc" ||
   mode === "name-asc" ||
   mode === "name-desc" ||
+  mode === "year-desc" ||
+  mode === "year-asc" ||
   mode === "rating-desc" ||
   mode === "rating-asc";
 
 const isRatingSortMode = (mode: PortalCatalogSortMode): boolean =>
   mode === "rating-desc" || mode === "rating-asc";
+
+const isMetadataSortMode = (mode: PortalCatalogSortMode): boolean =>
+  isRatingSortMode(mode) || mode === "year-desc" || mode === "year-asc";
 
 @Injectable()
 export class XtreamCatalogFacadeService implements PortalCatalogFacade<
@@ -28,7 +35,9 @@ export class XtreamCatalogFacadeService implements PortalCatalogFacade<
   unknown
 > {
   private readonly xtreamStore = inject(XtreamStore);
+  private readonly tmdbEnrichment = inject(TmdbEnrichmentService);
   private loadedPositionsPlaylistId: string | null = null;
+  private personSearchVersion = 0;
 
   readonly provider = "xtream" as const;
   readonly pageSizeOptions = [10, 25, 50, 100] as const;
@@ -51,7 +60,7 @@ export class XtreamCatalogFacadeService implements PortalCatalogFacade<
   readonly contentSortMode = computed<PortalCatalogSortMode>(() => {
     const mode = this.xtreamStore.contentSortMode();
 
-    return !this.supportsRatingSort && isRatingSortMode(mode)
+    return !this.supportsRatingSort && isMetadataSortMode(mode)
       ? "date-desc"
       : mode;
   });
@@ -61,6 +70,18 @@ export class XtreamCatalogFacadeService implements PortalCatalogFacade<
   }
   readonly minRating = computed(() =>
     this.supportsRatingSort ? this.xtreamStore.minRating() : null,
+  );
+  readonly genreFilter = computed(() =>
+    this.supportsRatingSort ? this.xtreamStore.genreFilter() : null,
+  );
+  readonly yearFilter = computed(() =>
+    this.supportsRatingSort ? this.xtreamStore.yearFilter() : null,
+  );
+  readonly availableGenres = computed(() =>
+    this.supportsRatingSort ? this.xtreamStore.availableGenres() : [],
+  );
+  readonly availableYears = computed(() =>
+    this.supportsRatingSort ? this.xtreamStore.availableYears() : [],
   );
   readonly playlist = computed<PortalCatalogPlaylistMeta | null>(() => {
     const playlist = this.xtreamStore.currentPlaylist();
@@ -101,6 +122,31 @@ export class XtreamCatalogFacadeService implements PortalCatalogFacade<
 
   setSearchQuery(query: string): void {
     this.xtreamStore.setCategorySearchTerm(query);
+    const normalized = query.trim();
+    const version = ++this.personSearchVersion;
+    this.xtreamStore.setPersonSearchTitleKeys([]);
+    if (
+      normalized.length < 3 ||
+      !this.supportsRatingSort ||
+      !this.tmdbEnrichment.isEnabled()
+    ) {
+      return;
+    }
+
+    void this.tmdbEnrichment.searchPersonDetails(normalized).then((person) => {
+      if (version !== this.personSearchVersion || !person) {
+        return;
+      }
+
+      const keys: string[] = [];
+      for (const credit of person.combined_credits?.cast ?? []) {
+        const title = credit.title ?? credit.name;
+        const normalizedTitle = normalizeTitleKeys(title);
+        if (normalizedTitle.exact) keys.push(normalizedTitle.exact);
+        if (normalizedTitle.base) keys.push(normalizedTitle.base);
+      }
+      this.xtreamStore.setPersonSearchTitleKeys(keys);
+    });
   }
 
   setPage(page: number): void {
@@ -112,7 +158,7 @@ export class XtreamCatalogFacadeService implements PortalCatalogFacade<
   }
 
   setContentSortMode(mode: PortalCatalogSortMode): void {
-    if (!this.supportsRatingSort && isRatingSortMode(mode)) {
+    if (!this.supportsRatingSort && isMetadataSortMode(mode)) {
       return;
     }
 
@@ -126,6 +172,20 @@ export class XtreamCatalogFacadeService implements PortalCatalogFacade<
     }
 
     this.xtreamStore.setMinRating(value);
+  }
+
+  setGenreFilter(value: string | null): void {
+    if (!this.supportsRatingSort) {
+      return;
+    }
+    this.xtreamStore.setGenreFilter(value);
+  }
+
+  setYearFilter(value: number | null): void {
+    if (!this.supportsRatingSort) {
+      return;
+    }
+    this.xtreamStore.setYearFilter(value);
   }
 
   selectItem(item: Record<string, unknown>): string[] | null {

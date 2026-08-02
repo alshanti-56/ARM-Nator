@@ -6,6 +6,8 @@ export type PortalCatalogSortMode =
     | 'date-asc'
     | 'name-asc'
     | 'name-desc'
+    | 'year-desc'
+    | 'year-asc'
     | 'rating-desc'
     | 'rating-asc';
 
@@ -47,6 +49,10 @@ export interface PortalCatalogFacade<
     /** Optional IMDb-rating capability (Xtream VOD/series). */
     readonly supportsRatingSort?: boolean;
     readonly minRating?: Signal<number | null>;
+    readonly genreFilter?: Signal<string | null>;
+    readonly yearFilter?: Signal<number | null>;
+    readonly availableGenres?: Signal<readonly string[]>;
+    readonly availableYears?: Signal<readonly number[]>;
 
     initialize(categoryId?: string | null): void;
     setSearchQuery?(query: string): void;
@@ -55,6 +61,8 @@ export interface PortalCatalogFacade<
     setLimit(limit: number): void;
     setContentSortMode(mode: PortalCatalogSortMode): void;
     setMinRating?(value: number | null): void;
+    setGenreFilter?(value: string | null): void;
+    setYearFilter?(value: number | null): void;
     selectItem(item: TItem): string[] | null;
     /** Optional refresh for a selection injected from navigation state. */
     refreshSnapshotSelection?(): void;
