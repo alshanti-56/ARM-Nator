@@ -12,11 +12,13 @@ export function clearNativeVideoSources(element: HTMLVideoElement): void {
 export function setNativeVideoSource(
     element: HTMLVideoElement,
     url: string,
-    type: string
+    type?: string
 ): void {
     clearNativeVideoSources(element);
     const source = document.createElement('source');
     source.src = url;
-    source.type = type;
+    if (type) {
+        source.type = type;
+    }
     element.appendChild(source);
 }

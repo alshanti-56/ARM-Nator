@@ -41,6 +41,7 @@ export function getArtPlayerVideoType(url: string): string {
             return 'mp4';
         case 'mpd':
             return 'mpd';
+        case 'm2ts':
         case 'ts':
             return 'ts';
         default:
