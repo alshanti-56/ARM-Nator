@@ -48,7 +48,7 @@ import {
 import {
   Channel,
   isM3uRecentlyViewedItem,
-  normalizeStalkerDate,
+  normalizeDate,
   PlaylistMeta,
   PlaylistRecentlyViewedItem,
 } from "@arm-nator/shared/interfaces";
@@ -218,8 +218,8 @@ export class ChannelListContainerComponent implements OnInit, OnDestroy {
       .filter(isM3uRecentlyViewedItem)
       .sort(
         (a, b) =>
-          new Date(normalizeStalkerDate(b.added_at)).getTime() -
-          new Date(normalizeStalkerDate(a.added_at)).getTime(),
+          new Date(normalizeDate(b.added_at)).getTime() -
+          new Date(normalizeDate(a.added_at)).getTime(),
       )
       .reduce<RecentViewItem[]>((acc, item) => {
         const channelUrl = item.url?.trim();
@@ -238,7 +238,7 @@ export class ChannelListContainerComponent implements OnInit, OnDestroy {
         seenUrls.add(channel.url);
         acc.push({
           channel,
-          viewedAt: normalizeStalkerDate(item.added_at),
+          viewedAt: normalizeDate(item.added_at),
         });
         return acc;
       }, []);

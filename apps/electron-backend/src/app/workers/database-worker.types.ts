@@ -78,7 +78,6 @@ export const DB_OPERATION_PHASES = {
     DELETING_FAVORITES: 'deleting-favorites',
     DELETING_RECENTLY_VIEWED: 'deleting-recently-viewed',
     DELETING_PLAYBACK_POSITIONS: 'deleting-playback-positions',
-    DELETING_DOWNLOADS: 'deleting-downloads',
     DELETING_CONTENT: 'deleting-content',
     DELETING_CATEGORIES: 'deleting-categories',
     DELETING_PLAYLIST: 'deleting-playlist',

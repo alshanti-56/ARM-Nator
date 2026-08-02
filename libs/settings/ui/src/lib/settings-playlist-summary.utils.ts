@@ -9,7 +9,6 @@ export function buildSettingsPlaylistDeleteSummary(
     total: items.length,
     m3u: items.filter((item) => !item.serverUrl && !item.macAddress).length,
     xtream: items.filter((item) => Boolean(item.serverUrl)).length,
-    stalker: items.filter((item) => Boolean(item.macAddress)).length,
   };
 }
 

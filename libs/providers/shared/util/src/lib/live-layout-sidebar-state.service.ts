@@ -7,7 +7,7 @@ import {
 
 /**
  * Shared collapse state for the live-TV sidebar across the workspace shell
- * categories rail (Xtream/Stalker), the inline channels rail, and the
+ * categories rail, the inline channels rail, and the
  * unified-collection live tab. A single signal keeps all surfaces in sync
  * within a session; localStorage persistence is delegated to the existing
  * `live-sidebar-state` helpers so the storage key stays unchanged.

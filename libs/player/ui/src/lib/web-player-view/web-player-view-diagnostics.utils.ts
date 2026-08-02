@@ -17,13 +17,7 @@ export function getDiagnosticDescriptionKey(
     issue: PlaybackDiagnostic,
     supportsManagedExternalPlayers: boolean
 ): string {
-    if (
-        issue.code === PlaybackDiagnosticCode.BrowserAccessError &&
-        !supportsManagedExternalPlayers
-    ) {
-        return 'PLAYBACK_DIAGNOSTICS.BROWSER_ACCESS_ERROR.PWA_DESCRIPTION';
-    }
-
+    void supportsManagedExternalPlayers;
     return `${getDiagnosticTranslationBase(issue)}.DESCRIPTION`;
 }
 

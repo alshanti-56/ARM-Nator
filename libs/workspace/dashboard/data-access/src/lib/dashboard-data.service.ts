@@ -20,12 +20,7 @@ import {
     DatabaseService,
     GlobalRecentlyAddedKind,
     PlaylistsService,
-    RuntimeCapabilitiesService,
 } from '@arm-nator/services';
-import {
-    XTREAM_DATA_SOURCE,
-    XtreamContentItem,
-} from '@arm-nator/providers/xtream/data-access';
 import {
     buildPlaylistRecentItems,
     Channel,
@@ -37,10 +32,8 @@ import {
     PortalActivityType,
     PortalFavoriteItem,
     PortalRecentItem,
-    stalkerItemMatchesId,
 } from '@arm-nator/shared/interfaces';
 import {
-    buildStalkerFavoriteItems,
     getActivityTypeLabelKey,
     mapDbFavoriteToItem,
     mapDbRecentlyAddedToItem,
@@ -112,9 +105,7 @@ export type DashboardRecentlyAddedFilterKind = GlobalRecentlyAddedKind;
 export class DashboardDataService {
     private readonly store = inject(Store);
     private readonly dbService = inject(DatabaseService);
-    private readonly xtreamDataSource = inject(XTREAM_DATA_SOURCE);
     private readonly playlistsService = inject(PlaylistsService);
-    private readonly runtime = inject(RuntimeCapabilitiesService);
     private readonly ngZone = inject(NgZone);
     private readonly translate = inject(TranslateService);
     private readonly playbackPositions = inject(PORTAL_PLAYBACK_POSITIONS);
@@ -168,9 +159,7 @@ export class DashboardDataService {
     );
     private readonly globalRecentLoadingState = signal(true);
     private readonly globalRecentLoadedState = signal(false);
-    private readonly globalRecentDbLoadedState = signal(
-        !this.hasPortalActivityStorage
-    );
+    private readonly globalRecentDbLoadedState = signal(false);
     private readonly globalFavoritesLoadingState = signal(true);
     private readonly globalFavoritesLoadedState = signal(false);
     private readonly xtreamGlobalFavoritesLoadedState = signal(false);
@@ -200,10 +189,6 @@ export class DashboardDataService {
     readonly xtreamRecentlyAddedItems =
         this.xtreamRecentlyAddedItemsState.asReadonly();
 
-    private get hasPortalActivityStorage(): boolean {
-        return this.runtime.supportsPortalActivityStorage;
-    }
-
     readonly dashboardReady = computed(
         () =>
             this.playlistsLoaded() &&
@@ -223,9 +208,7 @@ export class DashboardDataService {
                     playlist._id,
                     playlist.serverUrl
                         ? 'xtream'
-                        : playlist.macAddress
-                          ? 'stalker'
-                          : 'm3u',
+                        : 'm3u',
                     JSON.stringify(playlist.favorites ?? []),
                 ].join('::')
             )
@@ -236,9 +219,6 @@ export class DashboardDataService {
         () => {
             this.languageTick();
             return buildPlaylistRecentItems(this.playlists(), {
-                stalker: this.translateText(
-                    'WORKSPACE.DASHBOARD.STALKER_PORTAL'
-                ),
                 m3u: this.translateText('WORKSPACE.DASHBOARD.M3U'),
             });
         }
@@ -395,19 +375,10 @@ export class DashboardDataService {
         });
     }
 
-    readonly stalkerGlobalFavorites = computed<DashboardFavoriteItem[]>(() => {
-        this.languageTick();
-        return buildStalkerFavoriteItems(
-            this.playlists(),
-            this.translateText('WORKSPACE.DASHBOARD.STALKER_PORTAL')
-        );
-    });
-
     readonly globalFavoriteItems = computed(() =>
         [
             ...this.xtreamGlobalFavorites(),
             ...this.m3uGlobalFavorites(),
-            ...this.stalkerGlobalFavorites(),
         ]
             .sort((a, b) => toTimestamp(b.added_at) - toTimestamp(a.added_at))
             .slice(0, 200)
@@ -465,9 +436,7 @@ export class DashboardDataService {
         return {
             total: items.length,
             xtream: items.filter((item) => !!item.serverUrl).length,
-            stalker: items.filter((item) => !!item.macAddress).length,
-            m3u: items.filter((item) => !item.serverUrl && !item.macAddress)
-                .length,
+            m3u: items.filter((item) => !item.serverUrl).length,
         };
     });
 
@@ -497,16 +466,6 @@ export class DashboardDataService {
     async reloadGlobalRecentItems(): Promise<void> {
         if (!this.globalRecentLoaded()) {
             this.globalRecentLoadingState.set(true);
-        }
-
-        if (!this.hasPortalActivityStorage) {
-            const recentItems = await this.loadPwaXtreamGlobalRecentItems();
-            this.ngZone.run(() =>
-                this.xtreamGlobalRecentItems.set(recentItems)
-            );
-            this.globalRecentDbLoadedState.set(true);
-            this.finishInitialGlobalRecentLoadIfReady();
-            return;
         }
 
         try {
@@ -557,10 +516,6 @@ export class DashboardDataService {
         kind: DashboardRecentlyAddedFilterKind,
         limit = 200
     ): Promise<DashboardRecentlyAddedItem[]> {
-        if (!this.hasPortalActivityStorage) {
-            return [];
-        }
-
         const items = await this.dbService.getGlobalRecentlyAdded(kind, limit);
         return items
             .map((item) => mapDbRecentlyAddedToItem(item))
@@ -570,10 +525,6 @@ export class DashboardDataService {
     async getXtreamRecentlyAddedItems(
         limit = 20
     ): Promise<DashboardRecentlyAddedItem[]> {
-        if (!this.hasPortalActivityStorage) {
-            return [];
-        }
-
         const items = await this.dbService.getGlobalRecentlyAdded(
             'all',
             limit,
@@ -587,15 +538,6 @@ export class DashboardDataService {
     async reloadXtreamRecentlyAddedItems(limit = 20): Promise<void> {
         if (!this.xtreamRecentlyAddedLoaded()) {
             this.xtreamRecentlyAddedLoadingState.set(true);
-        }
-
-        if (!this.hasPortalActivityStorage) {
-            this.ngZone.run(() => {
-                this.xtreamRecentlyAddedItemsState.set([]);
-                this.xtreamRecentlyAddedLoadingState.set(false);
-                this.xtreamRecentlyAddedLoadedState.set(true);
-            });
-            return;
         }
 
         try {
@@ -618,12 +560,6 @@ export class DashboardDataService {
     }
 
     private async reloadXtreamGlobalFavorites(): Promise<void> {
-        if (!this.hasPortalActivityStorage) {
-            const favorites = await this.loadPwaXtreamGlobalFavorites();
-            this.ngZone.run(() => this.xtreamGlobalFavorites.set(favorites));
-            return;
-        }
-
         try {
             const favorites = await this.dbService.getAllGlobalFavorites();
             const normalized = favorites.map((item) =>
@@ -637,95 +573,6 @@ export class DashboardDataService {
             );
             this.ngZone.run(() => this.xtreamGlobalFavorites.set([]));
         }
-    }
-
-    private async loadPwaXtreamGlobalRecentItems(): Promise<
-        GlobalRecentItem[]
-    > {
-        const nested = await Promise.all(
-            this.getXtreamPlaylists().map(async (playlist) => {
-                const rows = await this.xtreamDataSource.getRecentItems(
-                    playlist._id
-                );
-                return rows.map((item) =>
-                    this.mapPwaXtreamRecentItem(item, playlist)
-                );
-            })
-        );
-        return nested.reduce<GlobalRecentItem[]>(
-            (items, playlistItems) => items.concat(playlistItems),
-            []
-        );
-    }
-
-    private async loadPwaXtreamGlobalFavorites(): Promise<
-        DashboardFavoriteItem[]
-    > {
-        const nested = await Promise.all(
-            this.getXtreamPlaylists().map(async (playlist) => {
-                const rows = await this.xtreamDataSource.getFavorites(
-                    playlist._id
-                );
-                return rows.map((item) =>
-                    this.mapPwaXtreamFavoriteItem(item, playlist)
-                );
-            })
-        );
-        return nested.reduce<DashboardFavoriteItem[]>(
-            (items, playlistItems) => items.concat(playlistItems),
-            []
-        );
-    }
-
-    private getXtreamPlaylists(): PlaylistMeta[] {
-        return this.playlists().filter(
-            (playlist) => !!playlist.serverUrl && !playlist.macAddress
-        );
-    }
-
-    private mapPwaXtreamRecentItem(
-        item: XtreamContentItem,
-        playlist: PlaylistMeta
-    ): GlobalRecentItem {
-        return {
-            id: item.id,
-            title: item.title,
-            type: this.normalizeXtreamActivityType(item.type),
-            playlist_id: playlist._id,
-            playlist_name: playlist.title || 'Xtream',
-            viewed_at: item.viewed_at ?? '',
-            category_id: item.category_id,
-            xtream_id: item.xtream_id,
-            poster_url: item.poster_url,
-            backdrop_url: item.backdrop_url ?? undefined,
-            source: 'xtream',
-        };
-    }
-
-    private mapPwaXtreamFavoriteItem(
-        item: XtreamContentItem,
-        playlist: PlaylistMeta
-    ): DashboardFavoriteItem {
-        return {
-            id: item.id,
-            title: item.title,
-            type: this.normalizeXtreamActivityType(item.type),
-            playlist_id: playlist._id,
-            playlist_name: playlist.title || 'Xtream',
-            added_at: item.added_at || item.added || new Date(0).toISOString(),
-            category_id: item.category_id,
-            xtream_id: item.xtream_id,
-            poster_url: item.poster_url,
-            backdrop_url: item.backdrop_url ?? undefined,
-            source: 'xtream',
-        };
-    }
-
-    private normalizeXtreamActivityType(type: string): PortalActivityType {
-        if (type === 'live' || type === 'series') {
-            return type;
-        }
-        return 'movie';
     }
 
     private async reloadPlaylistBackedGlobalFavorites(): Promise<void> {
@@ -860,19 +707,12 @@ export class DashboardDataService {
             return this.translateText('WORKSPACE.DASHBOARD.XTREAM');
         }
 
-        if (playlist.macAddress) {
-            return this.translateText('WORKSPACE.DASHBOARD.STALKER');
-        }
-
         return this.translateText('WORKSPACE.DASHBOARD.M3U');
     }
 
     getRecentItemProviderLabel(item: GlobalRecentItem): string {
         this.languageTick();
 
-        if (item.source === 'stalker') {
-            return this.translateText('WORKSPACE.DASHBOARD.STALKER');
-        }
         if (item.source === 'xtream') {
             return this.translateText('WORKSPACE.DASHBOARD.XTREAM');
         }
@@ -902,38 +742,11 @@ export class DashboardDataService {
 
     async removeGlobalRecentItem(item: GlobalRecentItem): Promise<void> {
         if (item.source === 'xtream') {
-            if (this.hasPortalActivityStorage) {
-                await this.dbService.removeRecentItem(
-                    item.id as number,
-                    item.playlist_id
-                );
-            } else {
-                await this.xtreamDataSource.removeRecentItem(
-                    item.id as number,
-                    item.playlist_id
-                );
-            }
-            await this.reloadGlobalRecentItems();
-            return;
-        }
-
-        if (item.source === 'stalker') {
-            const updatedPlaylist = await firstValueFrom(
-                this.playlistsService.removeFromPortalRecentlyViewed(
-                    item.playlist_id,
-                    item.id
-                )
+            await this.dbService.removeRecentItem(
+                item.id as number,
+                item.playlist_id
             );
-
-            const playlistMeta: PlaylistMeta = {
-                _id: item.playlist_id,
-                recentlyViewed: updatedPlaylist?.recentlyViewed ?? [],
-                count: updatedPlaylist?.count ?? 0,
-                title: updatedPlaylist?.title ?? '',
-                importDate: updatedPlaylist?.importDate ?? new Date().toISOString(),
-                autoRefresh: updatedPlaylist?.autoRefresh ?? false,
-            };
-            this.store.dispatch(PlaylistActions.updatePlaylistMeta({ playlist: playlistMeta }));
+            await this.reloadGlobalRecentItems();
             return;
         }
 
@@ -972,9 +785,6 @@ export class DashboardDataService {
     ): string {
         this.languageTick();
 
-        if (item.source === 'stalker') {
-            return this.translateText('WORKSPACE.DASHBOARD.STALKER');
-        }
         if (item.source === 'xtream') {
             return this.translateText('WORKSPACE.DASHBOARD.XTREAM');
         }
@@ -1021,51 +831,12 @@ export class DashboardDataService {
 
     async removeGlobalFavorite(item: DashboardFavoriteItem): Promise<void> {
         if (item.source === 'xtream') {
-            if (this.hasPortalActivityStorage) {
-                await this.dbService.removeFromFavorites(
-                    item.id as number,
-                    item.playlist_id
-                );
-            } else {
-                await this.xtreamDataSource.removeFavorite(
-                    item.id as number,
-                    item.playlist_id
-                );
-            }
+            await this.dbService.removeFromFavorites(
+                item.id as number,
+                item.playlist_id
+            );
             await this.reloadGlobalFavorites();
             return;
-        }
-
-        if (item.source === 'stalker') {
-            const playlist = this.playlists().find(
-                (p) => p._id === item.playlist_id
-            );
-            if (!playlist) return;
-
-            const currentFavorites = Array.isArray(playlist.favorites)
-                ? [...playlist.favorites]
-                : [];
-            const itemMatchStr = String(item.id);
-
-            const filteredFavorites = currentFavorites.filter(
-                (raw, index) =>
-                    !stalkerItemMatchesId(
-                        raw,
-                        itemMatchStr,
-                        playlist._id,
-                        index
-                    )
-            );
-
-            const playlistMeta: PlaylistMeta = {
-                _id: item.playlist_id,
-                favorites: filteredFavorites,
-                count: playlist.count ?? 0,
-                title: playlist.title ?? '',
-                importDate: playlist.importDate ?? new Date().toISOString(),
-                autoRefresh: playlist.autoRefresh ?? false,
-            };
-            this.store.dispatch(PlaylistActions.updatePlaylistMeta({ playlist: playlistMeta }));
         }
 
         if (item.source === 'm3u') {

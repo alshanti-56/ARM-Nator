@@ -16,7 +16,7 @@ export const initialPlaylistMetaState: PlaylistMetaState =
     playlistsAdapter.getInitialState({
         selectedId: '',
         allPlaylistsLoaded: false,
-        selectedFilters: ['m3u', 'xtream', 'stalker'],
+        selectedFilters: ['m3u', 'xtream'],
     });
 
 export const {

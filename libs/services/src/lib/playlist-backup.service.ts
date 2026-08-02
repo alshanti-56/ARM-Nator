@@ -17,8 +17,6 @@ import {
     PlaylistBackupSettings,
     PLAYLIST_BACKUP_KIND,
     PLAYLIST_BACKUP_VERSION,
-    StalkerPlaylistBackupEntry,
-    StalkerPortalItem,
     XtreamBackupCategoryType,
     XtreamBackupContentType,
     XtreamPlaylistBackupEntry,
@@ -47,7 +45,7 @@ export class PlaylistBackupError extends Error {
     }
 }
 
-type PlaylistPortalType = 'm3u' | 'xtream' | 'stalker';
+type PlaylistPortalType = 'm3u' | 'xtream';
 
 type XtreamContentType = XtreamBackupContentType;
 type XtreamCategoryType = XtreamBackupCategoryType;
@@ -176,8 +174,6 @@ export class PlaylistBackupService {
         switch (portalType) {
             case 'xtream':
                 return this.buildXtreamEntry(playlist);
-            case 'stalker':
-                return this.buildStalkerEntry(playlist);
             case 'm3u':
             default:
                 return this.buildM3uEntry(playlist);
@@ -310,53 +306,6 @@ export class PlaylistBackupService {
         };
     }
 
-    private buildStalkerEntry(playlist: Playlist): StalkerPlaylistBackupEntry {
-        return {
-            portalType: 'stalker',
-            exportedId: playlist._id,
-            title: playlist.title,
-            autoRefresh: Boolean(playlist.autoRefresh),
-            position: playlist.position,
-            connection: {
-                portalUrl: playlist.portalUrl ?? playlist.url ?? '',
-                macAddress: playlist.macAddress ?? '',
-                ...(playlist.isFullStalkerPortal !== undefined
-                    ? {
-                          isFullStalkerPortal: playlist.isFullStalkerPortal,
-                      }
-                    : {}),
-                ...(playlist.username ? { username: playlist.username } : {}),
-                ...(playlist.password ? { password: playlist.password } : {}),
-                ...(playlist.userAgent
-                    ? { userAgent: playlist.userAgent }
-                    : {}),
-                ...(playlist.referrer ? { referrer: playlist.referrer } : {}),
-                ...(playlist.origin ? { origin: playlist.origin } : {}),
-                ...(playlist.stalkerSerialNumber
-                    ? { stalkerSerialNumber: playlist.stalkerSerialNumber }
-                    : {}),
-                ...(playlist.stalkerDeviceId1
-                    ? { stalkerDeviceId1: playlist.stalkerDeviceId1 }
-                    : {}),
-                ...(playlist.stalkerDeviceId2
-                    ? { stalkerDeviceId2: playlist.stalkerDeviceId2 }
-                    : {}),
-                ...(playlist.stalkerSignature1
-                    ? { stalkerSignature1: playlist.stalkerSignature1 }
-                    : {}),
-                ...(playlist.stalkerSignature2
-                    ? { stalkerSignature2: playlist.stalkerSignature2 }
-                    : {}),
-            },
-            userState: {
-                favorites: this.extractStalkerItems(playlist.favorites),
-                recentlyViewed: this.extractStalkerItems(
-                    playlist.recentlyViewed
-                ),
-            },
-        };
-    }
-
     private buildSettingsPayload(): PlaylistBackupSettings | undefined {
         return undefined;
     }
@@ -454,16 +403,6 @@ export class PlaylistBackupService {
                     );
                 }
                 break;
-            case 'stalker':
-                if (
-                    !entry.connection?.portalUrl ||
-                    !entry.connection?.macAddress
-                ) {
-                    throw new PlaylistBackupError(
-                        `Stalker backup "${entry.title}" is missing connection metadata.`
-                    );
-                }
-                break;
             default:
                 throw new PlaylistBackupError(
                     `Unsupported backup playlist type: ${(entry as { portalType?: string }).portalType ?? 'unknown'}`
@@ -503,17 +442,6 @@ export class PlaylistBackupService {
                     this.normalizeUrlIdentity(playlist.serverUrl ?? ''),
                     this.normalizeIdentityValue(playlist.username ?? ''),
                 ].join('|');
-            case 'stalker':
-                return [
-                    'stalker',
-                    this.normalizeUrlIdentity(
-                        playlist.portalUrl ?? playlist.url ?? ''
-                    ),
-                    this.normalizeIdentityValue(
-                        playlist.macAddress ?? '',
-                        true
-                    ),
-                ].join('|');
             case 'm3u':
             default:
                 if (playlist.url) {
@@ -533,15 +461,6 @@ export class PlaylistBackupService {
                     'xtream',
                     this.normalizeUrlIdentity(entry.connection.serverUrl),
                     this.normalizeIdentityValue(entry.connection.username),
-                ].join('|');
-            case 'stalker':
-                return [
-                    'stalker',
-                    this.normalizeUrlIdentity(entry.connection.portalUrl),
-                    this.normalizeIdentityValue(
-                        entry.connection.macAddress,
-                        true
-                    ),
                 ].join('|');
             case 'm3u':
             default:
@@ -595,12 +514,6 @@ export class PlaylistBackupService {
         switch (entry.portalType) {
             case 'xtream':
                 return this.buildImportedXtreamPlaylist(
-                    entry,
-                    playlistId,
-                    existing
-                );
-            case 'stalker':
-                return this.buildImportedStalkerPlaylist(
                     entry,
                     playlistId,
                     existing
@@ -682,46 +595,6 @@ export class PlaylistBackupService {
             password: entry.connection.password,
             favorites: [],
             recentlyViewed: [],
-        };
-    }
-
-    private buildImportedStalkerPlaylist(
-        entry: StalkerPlaylistBackupEntry,
-        playlistId: string,
-        existing: Playlist | null
-    ): Playlist {
-        const now = new Date().toISOString();
-
-        return {
-            ...existing,
-            _id: playlistId,
-            title: entry.title,
-            filename: entry.title,
-            count: existing?.count ?? 0,
-            importDate: existing?.importDate ?? now,
-            lastUsage: existing?.lastUsage ?? now,
-            autoRefresh: entry.autoRefresh,
-            position: entry.position,
-            portalUrl: entry.connection.portalUrl,
-            url: entry.connection.portalUrl,
-            macAddress: entry.connection.macAddress,
-            username: entry.connection.username,
-            password: entry.connection.password,
-            userAgent: entry.connection.userAgent,
-            referrer: entry.connection.referrer,
-            origin: entry.connection.origin,
-            isFullStalkerPortal: entry.connection.isFullStalkerPortal,
-            favorites: entry.userState.favorites.map((item) => ({ ...item })),
-            recentlyViewed: entry.userState.recentlyViewed.map((item) => ({
-                ...item,
-            })),
-            stalkerSerialNumber: entry.connection.stalkerSerialNumber,
-            stalkerDeviceId1: entry.connection.stalkerDeviceId1,
-            stalkerDeviceId2: entry.connection.stalkerDeviceId2,
-            stalkerSignature1: entry.connection.stalkerSignature1,
-            stalkerSignature2: entry.connection.stalkerSignature2,
-            stalkerToken: undefined,
-            stalkerAccountInfo: undefined,
         };
     }
 
@@ -882,10 +755,6 @@ export class PlaylistBackupService {
             return 'xtream';
         }
 
-        if (playlist.macAddress && (playlist.portalUrl || playlist.url)) {
-            return 'stalker';
-        }
-
         return 'm3u';
     }
 
@@ -899,17 +768,6 @@ export class PlaylistBackupService {
         }
 
         return 'text';
-    }
-
-    private extractStalkerItems(items: unknown): StalkerPortalItem[] {
-        if (!Array.isArray(items)) {
-            return [];
-        }
-
-        return items.filter(
-            (item): item is StalkerPortalItem =>
-                !!item && typeof item === 'object' && !Array.isArray(item)
-        );
     }
 
     private normalizeM3uRecentlyViewedItem(

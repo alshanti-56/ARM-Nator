@@ -19,8 +19,8 @@ export interface DashboardTrendingItem extends TmdbTrendingEntry {
 
 /**
  * "Trending this week" dashboard rail data. Requires the TMDB opt-in and
- * (for availability matching / navigation) the Electron DB worker — the
- * rail is hidden in the PWA. Trending lists are cached for a day, and the
+ * (for availability matching / navigation) the Electron DB worker. Trending
+ * lists are cached for a day, and the
  * title match runs as ONE batched worker request, fired only after the
  * dashboard's own data has loaded so it never competes for the worker.
  */

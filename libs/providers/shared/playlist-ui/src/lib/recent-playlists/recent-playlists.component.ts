@@ -304,7 +304,7 @@ export class RecentPlaylistsComponent {
         ) {
             void this.refreshM3uPlaylist(item);
         } else if (item.url) {
-            // Browser/PWA URL refresh uses the PWA data service path.
+            // URL refresh is handled by the Electron playlist service.
             this.dataService.sendIpcEvent(PLAYLIST_UPDATE, {
                 id: item._id,
                 title: item.title,
@@ -643,10 +643,6 @@ export class RecentPlaylistsComponent {
             case 'deleting-playback-positions':
                 return this.translate.instant(
                     'HOME.PLAYLISTS.REMOVE_DIALOG.DELETING_PROGRESS'
-                );
-            case 'deleting-downloads':
-                return this.translate.instant(
-                    'HOME.PLAYLISTS.REMOVE_DIALOG.DELETING_DOWNLOADS'
                 );
             case 'deleting-content':
                 return this.translate.instant(

@@ -7,10 +7,7 @@ import { PlaylistSwitcherComponent } from "@arm-nator/providers/shared/playlist-
 import { isWorkspaceLayoutRoute } from "@arm-nator/providers/shared/util";
 import { TranslatePipe } from "@ngx-translate/core";
 import { ResizableDirective } from "@arm-nator/ui/components";
-import {
-  StalkerPortalItem,
-  XtreamCategory,
-} from "@arm-nator/shared/interfaces";
+import { XtreamCategory } from "@arm-nator/shared/interfaces";
 import { CategoryViewComponent } from "../category-view/category-view.component";
 import { ContentCardComponent } from "../content-card/content-card.component";
 
@@ -34,8 +31,7 @@ export interface FavoriteLayoutItem {
   readonly playlist_id?: string;
   readonly playlist_name?: string;
   readonly poster_url?: string;
-  readonly source?: "xtream" | "stalker" | "m3u";
-  readonly stalker_item?: StalkerPortalItem;
+  readonly source?: "xtream" | "m3u";
   readonly stream_icon?: string;
   readonly title?: string;
   readonly type?: string;

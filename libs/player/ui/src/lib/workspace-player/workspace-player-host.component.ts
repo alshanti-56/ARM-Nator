@@ -3,7 +3,9 @@ import {
     Component,
     ElementRef,
     computed,
+    effect,
     inject,
+    viewChild,
 } from '@angular/core';
 import { MatButtonModule } from '@angular/material/button';
 import { MatIconModule } from '@angular/material/icon';
@@ -14,6 +16,7 @@ import {
     isManagedExternalPlayer,
 } from '@arm-nator/player/core';
 import { RuntimeCapabilitiesService } from '@arm-nator/services';
+import type { BrowserViewBounds } from '@arm-nator/shared/interfaces';
 import { VideoPlayer } from '@arm-nator/shared/interfaces';
 import type { PlaybackFallbackRequest } from '../playback-diagnostics/playback-diagnostics.model';
 import { WebPlayerViewComponent } from '../web-player-view/web-player-view.component';
@@ -30,11 +33,44 @@ export class WorkspacePlayerHostComponent {
     private readonly element = inject(ElementRef<HTMLElement>).nativeElement;
     private readonly player = inject(PLAYER_FACADE);
     private readonly runtime = inject(RuntimeCapabilitiesService);
+    private readonly playerSurface = viewChild<ElementRef<HTMLElement>>(
+        'playerSurface'
+    );
+    private lastYoutubeBounds = '';
 
     readonly state = inject(WorkspacePlayerStateService);
     readonly engines = PLAYER_ENGINES;
     readonly isMini = computed(() => this.state.presentation() === 'mini');
+    readonly isYouTube = computed(() => this.state.youtube() !== null);
+    readonly mediaTitle = computed(() => {
+        const youtube = this.state.youtube();
+        if (youtube) {
+            return youtube.title || 'YouTube';
+        }
+        const playback = this.state.playback();
+        return playback?.title || playback?.streamUrl || '';
+    });
     readonly snapshot = this.state.runtimeSnapshot;
+    private readonly youtubeSurfaceEffect = effect((onCleanup) => {
+        this.state.youtube();
+        const surface = this.playerSurface()?.nativeElement;
+        if (!surface || !window.electron) {
+            this.lastYoutubeBounds = '';
+            return;
+        }
+
+        const sync = (): void => this.syncYoutubeSurface();
+        const observer = new ResizeObserver(sync);
+        observer.observe(surface);
+        window.addEventListener('resize', sync);
+        sync();
+
+        onCleanup(() => {
+            observer.disconnect();
+            window.removeEventListener('resize', sync);
+            this.lastYoutubeBounds = '';
+        });
+    });
     readonly mediaSummary = computed(() => {
         const media = this.snapshot()?.media;
         if (!media) {
@@ -97,6 +133,35 @@ export class WorkspacePlayerHostComponent {
         duration: number;
     }): void {
         this.state.onTimeUpdate(event);
+    }
+
+    private syncYoutubeSurface(): void {
+        if (!this.state.youtube() || !window.electron) {
+            return;
+        }
+
+        const surface = this.playerSurface()?.nativeElement;
+        if (!surface) {
+            return;
+        }
+
+        const rect = surface.getBoundingClientRect();
+        if (rect.width <= 0 || rect.height <= 0) {
+            return;
+        }
+
+        const bounds: BrowserViewBounds = {
+            x: rect.left,
+            y: rect.top,
+            width: rect.width,
+            height: rect.height,
+        };
+        const key = Object.values(bounds).join(',');
+        if (key === this.lastYoutubeBounds) {
+            return;
+        }
+        this.lastYoutubeBounds = key;
+        void window.electron.setBrowserViewBounds(bounds, 'youtube-mini');
     }
 
 }

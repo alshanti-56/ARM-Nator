@@ -26,7 +26,7 @@ export const playlists = sqliteTable('playlists', {
     dateCreated: text('date_created').default(sql`CURRENT_TIMESTAMP`),
     lastUpdated: text('last_updated'),
     type: text('type', {
-        enum: ['xtream', 'stalker', 'm3u-file', 'm3u-text', 'm3u-url'],
+        enum: ['xtream', 'm3u-file', 'm3u-text', 'm3u-url'],
     }).notNull(),
     userAgent: text('userAgent'),
     origin: text('origin'),
@@ -236,63 +236,6 @@ export type NewFavorite = typeof favorites.$inferInsert;
 
 export type PlaybackPosition = typeof playbackPositions.$inferSelect;
 export type NewPlaybackPosition = typeof playbackPositions.$inferInsert;
-
-// Downloads table
-export const downloads = sqliteTable(
-    'downloads',
-    {
-        id: integer('id').primaryKey({ autoIncrement: true }),
-        playlistId: text('playlist_id')
-            .notNull()
-            .references(() => playlists.id, { onDelete: 'cascade' }),
-        // Content identifiers
-        xtreamId: integer('xtream_id').notNull(),
-        contentType: text('content_type', {
-            enum: ['vod', 'episode'],
-        }).notNull(),
-        // For episodes: store series info
-        seriesXtreamId: integer('series_xtream_id'),
-        seasonNumber: integer('season_number'),
-        episodeNumber: integer('episode_number'),
-        // Download metadata
-        title: text('title').notNull(),
-        url: text('url').notNull(),
-        fileName: text('file_name'),
-        filePath: text('file_path'),
-        posterUrl: text('poster_url'),
-        requestHeaders: text('request_headers'),
-        resumeValidator: text('resume_validator'),
-        // Download progress
-        status: text('status', {
-            enum: [
-                'queued',
-                'downloading',
-                'paused',
-                'completed',
-                'failed',
-                'canceled',
-            ],
-        })
-            .notNull()
-            .default('queued'),
-        bytesDownloaded: integer('bytes_downloaded').default(0),
-        totalBytes: integer('total_bytes'),
-        errorMessage: text('error_message'),
-        // Timestamps
-        createdAt: text('created_at').default(sql`CURRENT_TIMESTAMP`),
-        updatedAt: text('updated_at').default(sql`CURRENT_TIMESTAMP`),
-    },
-    (table) => ({
-        playlistIdx: index('downloads_playlist_idx').on(table.playlistId),
-        statusIdx: index('downloads_status_idx').on(table.status),
-        xtreamPlaylistUnique: uniqueIndex(
-            'downloads_xtream_playlist_unique'
-        ).on(table.xtreamId, table.playlistId, table.contentType),
-    })
-);
-
-export type Download = typeof downloads.$inferSelect;
-export type NewDownload = typeof downloads.$inferInsert;
 
 // TMDB metadata cache table.
 // Two row kinds share the table, discriminated by the lookup_key prefix:

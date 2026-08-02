@@ -43,5 +43,4 @@ export interface SettingsPlaylistDeleteSummary {
   total: number;
   m3u: number;
   xtream: number;
-  stalker: number;
 }

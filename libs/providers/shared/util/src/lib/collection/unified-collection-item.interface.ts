@@ -1,13 +1,13 @@
 /**
  * Unified interface for displaying favorites or recently-viewed items
- * from any source (M3U, Xtream, Stalker) in one list.
+ * from M3U and Xtream sources in one list.
  *
  * Extends the previous live-only UnifiedFavoriteChannel to cover
  * all content types: live TV, movies, and series.
  */
 import { Channel } from '@arm-nator/shared/interfaces';
 
-export type CollectionSourceType = 'm3u' | 'xtream' | 'stalker';
+export type CollectionSourceType = 'm3u' | 'xtream';
 export type CollectionContentType = 'live' | 'movie' | 'series';
 
 export interface UnifiedCollectionItem {
@@ -62,12 +62,6 @@ export interface UnifiedCollectionItem {
      *  `live-stream-layout.controlledArchiveDays`. */
     tvArchiveDuration?: number | null;
 
-    /** Stalker cmd for stream resolution */
-    stalkerId?: string | number;
-    stalkerCmd?: string;
-    stalkerPortalUrl?: string;
-    stalkerMacAddress?: string;
-
     /** Category ID for VOD/Series navigation */
     categoryId?: string | number;
 
@@ -83,8 +77,6 @@ export interface UnifiedCollectionItem {
     /** ISO timestamp when viewed (recently-viewed) */
     viewedAt?: string;
 
-    /** Original stalker item for detail navigation */
-    stalkerItem?: unknown;
 }
 
 /**

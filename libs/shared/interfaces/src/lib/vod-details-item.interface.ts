@@ -1,12 +1,10 @@
 import { XtreamVodDetails } from './xtream-vod-details.interface';
-import { StalkerVodDetails } from './stalker-vod-details.interface';
 import { TmdbEnrichedCastMember,
     TmdbRecommendation,
 } from './tmdb.interface';
 
 /**
- * Discriminated union for VOD details across portal types.
- * Enables type-safe handling without runtime type checks.
+ * Discriminated VOD details wrapper for Xtream content.
  *
  * @example
  * ```typescript
@@ -15,13 +13,11 @@ import { TmdbEnrichedCastMember,
  *     // TypeScript knows item.data is XtreamVodDetails
  *     console.log(item.data.movie_data.stream_id);
  *   } else {
- *     // TypeScript knows item.data is StalkerVodDetails
- *     console.log(item.data.cmd);
  *   }
  * }
  * ```
  */
-export type VodDetailsItem = XtreamVodItem | StalkerVodItem;
+export type VodDetailsItem = XtreamVodItem;
 
 /**
  * Xtream Codes VOD item wrapper with context.
@@ -31,24 +27,10 @@ export interface XtreamVodItem {
     readonly type: 'xtream';
     /** Full VOD details from Xtream API */
     data: XtreamVodDetails;
-    /** Playlist/portal ID for favorites and downloads */
+    /** Playlist ID for favorites and playback */
     playlistId: string;
     /** Stream ID from Xtream API */
     vodId: number;
-}
-
-/**
- * Stalker portal VOD item wrapper with context.
- */
-export interface StalkerVodItem {
-    /** Discriminator for Stalker portals */
-    readonly type: 'stalker';
-    /** Full VOD details from Stalker API */
-    data: StalkerVodDetails;
-    /** Playlist/portal ID for favorites and downloads */
-    playlistId: string;
-    /** Command string for stream playback */
-    cmd: string;
 }
 
 /**
@@ -95,11 +77,4 @@ export interface NormalizedVodMeta {
  */
 export function isXtreamVod(item: VodDetailsItem): item is XtreamVodItem {
     return item.type === 'xtream';
-}
-
-/**
- * Type guard to check if item is Stalker VOD.
- */
-export function isStalkerVod(item: VodDetailsItem): item is StalkerVodItem {
-    return item.type === 'stalker';
 }

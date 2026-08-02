@@ -1,10 +1,8 @@
 import { XtreamVodDetails, getXtreamVodInfo } from './xtream-vod-details.interface';
-import { StalkerVodDetails } from './stalker-vod-details.interface';
 import {
     NormalizedVodMeta,
     VodDetailsItem,
     XtreamVodItem,
-    StalkerVodItem,
 } from './vod-details-item.interface';
 
 /**
@@ -29,36 +27,6 @@ export function normalizeXtreamVod(item: XtreamVodDetails): NormalizedVodMeta {
         ratingImdb: info?.rating_imdb,
         ratingKinopoisk: info?.rating_kinopoisk,
         youtubeTrailer: info?.youtube_trailer,
-        tmdbCast: info?.tmdb_cast,
-        tmdbDirectors: info?.tmdb_directors,
-        tmdbRecommendations: info?.tmdb_recommendations,
-    };
-}
-
-/**
- * Normalizes Stalker VOD details into a display-friendly format.
- * Stalker has fewer metadata fields than Xtream.
- * Prefers o_name (original title) over name (often formatted/generic).
- */
-export function normalizeStalkerVod(item: StalkerVodDetails): NormalizedVodMeta {
-    const info = item?.info;
-
-    return {
-        title: info?.o_name || info?.name || 'Unknown',
-        description: info?.description,
-        posterUrl: info?.movie_image,
-        // Stalker portals never provide a backdrop; TMDB enrichment can
-        backdropUrl: info?.tmdb_backdrop,
-        year: extractYear(info?.releasedate),
-        genre: info?.genre,
-        duration: undefined, // Stalker doesn't provide duration
-        country: undefined, // Stalker doesn't provide country
-        director: info?.director,
-        actors: info?.actors,
-        ratingImdb: info?.rating_imdb,
-        ratingKinopoisk: info?.rating_kinopoisk,
-        // Stalker portals provide no trailers; TMDB enrichment can
-        youtubeTrailer: info?.tmdb_trailer,
         tmdbCast: info?.tmdb_cast,
         tmdbDirectors: info?.tmdb_directors,
         tmdbRecommendations: info?.tmdb_recommendations,
@@ -104,10 +72,7 @@ export function youtubeEmbedUrl(
  * Uses discriminated union for type-safe handling.
  */
 export function normalizeVodDetails(item: VodDetailsItem): NormalizedVodMeta {
-    if (item.type === 'xtream') {
-        return normalizeXtreamVod(item.data);
-    }
-    return normalizeStalkerVod(item.data);
+    return normalizeXtreamVod(item.data);
 }
 
 /**
@@ -127,39 +92,17 @@ export function createXtreamVodItem(
 }
 
 /**
- * Creates a StalkerVodItem from raw data and context.
- */
-export function createStalkerVodItem(
-    data: StalkerVodDetails,
-    playlistId: string
-): StalkerVodItem {
-    return {
-        type: 'stalker',
-        data,
-        playlistId,
-        cmd: data.cmd,
-    };
-}
-
-/**
  * Gets the unique identifier for a VOD item.
- * Returns vodId for Xtream, id for Stalker.
  */
 export function getVodId(item: VodDetailsItem): number | string {
-    if (item.type === 'xtream') {
-        return item.vodId;
-    }
-    return item.data.id;
+    return item.vodId;
 }
 
 /**
- * Gets the numeric ID for download/favorite tracking.
+ * Gets the numeric ID for favorite/playback tracking.
  */
 export function getVodNumericId(item: VodDetailsItem): number {
-    if (item.type === 'xtream') {
-        return item.vodId;
-    }
-    return Number(item.data.id) || 0;
+    return item.vodId;
 }
 
 // ============ Helper Functions ============

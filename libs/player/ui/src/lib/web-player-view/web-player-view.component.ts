@@ -97,7 +97,7 @@ export class WebPlayerViewComponent {
 
   /**
    * Subtitle preference for the built-in web players. Read from the settings
-   * store instead of an input so every host (M3U, Xtream, Stalker, portal
+   * store instead of an input so every host (M3U or Xtream)
    * detail pages) gets it without having to wire it through — the missing
    * bindings were why the setting looked like a no-op (#1155).
    */

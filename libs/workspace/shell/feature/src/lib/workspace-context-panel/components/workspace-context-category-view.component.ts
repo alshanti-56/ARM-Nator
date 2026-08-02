@@ -31,7 +31,7 @@ export class WorkspaceContextCategoryViewComponent {
     readonly countDisplayMode = input<'loading' | 'ready'>('ready');
     /**
      * When true, items without an entry in `itemCounts` render no badge at
-     * all instead of "0" — used for Stalker censored (adult) genres whose
+     * all instead of "0" — used for censored (adult) genres whose
      * real channel count is unknown to the full-list cache.
      */
     readonly omitMissingCounts = input(false);

@@ -2,7 +2,7 @@ import { computed, inject, Injectable, signal } from "@angular/core";
 import { MatDialog } from "@angular/material/dialog";
 import { Store } from "@ngrx/store";
 import { TranslateService } from "@ngx-translate/core";
-import { firstValueFrom, take } from "rxjs";
+import { take } from "rxjs";
 import {
   PlaylistActions,
   selectAllPlaylistsMeta,
@@ -10,7 +10,6 @@ import {
 import {
   DatabaseService,
   DbOperationEvent,
-  PlaylistsService,
   RuntimeCapabilitiesService,
 } from "@arm-nator/services";
 import {
@@ -28,7 +27,6 @@ import { SettingsSnackbarService } from "./settings-snackbar.service";
 export class SettingsPlaylistResetFacade {
   private readonly databaseService = inject(DatabaseService);
   private readonly matDialog = inject(MatDialog);
-  private readonly playlistsService = inject(PlaylistsService);
   private readonly runtime = inject(RuntimeCapabilitiesService);
   private readonly settingsSnackbar = inject(SettingsSnackbarService);
   private readonly store = inject(Store);
@@ -100,10 +98,10 @@ export class SettingsPlaylistResetFacade {
     await waitForUiFeedbackFrame();
 
     try {
-      const deleted =
-        this.runtime.isElectron && window.electron
-          ? await this.deleteAllPlaylistsInElectron()
-          : await this.deleteAllPlaylistsInBrowser();
+      if (!this.runtime.isElectron || !window.electron) {
+        throw new Error("Electron bridge is unavailable");
+      }
+      const deleted = await this.deleteAllPlaylistsInElectron();
 
       if (!deleted) {
         throw new Error("Delete all playlists returned success=false");
@@ -131,11 +129,6 @@ export class SettingsPlaylistResetFacade {
       ),
       onEvent: (event) => this.handleDeleteAllPlaylistsEvent(event),
     });
-  }
-
-  private async deleteAllPlaylistsInBrowser(): Promise<boolean> {
-    await firstValueFrom(this.playlistsService.removeAll());
-    return true;
   }
 
   private handleDeleteAllPlaylistsEvent(event: DbOperationEvent): void {

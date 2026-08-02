@@ -13,6 +13,13 @@ import { CatalogTitleMatch } from './catalog-title-match.interface';
 import { Settings } from './settings.interface';
 import { TmdbCacheEntry, TmdbCacheMediaType, TmdbCacheStats } from './tmdb.interface';
 import { XtreamCategory } from './xtream-category.interface';
+import type {
+    BrowserViewBounds,
+    BrowserViewBoundsTarget,
+    BrowserViewCommand,
+    BrowserViewMode,
+    BrowserViewState,
+} from './browser-view.interface';
 export const ELECTRON_BRIDGE_CONTENT_TYPES = {
     Episode: "episode",
     Live: "live",
@@ -27,7 +34,6 @@ export const ELECTRON_BRIDGE_PLAYLIST_TYPES = {
     M3uFile: "m3u-file",
     M3uText: "m3u-text",
     M3uUrl: "m3u-url",
-    Stalker: "stalker",
     Xtream: "xtream",
 } as const;
 export type ElectronBridgePlaylistType = (typeof ELECTRON_BRIDGE_PLAYLIST_TYPES)[keyof typeof ELECTRON_BRIDGE_PLAYLIST_TYPES];
@@ -332,4 +338,22 @@ export interface ElectronBridgeApi {
     setEmbeddedMpvSpeed?: (sessionId: string, speed: number) => Promise<EmbeddedMpvSession | null>;
     setEmbeddedMpvAspect?: (sessionId: string, aspect: string) => Promise<EmbeddedMpvSession | null>;
     disposeEmbeddedMpvSession: (sessionId: string) => Promise<EmbeddedMpvSession | null>;
+    openBrowserView: (
+        mode: BrowserViewMode,
+        url?: string
+    ) => Promise<BrowserViewState>;
+    setBrowserViewBounds: (
+        bounds: BrowserViewBounds,
+        target?: BrowserViewBoundsTarget
+    ) => Promise<void>;
+    executeBrowserCommand: (
+        command: BrowserViewCommand
+    ) => Promise<BrowserViewState | null>;
+    closeBrowserView: (
+        mode?: BrowserViewMode,
+        terminate?: boolean
+    ) => Promise<void>;
+    onBrowserViewUpdate: (
+        callback: (state: BrowserViewState) => void
+    ) => () => void;
 }

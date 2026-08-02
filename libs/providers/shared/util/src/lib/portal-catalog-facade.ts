@@ -1,7 +1,5 @@
 import { InjectionToken, Signal } from '@angular/core';
-import { ResolvedPortalPlayback } from '@arm-nator/shared/interfaces';
-
-export type PortalCatalogProvider = 'xtream' | 'stalker';
+export type PortalCatalogProvider = 'xtream';
 
 export type PortalCatalogSortMode =
     | 'date-desc'
@@ -46,11 +44,7 @@ export interface PortalCatalogFacade<
     readonly categoryItemCount: Signal<number>;
     readonly contentSortMode: Signal<PortalCatalogSortMode | null>;
     readonly playlist: Signal<PortalCatalogPlaylistMeta | null>;
-    /**
-     * Optional IMDb-rating capability (Xtream VOD/series). Providers without
-     * structured ratings (e.g. Stalker) leave these undefined, and the rating
-     * sort options + minimum-rating filter hide themselves in the UI.
-     */
+    /** Optional IMDb-rating capability (Xtream VOD/series). */
     readonly supportsRatingSort?: boolean;
     readonly minRating?: Signal<number | null>;
 
@@ -62,50 +56,11 @@ export interface PortalCatalogFacade<
     setContentSortMode(mode: PortalCatalogSortMode): void;
     setMinRating?(value: number | null): void;
     selectItem(item: TItem): string[] | null;
-    /**
-     * Optional: re-fetches a selection that was injected from a stored
-     * snapshot (navigation state, favorites) so stale embedded data —
-     * e.g. a Stalker embedded-series episode list — is refreshed in the
-     * background. No-op for providers whose selections are always fresh.
-     */
+    /** Optional refresh for a selection injected from navigation state. */
     refreshSnapshotSelection?(): void;
     getItemProgress(item: TItem): PortalCatalogItemProgress;
-}
-
-export interface StalkerPortalCatalogFacade<
-    TCategory = unknown,
-    TItem = unknown,
-    TSelectedItem = unknown,
-> extends PortalCatalogFacade<TCategory, TItem, TSelectedItem> {
-    readonly provider: 'stalker';
-
-    createLinkToPlayVod(
-        cmd?: string,
-        title?: string,
-        thumbnail?: string
-    ): Promise<void>;
-    addToFavorites(item: Record<string, unknown>, onDone?: () => void): void;
-    removeFromFavorites(favoriteId: string, onDone?: () => void): void;
-    fetchMovieFileId(itemId: string): Promise<string | null>;
-    fetchLinkToPlay(
-        portalUrl: string,
-        macAddress: string,
-        cmd: string
-    ): Promise<string>;
-    resolveVodPlayback(
-        cmd?: string,
-        title?: string,
-        thumbnail?: string,
-        startTime?: number
-    ): Promise<ResolvedPortalPlayback>;
 }
 
 export const PORTAL_CATALOG_FACADE = new InjectionToken<PortalCatalogFacade>(
     'PORTAL_CATALOG_FACADE'
 );
-
-export function isStalkerPortalCatalogFacade(
-    facade: PortalCatalogFacade
-): facade is StalkerPortalCatalogFacade {
-    return facade.provider === 'stalker';
-}

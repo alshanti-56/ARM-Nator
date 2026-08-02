@@ -1,52 +1,59 @@
-@if (state.playback(); as playback) {
+@if (state.playback() || state.youtube()) {
     <section
         class="workspace-player"
         [class.workspace-player--mini]="isMini()"
         [class.workspace-player--expanded]="!isMini()"
+        [class.workspace-player--youtube]="isYouTube()"
         aria-label="Now playing"
     >
         <header class="workspace-player__header">
             <div class="workspace-player__identity">
-                <span>{{ playback.isLive ? 'LIVE' : 'NOW PLAYING' }}</span>
-                <strong>{{ playback.title || playback.streamUrl }}</strong>
+                <span>{{ isYouTube() ? 'YOUTUBE' : (state.playback()?.isLive ? 'LIVE' : 'NOW PLAYING') }}</span>
+                <strong>{{ mediaTitle() }}</strong>
             </div>
 
-            <nav class="workspace-player__engines" aria-label="Player engine">
-                @for (engine of engines; track engine.id) {
-                    <button
-                        type="button"
-                        [class.is-active]="state.engine() === engine.id"
-                        [disabled]="!engineAvailable(engine.id)"
-                        (click)="switchEngine(engine.id)"
-                    >
-                        {{ engine.id }}
-                    </button>
-                }
-            </nav>
+            @if (!isYouTube()) {
+                <nav class="workspace-player__engines" aria-label="Player engine">
+                    @for (engine of engines; track engine.id) {
+                        <button
+                            type="button"
+                            [class.is-active]="state.engine() === engine.id"
+                            [disabled]="!engineAvailable(engine.id)"
+                            (click)="switchEngine(engine.id)"
+                        >
+                            {{ engine.id }}
+                        </button>
+                    }
+                </nav>
 
-            <div class="workspace-player__health">
-                <span title="Resolution">{{ mediaSummary().resolution }}</span>
-                <span title="Buffer">Buffer {{ mediaSummary().buffer }}</span>
-                <span title="Codec">{{ mediaSummary().codec }}</span>
-            </div>
+                <div class="workspace-player__health">
+                    <span title="Resolution">{{ mediaSummary().resolution }}</span>
+                    <span title="Buffer">Buffer {{ mediaSummary().buffer }}</span>
+                    <span title="Codec">{{ mediaSummary().codec }}</span>
+                </div>
+            }
 
             <div class="workspace-player__window-actions">
-                <button
-                    mat-icon-button
-                    type="button"
-                    matTooltip="Stop"
-                    (click)="state.stop()"
-                >
-                    <mat-icon>stop</mat-icon>
-                </button>
-                <button
-                    mat-icon-button
-                    type="button"
-                    matTooltip="Restart"
-                    (click)="state.restart()"
-                >
-                    <mat-icon>restart_alt</mat-icon>
-                </button>
+                @if (!isYouTube()) {
+                    <button
+                        class="workspace-player__media-action"
+                        mat-icon-button
+                        type="button"
+                        matTooltip="Stop"
+                        (click)="state.stop()"
+                    >
+                        <mat-icon>stop</mat-icon>
+                    </button>
+                    <button
+                        class="workspace-player__media-action"
+                        mat-icon-button
+                        type="button"
+                        matTooltip="Restart"
+                        (click)="state.restart()"
+                    >
+                        <mat-icon>restart_alt</mat-icon>
+                    </button>
+                }
                 @if (isMini()) {
                     <button
                         mat-icon-button
@@ -77,8 +84,10 @@
             </div>
         </header>
 
-        <div class="workspace-player__surface">
-            @if (state.stopped()) {
+        <div #playerSurface class="workspace-player__surface">
+            @if (isYouTube()) {
+                <div class="workspace-player__youtube-surface" aria-hidden="true"></div>
+            } @else if (state.stopped()) {
                 <div class="workspace-player__stopped">
                     <mat-icon>stop_circle</mat-icon>
                     <strong>Playback stopped</strong>
@@ -87,7 +96,7 @@
                         Restart
                     </button>
                 </div>
-            } @else {
+            } @else if (state.playback(); as playback) {
                 <app-web-player-view
                     [streamUrl]="playback.streamUrl"
                     [title]="playback.title"

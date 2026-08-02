@@ -81,36 +81,8 @@ const TMDB_METADATA_TABLE_SQL = `CREATE TABLE IF NOT EXISTS tmdb_metadata (
       tmdb_id INTEGER,
       payload TEXT,
       fetched_at TEXT DEFAULT (datetime('now'))
-  )`;
+)`;
 const TMDB_METADATA_INDEX_SQL = `CREATE UNIQUE INDEX IF NOT EXISTS tmdb_metadata_lookup_unique ON tmdb_metadata(media_type, lookup_key, language)`;
-const DOWNLOADS_TABLE_SQL = `CREATE TABLE IF NOT EXISTS downloads (
-      id INTEGER PRIMARY KEY AUTOINCREMENT,
-      playlist_id TEXT NOT NULL,
-      xtream_id INTEGER NOT NULL,
-      content_type TEXT NOT NULL CHECK (content_type IN ('vod', 'episode')),
-      series_xtream_id INTEGER,
-      season_number INTEGER,
-      episode_number INTEGER,
-      title TEXT NOT NULL,
-      url TEXT NOT NULL,
-      file_name TEXT,
-      file_path TEXT,
-      poster_url TEXT,
-      request_headers TEXT,
-      resume_validator TEXT,
-      status TEXT NOT NULL DEFAULT 'queued' CHECK (status IN ('queued', 'downloading', 'paused', 'completed', 'failed', 'canceled')),
-      bytes_downloaded INTEGER DEFAULT 0,
-      total_bytes INTEGER,
-      error_message TEXT,
-      created_at TEXT DEFAULT (datetime('now')),
-      updated_at TEXT DEFAULT (datetime('now')),
-      FOREIGN KEY (playlist_id) REFERENCES playlists (id) ON DELETE CASCADE
-  )`;
-const DOWNLOADS_INDEX_STATEMENTS = [
-    `CREATE UNIQUE INDEX IF NOT EXISTS downloads_xtream_playlist_unique ON downloads(xtream_id, playlist_id, content_type)`,
-    `CREATE INDEX IF NOT EXISTS downloads_playlist_idx ON downloads(playlist_id)`,
-    `CREATE INDEX IF NOT EXISTS downloads_status_idx ON downloads(status)`,
-];
 
 const CREATE_TABLE_STATEMENTS = [
     `CREATE TABLE IF NOT EXISTS playlists (
@@ -121,7 +93,7 @@ const CREATE_TABLE_STATEMENTS = [
       password TEXT,
       date_created TEXT DEFAULT (datetime('now')),
       last_updated TEXT,
-      type TEXT NOT NULL CHECK (type IN ('xtream', 'stalker', 'm3u-file', 'm3u-text', 'm3u-url')),
+      type TEXT NOT NULL CHECK (type IN ('xtream', 'm3u-file', 'm3u-text', 'm3u-url')),
       userAgent TEXT,
       origin TEXT,
       referrer TEXT,
@@ -250,9 +222,6 @@ const CREATE_TABLE_STATEMENTS = [
     `CREATE INDEX IF NOT EXISTS playback_positions_series_idx ON playback_positions(series_xtream_id)`,
     `CREATE INDEX IF NOT EXISTS playback_positions_updated_idx ON playback_positions(updated_at)`,
     `CREATE INDEX IF NOT EXISTS playback_positions_playlist_updated_idx ON playback_positions(playlist_id, updated_at DESC)`,
-    // Downloads table
-    DOWNLOADS_TABLE_SQL,
-    ...DOWNLOADS_INDEX_STATEMENTS,
     // TMDB metadata cache (details payloads + search match resolutions)
     TMDB_METADATA_TABLE_SQL,
     TMDB_METADATA_INDEX_SQL,
@@ -282,8 +251,6 @@ const COLUMN_MIGRATION_STATEMENTS = [
     `ALTER TABLE content ADD COLUMN direct_source TEXT`,
     // v1.5.0 -> v1.6.0: Cinematic backdrop persisted on first detail fetch
     `ALTER TABLE content ADD COLUMN backdrop_url TEXT`,
-    // Pause/resume: entity validator (ETag/Last-Modified) sent as If-Range on resume
-    `ALTER TABLE downloads ADD COLUMN resume_validator TEXT`,
 ];
 
 const INDEX_MIGRATION_STATEMENTS = [
@@ -309,7 +276,7 @@ export const __databaseConnectionTestHooks = {
     createTableStatements: CREATE_TABLE_STATEMENTS,
     columnMigrationStatements: COLUMN_MIGRATION_STATEMENTS,
     indexMigrationStatements: INDEX_MIGRATION_STATEMENTS,
-    ensureDownloadsPauseResumeSchema,
+    removeLegacyStalkerAndDownloads,
     normalizeXtreamContentAddedEpochs,
     ensureContentTitleFts,
     cleanupLegacyTmdbSearchCache,
@@ -685,105 +652,43 @@ function cleanupLegacyTmdbSearchCache(sqliteDb: Database.Database): void {
     }
 }
 
-/**
- * Existing downloads tables had a status CHECK without 'paused'. SQLite cannot
- * alter CHECK constraints in place, so rebuild only when the table SQL still
- * reflects the old contract or lacks request_headers.
- */
-function ensureDownloadsPauseResumeSchema(sqliteDb: Database.Database): void {
+const LEGACY_STALKER_DOWNLOADS_CLEANUP_KEY =
+    'migration:remove-stalker-downloads:v1';
+
+/** Remove retired product data once, after foreign-key cascades are enabled. */
+function removeLegacyStalkerAndDownloads(sqliteDb: Database.Database): void {
     try {
-        const row = sqliteDb
+        const alreadyDone = sqliteDb
             .prepare(
-                `SELECT sql FROM sqlite_master WHERE type = 'table' AND name = 'downloads'`
+                `SELECT value FROM app_state WHERE key = ? LIMIT 1`
             )
-            .get() as { sql?: string } | undefined;
-        if (!row?.sql) {
+            .get(LEGACY_STALKER_DOWNLOADS_CLEANUP_KEY) as
+            | { value?: string }
+            | undefined;
+        if (alreadyDone?.value === 'done') {
             return;
         }
 
-        const hasPausedStatus = row.sql.includes(`'paused'`);
-        const hasRequestHeaders = row.sql.includes('request_headers');
-        if (hasPausedStatus && hasRequestHeaders) {
-            return;
-        }
-
-        const legacyHeadersSelect = hasRequestHeaders
-            ? 'request_headers'
-            : 'NULL AS request_headers';
-        const rebuild = sqliteDb.transaction(() => {
-            for (const statement of DOWNLOADS_INDEX_STATEMENTS) {
-                const match = statement.match(
-                    /^CREATE\s+(?:UNIQUE\s+)?INDEX\s+IF\s+NOT\s+EXISTS\s+([^\s]+)\s+/i
-                );
-                if (match?.[1]) {
-                    sqliteDb.prepare(`DROP INDEX IF EXISTS ${match[1]}`).run();
-                }
-            }
-
+        const cleanup = sqliteDb.transaction(() => {
+            sqliteDb
+                .prepare(`DELETE FROM playlists WHERE type = 'stalker'`)
+                .run();
+            sqliteDb.prepare(`DROP TABLE IF EXISTS downloads`).run();
             sqliteDb
                 .prepare(
-                    `ALTER TABLE downloads RENAME TO downloads_pause_resume_legacy`
+                    `INSERT INTO app_state (key, value, updated_at)
+                     VALUES (?, 'done', datetime('now'))
+                     ON CONFLICT(key) DO UPDATE SET
+                        value = excluded.value,
+                        updated_at = excluded.updated_at`
                 )
-                .run();
-            sqliteDb.prepare(DOWNLOADS_TABLE_SQL).run();
-            sqliteDb
-                .prepare(
-                    `INSERT INTO downloads (
-                        id,
-                        playlist_id,
-                        xtream_id,
-                        content_type,
-                        series_xtream_id,
-                        season_number,
-                        episode_number,
-                        title,
-                        url,
-                        file_name,
-                        file_path,
-                        poster_url,
-                        request_headers,
-                        status,
-                        bytes_downloaded,
-                        total_bytes,
-                        error_message,
-                        created_at,
-                        updated_at
-                    )
-                    SELECT
-                        id,
-                        playlist_id,
-                        xtream_id,
-                        content_type,
-                        series_xtream_id,
-                        season_number,
-                        episode_number,
-                        title,
-                        url,
-                        file_name,
-                        file_path,
-                        poster_url,
-                        ${legacyHeadersSelect},
-                        status,
-                        bytes_downloaded,
-                        total_bytes,
-                        error_message,
-                        created_at,
-                        updated_at
-                    FROM downloads_pause_resume_legacy`
-                )
-                .run();
-            sqliteDb
-                .prepare(`DROP TABLE downloads_pause_resume_legacy`)
-                .run();
-            for (const statement of DOWNLOADS_INDEX_STATEMENTS) {
-                sqliteDb.prepare(statement).run();
-            }
+                .run(LEGACY_STALKER_DOWNLOADS_CLEANUP_KEY);
         });
 
-        rebuild();
-        console.log('[DB] Rebuilt downloads table with pause/resume schema');
+        cleanup();
+        console.log('[DB] Removed retired Stalker playlists and downloads');
     } catch (error) {
-        console.warn('[DB] downloads pause/resume migration failed:', error);
+        console.warn('[DB] retired Stalker/download cleanup failed:', error);
     }
 }
 
@@ -793,7 +698,7 @@ function ensureDownloadsPauseResumeSchema(sqliteDb: Database.Database): void {
 function runMigrations(sqliteDb: Database.Database): void {
     widenTmdbMetadataMediaTypeCheck(sqliteDb);
     cleanupLegacyTmdbSearchCache(sqliteDb);
-    ensureDownloadsPauseResumeSchema(sqliteDb);
+    removeLegacyStalkerAndDownloads(sqliteDb);
     runMigrationStatements(sqliteDb, COLUMN_MIGRATION_STATEMENTS);
     ensureContentTitleFts(sqliteDb);
     deduplicateXtreamCache(sqliteDb);

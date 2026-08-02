@@ -31,18 +31,6 @@ export function buildHttpHeaderFields(
     return fields;
 }
 
-export function isStalkerDirectStreamProfile(
-    headers: Record<string, string>
-): boolean {
-    const icyMetaData = headers['Icy-MetaData'] ?? headers['icy-metadata'];
-    const userAgent = headers['User-Agent'] ?? headers['user-agent'];
-
-    return (
-        String(icyMetaData).trim() === '1' &&
-        String(userAgent).trim().toLowerCase() === 'ksplayer'
-    );
-}
-
 export function resolveEffectiveExternalPlaybackRequest(options: {
     url: string;
     userAgent?: string;

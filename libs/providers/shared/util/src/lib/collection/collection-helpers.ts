@@ -1,4 +1,3 @@
-import { StalkerPortalItem } from '@arm-nator/shared/interfaces';
 import { CollectionContentType } from './unified-collection-item.interface';
 
 export interface XtreamFavoriteRow {
@@ -15,20 +14,6 @@ export interface XtreamFavoriteRow {
     readonly tv_archive_duration?: number | null;
     readonly added_at?: string | null;
     readonly position?: number | null;
-}
-
-export function isStalkerItem(
-    v: string | StalkerPortalItem
-): v is StalkerPortalItem {
-    return typeof v !== 'string';
-}
-
-export function stalkerContentType(
-    fav: StalkerPortalItem
-): CollectionContentType {
-    if (fav.movie_id) return 'movie';
-    if (fav.series_id) return 'series';
-    return 'live';
 }
 
 export function xtreamContentType(type: string): CollectionContentType {

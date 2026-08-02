@@ -5,6 +5,7 @@ import {
 
 export type WorkspaceShellPageKind =
   | "dashboard"
+  | "browser"
   | "global-favorites"
   | "global-recent"
   | "global-search"
@@ -12,6 +13,7 @@ export type WorkspaceShellPageKind =
   | "settings"
   | "sources"
   | "tool"
+  | "youtube"
   | "unknown";
 
 export type WorkspaceShellContextPanel =
@@ -233,10 +235,14 @@ export function parseWorkspaceShellRoute(url: string): WorkspaceShellRoute {
       ? "dashboard"
       : page === "sources"
         ? "sources"
-        : page === "settings"
-          ? "settings"
-          : page === "tools"
-            ? "tool"
+      : page === "settings"
+        ? "settings"
+        : page === "browser"
+          ? "browser"
+          : page === "youtube"
+            ? "youtube"
+        : page === "tools"
+          ? "tool"
             : page === "global-favorites"
               ? "global-favorites"
               : page === "global-recent"

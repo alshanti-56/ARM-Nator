@@ -3,11 +3,9 @@
  * renderer, the Electron backend and the web backend. Pure function — no
  * Angular/Node dependencies.
  *
- * `crypto.randomUUID()` is only exposed in secure contexts, and the
- * self-hosted PWA is regularly served over plain http on a LAN address. So the
- * fallback builds the same v4 shape from `crypto.getRandomValues()`, which
- * insecure contexts do expose. This mirrors what `uuid`'s `v4()` did before it
- * was dropped as a dependency.
+ * The fallback covers embedded Chromium versions without
+ * `crypto.randomUUID()` and builds the same v4 shape from
+ * `crypto.getRandomValues()`.
  */
 
 const HEX_BY_BYTE = Array.from({ length: 256 }, (_unused, byte) =>

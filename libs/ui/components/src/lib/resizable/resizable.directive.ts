@@ -15,7 +15,6 @@ import {
 const SHARED_SIDEBAR_WIDTH_KEY = 'sidebar-width';
 const SIDEBAR_WIDTH_KEY_ALIASES = new Set([
     SHARED_SIDEBAR_WIDTH_KEY,
-    'downloads-sidebar-width',
     'workspace-sources-panel-width',
     'workspace-context-panel-width',
     'workspace-settings-panel-width',

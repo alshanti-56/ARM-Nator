@@ -53,8 +53,6 @@ export class StreamResolverService {
         return this.resolveM3uDetail(item);
       case "xtream":
         return { playback: await this.resolveXtream(item) };
-      case "stalker":
-        throw new Error("Stalker playback is no longer supported");
     }
   }
 

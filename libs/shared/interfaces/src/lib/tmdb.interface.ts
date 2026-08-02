@@ -3,7 +3,7 @@
  *
  * The renderer talks to the TMDB API directly (it supports CORS); these
  * types describe the user-facing settings and the cache rows persisted in
- * SQLite (Electron) or kept in memory (PWA).
+ * SQLite in the Electron app.
  */
 
 export type TmdbMediaType = 'movie' | 'tv';

@@ -11,7 +11,6 @@ export {
   recentlyViewed,
   favorites,
   playbackPositions,
-  downloads,
   appState,
   // Types
   type Playlist,
@@ -28,6 +27,4 @@ export {
   type NewFavorite,
   type PlaybackPosition,
   type NewPlaybackPosition,
-  type Download,
-  type NewDownload,
 } from '@arm-nator/database';

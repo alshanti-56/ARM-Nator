@@ -50,7 +50,6 @@ import {
   restoreFavoritesChannelSortMode,
   routeParamSignal,
   ScopeToggleService,
-  STALKER_RETURN_TO_STATE_KEY,
   SeriesResumeTarget,
   UnifiedCollectionItem,
   WorkspaceViewCommandService,
@@ -318,11 +317,7 @@ export class UnifiedCollectionPageComponent implements AfterContentInit {
       .map((playlist) =>
         [
           playlist._id,
-          playlist.serverUrl
-            ? "xtream"
-            : playlist.macAddress
-              ? "stalker"
-              : "m3u",
+          playlist.serverUrl ? "xtream" : "m3u",
           JSON.stringify(playlist.favorites ?? []),
         ].join("::"),
       )
@@ -497,15 +492,7 @@ export class UnifiedCollectionPageComponent implements AfterContentInit {
       return;
     }
 
-    const state =
-      item.sourceType === "stalker" && item.contentType !== "live"
-        ? {
-            ...(navigation.state ?? {}),
-            [STALKER_RETURN_TO_STATE_KEY]: this.router.url,
-          }
-        : navigation.state;
-
-    void this.router.navigate(navigation.link, { state });
+    void this.router.navigate(navigation.link, { state: navigation.state });
   }
 
   async onRemoveItem(item: UnifiedCollectionItem): Promise<void> {
@@ -736,7 +723,7 @@ export class UnifiedCollectionPageComponent implements AfterContentInit {
     return (
       Boolean(this.detailTemplate()) &&
       item.contentType !== "live" &&
-      (item.sourceType === "xtream" || item.sourceType === "stalker") &&
+      item.sourceType === "xtream" &&
       this.canRenderInlineDetailOnCurrentRoute(item)
     );
   }
@@ -750,15 +737,11 @@ export class UnifiedCollectionPageComponent implements AfterContentInit {
       return item.sourceType === "xtream";
     }
 
-    if (url.includes("/workspace/stalker/")) {
-      return item.sourceType === "stalker";
-    }
-
     if (
       url.includes("/workspace/global-favorites") ||
       url.includes("/workspace/global-recent")
     ) {
-      return item.sourceType === "xtream" || item.sourceType === "stalker";
+      return item.sourceType === "xtream";
     }
 
     const portalType = this.portalType();
@@ -771,7 +754,7 @@ export class UnifiedCollectionPageComponent implements AfterContentInit {
   ) {
     if (
       item.contentType === "live" ||
-      (item.sourceType !== "xtream" && item.sourceType !== "stalker")
+      item.sourceType !== "xtream"
     ) {
       return null;
     }

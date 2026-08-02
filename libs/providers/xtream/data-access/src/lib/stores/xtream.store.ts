@@ -82,7 +82,7 @@ export const XtreamStore = signalStore(
              */
             resetStore(newPlaylistId?: string): void {
                 // Clear the session cache for the playlist we're leaving so
-                // stale data cannot bleed into the new playlist (PWA path).
+                // stale data cannot bleed into the new playlist.
                 const leavingPlaylistId = store.playlistId();
                 const preserveCancelledBlock =
                     Boolean(newPlaylistId) &&

@@ -9,11 +9,7 @@ import {
     PortalActivityType,
     PortalFavoriteItem,
     PortalRecentItem,
-    extractStalkerItemId,
-    extractStalkerItemPoster,
-    extractStalkerItemTitle,
-    extractStalkerItemType,
-    normalizeStalkerDate,
+    normalizeDate,
 } from '@arm-nator/shared/interfaces';
 
 // ────── Type / label helpers ──────
@@ -39,7 +35,7 @@ export function mapDbFavoriteToItem(
         type: normalizeActivityType(item.type),
         playlist_id: item.playlist_id,
         playlist_name: item.playlist_name,
-        added_at: normalizeStalkerDate(item.added_at),
+        added_at: normalizeDate(item.added_at),
         category_id: item.category_id,
         xtream_id: item.xtream_id,
         poster_url: item.poster_url,
@@ -55,7 +51,7 @@ export function mapDbRecentToItem(item: DbGlobalRecentItem): PortalRecentItem {
         type: normalizeActivityType(item.type),
         playlist_id: item.playlist_id,
         playlist_name: item.playlist_name,
-        viewed_at: normalizeStalkerDate(item.viewed_at),
+        viewed_at: normalizeDate(item.viewed_at),
         category_id: item.category_id,
         xtream_id: item.xtream_id,
         poster_url: item.poster_url,
@@ -73,87 +69,12 @@ export function mapDbRecentlyAddedToItem(
         type: normalizeActivityType(item.type),
         playlist_id: item.playlist_id,
         playlist_name: item.playlist_name,
-        added_at: normalizeStalkerDate(item.added_at),
+        added_at: normalizeDate(item.added_at),
         category_id: item.category_id,
         xtream_id: item.xtream_id,
         poster_url: item.poster_url,
         source: 'xtream',
     };
-}
-
-// ────── Stalker playlist → ViewModel ──────
-
-export function buildStalkerRecentItems(
-    playlists: PlaylistMeta[],
-    defaultPlaylistName: string
-): PortalRecentItem[] {
-    return playlists
-        .filter((playlist) => Boolean(playlist.macAddress))
-        .reduce<PortalRecentItem[]>((acc, playlist) => {
-            const recentItems = Array.isArray(
-                (playlist as { recentlyViewed?: unknown[] }).recentlyViewed
-            )
-                ? ((playlist as { recentlyViewed?: unknown[] })
-                      .recentlyViewed ?? [])
-                : [];
-
-            const mapped = recentItems.map((rawItem, index) => {
-                const item = (rawItem ?? {}) as Record<string, unknown>;
-                const id = extractStalkerItemId(item, playlist._id, index);
-
-                return {
-                    id,
-                    title: extractStalkerItemTitle(item),
-                    type: extractStalkerItemType(item),
-                    playlist_id: playlist._id,
-                    playlist_name: playlist.title || defaultPlaylistName,
-                    viewed_at: normalizeStalkerDate(item['added_at']),
-                    category_id: String(item['category_id'] ?? ''),
-                    xtream_id: id,
-                    poster_url: extractStalkerItemPoster(item),
-                    source: 'stalker' as const,
-                    stalker_item: rawItem,
-                } as PortalRecentItem;
-            });
-
-            acc.push(...mapped);
-            return acc;
-        }, []);
-}
-
-export function buildStalkerFavoriteItems(
-    playlists: PlaylistMeta[],
-    defaultPlaylistName: string
-): PortalFavoriteItem[] {
-    return playlists
-        .filter((playlist) => Boolean(playlist.macAddress))
-        .reduce<PortalFavoriteItem[]>((acc, playlist) => {
-            const favorites = Array.isArray(playlist.favorites)
-                ? playlist.favorites
-                : [];
-
-            const mapped = favorites.map((item, index) => {
-                const raw = (item ?? {}) as Record<string, unknown>;
-                const id = extractStalkerItemId(raw, playlist._id, index);
-
-                return {
-                    id,
-                    title: extractStalkerItemTitle(raw),
-                    type: extractStalkerItemType(raw),
-                    playlist_id: playlist._id,
-                    playlist_name: playlist.title || defaultPlaylistName,
-                    added_at: normalizeStalkerDate(raw['added_at']),
-                    category_id: String(raw['category_id'] ?? ''),
-                    xtream_id: id,
-                    poster_url: extractStalkerItemPoster(raw),
-                    source: 'stalker' as const,
-                    stalker_item: item,
-                } as PortalFavoriteItem;
-            });
-
-            acc.push(...mapped);
-            return acc;
-        }, []);
 }
 
 // ────── Timestamp helpers ──────
@@ -173,7 +94,7 @@ export function toDateTimestamp(value: unknown): number {
             }
             return 0;
         }
-        const parsed = Date.parse(normalizeStalkerDate(trimmed) || trimmed);
+        const parsed = Date.parse(normalizeDate(trimmed) || trimmed);
         return Number.isNaN(parsed) ? 0 : parsed;
     }
 
@@ -183,7 +104,7 @@ export function toDateTimestamp(value: unknown): number {
 export function toTimestamp(value?: string | number): number {
     if (typeof value === 'number') return value;
     if (typeof value === 'string') {
-        const parsed = Date.parse(normalizeStalkerDate(value) || value);
+        const parsed = Date.parse(normalizeDate(value) || value);
         return Number.isNaN(parsed) ? 0 : parsed;
     }
     return 0;

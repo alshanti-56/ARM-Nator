@@ -28,7 +28,7 @@ import { XtreamStore } from '@arm-nator/providers/xtream/data-access';
 import { WorkspaceContextCategoryViewComponent } from './components/workspace-context-category-view.component';
 import { hasActiveLiveCategoryRoute } from './workspace-context-panel-route.utils';
 
-type WorkspaceProvider = 'xtreams' | 'stalker' | 'playlists';
+type WorkspaceProvider = 'xtreams' | 'playlists';
 
 interface WorkspaceContextRoute {
     provider: WorkspaceProvider;

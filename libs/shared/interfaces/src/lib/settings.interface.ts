@@ -160,8 +160,6 @@ export interface Settings {
      */
     vlcPlayerArguments: string;
     vlcReuseInstance: boolean;
-    /** Custom download folder path (uses system Downloads folder if not set) */
-    downloadFolder?: string;
     /** Cover/poster sizing preset applied across grids and rails */
     coverSize?: CoverSize;
     /** Per-rail dashboard visibility preferences. Missing keys default on. */

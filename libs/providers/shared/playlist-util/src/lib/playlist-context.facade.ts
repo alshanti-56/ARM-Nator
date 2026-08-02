@@ -244,9 +244,6 @@ export class PlaylistContextFacade {
         if (playlist.serverUrl) {
             return 'xtreams';
         }
-        if (playlist.macAddress) {
-            return 'stalker';
-        }
         return 'playlists';
     }
 
@@ -256,7 +253,7 @@ export class PlaylistContextFacade {
 
     private getRouteContext(url: string): PlaylistRouteContext {
         const match = url.match(
-            /^\/(?:workspace\/)?(playlists|xtreams|stalker)\/([^/?]+)(?:\/([^/?]+))?/
+            /^\/(?:workspace\/)?(playlists|xtreams)\/([^/?]+)(?:\/([^/?]+))?/
         );
 
         return {
@@ -404,9 +401,6 @@ export class PlaylistContextFacade {
                 if (typeof candidate['xtreams'] === 'string') {
                     providers.xtreams = candidate['xtreams'];
                 }
-                if (typeof candidate['stalker'] === 'string') {
-                    providers.stalker = candidate['stalker'];
-                }
             }
 
             const parsedPlaylists = (parsed as Record<string, unknown>)[
@@ -429,8 +423,7 @@ export class PlaylistContextFacade {
                     const updatedAt = row['updatedAt'];
                     const isProviderValid =
                         provider === 'playlists' ||
-                        provider === 'xtreams' ||
-                        provider === 'stalker';
+                        provider === 'xtreams';
                     if (!isProviderValid || typeof section !== 'string') {
                         return;
                     }

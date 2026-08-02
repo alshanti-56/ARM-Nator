@@ -77,7 +77,7 @@
     min-width: 0;
     // Locks every card to the same height regardless of which has the
     // longest subtitle. Without this the URL card (short text) collapses
-    // and the Stalker/Xtream cards (longer text) push tall — selection
+    // and the Xtream card (longer text) pushes tall — selection
     // states then look visually inconsistent.
     min-height: 132px;
     transition:

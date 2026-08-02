@@ -134,8 +134,7 @@ export interface XtreamOperationOptions {
 }
 
 /**
- * Abstract interface for Xtream data source.
- * Allows different implementations for Electron (DB-first) and PWA (API-only).
+ * Abstract interface for the Electron Xtream data source.
  */
 export interface IXtreamDataSource {
     // =========================================================================
@@ -187,7 +186,7 @@ export interface IXtreamDataSource {
 
     /**
      * Get persisted categories without contacting the Xtream API.
-     * Electron reads SQLite; PWA has no persisted DB cache and returns [].
+     * Reads the Electron SQLite cache.
      */
     getCachedCategories(
         playlistId: string,
@@ -252,7 +251,7 @@ export interface IXtreamDataSource {
 
     /**
      * Get persisted content without contacting the Xtream API.
-     * Electron reads SQLite; PWA has no persisted DB cache and returns [].
+     * Reads the Electron SQLite cache.
      */
     getCachedContent(
         playlistId: string,
@@ -430,7 +429,7 @@ export interface IXtreamDataSource {
     /**
      * Clear any in-memory session cache for a playlist.
      * Called when the store resets for a playlist switch so stale data
-     * cannot bleed into the new session (relevant for the PWA implementation).
+     * cannot bleed into the new session.
      */
     clearSessionCache(playlistId: string): void;
 

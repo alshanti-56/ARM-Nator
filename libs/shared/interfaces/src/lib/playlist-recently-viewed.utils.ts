@@ -1,19 +1,12 @@
 import { PlaylistMeta } from './playlist-meta.type';
 import { PortalRecentItem } from './portal-activity-item.interface';
-import {
-    extractStalkerItemId,
-    extractStalkerItemPoster,
-    extractStalkerItemTitle,
-    extractStalkerItemType,
-    normalizeStalkerDate,
-} from './stalker-item.normalizer';
+import { normalizeDate } from './date-normalizer';
 import {
     PlaylistRecentlyViewedItem,
     isM3uRecentlyViewedItem,
 } from './playlist-recently-viewed.interface';
 
 interface PlaylistRecentLabels {
-    stalker: string;
     m3u: string;
 }
 
@@ -27,39 +20,6 @@ function getPlaylistRecentItems(
     return Array.isArray(playlist.recentlyViewed)
         ? (playlist.recentlyViewed as PlaylistRecentlyViewedItem[])
         : [];
-}
-
-function mapStalkerPlaylistRecentItems(
-    playlist: PlaylistMeta,
-    defaultPlaylistName: string
-): PortalRecentItem[] {
-    return getPlaylistRecentItems(playlist).reduce<PortalRecentItem[]>(
-        (acc, rawItem, index) => {
-            if (isM3uRecentlyViewedItem(rawItem)) {
-                return acc;
-            }
-
-            const item = (rawItem ?? {}) as Record<string, unknown>;
-            const id = extractStalkerItemId(item, playlist._id, index);
-
-            acc.push({
-                id,
-                title: extractStalkerItemTitle(item),
-                type: extractStalkerItemType(item),
-                playlist_id: playlist._id,
-                playlist_name: playlist.title || defaultPlaylistName,
-                viewed_at: normalizeStalkerDate(item['added_at']),
-                category_id: String(item['category_id'] ?? ''),
-                xtream_id: id,
-                poster_url: extractStalkerItemPoster(item),
-                source: 'stalker',
-                stalker_item: rawItem,
-            });
-
-            return acc;
-        },
-        []
-    );
 }
 
 function mapM3uPlaylistRecentItems(
@@ -89,7 +49,7 @@ function mapM3uPlaylistRecentItems(
                 type: 'live',
                 playlist_id: playlist._id,
                 playlist_name: playlist.title || defaultPlaylistName,
-                viewed_at: normalizeStalkerDate(rawItem.added_at),
+                viewed_at: normalizeDate(rawItem.added_at),
                 category_id: rawItem.category_id || 'live',
                 xtream_id: channelUrl,
                 poster_url: rawItem.poster_url || undefined,
@@ -107,13 +67,6 @@ export function buildPlaylistRecentItems(
     labels: PlaylistRecentLabels
 ): PortalRecentItem[] {
     return playlists.reduce<PortalRecentItem[]>((acc, playlist) => {
-        if (playlist.macAddress) {
-            acc.push(
-                ...mapStalkerPlaylistRecentItems(playlist, labels.stalker)
-            );
-            return acc;
-        }
-
         if (!playlist.serverUrl) {
             acc.push(...mapM3uPlaylistRecentItems(playlist, labels.m3u));
         }

@@ -191,12 +191,4 @@ export const APP_KEYBOARD_SHORTCUTS: readonly KeyboardShortcutDefinition[] = [
         keys: ['Escape'],
         order: 30,
     },
-    {
-        id: 'downloads-open-item',
-        group: 'dialogs',
-        labelKey: 'WORKSPACE.SHORTCUTS.ITEMS.DOWNLOADS_OPEN_ITEM',
-        icon: 'download',
-        keys: ['Enter', 'Space'],
-        order: 40,
-    },
 ];

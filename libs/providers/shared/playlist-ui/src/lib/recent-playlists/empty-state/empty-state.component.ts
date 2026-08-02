@@ -37,12 +37,6 @@ const FEATURE_CARDS: readonly FeatureCard[] = [
         titleKey: 'HOME.PLAYLISTS.FEATURE_VOD_TITLE',
         descKey: 'HOME.PLAYLISTS.FEATURE_VOD_DESC',
     },
-    {
-        icon: 'download_for_offline',
-        titleKey: 'HOME.PLAYLISTS.FEATURE_OFFLINE_TITLE',
-        descKey: 'HOME.PLAYLISTS.FEATURE_OFFLINE_DESC',
-        electronOnly: true,
-    },
 ];
 
 const SOURCE_CARDS: readonly SourceCard[] = [

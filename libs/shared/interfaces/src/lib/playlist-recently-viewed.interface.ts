@@ -1,5 +1,3 @@
-import { StalkerPortalItem } from './stalker-portal-item.interface';
-
 export interface M3uRecentlyViewedItem {
     source: 'm3u';
     id: string;
@@ -15,8 +13,7 @@ export interface M3uRecentlyViewedItem {
 }
 
 export type PlaylistRecentlyViewedItem =
-    | M3uRecentlyViewedItem
-    | StalkerPortalItem;
+    M3uRecentlyViewedItem;
 
 export function isM3uRecentlyViewedItem(
     item: unknown

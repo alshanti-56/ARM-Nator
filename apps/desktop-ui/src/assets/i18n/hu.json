@@ -451,8 +451,7 @@
         },
         "BROWSER_ACCESS_ERROR": {
             "TITLE": "A böngészőben működő lejátszó nem tudott hozzáférni ehhez az adatfolyamhoz",
-            "DESCRIPTION": "A kérést CORS-korlátozás, vegyes tartalom, illetve a szolgáltató fejléc- vagy proxykorlátozásai akadályozhatják. Az MPV vagy a VLC gyakran képes megkerülni a böngészőben működő lejátszó hozzáférési korlátait.",
-            "PWA_DESCRIPTION": "A kérést CORS-korlátozás, vegyes tartalom, illetve a szolgáltató fejléc- vagy proxykorlátozásai akadályozhatják. A PWA nem tud közvetlenül külső lejátszót indítani; válassza az Adatfolyam URL-címének másolása műveletet, majd nyissa meg kézzel MPV-ben, VLC-ben, IINA-ban vagy más lejátszóban."
+            "DESCRIPTION": "A kérést CORS-korlátozás, vegyes tartalom, illetve a szolgáltató fejléc- vagy proxykorlátozásai akadályozhatják. Az MPV vagy a VLC gyakran képes megkerülni a böngészőben működő lejátszó hozzáférési korlátait."
         },
         "DRM_OR_ENCRYPTION": {
             "TITLE": "Az adatfolyam titkosított vagy DRM-védelemmel ellátott lehet",

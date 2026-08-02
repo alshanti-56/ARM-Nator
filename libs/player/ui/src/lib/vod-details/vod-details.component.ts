@@ -296,8 +296,7 @@ export class VodDetailsComponent {
             return;
         }
         const item = this.item();
-        const basePath =
-            item.type === 'stalker' ? '/workspace/stalker' : '/workspace/xtreams';
+        const basePath = '/workspace/xtreams';
         void this.router.navigate([
             basePath,
             item.playlistId,

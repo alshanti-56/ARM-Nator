@@ -23,10 +23,8 @@ const DEFAULT_LIMIT = 12;
 
 /**
  * Matches TMDB recommendations against ALL imported Xtream playlists via
- * one batched DB-worker request — powers the "Similar" rail for portals
- * without a matchable local catalog (Stalker) and supplements the Xtream
- * rail with titles available in the user's other portals. Electron-only:
- * `isAvailable` is false in the PWA and every call resolves to [].
+ * one batched DB-worker request — powers the "Similar" rail with titles
+ * available in the user's other Xtream portals.
  */
 @Injectable({ providedIn: 'root' })
 export class CrossPortalSimilarService {

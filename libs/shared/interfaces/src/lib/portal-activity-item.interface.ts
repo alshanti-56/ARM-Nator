@@ -1,7 +1,4 @@
-import {
-    PortalActivityType,
-    StalkerPortalItem,
-} from './stalker-portal-item.interface';
+export type PortalActivityType = 'live' | 'movie' | 'series';
 
 /**
  * Base interface for cross-provider activity items (recently viewed,
@@ -18,14 +15,12 @@ export interface PortalActivityItem {
     poster_url?: string;
     /**
      * Wide backdrop URL (typically 16:9), persisted when the user first views
-     * the detail page. Absent for stalker and for items that have never had
-     * their detail page opened. Dashboards should fall back to a blurred
+     * the detail page. Absent for items that have never had their detail page
+     * opened. Dashboards should fall back to a blurred
      * `poster_url` when undefined.
      */
     backdrop_url?: string;
-    source?: 'xtream' | 'stalker' | 'm3u';
-    /** Original stalker item for navigation state; undefined for xtream. */
-    stalker_item?: StalkerPortalItem;
+    source?: 'xtream' | 'm3u';
 }
 
 /** A recently-viewed item with a `viewed_at` timestamp. */

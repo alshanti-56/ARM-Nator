@@ -11,7 +11,7 @@ import {
 
 /**
  * Thin TMDB v3 API client. Uses `fetch` directly — TMDB supports CORS, so
- * both the Electron renderer and the PWA can call it without a proxy.
+ * the Electron renderer can call it without a proxy.
  * Supports classic v3 keys (query param) and v4 read tokens (Bearer).
  */
 /**

@@ -1,0 +1,93 @@
+<section class="browser-page" [class.browser-page--youtube]="isYouTube()">
+    <header class="browser-page__header">
+        <div class="browser-page__heading">
+            <mat-icon>{{ isYouTube() ? 'smart_display' : 'language' }}</mat-icon>
+            <div>
+                <h1>{{ titleKey() | translate }}</h1>
+                @if (!isYouTube()) {
+                    <p>{{ subtitleKey() | translate }}</p>
+                }
+            </div>
+        </div>
+
+        <div class="browser-page__toolbar" aria-label="Browser controls">
+            <button
+                mat-icon-button
+                type="button"
+                [disabled]="!state()?.canGoBack"
+                (click)="goBack()"
+                [matTooltip]="'BROWSER.BACK' | translate"
+                [attr.aria-label]="'BROWSER.BACK' | translate"
+            >
+                <mat-icon>arrow_back</mat-icon>
+            </button>
+            <button
+                mat-icon-button
+                type="button"
+                [disabled]="!state()?.canGoForward"
+                (click)="goForward()"
+                [matTooltip]="'BROWSER.FORWARD' | translate"
+                [attr.aria-label]="'BROWSER.FORWARD' | translate"
+            >
+                <mat-icon>arrow_forward</mat-icon>
+            </button>
+            @if (state()?.status === 'loading') {
+                <button
+                    mat-icon-button
+                    type="button"
+                    (click)="stop()"
+                    [matTooltip]="'BROWSER.STOP' | translate"
+                    [attr.aria-label]="'BROWSER.STOP' | translate"
+                >
+                    <mat-icon>close</mat-icon>
+                </button>
+            } @else {
+                <button
+                    mat-icon-button
+                    type="button"
+                    (click)="reload()"
+                    [matTooltip]="'BROWSER.RELOAD' | translate"
+                    [attr.aria-label]="'BROWSER.RELOAD' | translate"
+                >
+                    <mat-icon>refresh</mat-icon>
+                </button>
+            }
+
+            <form class="browser-page__address" (ngSubmit)="navigate()">
+                <mat-icon>lock</mat-icon>
+                <input
+                    name="address"
+                    type="text"
+                    autocomplete="url"
+                    spellcheck="false"
+                    [ngModel]="address()"
+                    (ngModelChange)="address.set($event)"
+                    [placeholder]="'BROWSER.ADDRESS_PLACEHOLDER' | translate"
+                    [attr.aria-label]="'BROWSER.ADDRESS' | translate"
+                />
+                <button
+                    mat-icon-button
+                    type="submit"
+                    [attr.aria-label]="'BROWSER.GO' | translate"
+                >
+                    <mat-icon>north_east</mat-icon>
+                </button>
+            </form>
+        </div>
+
+        @if (state()?.status === 'loading') {
+            <span class="browser-page__status">{{ 'BROWSER.LOADING' | translate }}</span>
+        } @else if (requestError(); as error) {
+            <span class="browser-page__status browser-page__status--error">{{ error }}</span>
+        }
+    </header>
+
+    <div #browserViewport class="browser-page__viewport">
+        @if (!state()) {
+            <div class="browser-page__initializing">
+                <mat-icon>language</mat-icon>
+                <span>{{ 'BROWSER.OPENING' | translate }}</span>
+            </div>
+        }
+    </div>
+</section>

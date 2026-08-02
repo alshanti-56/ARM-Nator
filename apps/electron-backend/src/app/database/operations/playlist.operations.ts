@@ -18,7 +18,6 @@ import {
 
 const PLAYLIST_TYPES = {
     XTREAM: 'xtream',
-    STALKER: 'stalker',
     M3U_FILE: 'm3u-file',
     M3U_TEXT: 'm3u-text',
     M3U_URL: 'm3u-url',
@@ -134,6 +133,9 @@ function getFavoriteChannelMatch(
 
 function inferPlaylistType(playlist: Record<string, unknown>): PlaylistType {
     const explicitType = getStringValue(playlist.type);
+    if (explicitType === 'stalker' || getStringValue(playlist.macAddress)) {
+        throw new Error('Stalker playlists are no longer supported');
+    }
     if (
         explicitType &&
         PLAYLIST_TYPE_VALUES.has(explicitType as PlaylistType)
@@ -143,10 +145,6 @@ function inferPlaylistType(playlist: Record<string, unknown>): PlaylistType {
 
     if (getStringValue(playlist.serverUrl)) {
         return PLAYLIST_TYPES.XTREAM;
-    }
-
-    if (getStringValue(playlist.macAddress)) {
-        return PLAYLIST_TYPES.STALKER;
     }
 
     if (getStringValue(playlist.filePath)) {
@@ -194,7 +192,7 @@ function buildPlaylistRow(
         filePath: getStringValue(playlist.filePath),
         autoRefresh: Boolean(playlist.autoRefresh),
         macAddress: getStringValue(playlist.macAddress),
-        url: type === PLAYLIST_TYPES.STALKER ? (portalUrl ?? url) : url,
+        url,
         portalUrl,
         count: getNumericValue(playlist.count),
         importDate: getStringValue(playlist.importDate),
@@ -240,8 +238,7 @@ export function parseAppPlaylist(
     const recentlyViewed = parseJsonValue<unknown[]>(row.recentlyViewed, []);
     const importDate =
         row.importDate ?? row.dateCreated ?? new Date().toISOString();
-    const portalUrl =
-        row.portalUrl ?? (row.type === PLAYLIST_TYPES.STALKER ? row.url : null);
+    const portalUrl = row.portalUrl;
     const updateDate =
         row.updateDate ??
         (row.lastUpdated ? new Date(row.lastUpdated).getTime() : undefined);
@@ -292,6 +289,10 @@ export async function createPlaylist(
         type: string;
     }
 ): Promise<{ success: boolean }> {
+    if (playlist.type === 'stalker' || playlist.macAddress) {
+        throw new Error('Stalker playlists are no longer supported');
+    }
+
     await db.insert(schema.playlists).values({
         id: playlist.id,
         name: playlist.name,
@@ -300,8 +301,7 @@ export async function createPlaylist(
         password: playlist.password,
         macAddress: playlist.macAddress,
         url: playlist.url,
-        portalUrl:
-            playlist.type === PLAYLIST_TYPES.STALKER ? playlist.url : undefined,
+        portalUrl: undefined,
         type: playlist.type as PlaylistType,
     });
 
@@ -383,7 +383,9 @@ export async function upsertAppPlaylists(
 
 export async function getAppPlaylists(db: AppDatabase) {
     const rows = await db.select().from(schema.playlists);
-    return rows.map((row) => parseAppPlaylist(row));
+    return rows
+        .filter((row) => String(row.type) !== 'stalker')
+        .map((row) => parseAppPlaylist(row));
 }
 
 export async function getAppPlaylistMetas(db: AppDatabase) {
@@ -415,12 +417,14 @@ export async function getAppPlaylistMetas(db: AppDatabase) {
         })
         .from(schema.playlists);
 
-    return rows.map((row) =>
-        parseAppPlaylist({
-            ...row,
-            payload: null,
-        } as schema.Playlist)
-    );
+    return rows
+        .filter((row) => String(row.type) !== 'stalker')
+        .map((row) =>
+            parseAppPlaylist({
+                ...row,
+                payload: null,
+            } as schema.Playlist)
+        );
 }
 
 export async function getAppPlaylist(
@@ -442,7 +446,9 @@ export async function getAppPlaylist(
           )
         : await read();
     const deserialize = () =>
-        rows[0] ? parseAppPlaylist(rows[0]) : null;
+        rows[0] && String(rows[0].type) !== 'stalker'
+            ? parseAppPlaylist(rows[0])
+            : null;
 
     return capturePhase
         ? capturePhase.captureSync(
@@ -559,7 +565,6 @@ export async function deletePlaylist(
         favoriteRows,
         recentlyViewedRows,
         playbackPositionRows,
-        downloadRows,
     ] = await Promise.all([
         db
             .select({ id: schema.favorites.id })
@@ -573,10 +578,6 @@ export async function deletePlaylist(
             .select({ id: schema.playbackPositions.id })
             .from(schema.playbackPositions)
             .where(eq(schema.playbackPositions.playlistId, playlistId)),
-        db
-            .select({ id: schema.downloads.id })
-            .from(schema.downloads)
-            .where(eq(schema.downloads.playlistId, playlistId)),
     ]);
 
     const categoryRows = await db
@@ -610,12 +611,6 @@ export async function deletePlaylist(
             playbackPositionRows.map((row) => row.id),
             schema.playbackPositions.id,
             schema.playbackPositions,
-        ],
-        [
-            'deleting-downloads',
-            downloadRows.map((row) => row.id),
-            schema.downloads.id,
-            schema.downloads,
         ],
         [
             'deleting-content',
@@ -710,10 +705,6 @@ export async function deleteAllPlaylists(
         {
             phase: 'deleting-playback-positions',
             execute: () => db.delete(schema.playbackPositions),
-        },
-        {
-            phase: 'deleting-downloads',
-            execute: () => db.delete(schema.downloads),
         },
         {
             phase: 'deleting-content',

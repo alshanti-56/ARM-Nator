@@ -7,7 +7,7 @@ import { TmdbDetails, TmdbTvDetails } from './tmdb.types';
  * `aggregate_credits` spans a show's whole run: a crew list that can reach
  * into the thousands, plus every cast member carrying one `roles[]` entry
  * per character they ever played. Caching that verbatim grows
- * `tmdb_metadata` (and the PWA's in-memory map) by orders of magnitude for
+ * `tmdb_metadata` by orders of magnitude for
  * data nothing reads.
  *
  * What goes is chosen so that a merge over the trimmed payload produces

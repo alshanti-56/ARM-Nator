@@ -18,6 +18,10 @@ import { isStartupTraceEnabled, trace } from './app/services/debug-trace';
 import { registerStaticHeaderShims } from './app/services/request-header-overrides.service';
 import { databaseWorkerClient } from './app/services/database-worker-client';
 import WindowEvents from './app/events/window.events';
+import BrowserEvents, {
+    shutdownBrowserView,
+} from './app/events/browser.events';
+import { browserViewService } from './app/services/browser-view.service';
 import XtreamEvents from './app/events/xtream.events';
 import { runEmbeddedMpvRuntimeDiagnosticOrContinue } from './app/services/embedded-mpv-runtime-diagnostic';
 
@@ -73,6 +77,7 @@ export default class Main {
         registerStaticHeaderShims();
         ElectronEvents.bootstrapElectronEvents();
         WindowEvents.bootstrapWindowEvents();
+        BrowserEvents.bootstrapBrowserEvents();
         EmbeddedMpvEvents.bootstrapEmbeddedMpvEvents();
         PlaylistEvents.bootstrapPlaylistEvents();
         SharedEvents.bootstrapSharedEvents();
@@ -83,6 +88,14 @@ export default class Main {
 
         // Load the renderer only after IPC handlers are registered.
         await App.loadMainWindow();
+
+        if (App.mainWindow && !App.mainWindow.isDestroyed()) {
+            void browserViewService
+                .preloadYoutube(App.mainWindow)
+                .catch((error) => {
+                    console.warn('YouTube preload failed:', error);
+                });
+        }
 
         // Initialize the database after the first renderer load is underway.
         // IPC handlers call getDatabase() lazily and share the same promise.
@@ -120,6 +133,7 @@ runEmbeddedMpvRuntimeDiagnosticOrContinue(process.argv, () => {
     });
 
     app.on('before-quit', () => {
+        shutdownBrowserView();
         shutdownEmbeddedMpv();
         shutdownMpvSession();
         shutdownVlcSession();

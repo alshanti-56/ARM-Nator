@@ -30,25 +30,25 @@ export class SettingsBackupFacade {
     try {
       const backup = await this.playlistBackupService.exportBackup();
 
-      if (this.runtime.supportsDesktopFileSave && window.electron) {
-        const savePath = await window.electron.saveFileDialog(
-          backup.defaultFileName,
-          [
-            {
-              name: "JSON",
-              extensions: ["json"],
-            },
-          ],
-        );
-
-        if (!savePath) {
-          return;
-        }
-
-        await window.electron.writeFile(savePath, backup.json);
-      } else {
-        this.downloadBackupInBrowser(backup.defaultFileName, backup.json);
+      if (!this.runtime.supportsDesktopFileSave || !window.electron) {
+        throw new Error("Electron file save is unavailable");
       }
+
+      const savePath = await window.electron.saveFileDialog(
+        backup.defaultFileName,
+        [
+          {
+            name: "JSON",
+            extensions: ["json"],
+          },
+        ],
+      );
+
+      if (!savePath) {
+        return;
+      }
+
+      await window.electron.writeFile(savePath, backup.json);
 
       this.settingsSnackbar.open("Playlist backup exported.");
     } catch (error) {
@@ -102,18 +102,6 @@ export class SettingsBackupFacade {
     });
 
     input.click();
-  }
-
-  private downloadBackupInBrowser(defaultFileName: string, json: string): void {
-    const blob = new Blob([json], {
-      type: "application/json",
-    });
-    const url = window.URL.createObjectURL(blob);
-    const link = document.createElement("a");
-    link.href = url;
-    link.download = defaultFileName;
-    link.click();
-    window.URL.revokeObjectURL(url);
   }
 
   private buildBackupImportSummary(

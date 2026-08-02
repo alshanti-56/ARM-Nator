@@ -26,9 +26,9 @@ import { UrlUploadComponent } from '../url-upload/url-upload.component';
 import { XtreamCodeImportComponent } from '../xtream-code-import/xtream-code-import.component';
 
 /**
- * Flat 5-method option model — replaces the prior category × subtype matrix
- * (M3U/Xtream/Stalker × URL/File/Text) which created 9 combinations of which
- * only 5 were real. Now each entry IS a method, no nesting.
+ * Flat 4-method option model — replaces the prior category × subtype matrix
+ * (M3U/Xtream × URL/File/Text) which created several combinations of which
+ * only 4 are real. Now each entry IS a method, no nesting.
  */
 export interface PlaylistMethodOption {
     value: PlaylistType;
@@ -71,7 +71,7 @@ export class AddPlaylistDialogComponent {
     readonly method = signal<PlaylistType>('url');
 
     // Order matches the v0.22 mockup left-to-right: URL first (Most common),
-    // then File, Xtream credentials, Stalker portal, raw text paste. Each
+    // then File, Xtream credentials, raw text paste. Each
     // entry stands on its own — no nested subtypes. Labels are short and
     // sentence-cased; the "Add via …" / "Add Xtreme Code" wording from the
     // old tab labels is redundant inside a dialog already titled "Add

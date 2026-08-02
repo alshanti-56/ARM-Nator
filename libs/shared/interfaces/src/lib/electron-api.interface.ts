@@ -62,7 +62,6 @@ export const ELECTRON_BRIDGE_PLAYLIST_TYPES = {
     M3uFile: 'm3u-file',
     M3uText: 'm3u-text',
     M3uUrl: 'm3u-url',
-    Stalker: 'stalker',
     Xtream: 'xtream',
 } as const;
 

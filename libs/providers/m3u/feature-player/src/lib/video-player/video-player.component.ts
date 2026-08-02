@@ -406,7 +406,6 @@ export class VideoPlayerComponent implements OnInit, OnDestroy {
   /**
    * Opens a playlist provided as a url param
    * e.g. iptvnat.or?url=http://...
-   * @pwaOnly
    */
   getPlaylistUrlAsParam() {
     const URL_REGEX = /^(http|https|file):\/\/[^ "]+$/;
@@ -421,7 +420,7 @@ export class VideoPlayerComponent implements OnInit, OnDestroy {
   }
 
   /**
-   * Reads the app configuration from the browsers storage and applies the settings in the current component
+   * Reads the app configuration from renderer storage and applies the settings in the current component
    */
   applySettings(): void {
     this.storage.get(STORE_KEY.Settings).subscribe((settings: unknown) => {

@@ -1,6 +1,6 @@
 import { inject } from "@angular/core";
 import { Router, Routes } from "@angular/router";
-import { RuntimeCapabilitiesService, SettingsStore } from "@arm-nator/services";
+import { SettingsStore } from "@arm-nator/services";
 import { WorkspaceStartupPreferencesService } from "@arm-nator/workspace/shell/util";
 
 const settingsReadyResolver = () => inject(SettingsStore).loadSettings();
@@ -16,20 +16,6 @@ const dashboardAccessGuard = async () => {
   return redirectPath === "/workspace/dashboard"
     ? true
     : router.parseUrl(redirectPath);
-};
-
-export function resolveElectronOnlyGlobalSearchRoute(
-  runtime: Pick<RuntimeCapabilitiesService, "isElectron">,
-  router: Pick<Router, "parseUrl">,
-) {
-  return runtime.isElectron ? true : router.parseUrl("/workspace/sources");
-}
-
-const electronOnlyGlobalSearchGuard = () => {
-  return resolveElectronOnlyGlobalSearchRoute(
-    inject(RuntimeCapabilitiesService),
-    inject(Router),
-  );
 };
 
 export const routes: Routes = [
@@ -77,6 +63,22 @@ export const routes: Routes = [
           import("@arm-nator/tools/feature").then((c) => c.DirectPlayComponent),
       },
       {
+        path: "browser",
+        data: { browserMode: "browser" },
+        loadComponent: () =>
+          import("./browser-page.component").then(
+            (c) => c.BrowserPageComponent,
+          ),
+      },
+      {
+        path: "youtube",
+        data: { browserMode: "youtube" },
+        loadComponent: () =>
+          import("./browser-page.component").then(
+            (c) => c.BrowserPageComponent,
+          ),
+      },
+      {
         path: "playlists/:id",
         loadChildren: () =>
           import("@arm-nator/providers/m3u/feature-player").then((m) =>
@@ -107,7 +109,6 @@ export const routes: Routes = [
       },
       {
         path: "search",
-        canActivate: [electronOnlyGlobalSearchGuard],
         data: {
           isGlobalSearch: true,
         },

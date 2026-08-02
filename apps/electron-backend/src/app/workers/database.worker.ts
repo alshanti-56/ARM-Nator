@@ -438,7 +438,7 @@ async function executeRequest(
                 kind?: 'all' | 'vod' | 'series';
                 limit?: number;
                 playlistType?:
-                    'xtream' | 'stalker' | 'm3u-file' | 'm3u-text' | 'm3u-url';
+                    'xtream' | 'm3u-file' | 'm3u-text' | 'm3u-url';
             };
             return getGlobalRecentlyAdded(
                 db,
@@ -962,7 +962,6 @@ async function executeRequest(
                     durationSeconds?: number;
                     playlistType?:
                         | 'xtream'
-                        | 'stalker'
                         | 'm3u-file'
                         | 'm3u-text'
                         | 'm3u-url';

@@ -29,8 +29,8 @@ export function buildTitleMatchIndex(
 /**
  * Cross-playlist title matching via the Electron DB worker
  * (`DB_MATCH_TITLES`, trigram FTS over all imported Xtream playlists).
- * Unavailable in the PWA — `isAvailable` gates the actor page's
- * "All portals" scope.
+ * `isAvailable` gates the actor page's "All portals" scope when the
+ * Electron shell exposes the matching bridge method.
  */
 @Injectable({ providedIn: 'root' })
 export class CatalogTitleMatchService {

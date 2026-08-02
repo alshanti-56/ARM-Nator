@@ -1,7 +1,5 @@
 import {
     normalizeSeriesStatus,
-    StalkerVodInfo,
-    TmdbMediaType,
     TmdbRecommendation,
     XtreamSerieInfo,
     XtreamVodInfo,
@@ -173,68 +171,6 @@ export function mergeSerieInfoWithTmdb(
         youtube_trailer: prefer(trailer, info.youtube_trailer),
         tmdb_id: details.id,
         ...(status ? { tmdb_status: status } : {}),
-        ...(tmdbDirectors.length > 0 ? { tmdb_directors: tmdbDirectors } : {}),
-        ...(tmdbCast.length > 0 ? { tmdb_cast: tmdbCast } : {}),
-        ...(recommendations.length > 0
-            ? { tmdb_recommendations: recommendations }
-            : {}),
-    };
-}
-
-/**
- * Merge for Stalker portal detail objects. One function covers movies and
- * series — both render from the same `StalkerVodInfo` shape. The TMDB
- * rating only FILLS `rating_imdb` (the UI labels it as IMDb, so a present
- * provider value must not be overwritten with a TMDB score).
- */
-export function mergeStalkerInfoWithTmdb(
-    info: StalkerVodInfo,
-    details: TmdbMovieDetails | TmdbTvDetails,
-    mediaType: TmdbMediaType
-): StalkerVodInfo {
-    const selectedCast =
-        mediaType === 'movie'
-            ? topCast(details.credits)
-            : limitCast(unifiedTvCast(details as TmdbTvDetails));
-    const tmdbCast = enrichedCast(selectedCast);
-    const tmdbDirectors =
-        mediaType === 'movie'
-            ? enrichedDirectors(details.credits)
-            : enrichedCreators(details as TmdbTvDetails);
-    const status =
-        mediaType === 'tv'
-            ? normalizeSeriesStatus((details as TmdbTvDetails).status)
-            : null;
-    const trailer = pickTrailerKey(details);
-    const recommendations = recommendationList(details);
-    const cast = castNames(selectedCast);
-    const director =
-        mediaType === 'movie'
-            ? directorNames(details.credits)
-            : creatorNames(details as TmdbTvDetails);
-    const genre = genreNames(details);
-    const rating = tmdbRating(details);
-    const poster = tmdbPosterUrl(details.poster_path);
-    const backdrop = tmdbBackdropUrl(details.backdrop_path);
-    const releaseDate =
-        mediaType === 'movie'
-            ? (details as TmdbMovieDetails).release_date
-            : (details as TmdbTvDetails).first_air_date;
-
-    return {
-        ...info,
-        description: prefer(details.overview, info.description),
-        actors: prefer(cast, info.actors),
-        director: prefer(director, info.director),
-        genre: prefer(genre, info.genre),
-        releasedate: info.releasedate || (releaseDate ?? ''),
-        movie_image: prefer(poster, info.movie_image),
-        rating_imdb:
-            info.rating_imdb || (rating !== null ? String(rating) : ''),
-        tmdb_id: details.id,
-        ...(status ? { tmdb_status: status } : {}),
-        ...(backdrop ? { tmdb_backdrop: backdrop } : {}),
-        ...(trailer ? { tmdb_trailer: trailer } : {}),
         ...(tmdbDirectors.length > 0 ? { tmdb_directors: tmdbDirectors } : {}),
         ...(tmdbCast.length > 0 ? { tmdb_cast: tmdbCast } : {}),
         ...(recommendations.length > 0

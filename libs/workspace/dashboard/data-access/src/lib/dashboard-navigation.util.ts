@@ -7,8 +7,6 @@ import {
     PortalRecentItem,
 } from '@arm-nator/shared/interfaces';
 import {
-    buildStalkerDetailNavigationTarget,
-    buildStalkerStateItem,
     buildXtreamNavigationTarget,
     getGlobalFavoriteNavigation,
     getRecentItemNavigation,
@@ -46,10 +44,6 @@ export function isTypeInKind(
 export function getPlaylistLink(playlist: PlaylistMeta): string[] {
     if (playlist.serverUrl) {
         return ['/workspace', 'xtreams', playlist._id, 'vod'];
-    }
-
-    if (playlist.macAddress) {
-        return ['/workspace', 'stalker', playlist._id, 'vod'];
     }
 
     return ['/workspace', 'playlists', playlist._id];
@@ -121,21 +115,6 @@ export function getGlobalFavoriteNavigationState(
 }
 
 export function getRecentlyAddedLink(item: PortalAddedItem): string[] {
-    if (item.source === 'stalker' && item.type !== 'live') {
-        return buildStalkerDetailNavigationTarget({
-            playlistId: item.playlist_id,
-            type: item.type,
-            categoryId: item.category_id,
-            item: buildStalkerStateItem(item.stalker_item, {
-                id: item.id,
-                title: item.title,
-                type: item.type,
-                category_id: item.category_id,
-                poster_url: item.poster_url,
-            }),
-        }).link;
-    }
-
     return buildXtreamNavigationTarget({
         playlistId: item.playlist_id,
         type: item.type,
@@ -149,21 +128,6 @@ export function getRecentlyAddedLink(item: PortalAddedItem): string[] {
 export function getRecentlyAddedNavigationState(
     item: PortalAddedItem
 ): WorkspaceNavigationTarget['state'] {
-    if (item.source === 'stalker' && item.type !== 'live') {
-        return buildStalkerDetailNavigationTarget({
-            playlistId: item.playlist_id,
-            type: item.type,
-            categoryId: item.category_id,
-            item: buildStalkerStateItem(item.stalker_item, {
-                id: item.id,
-                title: item.title,
-                type: item.type,
-                category_id: item.category_id,
-                poster_url: item.poster_url,
-            }),
-        }).state;
-    }
-
     return buildXtreamNavigationTarget({
         playlistId: item.playlist_id,
         type: item.type,

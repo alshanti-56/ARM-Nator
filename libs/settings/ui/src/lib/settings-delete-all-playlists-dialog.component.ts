@@ -10,14 +10,13 @@ export interface SettingsDeleteAllPlaylistsDialogData {
     total: number;
     m3u: number;
     xtream: number;
-    stalker: number;
   };
 }
 
 type SettingsDeleteSummaryItem = {
   count: number;
   icon: string;
-  id: "m3u" | "xtream" | "stalker";
+  id: "m3u" | "xtream";
   labelKey: string;
 };
 
@@ -50,19 +49,12 @@ export class SettingsDeleteAllPlaylistsDialogComponent {
       icon: "cloud",
       labelKey: "HOME.PLAYLIST_TYPES.XTREAM",
     },
-    {
-      id: "stalker",
-      count: this.dialogData.summary.stalker,
-      icon: "router",
-      labelKey: "HOME.PLAYLIST_TYPES.STALKER",
-    },
   ]);
 
   readonly consequenceKeys = [
     "SETTINGS.REMOVE_DIALOG.CONSEQUENCE_FAVORITES",
     "SETTINGS.REMOVE_DIALOG.CONSEQUENCE_RECENTLY_VIEWED",
     "SETTINGS.REMOVE_DIALOG.CONSEQUENCE_PLAYBACK",
-    "SETTINGS.REMOVE_DIALOG.CONSEQUENCE_DOWNLOADS",
     "SETTINGS.REMOVE_DIALOG.CONSEQUENCE_XTREAM_CACHE",
   ] as const;
 }

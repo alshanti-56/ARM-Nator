@@ -36,7 +36,6 @@ handleWorkerRequest(
         limit = 200,
         playlistType?:
             | 'xtream'
-            | 'stalker'
             | 'm3u-file'
             | 'm3u-text'
             | 'm3u-url'

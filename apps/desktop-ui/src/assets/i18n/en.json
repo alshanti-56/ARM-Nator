@@ -451,8 +451,7 @@
         },
         "BROWSER_ACCESS_ERROR": {
             "TITLE": "The browser player could not access this stream",
-            "DESCRIPTION": "The request may be blocked by CORS, mixed content, or provider header/proxy restrictions. MPV or VLC can often bypass browser-player access limits.",
-            "PWA_DESCRIPTION": "The request may be blocked by CORS, mixed content, or provider header/proxy restrictions. The PWA cannot launch external players directly; use the Copy stream URL action and open it manually in MPV, VLC, IINA, or another player."
+            "DESCRIPTION": "The request may be blocked by CORS, mixed content, or provider header/proxy restrictions. MPV or VLC can often bypass browser-player access limits."
         },
         "DRM_OR_ENCRYPTION": {
             "TITLE": "This stream may be encrypted or DRM-protected",
@@ -859,6 +858,28 @@
             "PAUSED": "Paused"
         }
     },
+    "BROWSER": {
+        "TITLE": "Browser",
+        "SUBTITLE": "Open a web page inside ARM-Nator",
+        "YOUTUBE_TITLE": "YouTube",
+        "YOUTUBE_SUBTITLE": "Watch YouTube inside ARM-Nator",
+        "BACK": "Back",
+        "FORWARD": "Forward",
+        "RELOAD": "Reload",
+        "STOP": "Stop loading",
+        "GO": "Open address",
+        "ADDRESS": "Web address",
+        "ADDRESS_PLACEHOLDER": "Enter a web address",
+        "YOUTUBE_MINI_PLAYER": "YouTube Miniplayer (browse YouTube)",
+        "ARM_MINI_PLAYER": "Keep YouTube playing while browsing ARM-Nator",
+        "ARM_MINI_PLAYER_RESTORE": "Restore YouTube to this page",
+        "ARM_MINI_PLAYER_CLOSE": "Close mini-player and stop playback",
+        "TERMINATE_PLAYBACK": "Close and stop YouTube playback",
+        "ARM_MINI_PLAYER_MUTE": "Mute mini-player",
+        "ARM_MINI_PLAYER_UNMUTE": "Unmute mini-player",
+        "LOADING": "Loading",
+        "OPENING": "Opening browser"
+    },
     "WORKSPACE": {
         "FAVORITES_ONLY": "Favorites only",
         "SORT_CUSTOM": "Custom order",
@@ -922,6 +943,8 @@
             "RAIL_GLOBAL_RECENT": "Recently viewed",
             "RAIL_GLOBAL_SEARCH": "Global search",
             "RAIL_DIRECT_PLAY": "Direct play",
+            "RAIL_BROWSER": "Browser",
+            "RAIL_YOUTUBE": "YouTube",
             "RAIL_SETTINGS": "Settings",
             "OPEN_SETTINGS": "Open settings",
             "RAIL_LIBRARY": "Library",

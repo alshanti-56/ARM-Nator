@@ -126,7 +126,6 @@ export type GlobalRecentlyAddedKind = 'all' | 'vod' | 'series';
 
 export type GlobalRecentlyAddedPlaylistType =
     | 'xtream'
-    | 'stalker'
     | 'm3u-file'
     | 'm3u-text'
     | 'm3u-url';
@@ -606,7 +605,7 @@ export class DatabaseService {
      * Get recently added VOD and series items across all Xtream playlists.
      * When `playlistType` is supplied, the LIMIT window is applied only to
      * rows from playlists of that type, so Xtream items cannot be squeezed
-     * out by newer M3U/Stalker content.
+     * out by newer M3U content.
      */
     async getGlobalRecentlyAdded(
         kind: GlobalRecentlyAddedKind,

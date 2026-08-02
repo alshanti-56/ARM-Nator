@@ -1,7 +1,10 @@
-import { Injectable, inject, signal } from '@angular/core';
+import { DestroyRef, Injectable, inject, signal } from '@angular/core';
+import { Router } from '@angular/router';
 import type { PlayerOpenContext } from '@arm-nator/player/core';
 import { PlaybackPositionService } from '@arm-nator/services';
 import {
+    BrowserMiniPlayerState,
+    BrowserViewState,
     ResolvedPortalPlayback,
     VideoPlayer,
 } from '@arm-nator/shared/interfaces';
@@ -13,11 +16,14 @@ export type WorkspacePlayerPresentation = 'expanded' | 'mini';
 @Injectable({ providedIn: 'root' })
 export class WorkspacePlayerStateService {
     private readonly playbackPositions = inject(PlaybackPositionService);
+    private readonly router = inject(Router);
+    private readonly destroyRef = inject(DestroyRef);
     private readonly lastSavedAt = new Map<string, number>();
     private lastTimeUpdate: { currentTime: number; duration: number } | null =
         null;
 
     readonly playback = signal<ResolvedPortalPlayback | null>(null);
+    readonly youtube = signal<BrowserMiniPlayerState | null>(null);
     readonly engine = signal<VideoPlayer>(VideoPlayer.ArtPlayer);
     readonly presentation = signal<WorkspacePlayerPresentation>('mini');
     readonly reloadGeneration = signal(0);
@@ -26,11 +32,23 @@ export class WorkspacePlayerStateService {
     readonly context = signal<PlayerOpenContext | null>(null);
     readonly stopped = signal(false);
 
+    constructor() {
+        if (typeof window === 'undefined' || !window.electron) {
+            return;
+        }
+
+        const unsubscribe = window.electron.onBrowserViewUpdate((state) =>
+            this.handleBrowserViewUpdate(state)
+        );
+        this.destroyRef.onDestroy(unsubscribe);
+    }
+
     open(
         playback: ResolvedPortalPlayback,
         engine: VideoPlayer,
         context?: PlayerOpenContext
     ): void {
+        this.closeYoutubePlayback();
         const replacingPlayback = this.playback() !== null;
         if (replacingPlayback) {
             void this.persistPosition(this.lastTimeUpdate, true);
@@ -77,18 +95,23 @@ export class WorkspacePlayerStateService {
     }
 
     minimize(): void {
-        if (this.playback()) {
+        if (this.playback() || this.youtube()) {
             this.presentation.set('mini');
         }
     }
 
     expand(): void {
-        if (this.playback()) {
+        if (this.playback() || this.youtube()) {
             this.presentation.set('expanded');
         }
     }
 
     close(): void {
+        if (this.youtube()) {
+            this.closeYoutubePlayback(true);
+            return;
+        }
+
         const onClosed = this.context()?.onClosed;
         void this.persistPosition(this.lastTimeUpdate, true);
         this.playback.set(null);
@@ -134,6 +157,60 @@ export class WorkspacePlayerStateService {
     next(): void {
         if (this.context()?.canNext) {
             this.context()?.onNext?.();
+        }
+    }
+
+    private handleBrowserViewUpdate(state: BrowserViewState): void {
+        if (state.status === 'closed' && this.youtube()) {
+            this.youtube.set(null);
+            this.presentation.set('mini');
+            if (this.router.url.includes('/workspace/youtube')) {
+                void this.router.navigateByUrl('/workspace/dashboard');
+            }
+            return;
+        }
+
+        if (state.miniPlayer) {
+            const alreadyInYoutubePlayer = this.youtube() !== null;
+            if (this.playback()) {
+                void this.persistPosition(this.lastTimeUpdate, true);
+                this.context()?.onClosed?.();
+                this.playback.set(null);
+                this.context.set(null);
+                this.lastTimeUpdate = null;
+                this.runtimeSnapshot.set(null);
+                this.diagnostic.set(null);
+                this.stopped.set(false);
+            }
+
+            this.youtube.set(state.miniPlayer);
+            if (!alreadyInYoutubePlayer) {
+                this.presentation.set('mini');
+            }
+            return;
+        }
+
+        if (!this.youtube() || state.mode !== 'youtube') {
+            return;
+        }
+
+        this.youtube.set(null);
+        this.presentation.set('mini');
+        if (!this.router.url.includes('/workspace/youtube')) {
+            void this.router.navigateByUrl('/workspace/youtube');
+        }
+    }
+
+    private closeYoutubePlayback(navigate = false): void {
+        if (!this.youtube()) {
+            return;
+        }
+
+        void window.electron?.closeBrowserView('youtube', true);
+        this.youtube.set(null);
+        this.presentation.set('mini');
+        if (navigate && this.router.url.includes('/workspace/youtube')) {
+            void this.router.navigateByUrl('/workspace/dashboard');
         }
     }
 

@@ -691,7 +691,6 @@ export async function getContent(
 
 export type RecentlyAddedPlaylistType =
     | 'xtream'
-    | 'stalker'
     | 'm3u-file'
     | 'm3u-text'
     | 'm3u-url';

@@ -11,7 +11,7 @@ import { RuntimeCapabilitiesService } from './runtime-capabilities.service';
 export interface PlaylistDeleteActionOptions {
     /**
      * Receives Electron DB progress events only for Xtream-style playlists that
-     * have a server URL. PWA deletes and non-Xtream Electron deletes do not emit
+     * have a server URL. Non-Xtream Electron deletes do not emit
      * playlist delete progress events.
      */
     readonly onEvent?: (event: DbOperationEvent) => void;

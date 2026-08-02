@@ -22,10 +22,7 @@ import {
     PlaylistErrorViewComponent,
 } from '@arm-nator/providers/shared/ui';
 import {
-    clearNavigationStateKeys,
-    getOpenStalkerItemState,
     PortalCatalogFacade,
-    OPEN_STALKER_ITEM_STATE_KEY,
     PORTAL_CATALOG_DETAIL_COMPONENT,
     PORTAL_CATALOG_FACADE,
     PortalCatalogSortMode,
@@ -166,7 +163,6 @@ export class CategoryContentViewComponent implements OnInit {
             .pipe(takeUntilDestroyed(this.destroyRef))
             .subscribe((params) => {
                 this.catalog.initialize(params.get('categoryId'));
-                this.openStalkerItemFromNavigationState();
             });
 
         this.activatedRoute.queryParamMap
@@ -248,24 +244,4 @@ export class CategoryContentViewComponent implements OnInit {
         });
     }
 
-    private openStalkerItemFromNavigationState(): void {
-        if (this.catalog.provider !== 'stalker') {
-            return;
-        }
-
-        const item = getOpenStalkerItemState(window.history.state);
-        if (!item) {
-            return;
-        }
-
-        this.catalog.selectItem(item as CategoryContentItem);
-        // The item came from a stored snapshot, not the live list — let the
-        // provider refresh stale embedded data (e.g. episode lists).
-        this.catalog.refreshSnapshotSelection?.();
-        clearNavigationStateKeys([
-            OPEN_STALKER_ITEM_STATE_KEY,
-            'openFavoriteItem',
-            'openRecentItem',
-        ]);
-    }
 }

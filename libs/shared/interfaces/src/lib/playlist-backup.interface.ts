@@ -1,11 +1,10 @@
 import { PlaybackPositionData } from './playback-position.interface';
 import { M3uRecentlyViewedItem } from './playlist-recently-viewed.interface';
-import { StalkerPortalItem } from './stalker-portal-item.interface';
 
 export const PLAYLIST_BACKUP_KIND = 'arm-nator-playlist-backup';
 export const PLAYLIST_BACKUP_VERSION = 1;
 
-export type PlaylistBackupPortalType = 'm3u' | 'xtream' | 'stalker';
+export type PlaylistBackupPortalType = 'm3u' | 'xtream';
 export type M3uBackupSourceKind = 'url' | 'file' | 'text';
 export type XtreamBackupContentType = 'live' | 'movie' | 'series';
 export type XtreamBackupCategoryType = 'live' | 'movies' | 'series';
@@ -74,33 +73,9 @@ export interface XtreamPlaylistBackupEntry extends PlaylistBackupBaseEntry {
     userState: XtreamBackupUserState;
 }
 
-export interface StalkerPlaylistBackupEntry extends PlaylistBackupBaseEntry {
-    portalType: 'stalker';
-    connection: {
-        portalUrl: string;
-        macAddress: string;
-        isFullStalkerPortal?: boolean;
-        username?: string;
-        password?: string;
-        userAgent?: string;
-        referrer?: string;
-        origin?: string;
-        stalkerSerialNumber?: string;
-        stalkerDeviceId1?: string;
-        stalkerDeviceId2?: string;
-        stalkerSignature1?: string;
-        stalkerSignature2?: string;
-    };
-    userState: {
-        favorites: StalkerPortalItem[];
-        recentlyViewed: StalkerPortalItem[];
-    };
-}
-
 export type PlaylistBackupEntry =
     | M3uPlaylistBackupEntry
-    | XtreamPlaylistBackupEntry
-    | StalkerPlaylistBackupEntry;
+    | XtreamPlaylistBackupEntry;
 
 export interface PlaylistBackupManifestV1 {
     kind: typeof PLAYLIST_BACKUP_KIND;

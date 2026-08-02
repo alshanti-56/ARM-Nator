@@ -129,11 +129,6 @@ export const playlistReducers = [
                         ...(p.portalUrl != null
                             ? { portalUrl: p.portalUrl }
                             : {}),
-                        ...(p.isFullStalkerPortal !== undefined
-                            ? {
-                                  isFullStalkerPortal: p.isFullStalkerPortal,
-                              }
-                            : {}),
                         ...(p.favorites != null
                             ? { favorites: p.favorites }
                             : {}),

@@ -1,5 +1,6 @@
 export * from './lib/channel-drm.interface';
 export * from './lib/channel.interface';
+export * from './lib/browser-view.interface';
 export * from './lib/channel.model';
 export * from './lib/dev-logger.util';
 export * from './lib/embedded-mpv-session.interface';
@@ -29,7 +30,6 @@ export * from './lib/portal-playback.interface';
 export * from './lib/random-id.util';
 export * from './lib/security-policy-error.utils';
 export * from './lib/settings.interface';
-export * from './lib/stalker-portal-actions.enum';
 export * from './lib/store-keys.enum';
 export * from './lib/stream-format.enum';
 export * from './lib/catalog-title-match.interface';
@@ -51,12 +51,7 @@ export * from './lib/xtream-serie-item.interface';
 export * from './lib/xtream-vod-details.interface';
 export * from './lib/xtream-vod-stream.interface';
 
-// Stalker interfaces
-export * from './lib/stalker-item.normalizer';
-export * from './lib/stalker-identity.utils';
-export * from './lib/stalker-portal-item.interface';
-export * from './lib/stalker-serial-details.interface';
-export * from './lib/stalker-vod-details.interface';
+export * from './lib/date-normalizer';
 
 // Unified VOD details (discriminated union + adapters)
 export * from './lib/vod-details-adapters';

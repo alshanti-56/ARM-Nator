@@ -109,7 +109,6 @@ export class SettingsComponent implements OnInit, OnDestroy {
 
   /** Flag that indicates whether the app runs in electron environment */
   readonly isDesktop = this.runtime.isElectron;
-  readonly isPwa = this.runtime.isPwa;
   readonly supportsDesktopFileSave = this.runtime.supportsDesktopFileSave;
   readonly supportsManagedExternalPlayers =
     this.runtime.supportsManagedExternalPlayers;

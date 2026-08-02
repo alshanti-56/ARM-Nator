@@ -326,9 +326,6 @@ export class PlaylistSwitcherComponent {
     }
 
     getPlaylistIcon(playlist: PlaylistMeta): string {
-        if (playlist.macAddress) {
-            return 'dashboard';
-        }
         if (playlist.serverUrl) {
             return 'public';
         }
@@ -339,9 +336,6 @@ export class PlaylistSwitcherComponent {
     }
 
     getPlaylistTypeLabel(playlist: PlaylistMeta): string {
-        if (playlist.macAddress) {
-            return 'Stalker Portal';
-        }
         if (playlist.serverUrl) {
             return 'Xtream Code';
         }
@@ -360,9 +354,6 @@ export class PlaylistSwitcherComponent {
                 ? channelsLabel
                 : fallback;
 
-        if (playlist.macAddress) {
-            return 'Stalker Portal';
-        }
         if (playlist.serverUrl) {
             return 'Xtream Code';
         }

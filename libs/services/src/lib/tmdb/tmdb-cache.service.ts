@@ -5,15 +5,15 @@ import {
     TmdbCacheStats,
 } from '@arm-nator/shared/interfaces';
 
-/** PWA in-memory cache ceiling — details payloads are a few KB each */
+/** Renderer fallback cache ceiling for bridge version skew. */
 const MEMORY_CACHE_MAX_ENTRIES = 300;
 
 /**
  * Environment-aware cache for TMDB lookups.
  *
  * - Electron: persists via the `tmdb_metadata` SQLite table (IPC bridge)
- * - PWA: session-scoped in-memory LRU map capped at
- *   {@link MEMORY_CACHE_MAX_ENTRIES} entries
+ * - Renderer fallback: session-scoped in-memory LRU map capped at
+ *   {@link MEMORY_CACHE_MAX_ENTRIES} entries when the shell bridge is older.
  *
  * Freshness (TTL) is decided by the caller via {@link isFresh} so different
  * row kinds (details vs. negative match) can use different TTLs.
@@ -140,8 +140,8 @@ export class TmdbCacheService {
     }
 
     /**
-     * Cache size for the settings panel. In the PWA the cache is the
-     * session-scoped map, so the numbers describe that instead.
+     * Cache size for the settings panel. A renderer fallback cache is
+     * session-scoped when the shell bridge is older than the cache API.
      */
     async getStats(): Promise<TmdbCacheStats | null> {
         const bridge = this.bridge;

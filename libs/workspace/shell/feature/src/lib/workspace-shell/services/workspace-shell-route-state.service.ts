@@ -120,6 +120,20 @@ export class WorkspaceShellRouteStateService {
       exact: true,
     });
 
+    links.push({
+      icon: "language",
+      tooltip: this.translateText("WORKSPACE.SHELL.RAIL_BROWSER"),
+      path: ["/workspace/browser"],
+      exact: true,
+    });
+
+    links.push({
+      icon: "smart_display",
+      tooltip: this.translateText("WORKSPACE.SHELL.RAIL_YOUTUBE"),
+      path: ["/workspace/youtube"],
+      exact: true,
+    });
+
     return links;
   });
   readonly isDashboardRoute = computed(
@@ -143,6 +157,8 @@ export class WorkspaceShellRouteStateService {
       currentRoute.kind !== "sources" &&
       currentRoute.kind !== "settings" &&
       currentRoute.kind !== "tool" &&
+      currentRoute.kind !== "browser" &&
+      currentRoute.kind !== "youtube" &&
       currentRoute.kind !== "global-favorites" &&
       currentRoute.kind !== "global-recent" &&
       currentRoute.kind !== "global-search"

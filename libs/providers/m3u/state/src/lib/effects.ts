@@ -366,11 +366,6 @@ export class PlaylistEffects {
       return;
     }
 
-    if (playlist.macAddress) {
-      void this.router.navigate(["/workspace", "stalker", playlist._id]);
-      return;
-    }
-
     void this.router.navigate(["/workspace", "playlists", playlist._id]);
   }
 }

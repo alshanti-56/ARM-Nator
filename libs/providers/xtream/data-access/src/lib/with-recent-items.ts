@@ -220,7 +220,6 @@ export const withRecentItems = function () {
                         const playlistBackedItems = buildPlaylistRecentItems(
                             playlists,
                             {
-                                stalker: 'Stalker Portal',
                                 m3u: 'M3U',
                             }
                         ).map((item) => ({

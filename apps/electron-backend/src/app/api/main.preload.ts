@@ -33,6 +33,20 @@ import type {
     TmdbCacheMediaType,
     XtreamCategory,
 } from '@arm-nator/shared/interfaces';
+import type {
+    BrowserViewCommand,
+    BrowserViewBounds,
+    BrowserViewBoundsTarget,
+    BrowserViewMode,
+    BrowserViewState,
+} from '@arm-nator/shared/interfaces';
+import {
+    BROWSER_VIEW_CLOSE,
+    BROWSER_VIEW_COMMAND,
+    BROWSER_VIEW_OPEN,
+    BROWSER_VIEW_SET_BOUNDS,
+    BROWSER_VIEW_UPDATE,
+} from '@arm-nator/shared/interfaces';
 
 import {
     DEBUG_TRACE_EVENT_CHANNEL,
@@ -206,6 +220,22 @@ function wrapElectronApi<T extends object>(api: T): T {
 }
 
 const electronApi: ElectronBridgeApi = {
+    openBrowserView: (mode: BrowserViewMode, url?: string) =>
+        ipcRenderer.invoke(BROWSER_VIEW_OPEN, mode, url) as Promise<BrowserViewState>,
+    setBrowserViewBounds: (
+        bounds: BrowserViewBounds,
+        target?: BrowserViewBoundsTarget
+    ) => ipcRenderer.invoke(BROWSER_VIEW_SET_BOUNDS, bounds, target),
+    executeBrowserCommand: (command: BrowserViewCommand) =>
+        ipcRenderer.invoke(BROWSER_VIEW_COMMAND, command) as Promise<BrowserViewState | null>,
+    closeBrowserView: (mode?: BrowserViewMode, terminate?: boolean) =>
+        ipcRenderer.invoke(BROWSER_VIEW_CLOSE, mode, terminate),
+    onBrowserViewUpdate: (callback: (state: BrowserViewState) => void) => {
+        const handler = (_event: Electron.IpcRendererEvent, state: BrowserViewState) =>
+            callback(state);
+        ipcRenderer.on(BROWSER_VIEW_UPDATE, handler);
+        return () => ipcRenderer.off(BROWSER_VIEW_UPDATE, handler);
+    },
     // Player error listener
     onPlayerError: (
         callback: (data: {
@@ -626,7 +656,7 @@ const electronApi: ElectronBridgeApi = {
         kind: 'all' | 'vod' | 'series',
         limit?: number,
         playlistType?:
-            'xtream' | 'stalker' | 'm3u-file' | 'm3u-text' | 'm3u-url'
+            'xtream' | 'm3u-file' | 'm3u-text' | 'm3u-url'
     ) =>
         ipcRenderer.invoke(
             'DB_GET_GLOBAL_RECENTLY_ADDED',

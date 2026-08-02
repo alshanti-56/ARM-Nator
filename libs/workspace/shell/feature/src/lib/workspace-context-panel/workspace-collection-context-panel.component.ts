@@ -5,7 +5,7 @@ import { WorkspaceContextCategoryViewComponent } from './components/workspace-co
 
 /**
  * Context panel rendered in the workspace-shell aside for
- * collection-backed workspace pages such as downloads.
+ * collection-backed workspace pages.
  *
  * Reads categories from PortalCollectionContextService (populated by the
  * active routed collection page) and emits

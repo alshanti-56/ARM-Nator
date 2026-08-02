@@ -31,7 +31,6 @@ const DEFAULT_SETTINGS: Settings = {
   vlcPlayerPath: "",
   vlcPlayerArguments: "",
   vlcReuseInstance: false,
-  downloadFolder: "",
   coverSize: "medium",
   dashboardRails: DEFAULT_DASHBOARD_RAILS_SETTINGS,
   trustedInsecureTlsHosts: [],
@@ -177,8 +176,6 @@ export const SettingsStore = signalStore(
           vlcPlayerPath: store.vlcPlayerPath(),
           vlcPlayerArguments: store.vlcPlayerArguments(),
           vlcReuseInstance: store.vlcReuseInstance(),
-          downloadFolder:
-            store.downloadFolder?.() ?? DEFAULT_SETTINGS.downloadFolder,
           coverSize: store.coverSize?.() ?? DEFAULT_SETTINGS.coverSize,
           dashboardRails: normalizeDashboardRailsSettings(
             store.dashboardRails?.(),
@@ -188,10 +185,6 @@ export const SettingsStore = signalStore(
             DEFAULT_SETTINGS.trustedInsecureTlsHosts,
           tmdb: store.tmdb?.() ?? DEFAULT_SETTINGS.tmdb,
         };
-      },
-
-      getDownloadFolder() {
-        return store.downloadFolder?.() ?? DEFAULT_SETTINGS.downloadFolder;
       },
 
       getTrustOptions(): ElectronBridgeTrustOptions {

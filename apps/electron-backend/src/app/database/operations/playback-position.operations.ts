@@ -2,7 +2,7 @@ import { and, desc, eq, sql } from 'drizzle-orm';
 import * as schema from '@arm-nator/database/schema';
 import type { AppDatabase } from '../database.types';
 
-type PlaylistType = 'xtream' | 'stalker' | 'm3u-file' | 'm3u-text' | 'm3u-url';
+type PlaylistType = 'xtream' | 'm3u-file' | 'm3u-text' | 'm3u-url';
 
 type PlaybackPositionPayload = {
     contentXtreamId: number;
@@ -18,7 +18,7 @@ type PlaybackPositionPayload = {
 async function ensurePlaylistExists(
     db: AppDatabase,
     playlistId: string,
-    playlistType: PlaylistType = 'stalker'
+    playlistType: PlaylistType = 'xtream'
 ): Promise<void> {
     const existing = await db
         .select()

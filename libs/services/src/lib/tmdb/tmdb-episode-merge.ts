@@ -6,9 +6,8 @@ import { tmdbStillUrl } from './tmdb-config';
 import { TmdbEpisode } from './tmdb.types';
 
 /**
- * Field-level merge of TMDB season data into an episode list (shared by
- * Xtream serial details and the Stalker series view, which map episodes to
- * the same `XtreamSerieEpisode` shape). Matching is by episode number.
+ * Field-level merge of TMDB season data into an Xtream episode list.
+ * Matching is by episode number.
  *
  * TMDB wins for editorial fields (real episode names, overviews, stills),
  * the provider keeps everything stream-related. Episodes without a TMDB

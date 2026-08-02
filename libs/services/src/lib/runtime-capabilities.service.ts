@@ -1,8 +1,6 @@
 import { Injectable } from '@angular/core';
 import { ElectronBridgeApi } from '@arm-nator/shared/interfaces';
 
-export type RuntimeEnvironment = 'electron' | 'pwa';
-
 type RuntimeElectronBridge = Partial<ElectronBridgeApi>;
 
 const playbackPositionStorageMethods = [
@@ -17,16 +15,8 @@ const playbackPositionStorageMethods = [
 
 @Injectable({ providedIn: 'root' })
 export class RuntimeCapabilitiesService {
-    get environment(): RuntimeEnvironment {
-        return this.isElectron ? 'electron' : 'pwa';
-    }
-
     get isElectron(): boolean {
         return !!this.electronBridge;
-    }
-
-    get isPwa(): boolean {
-        return !this.isElectron;
     }
 
     get platform(): string | undefined {
@@ -93,33 +83,8 @@ export class RuntimeCapabilitiesService {
         return this.hasElectronMethod('onPlaybackPositionUpdate');
     }
 
-    get supportsPortalActivityStorage(): boolean {
-        return [
-            'dbGetRecentlyViewed',
-            'dbClearRecentlyViewed',
-            'dbGetAllGlobalFavorites',
-            'dbGetGlobalRecentlyAdded',
-            'dbAddFavorite',
-            'dbRemoveFavorite',
-            'dbGetFavorites',
-            'dbReorderGlobalFavorites',
-            'dbGetRecentItems',
-            'dbAddRecentItem',
-            'dbClearPlaylistRecentItems',
-            'dbRemoveRecentItem',
-            'dbRemoveRecentItemsBatch',
-            'dbGetContentByXtreamId',
-        ].every((methodName) => this.hasElectronMethod(methodName));
-    }
-
     get supportsAppStateStorage(): boolean {
         return ['dbGetAppState', 'dbSetAppState'].every((methodName) =>
-            this.hasElectronMethod(methodName)
-        );
-    }
-
-    get supportsStalkerPlaylistSqliteSync(): boolean {
-        return ['dbGetPlaylist', 'dbCreatePlaylist'].every((methodName) =>
             this.hasElectronMethod(methodName)
         );
     }
@@ -157,7 +122,6 @@ export class RuntimeCapabilitiesService {
 
     get supportsXtreamSectionNavigation(): boolean {
         return (
-            this.isPwa ||
             this.supportsXtreamSqliteDataSource ||
             this.hasElectronMethod('xtreamRequest')
         );
