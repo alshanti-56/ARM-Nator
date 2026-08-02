@@ -29,8 +29,7 @@ import {
 } from "@arm-nator/providers/shared/util";
 import { TranslateModule } from "@ngx-translate/core";
 
-export interface EnrichedUnifiedFavorite extends UnifiedFavoriteChannel {
-}
+export type EnrichedUnifiedFavorite = UnifiedFavoriteChannel;
 
 export type GlobalFavoritesListMode = "favorites" | "recent";
 

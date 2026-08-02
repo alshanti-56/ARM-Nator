@@ -1,4 +1,3 @@
-/* eslint-disable max-lines */
 import { inject, Injectable } from "@angular/core";
 import { MatSnackBar } from "@angular/material/snack-bar";
 import { Router } from "@angular/router";

@@ -1,4 +1,3 @@
-/* eslint-disable max-lines */
 import { Clipboard, ClipboardModule } from '@angular/cdk/clipboard';
 import { DatePipe } from '@angular/common';
 import { Component, inject } from '@angular/core';

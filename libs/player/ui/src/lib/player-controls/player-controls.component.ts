@@ -115,8 +115,6 @@ export class PlayerControlsComponent implements OnDestroy {
         { key: 'gamma', label: 'GAMMA', min: -100, max: 100 },
     ] as const;
 
-    // The page around the player already names the content; the overlay only
-    // fills that gap in fullscreen, where no other chrome is visible.
     readonly fullscreenMediaTitle = computed<PlayerMediaTitle | null>(() => {
         if (!this.showControls() || !this.isFullscreen()) {
             return null;

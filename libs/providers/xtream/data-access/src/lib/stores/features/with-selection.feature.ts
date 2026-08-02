@@ -329,11 +329,9 @@ export function withSelection() {
         return sortByMode(content, "date-desc", categoryType);
       });
 
-      // ---------------------------------------------------------------------------
       // Per-type category item-count maps.
       // Each computed only recomputes when ITS streams array changes —
       // switching content tabs no longer triggers an O(n) full scan.
-      // ---------------------------------------------------------------------------
       const buildCountMap = (
         streams: XtreamSelectionItem[],
       ): Map<number, number> => {
@@ -375,11 +373,9 @@ export function withSelection() {
         selectedTypeContentReady(),
       );
 
-      // ---------------------------------------------------------------------------
       // Stable filter + sort intermediate.
       // Depends on category / search / sort — but NOT on page or limit.
       // This prevents re-sorting the full array on every page-navigation.
-      // ---------------------------------------------------------------------------
       const filteredAndSortedContent = computed(() => {
         const categoryId = store.selectedCategoryId();
         const categoryType = store.selectedContentType();

@@ -37,8 +37,6 @@ export class WorkspaceShellSearchService {
         const route = this.routeState.currentRoute();
         const context = route.context;
         const section = route.section;
-        const appliedQuery = this.appliedSearchQuery().trim();
-
         if (route.kind === 'settings') {
             return {
                 enabled: false,

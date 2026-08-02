@@ -1,10 +1,8 @@
-/* eslint-disable max-lines */
 import { CommonModule } from "@angular/common";
 import {
   ChangeDetectionStrategy,
   Component,
   computed,
-  effect,
   inject,
   Input,
   input,
@@ -12,7 +10,6 @@ import {
   OnInit,
   output,
   signal,
-  untracked,
 } from "@angular/core";
 import { toSignal } from "@angular/core/rxjs-interop";
 import { MatButtonModule } from "@angular/material/button";
@@ -37,7 +34,6 @@ import {
   BehaviorSubject,
   combineLatest,
   filter,
-  forkJoin,
   firstValueFrom,
   map,
 } from "rxjs";

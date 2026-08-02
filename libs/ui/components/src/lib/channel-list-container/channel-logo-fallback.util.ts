@@ -2,7 +2,6 @@ import { Channel } from "@arm-nator/shared/interfaces";
 
 export function resolveChannelLogo(
   channel: Channel | null | undefined,
-  channelIconMap: ReadonlyMap<string, string | null | undefined>,
 ): string {
   const playlistLogo = channel?.tvg?.logo?.trim();
   if (playlistLogo) {

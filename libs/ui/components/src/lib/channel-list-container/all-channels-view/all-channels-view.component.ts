@@ -120,7 +120,7 @@ export class AllChannelsViewComponent {
    * cheaper than rebuilding a separate logo map per channels/iconMap change.
    */
   getLogoForChannel(channel: Channel): string {
-    return resolveChannelLogo(channel, this.channelIconMap());
+    return resolveChannelLogo(channel);
   }
 
   trackByFn(_: number, channel: Channel): string {

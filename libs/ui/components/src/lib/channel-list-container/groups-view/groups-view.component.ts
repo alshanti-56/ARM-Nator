@@ -326,7 +326,7 @@ export class GroupsViewComponent {
 
   /** Resolves the channel logo. Called per visible row from the template. */
   getLogoForChannel(channel: Channel): string {
-    return resolveChannelLogo(channel, this.channelIconMap());
+    return resolveChannelLogo(channel);
   }
 
   private readonly groupKeyByChannelUrl = computed(() => {

@@ -9,8 +9,7 @@ export type M3uBackupSourceKind = 'url' | 'file' | 'text';
 export type XtreamBackupContentType = 'live' | 'movie' | 'series';
 export type XtreamBackupCategoryType = 'live' | 'movies' | 'series';
 
-export interface PlaylistBackupSettings {
-}
+export type PlaylistBackupSettings = Record<string, never>;
 
 export interface PlaylistBackupBaseEntry {
     portalType: PlaylistBackupPortalType;

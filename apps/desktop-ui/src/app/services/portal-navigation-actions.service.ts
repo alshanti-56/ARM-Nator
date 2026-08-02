@@ -7,7 +7,6 @@ import {
 } from '@arm-nator/providers/shared/util';
 import { XtreamStore } from '@arm-nator/providers/xtream/data-access';
 import { Playlist } from '@arm-nator/shared/interfaces';
-import { SettingsComponent } from '@arm-nator/settings/ui';
 
 @Injectable({ providedIn: 'root' })
 export class AppPortalNavigationActionsService
@@ -42,13 +41,15 @@ export class AppPortalNavigationActionsService
     }
 
     openSettings(): void {
-        this.dialog.open(SettingsComponent, {
-            width: '1200px',
-            maxWidth: '96vw',
-            maxHeight: '92vh',
-            data: {
-                isDialog: true,
-            },
+        void import('@arm-nator/settings/ui').then(({ SettingsComponent }) => {
+            this.dialog.open(SettingsComponent, {
+                width: '1200px',
+                maxWidth: '96vw',
+                maxHeight: '92vh',
+                data: {
+                    isDialog: true,
+                },
+            });
         });
     }
 }

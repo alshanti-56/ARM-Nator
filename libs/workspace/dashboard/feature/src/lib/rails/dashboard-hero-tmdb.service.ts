@@ -63,7 +63,7 @@ export class DashboardHeroTmdbService {
                 title: item.title,
                 year: extractYear(null, item.title),
             };
-            let details =
+            const details =
                 item.type === 'movie'
                     ? await this.enrichment.enrichMovie(query)
                     : await this.enrichment.enrichTv(query);

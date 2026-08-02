@@ -75,12 +75,11 @@ export class RecentViewComponent {
 
   readonly enrichedRecentItems = computed(() => {
     const recentItems = this.filteredRecentItems();
-    const iconMap = this.channelIconMap();
     return recentItems.map(({ channel, viewedAt }) => {
       return {
         channel,
         viewedAt,
-        logo: resolveChannelLogo(channel, iconMap),
+        logo: resolveChannelLogo(channel),
       };
     });
   });

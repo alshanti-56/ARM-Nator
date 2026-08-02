@@ -8,8 +8,8 @@ import {
   signal,
   untracked,
 } from "@angular/core";
-import { toObservable, toSignal } from "@angular/core/rxjs-interop";
-import { interval, of, startWith, switchMap } from "rxjs";
+import { toSignal } from "@angular/core/rxjs-interop";
+import { startWith } from "rxjs";
 import { normalizeDashboardRailsSettings } from "@arm-nator/shared/interfaces";
 
 import { MatButtonModule } from "@angular/material/button";

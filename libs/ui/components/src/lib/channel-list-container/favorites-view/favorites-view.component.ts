@@ -91,7 +91,7 @@ export class FavoritesViewComponent {
 
   /** Resolves the channel logo. Called per visible row from the template. */
   getLogoForChannel(channel: Channel): string {
-    return resolveChannelLogo(channel, this.channelIconMap());
+    return resolveChannelLogo(channel);
   }
 
   trackByFn(_: number, channel: Channel): string {

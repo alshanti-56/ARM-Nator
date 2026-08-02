@@ -43,7 +43,13 @@ const CODEC_ALIASES: Readonly<Record<string, string>> = {
 
 function safeMediaLabel(value: string | undefined): string | null {
     const label = value?.trim();
-    if (!label || /[\u0000-\u001f\u007f\ufffd]/u.test(label)) {
+    if (
+        !label ||
+        [...label].some((character) => {
+            const code = character.charCodeAt(0);
+            return code <= 0x1f || code === 0x7f || code === 0xfffd;
+        })
+    ) {
         return null;
     }
     return label;

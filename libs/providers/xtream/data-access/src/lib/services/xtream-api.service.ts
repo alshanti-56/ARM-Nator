@@ -1,4 +1,3 @@
-/* eslint-disable max-lines */
 import { inject, Injectable } from '@angular/core';
 import { DataService } from '@arm-nator/services';
 import { createLogger } from '@arm-nator/providers/shared/util';import { XtreamCategory, XtreamCodeActions, XtreamLiveStream, XtreamSerieDetails, XtreamSerieItem, XtreamVodDetails, XtreamVodStream, XTREAM_REQUEST, normalizeXtreamServerUrl } from '@arm-nator/shared/interfaces';
