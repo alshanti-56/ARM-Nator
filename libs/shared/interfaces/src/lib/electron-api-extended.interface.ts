@@ -10,6 +10,8 @@ import { Playlist } from './playlist.interface';
 import { PlaybackNetworkInspection, PlayerContentInfo, PlayerEngineAvailability, ResolvedPortalPlayback } from './portal-playback.interface';
 import { PortalDebugEvent } from './portal-debug.interface';
 import { CatalogTitleMatch } from './catalog-title-match.interface';
+import type { PlayerPictureSettings } from './video-picture-settings.interface';
+import type { PlayerSubtitleSettings } from './player-subtitle-settings.interface';
 import type {
     XtreamContentMetadata,
     XtreamMetadataEnrichmentState,
@@ -17,6 +19,12 @@ import type {
 import { Settings } from './settings.interface';
 import { TmdbCacheEntry, TmdbCacheMediaType, TmdbCacheStats } from './tmdb.interface';
 import { XtreamCategory } from './xtream-category.interface';
+import {
+    OpenSubtitlesDownloadRequest,
+    OpenSubtitlesDownloadedSubtitle,
+    OpenSubtitlesSearchRequest,
+    OpenSubtitlesSearchResult,
+} from './open-subtitles.interface';
 import type {
     BrowserViewBounds,
     BrowserViewBoundsTarget,
@@ -24,6 +32,10 @@ import type {
     BrowserViewMode,
     BrowserViewState,
 } from './browser-view.interface';
+import type {
+    CredentialTestBatchStartRequest,
+    CredentialTestProgress,
+} from './credential-tester.interface';
 export const ELECTRON_BRIDGE_CONTENT_TYPES = {
     Episode: "episode",
     Live: "live",
@@ -247,11 +259,21 @@ export interface ElectronBridgeApi {
     autoUpdatePlaylists: (playlists: Playlist[], options?: ElectronBridgeTrustOptions) => Promise<AutoUpdatePlaylistsResult>;
     updateSettings: (settings: Partial<Settings>) => Promise<void>;
     getAiSettings: () => Promise<ElectronBridgeAiSettings>;
+    searchOpenSubtitles: (
+        request: OpenSubtitlesSearchRequest
+    ) => Promise<OpenSubtitlesSearchResult[]>;
+    downloadOpenSubtitle: (
+        request: OpenSubtitlesDownloadRequest
+    ) => Promise<OpenSubtitlesDownloadedSubtitle>;
+    clearOpenSubtitlesCache: () => Promise<void>;
     setMpvPlayerPath: (mpvPlayerPath: string) => Promise<void>;
     setVlcPlayerPath: (vlcPlayerPath: string) => Promise<void>;
     xtreamRequest: (payload: ElectronBridgeXtreamRequestPayload) => Promise<ElectronBridgeXtreamResponse>;
     xtreamCancelSession: (sessionId: string) => Promise<ElectronBridgeXtreamCancelResult>;
     xtreamProbeUrl: (url: string, method?: 'GET' | 'HEAD') => Promise<ElectronBridgeXtreamProbeResult>;
+    startCredentialTestBatch: (request: CredentialTestBatchStartRequest) => Promise<string>;
+    cancelCredentialTestBatch: (batchId: string) => Promise<void>;
+    onCredentialTestProgress: (callback: (progress: CredentialTestProgress) => void) => () => void;
     refreshPlaylist: (payload: PlaylistRefreshPayload) => Promise<Playlist | PlaylistRefreshCancelledResult>;
     cancelPlaylistRefresh: (operationId: string) => Promise<ElectronBridgeResult>;
     dbCreatePlaylist: (playlist: ElectronBridgePlaylistUpsertInput) => Promise<ElectronBridgeResult>;
@@ -349,8 +371,11 @@ export interface ElectronBridgeApi {
     setEmbeddedMpvVolume: (sessionId: string, volume: number) => Promise<EmbeddedMpvSession | null>;
     setEmbeddedMpvAudioTrack: (sessionId: string, trackId: number) => Promise<EmbeddedMpvSession | null>;
     setEmbeddedMpvSubtitleTrack?: (sessionId: string, trackId: number) => Promise<EmbeddedMpvSession | null>;
+    setEmbeddedMpvSubtitleFile?: (sessionId: string, filePath: string) => Promise<EmbeddedMpvSession | null>;
+    setEmbeddedMpvSubtitleSettings?: (sessionId: string, settings: PlayerSubtitleSettings) => Promise<EmbeddedMpvSession | null>;
     setEmbeddedMpvSpeed?: (sessionId: string, speed: number) => Promise<EmbeddedMpvSession | null>;
     setEmbeddedMpvAspect?: (sessionId: string, aspect: string) => Promise<EmbeddedMpvSession | null>;
+    setEmbeddedMpvPicture?: (sessionId: string, picture: PlayerPictureSettings) => Promise<EmbeddedMpvSession | null>;
     disposeEmbeddedMpvSession: (sessionId: string) => Promise<EmbeddedMpvSession | null>;
     openBrowserView: (
         mode: BrowserViewMode,

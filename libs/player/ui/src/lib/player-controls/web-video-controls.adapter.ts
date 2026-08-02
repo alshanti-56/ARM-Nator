@@ -3,6 +3,8 @@ import {
     createEmptyControlsState,
     DEFAULT_ASPECT_PRESETS,
     DEFAULT_PLAYER_CAPABILITIES,
+    DEFAULT_PICTURE_SETTINGS,
+    DEFAULT_SUBTITLE_SETTINGS,
     DEFAULT_SPEED_PRESETS,
 } from './player-controls-defaults';
 import type {
@@ -11,8 +13,14 @@ import type {
     PlayerControlsCommands,
     PlayerControlsState,
     PlayerMediaTelemetry,
+    PlayerPictureSettings,
+    PlayerSubtitleSettings,
     PlayerTrack,
 } from './player-controls.model';
+import { WebVideoPictureAdjustments } from './web-video-picture-adjustments';
+import { WebVideoSubtitleAdjustments } from '../web-video-support/web-video-subtitle-adjustments';
+import { syncOnlineSubtitleTrack } from '../web-video-support/online-subtitle-track';
+import type { OpenSubtitlesDownloadedSubtitle } from '@arm-nator/shared/interfaces';
 import type { SeriesPlaybackNavigation } from '../portal-inline-player/series-playback-navigation';
 import {
     applyTrackSelection,
@@ -65,6 +73,14 @@ export class WebVideoControlsAdapter implements PlayerController {
     private sampledFps: number | undefined;
     private sampledBitrate: number | undefined;
     private readonly aspectRatio = signal('no');
+    private readonly picture = signal<PlayerPictureSettings>(
+        DEFAULT_PICTURE_SETTINGS
+    );
+    private pictureAdjustments: WebVideoPictureAdjustments | null = null;
+    private subtitleAdjustments: WebVideoSubtitleAdjustments | null = null;
+    private readonly subtitle = signal<PlayerSubtitleSettings>(
+        DEFAULT_SUBTITLE_SETTINGS
+    );
 
     /** Bumped whenever DOM or engine-specific state must be re-read. */
     private readonly tick = signal(0);
@@ -102,6 +118,7 @@ export class WebVideoControlsAdapter implements PlayerController {
             audioTracks: hasAudioTracks,
             subtitles: hasSubtitles,
             aspectRatio: true,
+            pictureAdjustments: true,
             seriesNavigation: !isLive && this.seriesNavigation() !== null,
         };
     });
@@ -139,6 +156,8 @@ export class WebVideoControlsAdapter implements PlayerController {
             speedPresets: DEFAULT_SPEED_PRESETS,
             aspectRatio: this.aspectRatio(),
             aspectPresets: DEFAULT_ASPECT_PRESETS,
+            picture: this.picture(),
+            subtitle: this.subtitle(),
             canPreviousEpisode:
                 seriesNavCapable && seriesNav?.canPrevious === true,
             canNextEpisode: seriesNavCapable && seriesNav?.canNext === true,
@@ -255,6 +274,28 @@ export class WebVideoControlsAdapter implements PlayerController {
             }
             this.refresh();
         },
+        setPictureSettings: (value) => {
+            this.picture.set(value);
+            this.pictureAdjustments?.apply(value);
+            this.refresh();
+        },
+        setSubtitleSettings: (value) => {
+            this.subtitle.set(value);
+            this.subtitleAdjustments?.apply(value);
+            this.refresh();
+        },
+        setOnlineSubtitle: (subtitle: OpenSubtitlesDownloadedSubtitle) => {
+            if (!this.video) {
+                return;
+            }
+            syncOnlineSubtitleTrack(this.video, {
+                url: subtitle.webVttDataUrl,
+                label: subtitle.label,
+                language: subtitle.language,
+            });
+            this.subtitleAdjustments?.apply(this.subtitle());
+            this.refresh();
+        },
     };
 
     /** Binds to a `<video>` element and starts maintaining the state signal. */
@@ -263,6 +304,10 @@ export class WebVideoControlsAdapter implements PlayerController {
         const generation = this.bindingGeneration;
         this.video = video;
         this.opts = opts;
+        this.pictureAdjustments = new WebVideoPictureAdjustments(video);
+        this.pictureAdjustments.apply(this.picture());
+        this.subtitleAdjustments = new WebVideoSubtitleAdjustments(video);
+        this.subtitleAdjustments.apply(this.subtitle());
 
         const onEvent = () => {
             if (this.video === video && this.bindingGeneration === generation) {
@@ -295,12 +340,18 @@ export class WebVideoControlsAdapter implements PlayerController {
         this.bindingGeneration += 1;
         this.detachFn?.();
         this.detachFn = null;
+        this.pictureAdjustments?.destroy();
+        this.pictureAdjustments = null;
+        this.subtitleAdjustments?.destroy();
+        this.subtitleAdjustments = null;
         this.video = null;
         this.opts = {};
         this.lastMetricSample = null;
         this.sampledFps = undefined;
         this.sampledBitrate = undefined;
         this.aspectRatio.set('no');
+        this.picture.set(DEFAULT_PICTURE_SETTINGS);
+        this.subtitle.set(DEFAULT_SUBTITLE_SETTINGS);
         this.refresh();
     }
 

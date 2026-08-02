@@ -19,6 +19,7 @@ import type {
     EmbeddedMpvDockPanelKind,
     EmbeddedMpvDockPanelView,
 } from './embedded-mpv-dock-panels';
+import type { PlayerPictureSettings } from '@arm-nator/shared/interfaces';
 
 /**
  * Horizontal chip panel that morphs the native-view embedded MPV dock row:
@@ -38,6 +39,18 @@ export class EmbeddedMpvDockPanelComponent implements OnDestroy {
     readonly backLabel = input.required<string>();
 
     readonly chipSelected = output<string>();
+    readonly pictureChanged = output<{
+        key: keyof PlayerPictureSettings;
+        value: number;
+    }>();
+    readonly pictureReset = output<void>();
+    readonly pictureSettings = [
+        { key: 'brightness', label: 'Brightness' },
+        { key: 'contrast', label: 'Contrast' },
+        { key: 'blackLevel', label: 'Black level' },
+        { key: 'saturation', label: 'Saturation' },
+        { key: 'gamma', label: 'Gamma' },
+    ] as const;
     readonly closed = output<void>();
 
     readonly canScrollStart = signal(false);

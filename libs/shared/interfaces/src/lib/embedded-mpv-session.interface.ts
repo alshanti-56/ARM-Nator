@@ -1,3 +1,5 @@
+import type { PlayerPictureSettings } from './video-picture-settings.interface';
+
 export type EmbeddedMpvSessionStatus =
     | 'idle'
     | 'loading'
@@ -18,6 +20,7 @@ export interface EmbeddedMpvCapabilities {
     subtitles: boolean;
     playbackSpeed: boolean;
     aspectOverride: boolean;
+    pictureAdjustments: boolean;
 }
 
 export interface EmbeddedMpvSupport {
@@ -52,6 +55,7 @@ export interface EmbeddedMpvSession {
     selectedSubtitleTrackId: number | null;
     playbackSpeed: number;
     aspectOverride: string;
+    picture: PlayerPictureSettings;
     /** Source video size reported by MPV. */
     videoWidth?: number;
     videoHeight?: number;

@@ -1,3 +1,4 @@
+/* eslint-disable max-lines */
 import { contextBridge, ipcRenderer, webUtils } from 'electron';
 import {
     createPreloadPerformanceCapture,
@@ -7,7 +8,15 @@ import type {
     EmbeddedMpvBounds,
     EmbeddedMpvSession,
     EmbeddedMpvSupport,
+    OpenSubtitlesSearchRequest,
+    OpenSubtitlesSearchResult,
+    OpenSubtitlesDownloadRequest,
+    OpenSubtitlesDownloadedSubtitle,
+    PlayerPictureSettings,
+    PlayerSubtitleSettings,
     ElectronBridgeApi,
+    CredentialTestBatchStartRequest,
+    CredentialTestProgress,
     ElectronBridgeDbOperationEvent,
     ElectronBridgePlaybackPositionInput,
     ElectronBridgePlaylistInput,
@@ -43,14 +52,6 @@ import type {
     BrowserViewState,
 } from '@arm-nator/shared/interfaces';
 import {
-    BROWSER_VIEW_CLOSE,
-    BROWSER_VIEW_COMMAND,
-    BROWSER_VIEW_OPEN,
-    BROWSER_VIEW_SET_BOUNDS,
-    BROWSER_VIEW_UPDATE,
-} from '@arm-nator/shared/interfaces';
-
-import {
     DEBUG_TRACE_EVENT_CHANNEL,
     isPerformanceCaptureEnabled,
     isRendererApiTraceEnabled,
@@ -68,6 +69,16 @@ const WINDOW_TOGGLE_MAXIMIZE = 'WINDOW:TOGGLE_MAXIMIZE';
 const WINDOW_CLOSE = 'WINDOW:CLOSE';
 const WINDOW_GET_STATE = 'WINDOW:GET_STATE';
 const WINDOW_STATE_CHANGED = 'WINDOW:STATE_CHANGED';
+const CREDENTIAL_TESTER_IPC = {
+    cancel: 'IPTV_CREDENTIAL_TEST_CANCEL',
+    progress: 'IPTV_CREDENTIAL_TEST_PROGRESS',
+    start: 'IPTV_CREDENTIAL_TEST_START',
+} as const;
+const BROWSER_VIEW_CLOSE = 'BROWSER:CLOSE';
+const BROWSER_VIEW_COMMAND = 'BROWSER:COMMAND';
+const BROWSER_VIEW_OPEN = 'BROWSER:OPEN';
+const BROWSER_VIEW_SET_BOUNDS = 'BROWSER:SET_BOUNDS';
+const BROWSER_VIEW_UPDATE = 'BROWSER:UPDATE';
 
 const dbSaveContentProgressListeners = new Set<
     (
@@ -493,6 +504,24 @@ const electronApi: ElectronBridgeApi = {
             sessionId,
             trackId
         ),
+    setEmbeddedMpvSubtitleFile: (
+        sessionId: string,
+        filePath: string
+    ): Promise<EmbeddedMpvSession | null> =>
+        ipcRenderer.invoke(
+            'EMBEDDED_MPV_SET_SUBTITLE_FILE',
+            sessionId,
+            filePath
+        ),
+    setEmbeddedMpvSubtitleSettings: (
+        sessionId: string,
+        settings: PlayerSubtitleSettings
+    ): Promise<EmbeddedMpvSession | null> =>
+        ipcRenderer.invoke(
+            'EMBEDDED_MPV_SET_SUBTITLE_SETTINGS',
+            sessionId,
+            settings
+        ),
     setEmbeddedMpvSpeed: (
         sessionId: string,
         speed: number
@@ -503,6 +532,11 @@ const electronApi: ElectronBridgeApi = {
         aspect: string
     ): Promise<EmbeddedMpvSession | null> =>
         ipcRenderer.invoke('EMBEDDED_MPV_SET_ASPECT', sessionId, aspect),
+    setEmbeddedMpvPicture: (
+        sessionId: string,
+        picture: PlayerPictureSettings
+    ): Promise<EmbeddedMpvSession | null> =>
+        ipcRenderer.invoke('EMBEDDED_MPV_SET_PICTURE', sessionId, picture),
     disposeEmbeddedMpvSession: (
         sessionId: string
     ): Promise<EmbeddedMpvSession | null> =>
@@ -518,6 +552,16 @@ const electronApi: ElectronBridgeApi = {
     updateSettings: (settings: Partial<Settings>) =>
         ipcRenderer.invoke('SETTINGS_UPDATE', settings),
     getAiSettings: () => ipcRenderer.invoke('GET_AI_SETTINGS'),
+    searchOpenSubtitles: (
+        request: OpenSubtitlesSearchRequest
+    ): Promise<OpenSubtitlesSearchResult[]> =>
+        ipcRenderer.invoke('OPEN_SUBTITLES_SEARCH', request),
+    downloadOpenSubtitle: (
+        request: OpenSubtitlesDownloadRequest
+    ): Promise<OpenSubtitlesDownloadedSubtitle> =>
+        ipcRenderer.invoke('OPEN_SUBTITLES_DOWNLOAD', request),
+    clearOpenSubtitlesCache: (): Promise<void> =>
+        ipcRenderer.invoke('OPEN_SUBTITLES_CLEAR_CACHE'),
     xtreamRequest: (payload: {
         url: string;
         params: Record<string, string>;
@@ -529,6 +573,20 @@ const electronApi: ElectronBridgeApi = {
         ipcRenderer.invoke('XTREAM_CANCEL_SESSION', sessionId),
     xtreamProbeUrl: (url: string, method?: 'GET' | 'HEAD') =>
         ipcRenderer.invoke('XTREAM_PROBE_URL', { url, method }),
+    startCredentialTestBatch: (request: CredentialTestBatchStartRequest) =>
+        ipcRenderer.invoke(CREDENTIAL_TESTER_IPC.start, request),
+    cancelCredentialTestBatch: (batchId: string) =>
+        ipcRenderer.invoke(CREDENTIAL_TESTER_IPC.cancel, batchId),
+    onCredentialTestProgress: (
+        callback: (progress: CredentialTestProgress) => void
+    ) => {
+        const handler = (
+            _event: Electron.IpcRendererEvent,
+            progress: CredentialTestProgress
+        ) => callback(progress);
+        ipcRenderer.on(CREDENTIAL_TESTER_IPC.progress, handler);
+        return () => ipcRenderer.off(CREDENTIAL_TESTER_IPC.progress, handler);
+    },
     refreshPlaylist: (payload: PlaylistRefreshPayload) =>
         ipcRenderer.invoke('PLAYLIST:REFRESH', payload),
     cancelPlaylistRefresh: (operationId: string) =>

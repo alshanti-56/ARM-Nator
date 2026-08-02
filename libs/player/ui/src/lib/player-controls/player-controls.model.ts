@@ -1,4 +1,12 @@
 import type { Signal } from '@angular/core';
+import type {
+    OpenSubtitlesDownloadedSubtitle,
+    PlayerPictureSettings,
+    PlayerSubtitleSettings,
+} from '@arm-nator/shared/interfaces';
+
+export type { PlayerPictureSettings } from '@arm-nator/shared/interfaces';
+export type { PlayerSubtitleSettings } from '@arm-nator/shared/interfaces';
 
 export type PlayerStatus =
     'idle' | 'loading' | 'playing' | 'paused' | 'ended' | 'error';
@@ -16,6 +24,7 @@ export interface PlayerControlsCapabilities {
     stop: boolean;
     restart: boolean;
     frameStep: boolean;
+    pictureAdjustments: boolean;
 }
 
 export interface PlayerTrack {
@@ -59,6 +68,8 @@ export interface PlayerControlsState {
     speedPresets: ReadonlyArray<PlayerPreset<number>>;
     aspectRatio: string;
     aspectPresets: ReadonlyArray<PlayerPreset<string>>;
+    picture: PlayerPictureSettings;
+    subtitle: PlayerSubtitleSettings;
     canPreviousEpisode: boolean;
     canNextEpisode: boolean;
 }
@@ -73,6 +84,9 @@ export interface PlayerControlsCommands {
     setSubtitleTrack(id: number): void; // -1 = off
     setPlaybackSpeed(speed: number): void;
     setAspectRatio(value: string): void;
+    setPictureSettings(value: PlayerPictureSettings): void;
+    setSubtitleSettings(value: PlayerSubtitleSettings): void;
+    setOnlineSubtitle(value: OpenSubtitlesDownloadedSubtitle): void;
 }
 
 /**

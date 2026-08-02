@@ -22,6 +22,44 @@ import type { PlaybackFallbackRequest } from '../playback-diagnostics/playback-d
 import { WebPlayerViewComponent } from '../web-player-view/web-player-view.component';
 import { WorkspacePlayerStateService } from './workspace-player-state.service';
 
+const CODEC_ALIASES: Readonly<Record<string, string>> = {
+    avc: 'H.264',
+    avc1: 'H.264',
+    av01: 'AV1',
+    av1: 'AV1',
+    h264: 'H.264',
+    h265: 'HEVC',
+    hevc: 'HEVC',
+    hev1: 'HEVC',
+    hvc1: 'HEVC',
+    mpeg2video: 'MPEG-2',
+    mpeg4: 'MPEG-4',
+    theora: 'Theora',
+    vp08: 'VP8',
+    vp09: 'VP9',
+    vp8: 'VP8',
+    vp9: 'VP9',
+};
+
+function safeMediaLabel(value: string | undefined): string | null {
+    const label = value?.trim();
+    if (!label || /[\u0000-\u001f\u007f\ufffd]/u.test(label)) {
+        return null;
+    }
+    return label;
+}
+
+function formatCodecLabel(
+    codec: string | undefined,
+    container: string | undefined
+): string {
+    const safeCodec = safeMediaLabel(codec);
+    if (safeCodec) {
+        return CODEC_ALIASES[safeCodec.toLowerCase()] ?? safeCodec;
+    }
+    return safeMediaLabel(container) ?? '—';
+}
+
 @Component({
     selector: 'app-workspace-player-host',
     imports: [MatButtonModule, MatIconModule, MatTooltipModule, WebPlayerViewComponent],
@@ -91,7 +129,7 @@ export class WorkspacePlayerHostComponent {
                     : typeof media.bufferedSeconds === 'number'
                       ? `${media.bufferedSeconds.toFixed(1)}s`
                       : '—',
-            codec: media.videoCodec ?? media.container ?? '—',
+            codec: formatCodecLabel(media.videoCodec, media.container),
         };
     });
 

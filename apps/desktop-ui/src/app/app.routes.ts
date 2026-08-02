@@ -63,6 +63,13 @@ export const routes: Routes = [
           import("@arm-nator/tools/feature").then((c) => c.DirectPlayComponent),
       },
       {
+        path: "tools/credentials",
+        loadComponent: () =>
+          import("@arm-nator/tools/feature").then(
+            (c) => c.CredentialTesterComponent,
+          ),
+      },
+      {
         path: "browser",
         data: { browserMode: "browser" },
         loadComponent: () =>

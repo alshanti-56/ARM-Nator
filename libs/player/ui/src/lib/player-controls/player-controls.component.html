@@ -540,6 +540,27 @@
                 </div>
             }
 
+            @if (capabilities().pictureAdjustments) {
+                <div class="player-controls__popover-anchor">
+                    <button
+                        mat-icon-button
+                        type="button"
+                        class="player-controls__button"
+                        (click)="toggleMenu('settings')"
+                        [attr.aria-expanded]="menus.settingsOpen()"
+                        [attr.aria-label]="
+                            'EMBEDDED_MPV.PLAYER.PICTURE_SETTINGS' | translate
+                        "
+                        [matTooltip]="
+                            'EMBEDDED_MPV.PLAYER.PICTURE_SETTINGS' | translate
+                        "
+                        matTooltipPosition="above"
+                    >
+                        <mat-icon>settings</mat-icon>
+                    </button>
+                </div>
+            }
+
             @if (capabilities().fullscreen) {
                 <button
                     mat-icon-button
@@ -567,5 +588,13 @@
                 </button>
             }
         </div>
+
+        @if (menus.settingsOpen()) {
+            <app-player-settings-panel
+                [controller]="controller()"
+                [mediaTitle]="mediaTitle()"
+                (closed)="closePopovers()"
+            />
+        }
     </div>
 }

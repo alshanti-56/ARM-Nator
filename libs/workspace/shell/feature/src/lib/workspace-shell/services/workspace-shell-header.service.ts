@@ -50,7 +50,9 @@ export class WorkspaceShellHeaderService {
 
   readonly playlistTitle = computed(() => {
     if (this.routeState.currentRoute().kind === "tool") {
-      return "Direct Play";
+      return this.isCredentialTesterRoute()
+        ? "IPTV Bulk Tester"
+        : "Direct Play";
     }
 
     const playlist = this.routeState.activePlaylist();
@@ -112,7 +114,9 @@ export class WorkspaceShellHeaderService {
     this.languageTick();
 
     if (this.routeState.currentRoute().kind === "tool") {
-      return "Playback tool";
+      return this.isCredentialTesterRoute()
+        ? "Source validation tool"
+        : "Playback tool";
     }
 
     const active = this.routeState.activePlaylist();
@@ -136,6 +140,10 @@ export class WorkspaceShellHeaderService {
       count: sourcesCount,
     });
   });
+
+  private isCredentialTesterRoute(): boolean {
+    return this.routeState.currentUrl().includes("/tools/credentials");
+  }
 
   openAddPlaylistDialog(kind?: "url" | "xtream"): void {
     if (kind) {

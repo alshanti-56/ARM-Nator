@@ -1,7 +1,9 @@
 import type {
     PlayerControlsCapabilities,
     PlayerControlsState,
+    PlayerPictureSettings,
     PlayerPreset,
+    PlayerSubtitleSettings,
 } from './player-controls.model';
 
 export const DEFAULT_PLAYER_CAPABILITIES: PlayerControlsCapabilities = {
@@ -16,6 +18,25 @@ export const DEFAULT_PLAYER_CAPABILITIES: PlayerControlsCapabilities = {
     stop: true,
     restart: true,
     frameStep: false,
+    pictureAdjustments: false,
+};
+
+export const DEFAULT_PICTURE_SETTINGS: PlayerPictureSettings = {
+    brightness: 0,
+    contrast: 0,
+    blackLevel: 0,
+    saturation: 0,
+    gamma: 0,
+};
+
+export const DEFAULT_SUBTITLE_SETTINGS: PlayerSubtitleSettings = {
+    fontSize: 100,
+    textColor: '#FFFFFF',
+    backgroundColor: '#000000',
+    backgroundOpacity: 72,
+    outlineSize: 2,
+    position: 92,
+    delaySeconds: 0,
 };
 
 export const DEFAULT_SPEED_PRESETS: ReadonlyArray<PlayerPreset<number>> = [
@@ -52,6 +73,8 @@ export function createEmptyControlsState(): PlayerControlsState {
         speedPresets: DEFAULT_SPEED_PRESETS,
         aspectRatio: 'no',
         aspectPresets: DEFAULT_ASPECT_PRESETS,
+        picture: DEFAULT_PICTURE_SETTINGS,
+        subtitle: DEFAULT_SUBTITLE_SETTINGS,
         canPreviousEpisode: false,
         canNextEpisode: false,
     };

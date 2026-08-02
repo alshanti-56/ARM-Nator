@@ -3,7 +3,7 @@ import { toSignal } from '@angular/core/rxjs-interop';
 import { MatButtonModule } from '@angular/material/button';
 import { MatIconModule } from '@angular/material/icon';
 import { MatMenuModule } from '@angular/material/menu';
-import { ActivatedRoute } from '@angular/router';
+import { ActivatedRoute, RouterLink } from '@angular/router';
 import { Store } from '@ngrx/store';
 import { RecentPlaylistsComponent } from '@arm-nator/providers/shared/playlist-ui';
 import { TranslatePipe, TranslateService } from '@ngx-translate/core';
@@ -29,6 +29,7 @@ interface SortOption {
         MatIconModule,
         MatMenuModule,
         RecentPlaylistsComponent,
+        RouterLink,
         TranslatePipe,
     ],
     templateUrl: './workspace-sources.component.html',

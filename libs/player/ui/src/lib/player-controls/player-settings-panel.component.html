@@ -1,0 +1,334 @@
+<section
+    class="player-settings"
+    role="dialog"
+    aria-label="Player settings"
+    (keydown.escape)="closed.emit()"
+>
+    <nav class="player-settings__nav" role="tablist" aria-label="Settings sections">
+        <div class="player-settings__nav-title">Player settings</div>
+        @for (tab of tabs; track tab.id) {
+            <button
+                type="button"
+                class="player-settings__nav-button"
+                [class.player-settings__nav-button--selected]="
+                    activeTab() === tab.id
+                "
+                [class.player-settings__nav-button--disabled]="
+                    !isTabAvailable(tab)
+                "
+                role="tab"
+                [disabled]="!isTabAvailable(tab)"
+                [attr.aria-selected]="activeTab() === tab.id"
+                [attr.aria-disabled]="!isTabAvailable(tab)"
+                (click)="selectTab(tab.id)"
+            >
+                <mat-icon aria-hidden="true">{{ tab.icon }}</mat-icon>
+                <span>{{
+                    ('EMBEDDED_MPV.PLAYER.' + tab.label) | translate
+                }}</span>
+            </button>
+        }
+    </nav>
+
+    <div class="player-settings__content">
+        @switch (activeTab()) {
+            @case ('picture') {
+                <div class="player-settings__title">Picture</div>
+                <div class="player-settings__subtitle">
+                    Tune the current video image.
+                </div>
+                @for (setting of pictureSettings; track setting.key) {
+                    <label class="player-settings__row">
+                        <span>{{
+                            ('EMBEDDED_MPV.PLAYER.' + setting.label) | translate
+                        }}</span>
+                        <input
+                            type="range"
+                            [min]="setting.min"
+                            [max]="setting.max"
+                            [value]="state().picture[setting.key]"
+                            (input)="setPictureSetting(setting.key, $event)"
+                        />
+                        <output>{{ state().picture[setting.key] }}</output>
+                    </label>
+                }
+                <button
+                    type="button"
+                    class="player-settings__secondary"
+                    (click)="resetPictureSettings()"
+                >
+                    {{ 'EMBEDDED_MPV.PLAYER.RESET_PICTURE' | translate }}
+                </button>
+            }
+
+            @case ('subtitles') {
+                <div class="player-settings__title">Subtitles</div>
+                <div class="player-settings__subtitle">
+                    Choose a track or find one online.
+                </div>
+                <div class="player-settings__section-label">Current track</div>
+                <div class="player-settings__choices player-settings__choices--tracks" role="listbox">
+                    <button
+                        type="button"
+                        class="player-settings__choice"
+                        [class.player-settings__choice--selected]="
+                            !state().subtitlesEnabled
+                        "
+                        (click)="selectSubtitleTrack(-1)"
+                    >
+                        {{ 'EMBEDDED_MPV.PLAYER.SUBTITLES_OFF' | translate }}
+                    </button>
+                    @for (track of state().subtitleTracks; track track.id) {
+                        <button
+                            type="button"
+                            class="player-settings__choice"
+                            [class.player-settings__choice--selected]="track.selected"
+                            (click)="selectSubtitleTrack(track.id)"
+                        >
+                            {{ track.label }}
+                        </button>
+                    }
+                </div>
+                @if (state().isLive) {
+                    <div class="player-settings__status">
+                        Online subtitle search is available for movies and series only.
+                    </div>
+                } @else {
+                    <div class="player-settings__section-label">Find online</div>
+                    <div class="player-settings__search">
+                        <input
+                            type="search"
+                            placeholder="Search by title…"
+                            [value]="subtitleSearchQuery()"
+                            [disabled]="subtitleSearchState() === 'loading'"
+                            (input)="updateSubtitleSearchQuery($event)"
+                            (keydown.enter)="searchSubtitles()"
+                        />
+                        <select
+                            aria-label="Subtitle language"
+                            [value]="subtitleSearchLanguages()"
+                            [disabled]="subtitleSearchState() === 'loading'"
+                            (change)="updateSubtitleSearchLanguages($event)"
+                        >
+                            <option value="ar">ar</option>
+                            <option value="en">en</option>
+                            <option value="ar,en">ar,en</option>
+                            <option value="tr">tr</option>
+                            <option value="fr">fr</option>
+                        </select>
+                        <button
+                            type="button"
+                            class="player-settings__search-button"
+                            aria-label="Search subtitles"
+                            title="Search subtitles"
+                            [disabled]="
+                                subtitleSearchState() === 'loading' ||
+                                subtitleSearchQuery().trim().length < 2
+                            "
+                            (click)="searchSubtitles()"
+                        >
+                            <mat-icon aria-hidden="true">
+                                {{ subtitleSearchState() === 'loading' ? 'progress_activity' : 'search' }}
+                            </mat-icon>
+                        </button>
+                    </div>
+                }
+                @if (!state().isLive && subtitleSearchState() === 'error') {
+                    <div class="player-settings__status player-settings__status--error" role="alert">
+                        {{ subtitleSearchError() }}
+                    </div>
+                } @else if (!state().isLive && subtitleSearchState() === 'success' && subtitleSearchResults().length === 0) {
+                    <div class="player-settings__status">No subtitles found.</div>
+                } @else if (!state().isLive && subtitleSearchState() === 'success') {
+                    <div class="player-settings__results" role="list" aria-label="Subtitle search results">
+                        @for (result of subtitleSearchResults(); track result.id + '-' + result.fileId) {
+                            <button
+                                type="button"
+                                class="player-settings__result"
+                                role="listitem"
+                                [disabled]="subtitleDownloadId() !== null"
+                                (click)="downloadAndApplySubtitle(result)"
+                            >
+                                <div class="player-settings__result-title">
+                                    {{ result.release || result.fileName }}
+                                </div>
+                                <div class="player-settings__result-detail">
+                                    {{ result.language }}
+                                    · {{ result.downloads }} downloads
+                                    @if (result.trusted) { · trusted }
+                                    @if (result.hearingImpaired) { · SDH }
+                                    @if (result.year) { · {{ result.year }} }
+                                </div>
+                                <div class="player-settings__result-file">
+                                    {{ result.fileName }}
+                                </div>
+                                <div class="player-settings__result-action">
+                                    {{
+                                        subtitleDownloadId() === result.id
+                                            ? 'Downloading…'
+                                            : 'Download & apply'
+                                    }}
+                                </div>
+                            </button>
+                        }
+                    </div>
+                }
+
+                <details class="player-settings__fold">
+                    <summary>
+                        <span>Subtitle appearance</span>
+                        <mat-icon aria-hidden="true">expand_more</mat-icon>
+                    </summary>
+                    <div class="player-settings__fold-body">
+                        <label class="player-settings__row">
+                            <span>Text size</span>
+                            <input
+                                type="range"
+                                min="50"
+                                max="200"
+                                [value]="state().subtitle.fontSize"
+                                (input)="setSubtitleNumber('fontSize', $event)"
+                            />
+                            <output>{{ state().subtitle.fontSize }}%</output>
+                        </label>
+                        <label class="player-settings__row">
+                            <span>Background</span>
+                            <input
+                                type="range"
+                                min="0"
+                                max="100"
+                                [value]="state().subtitle.backgroundOpacity"
+                                (input)="setSubtitleNumber('backgroundOpacity', $event)"
+                            />
+                            <output>{{ state().subtitle.backgroundOpacity }}%</output>
+                        </label>
+                        <label class="player-settings__row">
+                            <span>Outline</span>
+                            <input
+                                type="range"
+                                min="0"
+                                max="6"
+                                step="1"
+                                [value]="state().subtitle.outlineSize"
+                                (input)="setSubtitleNumber('outlineSize', $event)"
+                            />
+                            <output>{{ state().subtitle.outlineSize }}</output>
+                        </label>
+                        <label class="player-settings__row">
+                            <span>Position</span>
+                            <input
+                                type="range"
+                                min="0"
+                                max="100"
+                                [value]="state().subtitle.position"
+                                (input)="setSubtitleNumber('position', $event)"
+                            />
+                            <output>{{ state().subtitle.position }}</output>
+                        </label>
+                        <div class="player-settings__color-row">
+                            <label>Text color <input type="color" [value]="state().subtitle.textColor" (input)="setSubtitleColor('textColor', $event)" /></label>
+                            <label>Background <input type="color" [value]="state().subtitle.backgroundColor" (input)="setSubtitleColor('backgroundColor', $event)" /></label>
+                        </div>
+                        <button type="button" class="player-settings__secondary" (click)="resetSubtitleSettings()">
+                            Reset subtitle settings
+                        </button>
+                    </div>
+                </details>
+
+                <details class="player-settings__fold">
+                    <summary>
+                        <span>Sync</span>
+                        <mat-icon aria-hidden="true">expand_more</mat-icon>
+                    </summary>
+                    <div class="player-settings__fold-body player-settings__sync">
+                        <button type="button" class="player-settings__stepper" aria-label="Move subtitles earlier" title="Move subtitles earlier" (click)="adjustSubtitleDelay(-0.5)">−</button>
+                        <output>{{ state().subtitle.delaySeconds > 0 ? '+' : '' }}{{ state().subtitle.delaySeconds.toFixed(1) }}s</output>
+                        <button type="button" class="player-settings__stepper" aria-label="Move subtitles later" title="Move subtitles later" (click)="adjustSubtitleDelay(0.5)">+</button>
+                        <button type="button" class="player-settings__sync-reset" (click)="resetSubtitleSettings()">Reset</button>
+                    </div>
+                </details>
+
+                <div class="player-settings__cache">
+                    <div>
+                        <div class="player-settings__cache-title">Subtitle cache</div>
+                        <div class="player-settings__status">Downloaded subtitles are reused automatically.</div>
+                        @if (cacheState() === 'cleared') {
+                            <div class="player-settings__status">Cache cleared.</div>
+                        } @else if (cacheState() === 'error') {
+                            <div class="player-settings__status player-settings__status--error">Could not clear cache.</div>
+                        }
+                    </div>
+                    <button type="button" class="player-settings__cache-button" [disabled]="cacheState() === 'clearing'" (click)="clearSubtitleCache()">
+                        {{ cacheState() === 'clearing' ? 'Clearing…' : 'Clear' }}
+                    </button>
+                </div>
+            }
+
+            @case ('audio') {
+                <div class="player-settings__title">Audio</div>
+                <div class="player-settings__subtitle">
+                    Choose the soundtrack.
+                </div>
+                <div class="player-settings__section-label">Track</div>
+                <div class="player-settings__choices" role="listbox">
+                    @for (track of state().audioTracks; track track.id) {
+                        <button
+                            type="button"
+                            class="player-settings__choice"
+                            [class.player-settings__choice--selected]="track.selected"
+                            (click)="selectAudioTrack(track.id)"
+                        >
+                            {{ track.label }}
+                        </button>
+                    }
+                </div>
+            }
+
+            @case ('playback') {
+                <div class="player-settings__title">Playback</div>
+                <div class="player-settings__subtitle">
+                    Control how the video plays.
+                </div>
+                <div class="player-settings__section-label">Speed</div>
+                <div class="player-settings__choices" role="listbox">
+                    @for (preset of state().speedPresets; track preset.value) {
+                        <button
+                            type="button"
+                            class="player-settings__choice"
+                            [class.player-settings__choice--selected]="
+                                preset.value === state().playbackSpeed
+                            "
+                            (click)="selectSpeed(preset.value)"
+                        >
+                            {{ preset.label }}
+                        </button>
+                    }
+                </div>
+            }
+
+            @case ('screen') {
+                <div class="player-settings__title">Screen</div>
+                <div class="player-settings__subtitle">
+                    Fit the video to the player.
+                </div>
+                <div class="player-settings__section-label">Aspect ratio</div>
+                <div class="player-settings__choices" role="listbox">
+                    @for (preset of state().aspectPresets; track preset.value) {
+                        <button
+                            type="button"
+                            class="player-settings__choice"
+                            [class.player-settings__choice--selected]="
+                                preset.value === state().aspectRatio
+                            "
+                            (click)="selectAspect(preset.value)"
+                        >
+                            {{ preset.label }}
+                        </button>
+                    }
+                </div>
+                <div class="player-settings__section-label">Display mode</div>
+                <div class="player-settings__display-mode">Fit</div>
+            }
+        }
+    </div>
+</section>

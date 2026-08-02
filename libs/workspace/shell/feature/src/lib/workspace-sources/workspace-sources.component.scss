@@ -31,6 +31,18 @@
     @include panel.standard-panel-subtitle();
 }
 
+.sources-header__actions {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    flex-shrink: 0;
+    app-region: no-drag;
+}
+
+.bulk-test-trigger {
+    white-space: nowrap;
+}
+
 .sort-trigger {
     flex-shrink: 0;
     display: inline-flex;
@@ -90,6 +102,11 @@
         flex-direction: column;
         align-items: flex-start;
         gap: 4px;
+    }
+
+    .sources-header__actions {
+        width: 100%;
+        justify-content: space-between;
     }
 
     .sources-content {

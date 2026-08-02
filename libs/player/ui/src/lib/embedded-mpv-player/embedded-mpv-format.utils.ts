@@ -84,7 +84,7 @@ export function speedLabel(speed: number): string {
 
 export function aspectLabel(aspect: string): string {
     const preset = ASPECT_PRESETS.find((p) => p.value === aspect);
-    return preset?.label ?? aspect;
+    return preset?.label ?? ASPECT_PRESETS[0].label;
 }
 
 export function volumeIcon(value: number): string {

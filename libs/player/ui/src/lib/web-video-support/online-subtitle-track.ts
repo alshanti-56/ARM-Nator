@@ -34,4 +34,14 @@ export function syncOnlineSubtitleTrack(
     track.default = true;
     track.setAttribute(ONLINE_SUBTITLE_ATTRIBUTE, '');
     video.appendChild(track);
+
+    // Applying an online subtitle is an explicit user action. Show it even
+    // when the global caption preference is currently off; the shared track
+    // controller can still turn it off afterward.
+    const textTrack = Array.from(video.textTracks).find(
+        (candidate) => candidate.id === ONLINE_SUBTITLE_TRACK_ID
+    );
+    if (textTrack) {
+        textTrack.mode = 'showing';
+    }
 }

@@ -27,9 +27,21 @@
                 </nav>
 
                 <div class="workspace-player__health">
-                    <span title="Resolution">{{ mediaSummary().resolution }}</span>
-                    <span title="Buffer">Buffer {{ mediaSummary().buffer }}</span>
-                    <span title="Codec">{{ mediaSummary().codec }}</span>
+                    <span
+                        matTooltip="Resolution"
+                        matTooltipPosition="above"
+                        >{{ mediaSummary().resolution }}</span
+                    >
+                    <span
+                        matTooltip="Buffer"
+                        matTooltipPosition="above"
+                        >Buffer {{ mediaSummary().buffer }}</span
+                    >
+                    <span
+                        matTooltip="Codec"
+                        matTooltipPosition="above"
+                        >{{ mediaSummary().codec }}</span
+                    >
                 </div>
             }
 
@@ -40,6 +52,7 @@
                         mat-icon-button
                         type="button"
                         matTooltip="Stop"
+                        matTooltipPosition="above"
                         (click)="state.stop()"
                     >
                         <mat-icon>stop</mat-icon>
@@ -49,6 +62,7 @@
                         mat-icon-button
                         type="button"
                         matTooltip="Restart"
+                        matTooltipPosition="above"
                         (click)="state.restart()"
                     >
                         <mat-icon>restart_alt</mat-icon>
@@ -59,6 +73,7 @@
                         mat-icon-button
                         type="button"
                         matTooltip="Expand player"
+                        matTooltipPosition="above"
                         (click)="state.expand()"
                     >
                         <mat-icon>open_in_full</mat-icon>
@@ -68,6 +83,7 @@
                         mat-icon-button
                         type="button"
                         matTooltip="Mini player"
+                        matTooltipPosition="above"
                         (click)="state.minimize()"
                     >
                         <mat-icon>picture_in_picture_alt</mat-icon>
@@ -77,6 +93,7 @@
                     mat-icon-button
                     type="button"
                     matTooltip="Close player"
+                    matTooltipPosition="above"
                     (click)="state.close()"
                 >
                     <mat-icon>close</mat-icon>

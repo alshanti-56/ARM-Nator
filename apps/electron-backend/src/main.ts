@@ -10,6 +10,7 @@ import EmbeddedMpvEvents, {
 } from './app/events/embedded-mpv.events';
 import { shutdownMpvSession } from './app/events/mpv-session.service';
 import PlayerEvents from './app/events/player.events';
+import OpenSubtitlesEvents from './app/events/open-subtitles.events';
 import { shutdownVlcSession } from './app/events/vlc-session.service';
 import PlaylistEvents from './app/events/playlist.events';
 import SettingsEvents from './app/events/settings.events';
@@ -23,6 +24,9 @@ import BrowserEvents, {
 } from './app/events/browser.events';
 import { browserViewService } from './app/services/browser-view.service';
 import XtreamEvents from './app/events/xtream.events';
+import CredentialTesterEvents, {
+    shutdownCredentialTesterBatches,
+} from './app/events/credential-tester.events';
 import { runEmbeddedMpvRuntimeDiagnosticOrContinue } from './app/services/embedded-mpv-runtime-diagnostic';
 
 app.setName('arm-nator');
@@ -82,8 +86,10 @@ export default class Main {
         PlaylistEvents.bootstrapPlaylistEvents();
         SharedEvents.bootstrapSharedEvents();
         PlayerEvents.bootstrapPlayerEvents();
+        OpenSubtitlesEvents.bootstrapOpenSubtitlesEvents();
         SettingsEvents.bootstrapSettingsEvents();
         XtreamEvents.bootstrapXtreamEvents();
+        CredentialTesterEvents.bootstrapCredentialTesterEvents();
         DatabaseEvents.bootstrapDatabaseEvents();
 
         // Load the renderer only after IPC handlers are registered.
@@ -133,6 +139,7 @@ runEmbeddedMpvRuntimeDiagnosticOrContinue(process.argv, () => {
     });
 
     app.on('before-quit', () => {
+        void shutdownCredentialTesterBatches();
         shutdownBrowserView();
         shutdownEmbeddedMpv();
         shutdownMpvSession();

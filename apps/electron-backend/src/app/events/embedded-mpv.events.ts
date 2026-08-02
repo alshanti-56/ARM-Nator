@@ -6,15 +6,20 @@ import {
     EMBEDDED_MPV_PREPARE,
     EMBEDDED_MPV_SEEK,
     EMBEDDED_MPV_SET_ASPECT,
+    EMBEDDED_MPV_SET_PICTURE,
     EMBEDDED_MPV_SET_AUDIO_TRACK,
     EMBEDDED_MPV_SET_BOUNDS,
     EMBEDDED_MPV_SET_PAUSED,
     EMBEDDED_MPV_SET_SPEED,
     EMBEDDED_MPV_SET_SUBTITLE_TRACK,
+    EMBEDDED_MPV_SET_SUBTITLE_FILE,
+    EMBEDDED_MPV_SET_SUBTITLE_SETTINGS,
     EMBEDDED_MPV_SET_VOLUME,
     EMBEDDED_MPV_SUPPORT,
     EmbeddedMpvBounds,
     ResolvedPortalPlayback,
+    PlayerPictureSettings,
+    PlayerSubtitleSettings,
 } from '@arm-nator/shared/interfaces';
 import {
     EmbeddedMpvNativeService,
@@ -62,6 +67,12 @@ handleEmbeddedMpv(
 );
 
 handleEmbeddedMpv(
+    EMBEDDED_MPV_SET_PICTURE,
+    (sessionId: string, picture: PlayerPictureSettings) =>
+        getService().setPicture(sessionId, picture)
+);
+
+handleEmbeddedMpv(
     EMBEDDED_MPV_LOAD_PLAYBACK,
     (sessionId: string, playback: ResolvedPortalPlayback) =>
         getService().loadPlayback(sessionId, playback)
@@ -99,6 +110,18 @@ handleEmbeddedMpv(
     EMBEDDED_MPV_SET_SUBTITLE_TRACK,
     (sessionId: string, trackId: number) =>
         getService().setSubtitleTrack(sessionId, trackId)
+);
+
+handleEmbeddedMpv(
+    EMBEDDED_MPV_SET_SUBTITLE_FILE,
+    (sessionId: string, filePath: string) =>
+        getService().setSubtitleFile(sessionId, filePath)
+);
+
+handleEmbeddedMpv(
+    EMBEDDED_MPV_SET_SUBTITLE_SETTINGS,
+    (sessionId: string, settings: PlayerSubtitleSettings) =>
+        getService().setSubtitleSettings(sessionId, settings)
 );
 
 handleEmbeddedMpv(EMBEDDED_MPV_SET_SPEED, (sessionId: string, speed: number) =>

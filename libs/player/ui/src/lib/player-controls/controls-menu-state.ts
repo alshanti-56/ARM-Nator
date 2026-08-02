@@ -10,6 +10,7 @@ const CONTROL_MENUS = [
     'subtitle',
     'speed',
     'aspect',
+    'settings',
 ] as const;
 
 export type ControlsMenu = (typeof CONTROL_MENUS)[number];
@@ -32,6 +33,7 @@ function getControlsMenuAvailability(
             state.subtitleTracks.length > 0,
         speed: showControls && capabilities.playbackSpeed,
         aspect: showControls && capabilities.aspectRatio,
+        settings: showControls && capabilities.pictureAdjustments,
     };
 }
 
@@ -45,6 +47,7 @@ export class ControlsMenuState {
     readonly subtitleOpen = signal(false);
     readonly speedOpen = signal(false);
     readonly aspectOpen = signal(false);
+    readonly settingsOpen = signal(false);
 
     readonly anyOpen = computed(
         () =>
@@ -52,7 +55,8 @@ export class ControlsMenuState {
             this.audioOpen() ||
             this.subtitleOpen() ||
             this.speedOpen() ||
-            this.aspectOpen()
+            this.aspectOpen() ||
+            this.settingsOpen()
     );
 
     toggle(menu: ControlsMenu): void {
@@ -80,6 +84,7 @@ export class ControlsMenuState {
         this.subtitleOpen.set(false);
         this.speedOpen.set(false);
         this.aspectOpen.set(false);
+        this.settingsOpen.set(false);
     }
 
     reconcile(availability: ControlsMenuAvailability): boolean {
@@ -116,6 +121,8 @@ export class ControlsMenuState {
                 return this.speedOpen;
             case 'aspect':
                 return this.aspectOpen;
+            case 'settings':
+                return this.settingsOpen;
         }
     }
 }

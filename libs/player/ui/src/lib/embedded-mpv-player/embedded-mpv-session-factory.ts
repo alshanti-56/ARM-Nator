@@ -28,6 +28,13 @@ function baseSession(
         selectedSubtitleTrackId: null,
         playbackSpeed: 1,
         aspectOverride: 'no',
+        picture: {
+            brightness: 0,
+            contrast: 0,
+            blackLevel: 0,
+            saturation: 0,
+            gamma: 0,
+        },
         startedAt: now,
         updatedAt: now,
         ...overrides,

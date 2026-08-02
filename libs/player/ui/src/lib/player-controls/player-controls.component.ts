@@ -26,8 +26,10 @@ import { ControlsVisibility } from './controls-visibility';
 import { createControlsViewModel } from './controls-view-model';
 import { ControlsVolume } from './controls-volume';
 import { formatTime, speedLabel } from './controls-format.utils';
+import { PlayerSettingsPanelComponent } from './player-settings-panel.component';
 import type {
     PlayerController,
+    PlayerPictureSettings,
     PlayerMediaTitle,
 } from './player-controls.model';
 
@@ -35,7 +37,13 @@ import type {
     selector: 'app-player-controls',
     templateUrl: './player-controls.component.html',
     styleUrl: './player-controls.component.scss',
-    imports: [MatButtonModule, MatIconModule, MatTooltipModule, TranslatePipe],
+    imports: [
+        MatButtonModule,
+        MatIconModule,
+        MatTooltipModule,
+        PlayerSettingsPanelComponent,
+        TranslatePipe,
+    ],
     changeDetection: ChangeDetectionStrategy.OnPush,
     host: {
         class: 'player-controls-host',
@@ -99,6 +107,13 @@ export class PlayerControlsComponent implements OnDestroy {
 
     readonly displayVolume = this.volume.value;
     readonly isFullscreen = this.fullscreen.isFullscreen;
+    readonly pictureSettings = [
+        { key: 'brightness', label: 'BRIGHTNESS', min: -100, max: 100 },
+        { key: 'contrast', label: 'CONTRAST', min: -100, max: 100 },
+        { key: 'blackLevel', label: 'BLACK_LEVEL', min: -100, max: 100 },
+        { key: 'saturation', label: 'SATURATION', min: -100, max: 100 },
+        { key: 'gamma', label: 'GAMMA', min: -100, max: 100 },
+    ] as const;
 
     // The page around the player already names the content; the overlay only
     // fills that gap in fullscreen, where no other chrome is visible.
@@ -291,9 +306,37 @@ export class PlayerControlsComponent implements OnDestroy {
         this.reveal();
     }
 
-    toggleMenu(menu: 'audio' | 'subtitle' | 'speed' | 'aspect'): void {
+    toggleMenu(
+        menu: 'audio' | 'subtitle' | 'speed' | 'aspect' | 'settings'
+    ): void {
         this.menus.toggle(menu);
         this.reveal();
+    }
+
+    setPictureSetting(
+        key: keyof PlayerPictureSettings,
+        event: Event
+    ): void {
+        const value = Number((event.target as HTMLInputElement).value);
+        if (!Number.isFinite(value)) {
+            return;
+        }
+        this.controller().commands.setPictureSettings({
+            ...this.state().picture,
+            [key]: value,
+        });
+        this.reveal({ scheduleHide: false });
+    }
+
+    resetPictureSettings(): void {
+        this.controller().commands.setPictureSettings({
+            brightness: 0,
+            contrast: 0,
+            blackLevel: 0,
+            saturation: 0,
+            gamma: 0,
+        });
+        this.reveal({ scheduleHide: false });
     }
     async toggleFullscreen(): Promise<void> {
         this.reveal();
@@ -309,7 +352,7 @@ export class PlayerControlsComponent implements OnDestroy {
         this.volume.adjust(delta);
         this.reveal();
     }
-    private closePopovers(): void {
+    closePopovers(): void {
         if (!this.menus.anyOpen()) {
             return;
         }

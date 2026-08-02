@@ -31,10 +31,10 @@ currently active tool route.
 | Playback telemetry | Partial | Web buffer/codec/bitrate snapshots and native MPV snapshots | Verify MPV buffer-ahead thresholds |
 | Lifecycle and memory | Partial | Listener teardown and native session disposal exist | Stress-test switching, routes, timers, observers, IPC, native sessions |
 | Player controls | Implemented | Volume, tracks, subtitles, speed, aspect ratio, fullscreen, seek, episode navigation | Add shared gear-menu video adjustments |
-| Video adjustments | Planned | No shared brightness/contrast/black-level/saturation model yet | Add web CSS filters and mapped MPV properties |
+| Video adjustments | Partial | Shared gear controls now drive browser filters and Embedded MPV picture properties; native black level is folded into brightness | Add OpenSubtitles search/attachment and refine engine-specific picture parity |
 | Themes | Implemented | Light, dark, and system themes | Add tokenized accent colors and optional skins |
 | Direct Play | Implemented | Diagnostics, URL copying, and engine selection at `/workspace/tools/direct-play` | Expand fixtures and failure reporting |
-| Credential/bulk tester | Contract only | Xtream batch tester contract exists | Build worker, IPC bridge, UI, export, cancellation |
+| Credential/bulk tester | Implemented | Typed Xtream/M3U batch testing with Electron worker IPC, progress UI, credential-inclusive CSV export, save-to-provider synchronization, and cancellation | Expand user-flow coverage |
 | Browser | Contract only | Browser tab/navigation/session contracts exist | Build persistent Electron `WebContentsView` shell |
 | YouTube | Partial | Trailer embeds and URL normalization exist | Build full workspace, filtering, and SponsorBlock behavior |
 
@@ -99,6 +99,18 @@ arbitrary Angular web view. Add preload methods only with matching IPC handlers.
   `providers/shared`.
 - Do not import Electron main-process or native-player internals into provider UI.
 - Use Nx tags and module-boundary lint rules to enforce dependency direction.
+
+## Credential/bulk tester
+
+`/workspace/tools/credentials` parses up to 100 unique Xtream credentials or
+M3U URLs and starts a typed batch through the preload bridge. Electron main owns
+the batch ID, renderer ownership, terminal state, and one dedicated worker per
+batch; the worker tests at most six sources concurrently. Progress snapshots and
+CSV exports exclude passwords, URL userinfo, credential query values, and raw
+input text. Stopping a batch requests cooperative abort and main-process worker
+termination, then delivers one terminal snapshot. Saving working sources limits
+M3U imports to three at a time and waits for SQLite persistence before state
+hydration.
 
 ## Playback rules
 

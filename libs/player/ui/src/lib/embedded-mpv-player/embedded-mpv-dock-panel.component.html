@@ -7,13 +7,42 @@
         (click)="closed.emit()"
         [attr.aria-label]="backLabel()"
         [matTooltip]="backLabel()"
-        matTooltipPosition="above"
+        matTooltipPosition="below"
     >
         <mat-icon>arrow_back</mat-icon>
     </button>
 
     <span class="embedded-mpv-dock-panel__title">{{ panel().title }}</span>
 
+    @if (panel().kind === 'picture' && panel().picture; as picture) {
+        <div class="embedded-mpv-dock-panel__picture-controls">
+            @for (setting of pictureSettings; track setting.key) {
+                <label class="embedded-mpv-dock-panel__picture-row">
+                    <span>{{ setting.label }}</span>
+                    <input
+                        type="range"
+                        min="-100"
+                        max="100"
+                        [value]="picture[setting.key]"
+                        (input)="
+                            pictureChanged.emit({
+                                key: setting.key,
+                                value: +$any($event.target).value
+                            })
+                        "
+                    />
+                    <output>{{ picture[setting.key] }}</output>
+                </label>
+            }
+            <button
+                type="button"
+                class="embedded-mpv-dock-panel__picture-reset"
+                (click)="pictureReset.emit()"
+            >
+                Reset picture
+            </button>
+        </div>
+    } @else {
     <div class="embedded-mpv-dock-panel__ribbon-shell">
         <div
             #ribbon
@@ -62,4 +91,5 @@
             aria-hidden="true"
         ></div>
     </div>
+    }
 </div>

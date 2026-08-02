@@ -50,6 +50,17 @@ async function buildWorker() {
                     '../../dist/apps/electron-backend/workers/playlist-refresh.worker.js'
                 ),
             },
+            {
+                label: 'credential tester worker',
+                entry: path.join(
+                    __dirname,
+                    'src/app/workers/credential-tester.worker.ts'
+                ),
+                outfile: path.join(
+                    __dirname,
+                    '../../dist/apps/electron-backend/workers/credential-tester.worker.js'
+                ),
+            },
         ];
 
         for (const worker of workers) {

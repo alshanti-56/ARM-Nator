@@ -11,6 +11,8 @@ import {
     EmbeddedMpvSessionStatus,
     EmbeddedMpvSubtitleTrack,
     EmbeddedMpvSupport,
+    PlayerPictureSettings,
+    PlayerSubtitleSettings,
     EMBEDDED_MPV_SESSION_UPDATE,
     ResolvedPortalPlayback,
 } from '@arm-nator/shared/interfaces';
@@ -30,6 +32,7 @@ export interface NativeEmbeddedMpvSessionSnapshot {
     selectedSubtitleTrackId?: number | null;
     playbackSpeed?: number;
     aspectOverride?: string;
+    picture?: PlayerPictureSettings;
     videoWidth?: number;
     videoHeight?: number;
     videoCodec?: string;
@@ -56,8 +59,11 @@ export interface NativeEmbeddedMpvAddon {
     setVolume(sessionId: string, volume: number): void;
     setAudioTrack(sessionId: string, trackId: number): void;
     setSubtitleTrack?(sessionId: string, trackId: number): void;
+    setSubtitleFile?(sessionId: string, filePath: string): void;
+    setSubtitleSettings?(sessionId: string, settings: PlayerSubtitleSettings): void;
     setSpeed?(sessionId: string, speed: number): void;
     setAspect?(sessionId: string, aspect: string): void;
+    setPicture?(sessionId: string, picture: PlayerPictureSettings): void;
     getSessionSnapshot(
         sessionId: string
     ): NativeEmbeddedMpvSessionSnapshot | null;
@@ -113,6 +119,7 @@ export class EmbeddedMpvNativeService {
             subtitles: typeof addon?.setSubtitleTrack === 'function',
             playbackSpeed: typeof addon?.setSpeed === 'function',
             aspectOverride: typeof addon?.setAspect === 'function',
+            pictureAdjustments: typeof addon?.setPicture === 'function',
         };
     }
 
@@ -293,6 +300,13 @@ export class EmbeddedMpvNativeService {
                 selectedSubtitleTrackId: null,
                 playbackSpeed: 1,
                 aspectOverride: 'no',
+                picture: {
+                    brightness: 0,
+                    contrast: 0,
+                    blackLevel: 0,
+                    saturation: 0,
+                    gamma: 0,
+                },
                 startedAt,
                 updatedAt: startedAt,
             }
@@ -360,6 +374,36 @@ export class EmbeddedMpvNativeService {
         return this.refreshSession(sessionId);
     }
 
+    setSubtitleFile(
+        sessionId: string,
+        filePath: string
+    ): EmbeddedMpvSession | null {
+        this.assertEmbeddedMpvEnabled();
+        const addon = this.getAddon();
+        if (typeof addon.setSubtitleFile !== 'function') {
+            throw new Error(
+                'Embedded MPV addon does not support external subtitle files.'
+            );
+        }
+        addon.setSubtitleFile(sessionId, filePath);
+        return this.refreshSession(sessionId);
+    }
+
+    setSubtitleSettings(
+        sessionId: string,
+        settings: PlayerSubtitleSettings
+    ): EmbeddedMpvSession | null {
+        this.assertEmbeddedMpvEnabled();
+        const addon = this.getAddon();
+        if (typeof addon.setSubtitleSettings !== 'function') {
+            throw new Error(
+                'Embedded MPV addon does not support subtitle settings.'
+            );
+        }
+        addon.setSubtitleSettings(sessionId, settings);
+        return this.refreshSession(sessionId);
+    }
+
     setSpeed(sessionId: string, speed: number): EmbeddedMpvSession | null {
         this.assertEmbeddedMpvEnabled();
         const addon = this.getAddon();
@@ -381,6 +425,21 @@ export class EmbeddedMpvNativeService {
             );
         }
         addon.setAspect(sessionId, aspect);
+        return this.refreshSession(sessionId);
+    }
+
+    setPicture(
+        sessionId: string,
+        picture: PlayerPictureSettings
+    ): EmbeddedMpvSession | null {
+        this.assertEmbeddedMpvEnabled();
+        const addon = this.getAddon();
+        if (typeof addon.setPicture !== 'function') {
+            throw new Error(
+                'Embedded MPV addon does not support picture adjustments.'
+            );
+        }
+        addon.setPicture(sessionId, picture);
         return this.refreshSession(sessionId);
     }
 
@@ -410,6 +469,13 @@ export class EmbeddedMpvNativeService {
                 selectedSubtitleTrackId: null,
                 playbackSpeed: 1,
                 aspectOverride: 'no',
+                picture: {
+                    brightness: 0,
+                    contrast: 0,
+                    blackLevel: 0,
+                    saturation: 0,
+                    gamma: 0,
+                },
                 startedAt: session.startedAt,
                 updatedAt: new Date().toISOString(),
             };
@@ -557,6 +623,13 @@ export class EmbeddedMpvNativeService {
                 typeof snapshot.aspectOverride === 'string'
                     ? snapshot.aspectOverride
                     : 'no',
+            picture: snapshot.picture ?? {
+                brightness: 0,
+                contrast: 0,
+                blackLevel: 0,
+                saturation: 0,
+                gamma: 0,
+            },
             ...(typeof snapshot.videoWidth === 'number' &&
             typeof snapshot.videoHeight === 'number'
                 ? {

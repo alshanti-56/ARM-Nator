@@ -428,6 +428,18 @@
             "ASPECT_RATIO": "Aspect ratio",
             "ASPECT_TOOLTIP": "Aspect: {{aspect}}",
             "ASPECT_DEFAULT": "Default",
+            "PLAYER_SETTINGS": "Player settings",
+            "PICTURE": "Picture",
+            "AUDIO": "Audio",
+            "PLAYBACK": "Playback",
+            "SCREEN": "Screen",
+            "PICTURE_SETTINGS": "Picture settings",
+            "BRIGHTNESS": "Brightness",
+            "CONTRAST": "Contrast",
+            "BLACK_LEVEL": "Black level",
+            "SATURATION": "Saturation",
+            "GAMMA": "Gamma",
+            "RESET_PICTURE": "Reset picture settings",
             "ENTER_FULLSCREEN": "Enter fullscreen",
             "EXIT_FULLSCREEN": "Exit fullscreen"
         }

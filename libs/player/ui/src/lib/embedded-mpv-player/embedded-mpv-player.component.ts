@@ -22,12 +22,14 @@ import { TranslatePipe, TranslateService } from '@ngx-translate/core';
 import { merge } from 'rxjs';
 import {
     EmbeddedMpvAudioTrack,
+    PlayerPictureSettings,
     ResolvedPortalPlayback,
 } from '@arm-nator/shared/interfaces';
 import type {
     PlayerMediaTitle,
     PlayerRuntimeSnapshot,
 } from '../player-controls/player-controls.model';
+import { PlayerSettingsPanelComponent } from '../player-controls/player-settings-panel.component';
 import type { SeriesPlaybackNavigation } from '../portal-inline-player/series-playback-navigation';
 import { EmbeddedMpvControlsAdapter } from './embedded-mpv-controls.adapter';
 import { EmbeddedMpvDockPanelComponent } from './embedded-mpv-dock-panel.component';
@@ -54,6 +56,7 @@ import {
     subtitleTrackLabel,
     volumeIcon,
 } from './embedded-mpv-format.utils';
+import { DEFAULT_PICTURE_SETTINGS } from '../player-controls/player-controls-defaults';
 
 @Component({
     selector: 'app-embedded-mpv-player',
@@ -61,6 +64,7 @@ import {
     styleUrl: './embedded-mpv-player.component.scss',
     imports: [
         EmbeddedMpvDockPanelComponent,
+        PlayerSettingsPanelComponent,
         MatButtonModule,
         MatIconModule,
         MatProgressSpinnerModule,
@@ -126,6 +130,9 @@ export class EmbeddedMpvPlayerComponent implements OnDestroy {
 
     readonly speedPresets = SPEED_PRESETS;
     readonly aspectPresets = ASPECT_PRESETS;
+    readonly picture = computed(
+        () => this.session()?.picture ?? DEFAULT_PICTURE_SETTINGS
+    );
 
     readonly isSupported = computed(() => this.support()?.supported ?? false);
     readonly capabilities = computed(
@@ -134,6 +141,7 @@ export class EmbeddedMpvPlayerComponent implements OnDestroy {
                 subtitles: false,
                 playbackSpeed: false,
                 aspectOverride: false,
+                pictureAdjustments: false,
             }
     );
     readonly isLoading = computed(
@@ -306,6 +314,7 @@ export class EmbeddedMpvPlayerComponent implements OnDestroy {
             selectedSubtitleTrackId: this.selectedSubtitleTrackId,
             playbackSpeed: this.playbackSpeed,
             aspectOverride: this.aspectOverride,
+            picture: this.picture,
             translateLabel: (key) => {
                 this.translationsTick();
                 return this.translate.instant(key);
@@ -319,6 +328,8 @@ export class EmbeddedMpvPlayerComponent implements OnDestroy {
                 void this.selectSubtitleTrack(trackId),
             selectSpeed: (speed) => void this.selectSpeed(speed),
             selectAspect: (aspect) => void this.selectAspect(aspect),
+            setPicture: (key, value) => this.setPictureSetting(key, value),
+            resetPicture: () => this.resetPictureSettings(),
             closePanels: () => this.legacyInteractions.closePopovers(),
             playerRoot: () => this.playerRoot()?.nativeElement ?? null,
             revealControls: () => this.legacyInteractions.revealControls(),
@@ -600,6 +611,14 @@ export class EmbeddedMpvPlayerComponent implements OnDestroy {
     toggleAspectMenu(): void {
         this.dockPanels.toggle('aspect');
     }
+    togglePictureMenu(): void {
+        this.dockPanels.toggle('picture');
+    }
+
+    closePictureSettings(): void {
+        this.menus.close('picture');
+        this.legacyInteractions.revealControls();
+    }
 
     async selectAudioTrack(trackId: number): Promise<void> {
         this.legacyInteractions.revealControls(false);
@@ -627,6 +646,22 @@ export class EmbeddedMpvPlayerComponent implements OnDestroy {
         await this.controller.setAspect(aspect);
         this.menus.close('aspect');
         this.legacyInteractions.scheduleControlsHide();
+    }
+
+    setPictureSetting(
+        key: keyof PlayerPictureSettings,
+        value: number
+    ): void {
+        void this.controller.setPicture({
+            ...this.picture(),
+            [key]: value,
+        });
+        this.legacyInteractions.revealControls(false);
+    }
+
+    resetPictureSettings(): void {
+        void this.controller.setPicture(DEFAULT_PICTURE_SETTINGS);
+        this.legacyInteractions.revealControls(false);
     }
 
     retry(): void {

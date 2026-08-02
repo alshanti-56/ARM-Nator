@@ -1,5 +1,8 @@
 import { Signal, computed } from '@angular/core';
-import { EmbeddedMpvAudioTrack } from '@arm-nator/shared/interfaces';
+import {
+    EmbeddedMpvAudioTrack,
+    PlayerPictureSettings,
+} from '@arm-nator/shared/interfaces';
 import { ASPECT_PRESETS, SPEED_PRESETS } from './embedded-mpv-format.utils';
 import type { EmbeddedMpvMenuState } from './embedded-mpv-ui-state';
 
@@ -7,7 +10,8 @@ export type EmbeddedMpvDockPanelKind =
     | 'audio'
     | 'subtitle'
     | 'speed'
-    | 'aspect';
+    | 'aspect'
+    | 'picture';
 
 export interface EmbeddedMpvDockChip {
     readonly id: string;
@@ -19,6 +23,7 @@ export interface EmbeddedMpvDockPanelView {
     readonly kind: EmbeddedMpvDockPanelKind;
     readonly title: string;
     readonly chips: readonly EmbeddedMpvDockChip[];
+    readonly picture?: PlayerPictureSettings;
 }
 
 /** Chip id representing the "subtitles off" (-1) selection. */
@@ -31,6 +36,7 @@ export interface EmbeddedMpvDockPanelDeps {
     readonly selectedSubtitleTrackId: Signal<number | null>;
     readonly playbackSpeed: Signal<number>;
     readonly aspectOverride: Signal<string>;
+    readonly picture: Signal<PlayerPictureSettings>;
     readonly translateLabel: (key: string) => string;
     readonly audioTrackLabel: (
         track: EmbeddedMpvAudioTrack,
@@ -45,6 +51,11 @@ export interface EmbeddedMpvDockPanelDeps {
     readonly selectSubtitleTrack: (trackId: number) => void;
     readonly selectSpeed: (speed: number) => void;
     readonly selectAspect: (aspect: string) => void;
+    readonly setPicture: (
+        key: keyof PlayerPictureSettings,
+        value: number
+    ) => void;
+    readonly resetPicture: () => void;
     readonly closePanels: () => void;
     readonly playerRoot: () => HTMLElement | null;
     readonly revealControls: () => void;
@@ -112,6 +123,8 @@ export class EmbeddedMpvDockPanelState {
                 return;
             case 'aspect':
                 this.deps.selectAspect(chipId);
+                return;
+            case 'picture':
                 return;
         }
     }

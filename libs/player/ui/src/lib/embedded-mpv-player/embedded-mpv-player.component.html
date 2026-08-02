@@ -2,6 +2,7 @@
     #playerRoot
     class="embedded-mpv-player"
     [class.embedded-mpv-player--fullscreen]="isFullscreen()"
+    [class.embedded-mpv-player--settings-open]="menus.pictureOpen()"
     [class.embedded-mpv-player--controls-enabled]="
         showControls() && isSupported()
     "
@@ -96,6 +97,10 @@
                     [panel]="dockPanel"
                     [backLabel]="dockPanelBackLabel()"
                     (chipSelected)="dockPanels.select($event)"
+                    (pictureChanged)="
+                        setPictureSetting($event.key, $event.value)
+                    "
+                    (pictureReset)="resetPictureSettings()"
                     (closed)="dockPanels.close()"
                 />
             } @else {
@@ -118,7 +123,7 @@
                                 : 'EMBEDDED_MPV.PLAYER.PAUSE'
                             ) | translate
                         "
-                        matTooltipPosition="above"
+                        matTooltipPosition="below"
                     >
                         <mat-icon>{{
                             isPaused() ? 'play_arrow' : 'pause'
@@ -141,7 +146,7 @@
                                 'EMBEDDED_MPV.PLAYER.PREVIOUS_EPISODE'
                                     | translate
                             "
-                            matTooltipPosition="above"
+                            matTooltipPosition="below"
                         >
                             <mat-icon>skip_previous</mat-icon>
                         </button>
@@ -159,7 +164,7 @@
                             [matTooltip]="
                                 'EMBEDDED_MPV.PLAYER.NEXT_EPISODE' | translate
                             "
-                            matTooltipPosition="above"
+                            matTooltipPosition="below"
                         >
                             <mat-icon>skip_next</mat-icon>
                         </button>
@@ -177,7 +182,7 @@
                         [matTooltip]="
                             'EMBEDDED_MPV.PLAYER.BACK_10_SECONDS' | translate
                         "
-                        matTooltipPosition="above"
+                        matTooltipPosition="below"
                     >
                         <mat-icon>replay_10</mat-icon>
                     </button>
@@ -194,7 +199,7 @@
                         [matTooltip]="
                             'EMBEDDED_MPV.PLAYER.FORWARD_10_SECONDS' | translate
                         "
-                        matTooltipPosition="above"
+                        matTooltipPosition="below"
                     >
                         <mat-icon>forward_10</mat-icon>
                     </button>
@@ -272,7 +277,7 @@
                                     : 'EMBEDDED_MPV.PLAYER.MUTE'
                                 ) | translate
                             "
-                            matTooltipPosition="above"
+                            matTooltipPosition="below"
                         >
                             <mat-icon>{{ volumeIcon() }}</mat-icon>
                         </button>
@@ -318,7 +323,7 @@
                             [matTooltip]="
                                 'EMBEDDED_MPV.PLAYER.AUDIO_TRACKS' | translate
                             "
-                            matTooltipPosition="above"
+                            matTooltipPosition="below"
                         >
                             <mat-icon>graphic_eq</mat-icon>
                         </button>
@@ -338,7 +343,7 @@
                             [matTooltip]="
                                 'EMBEDDED_MPV.PLAYER.SUBTITLES' | translate
                             "
-                            matTooltipPosition="above"
+                            matTooltipPosition="below"
                         >
                             <mat-icon>{{
                                 selectedSubtitleTrackId() === null
@@ -371,7 +376,7 @@
                                               ),
                                           }
                             "
-                            matTooltipPosition="above"
+                            matTooltipPosition="below"
                         >
                             <mat-icon>speed</mat-icon>
                         </button>
@@ -400,9 +405,31 @@
                                               ),
                                           }
                             "
-                            matTooltipPosition="above"
+                            matTooltipPosition="below"
                         >
                             <mat-icon>aspect_ratio</mat-icon>
+                        </button>
+                    }
+
+                    @if (capabilities().pictureAdjustments) {
+                        <button
+                            mat-icon-button
+                            type="button"
+                            class="embedded-mpv-player__control-button"
+                            data-embedded-mpv-menu-button="picture"
+                            (click)="togglePictureMenu()"
+                            [attr.aria-expanded]="menus.pictureOpen()"
+                            [attr.aria-label]="
+                                'EMBEDDED_MPV.PLAYER.PICTURE_SETTINGS'
+                                    | translate
+                            "
+                            [matTooltip]="
+                                'EMBEDDED_MPV.PLAYER.PICTURE_SETTINGS'
+                                    | translate
+                            "
+                            matTooltipPosition="below"
+                        >
+                            <mat-icon>settings</mat-icon>
                         </button>
                     }
 
@@ -414,7 +441,7 @@
                         (click)="toggleFullscreen()"
                         [attr.aria-label]="fullscreenLabel()"
                         [matTooltip]="fullscreenLabel()"
-                        matTooltipPosition="above"
+                        matTooltipPosition="below"
                     >
                         <mat-icon>{{
                             isFullscreen() ? 'fullscreen_exit' : 'fullscreen'
@@ -423,5 +450,13 @@
                 </div>
             }
         </div>
+    }
+
+    @if (showControls() && isSupported() && menus.pictureOpen()) {
+        <app-player-settings-panel
+            [controller]="sharedControls"
+            [mediaTitle]="mediaTitle()"
+            (closed)="closePictureSettings()"
+        />
     }
 </div>

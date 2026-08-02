@@ -11,6 +11,8 @@ import {
     EmbeddedMpvBounds,
     EmbeddedMpvSession,
     EmbeddedMpvSupport,
+    PlayerPictureSettings,
+    PlayerSubtitleSettings,
     ResolvedPortalPlayback,
 } from '@arm-nator/shared/interfaces';
 import { EmbeddedMpvCommandRunner } from './embedded-mpv-command-runner';
@@ -272,10 +274,17 @@ export class EmbeddedMpvSessionController {
         this.commands.setAudioTrack(trackId);
     readonly setSubtitleTrack = (trackId: number): Promise<void> =>
         this.commands.setSubtitleTrack(trackId);
+    readonly setSubtitleFile = (filePath: string): Promise<void> =>
+        this.commands.setSubtitleFile(filePath);
+    readonly setSubtitleSettings = (
+        settings: PlayerSubtitleSettings
+    ): Promise<void> => this.commands.setSubtitleSettings(settings);
     readonly setSpeed = (speed: number): Promise<void> =>
         this.commands.setSpeed(speed);
     readonly setAspect = (aspect: string): Promise<void> =>
         this.commands.setAspect(aspect);
+    readonly setPicture = (picture: PlayerPictureSettings): Promise<void> =>
+        this.commands.setPicture(picture);
     private async loadSupport(): Promise<void> {
         try {
             const electron = this.getElectronBridge();

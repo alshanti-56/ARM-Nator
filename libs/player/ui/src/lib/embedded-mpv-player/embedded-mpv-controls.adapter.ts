@@ -16,6 +16,8 @@ import { merge } from 'rxjs';
 import {
     DEFAULT_ASPECT_PRESETS,
     DEFAULT_PLAYER_CAPABILITIES,
+    DEFAULT_PICTURE_SETTINGS,
+    DEFAULT_SUBTITLE_SETTINGS,
     DEFAULT_SPEED_PRESETS,
     createEmptyControlsState,
 } from '../player-controls/player-controls-defaults';
@@ -26,6 +28,11 @@ import {
     PlayerControlsState,
     PlayerStatus,
 } from '../player-controls/player-controls.model';
+import type {
+    OpenSubtitlesDownloadedSubtitle,
+    PlayerPictureSettings,
+    PlayerSubtitleSettings,
+} from '@arm-nator/shared/interfaces';
 import { SeriesPlaybackNavigation } from '../portal-inline-player/series-playback-navigation';
 import {
     audioTrackLabel,
@@ -59,6 +66,12 @@ export class EmbeddedMpvControlsAdapter implements PlayerController {
 
     private readonly configuredContext =
         signal<EmbeddedMpvControlsContext | null>(null);
+    private readonly picture = signal<PlayerPictureSettings>(
+        DEFAULT_PICTURE_SETTINGS
+    );
+    private readonly subtitle = signal<PlayerSubtitleSettings>(
+        DEFAULT_SUBTITLE_SETTINGS
+    );
 
     readonly capabilities = computed<PlayerControlsCapabilities>(() => {
         const context = this.configuredContext();
@@ -77,6 +90,8 @@ export class EmbeddedMpvControlsAdapter implements PlayerController {
             subtitles: optionalCapabilities?.subtitles ?? false,
             playbackSpeed: optionalCapabilities?.playbackSpeed ?? false,
             aspectRatio: optionalCapabilities?.aspectOverride ?? false,
+            pictureAdjustments:
+                optionalCapabilities?.pictureAdjustments ?? false,
             fullscreen: true,
             seriesNavigation: !isLive && context.seriesNavigation() !== null,
             frameStep: !isLive,
@@ -141,6 +156,8 @@ export class EmbeddedMpvControlsAdapter implements PlayerController {
             speedPresets: DEFAULT_SPEED_PRESETS,
             aspectRatio: session?.aspectOverride ?? 'no',
             aspectPresets: DEFAULT_ASPECT_PRESETS,
+            picture: session?.picture ?? this.picture(),
+            subtitle: this.subtitle(),
             canPreviousEpisode:
                 hasSeriesNavigation && seriesNavigation?.canPrevious === true,
             canNextEpisode:
@@ -157,6 +174,17 @@ export class EmbeddedMpvControlsAdapter implements PlayerController {
         setSubtitleTrack: (id) => void this.controller.setSubtitleTrack(id),
         setPlaybackSpeed: (speed) => void this.controller.setSpeed(speed),
         setAspectRatio: (value) => void this.controller.setAspect(value),
+        setPictureSettings: (value) => {
+            this.picture.set(value);
+            void this.controller.setPicture(value);
+        },
+        setSubtitleSettings: (value) => {
+            this.subtitle.set(value);
+            void this.controller.setSubtitleSettings(value);
+        },
+        setOnlineSubtitle: (subtitle: OpenSubtitlesDownloadedSubtitle) => {
+            void this.controller.setSubtitleFile(subtitle.filePath);
+        },
     };
 
     configure(context: EmbeddedMpvControlsContext): void {

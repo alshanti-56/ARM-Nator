@@ -463,6 +463,55 @@
     height: 18px;
 }
 
+.player-controls__picture-popover {
+    position: absolute;
+    right: 0;
+    bottom: calc(100% + 6px);
+    width: 260px;
+    max-width: min(360px, calc(100cqw - 24px));
+    padding: 12px 14px;
+    z-index: 3;
+}
+
+.player-controls__picture-row {
+    display: grid;
+    grid-template-columns: 78px minmax(0, 1fr) 28px;
+    align-items: center;
+    gap: 8px;
+    margin: 9px 0;
+    color: var(--pc-text);
+    font-size: 0.76rem;
+}
+
+.player-controls__picture-row span {
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+.player-controls__picture-row output {
+    color: var(--pc-text-dim);
+    font-variant-numeric: tabular-nums;
+    text-align: right;
+}
+
+.player-controls__picture-reset {
+    width: 100%;
+    margin-top: 6px;
+    padding: 7px 9px;
+    color: var(--pc-text);
+    background: rgba(255, 255, 255, 0.08);
+    border: 1px solid rgba(255, 255, 255, 0.14);
+    border-radius: 8px;
+    cursor: pointer;
+    font: inherit;
+}
+
+.player-controls__picture-reset:hover,
+.player-controls__picture-reset:focus-visible {
+    background: rgba(255, 255, 255, 0.16);
+}
+
 @media (max-width: 720px) {
     // Keep the single-row layout when space is tight: the transport and action
     // buttons hold their natural width while the middle timeline column

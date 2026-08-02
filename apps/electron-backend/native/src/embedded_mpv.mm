@@ -108,6 +108,11 @@ struct SessionSnapshot {
     int64_t selectedSubtitleTrackId = -1;
     double playbackSpeed = 1.0;
     std::string aspectOverride = "no";
+    double brightness = 0.0;
+    double contrast = 0.0;
+    double blackLevel = 0.0;
+    double saturation = 0.0;
+    double gamma = 0.0;
 };
 
 struct Session {
@@ -863,6 +868,41 @@ std::string readNodeString(const mpv_node& node)
     }
 }
 
+std::string sanitizeCodecLabel(const char* value)
+{
+    if (!value) {
+        return "";
+    }
+
+    const std::string codec(value);
+    if (codec.empty() || codec.size() > 64) {
+        return "";
+    }
+
+    // mpv codec names are ASCII metadata. Reject control bytes and malformed
+    // native data before it is converted into a JavaScript UTF-8 string.
+    for (const unsigned char byte : codec) {
+        if (byte < 0x20 || byte > 0x7e) {
+            return "";
+        }
+    }
+
+    return codec;
+}
+
+std::string sanitizeAspectOverride(const char* value)
+{
+    const std::string aspect = value ? value : "";
+    if (aspect == "no" ||
+        aspect == "16:9" ||
+        aspect == "4:3" ||
+        aspect == "21:9" ||
+        aspect == "2.35:1") {
+        return aspect;
+    }
+    return "no";
+}
+
 bool readNodeFlag(const mpv_node& node)
 {
     if (node.format == MPV_FORMAT_FLAG) {
@@ -1160,9 +1200,9 @@ void runEventLoop(const std::shared_ptr<Session>& session)
                     const auto* value =
                         static_cast<char*>(property->data);
                     if (propertyName == "video-codec") {
-                        session->snapshot.videoCodec = value ? value : "";
+                        session->snapshot.videoCodec = sanitizeCodecLabel(value);
                     } else {
-                        session->snapshot.audioCodec = value ? value : "";
+                        session->snapshot.audioCodec = sanitizeCodecLabel(value);
                     }
                     break;
                 }
@@ -1252,7 +1292,7 @@ void runEventLoop(const std::shared_ptr<Session>& session)
                     const auto* aspectValue =
                         static_cast<char*>(property->data);
                     session->snapshot.aspectOverride =
-                        aspectValue ? aspectValue : "no";
+                        sanitizeAspectOverride(aspectValue);
                     break;
                 }
 
@@ -2060,6 +2100,176 @@ Napi::Value SetSubtitleTrack(const Napi::CallbackInfo& info)
     return env.Undefined();
 }
 
+Napi::Value SetSubtitleFile(const Napi::CallbackInfo& info)
+{
+    Napi::Env env = info.Env();
+    if (info.Length() < 2 || !info[0].IsString() || !info[1].IsString()) {
+        throw Napi::TypeError::New(
+            env,
+            "Expected session id and subtitle file path."
+        );
+    }
+
+    const std::string sessionId = info[0].As<Napi::String>().Utf8Value();
+    const auto session = getSessionOrThrow(env, sessionId);
+    const std::string filePath = info[1].As<Napi::String>().Utf8Value();
+    if (filePath.empty()) {
+        throw Napi::TypeError::New(env, "Subtitle file path cannot be empty.");
+    }
+
+    const char* command[] = {
+        "sub-add",
+        filePath.c_str(),
+        "select",
+        nullptr,
+    };
+    const int result = mpv_command_async(
+        session->handle,
+        nextAsyncRequestId(),
+        command
+    );
+    if (result < 0) {
+        throw Napi::Error::New(
+            env,
+            std::string("Failed to load external subtitle: ") +
+                mpv_error_string(result)
+        );
+    }
+
+    return env.Undefined();
+}
+
+std::string readSubtitleColor(
+    const Napi::Object& settings,
+    const char* key,
+    const char* fallback
+)
+{
+    const auto value = settings.Get(key);
+    if (!value.IsString()) {
+        return fallback;
+    }
+    const std::string color = value.As<Napi::String>().Utf8Value();
+    if (color.size() != 7 || color[0] != '#') {
+        return fallback;
+    }
+    for (size_t index = 1; index < color.size(); index += 1) {
+        if (!std::isxdigit(static_cast<unsigned char>(color[index]))) {
+            return fallback;
+        }
+    }
+    return color;
+}
+
+double readSubtitleNumber(
+    const Napi::Object& settings,
+    const char* key,
+    double fallback,
+    double minimum,
+    double maximum
+)
+{
+    const auto value = settings.Get(key);
+    if (!value.IsNumber()) {
+        return fallback;
+    }
+    return std::clamp(
+        value.As<Napi::Number>().DoubleValue(),
+        minimum,
+        maximum
+    );
+}
+
+void setMpvVideoProperty(
+    const std::shared_ptr<Session>& session,
+    const char* name,
+    double value
+);
+
+void setMpvSubtitleString(
+    const std::shared_ptr<Session>& session,
+    const char* name,
+    const std::string& value
+)
+{
+    const char* stringValue = value.c_str();
+    mpv_set_property_async(
+        session->handle,
+        nextAsyncRequestId(),
+        name,
+        MPV_FORMAT_STRING,
+        const_cast<char**>(&stringValue)
+    );
+}
+
+Napi::Value SetSubtitleSettings(const Napi::CallbackInfo& info)
+{
+    Napi::Env env = info.Env();
+    if (info.Length() < 2 || !info[0].IsString() || !info[1].IsObject()) {
+        throw Napi::TypeError::New(
+            env,
+            "Expected session id and subtitle settings."
+        );
+    }
+
+    const std::string sessionId = info[0].As<Napi::String>().Utf8Value();
+    const auto session = getSessionOrThrow(env, sessionId);
+    const auto settings = info[1].As<Napi::Object>();
+    const double fontSize = readSubtitleNumber(
+        settings,
+        "fontSize",
+        100.0,
+        50.0,
+        200.0
+    );
+    const double backgroundOpacity = readSubtitleNumber(
+        settings,
+        "backgroundOpacity",
+        72.0,
+        0.0,
+        100.0
+    );
+    const double outlineSize = readSubtitleNumber(
+        settings,
+        "outlineSize",
+        2.0,
+        0.0,
+        6.0
+    );
+    const double position = readSubtitleNumber(
+        settings,
+        "position",
+        92.0,
+        0.0,
+        100.0
+    );
+    const double delaySeconds = readSubtitleNumber(
+        settings,
+        "delaySeconds",
+        0.0,
+        -30.0,
+        30.0
+    );
+
+    setMpvSubtitleString(
+        session,
+        "sub-color",
+        readSubtitleColor(settings, "textColor", "#FFFFFF")
+    );
+    setMpvSubtitleString(
+        session,
+        "sub-back-color",
+        readSubtitleColor(settings, "backgroundColor", "#000000")
+    );
+    setMpvVideoProperty(session, "sub-scale", fontSize / 100.0);
+    setMpvVideoProperty(session, "sub-back-alpha", backgroundOpacity / 100.0);
+    setMpvVideoProperty(session, "sub-outline-size", outlineSize);
+    setMpvVideoProperty(session, "sub-pos", position);
+    setMpvVideoProperty(session, "sub-delay", delaySeconds);
+
+    return env.Undefined();
+}
+
 Napi::Value SetSpeed(const Napi::CallbackInfo& info)
 {
     Napi::Env env = info.Env();
@@ -2109,9 +2319,7 @@ Napi::Value SetAspect(const Napi::CallbackInfo& info)
     const std::string sessionId = info[0].As<Napi::String>().Utf8Value();
     const auto session = getSessionOrThrow(env, sessionId);
     std::string aspect = info[1].As<Napi::String>().Utf8Value();
-    if (aspect.empty()) {
-        aspect = "no";
-    }
+    aspect = sanitizeAspectOverride(aspect.c_str());
 
     const char* aspectValue = aspect.c_str();
     const int result = mpv_set_property_async(
@@ -2133,6 +2341,73 @@ Napi::Value SetAspect(const Napi::CallbackInfo& info)
     {
         std::lock_guard<std::mutex> lock(session->mutex);
         session->snapshot.aspectOverride = aspect;
+    }
+
+    return env.Undefined();
+}
+
+double readPictureValue(
+    const Napi::Object& picture,
+    const char* key,
+    double fallback
+)
+{
+    const auto value = picture.Get(key);
+    if (!value.IsNumber()) {
+        return fallback;
+    }
+    return std::clamp(value.As<Napi::Number>().DoubleValue(), -100.0, 100.0);
+}
+
+void setMpvVideoProperty(
+    const std::shared_ptr<Session>& session,
+    const char* name,
+    double value
+)
+{
+    mpv_set_property_async(
+        session->handle,
+        nextAsyncRequestId(),
+        name,
+        MPV_FORMAT_DOUBLE,
+        &value
+    );
+}
+
+Napi::Value SetPicture(const Napi::CallbackInfo& info)
+{
+    Napi::Env env = info.Env();
+    if (info.Length() < 2 || !info[0].IsString() || !info[1].IsObject()) {
+        throw Napi::TypeError::New(env, "Expected session id and picture settings.");
+    }
+
+    const std::string sessionId = info[0].As<Napi::String>().Utf8Value();
+    const auto session = getSessionOrThrow(env, sessionId);
+    const auto picture = info[1].As<Napi::Object>();
+    const double brightness = readPictureValue(picture, "brightness", 0.0);
+    const double contrast = readPictureValue(picture, "contrast", 0.0);
+    const double blackLevel = readPictureValue(picture, "blackLevel", 0.0);
+    const double saturation = readPictureValue(picture, "saturation", 0.0);
+    const double gamma = readPictureValue(picture, "gamma", 0.0);
+
+    // MPV has no independent black-level property. Fold it into brightness
+    // while retaining the full model in the session snapshot for the UI.
+    setMpvVideoProperty(
+        session,
+        "brightness",
+        std::clamp(brightness + blackLevel, -100.0, 100.0)
+    );
+    setMpvVideoProperty(session, "contrast", contrast);
+    setMpvVideoProperty(session, "saturation", saturation);
+    setMpvVideoProperty(session, "gamma", gamma);
+
+    {
+        std::lock_guard<std::mutex> lock(session->mutex);
+        session->snapshot.brightness = brightness;
+        session->snapshot.contrast = contrast;
+        session->snapshot.blackLevel = blackLevel;
+        session->snapshot.saturation = saturation;
+        session->snapshot.gamma = gamma;
     }
 
     return env.Undefined();
@@ -2267,6 +2542,13 @@ Napi::Value GetSessionSnapshot(const Napi::CallbackInfo& info)
         "aspectOverride",
         Napi::String::New(env, snapshot.aspectOverride)
     );
+    auto picture = Napi::Object::New(env);
+    picture.Set("brightness", Napi::Number::New(env, snapshot.brightness));
+    picture.Set("contrast", Napi::Number::New(env, snapshot.contrast));
+    picture.Set("blackLevel", Napi::Number::New(env, snapshot.blackLevel));
+    picture.Set("saturation", Napi::Number::New(env, snapshot.saturation));
+    picture.Set("gamma", Napi::Number::New(env, snapshot.gamma));
+    result.Set("picture", picture);
     if (!snapshot.error.empty()) {
         result.Set("error", Napi::String::New(env, snapshot.error));
     }
@@ -2312,8 +2594,17 @@ Napi::Object Init(Napi::Env env, Napi::Object exports)
         "setSubtitleTrack",
         Napi::Function::New(env, SetSubtitleTrack)
     );
+    exports.Set(
+        "setSubtitleFile",
+        Napi::Function::New(env, SetSubtitleFile)
+    );
+    exports.Set(
+        "setSubtitleSettings",
+        Napi::Function::New(env, SetSubtitleSettings)
+    );
     exports.Set("setSpeed", Napi::Function::New(env, SetSpeed));
     exports.Set("setAspect", Napi::Function::New(env, SetAspect));
+    exports.Set("setPicture", Napi::Function::New(env, SetPicture));
     exports.Set(
         "getSessionSnapshot",
         Napi::Function::New(env, GetSessionSnapshot)

@@ -1,5 +1,9 @@
 import { Signal, WritableSignal } from '@angular/core';
-import { EmbeddedMpvSession } from '@arm-nator/shared/interfaces';
+import {
+    EmbeddedMpvSession,
+    PlayerPictureSettings,
+    PlayerSubtitleSettings,
+} from '@arm-nator/shared/interfaces';
 
 type ElectronBridge = Window['electron'];
 
@@ -85,6 +89,28 @@ export class EmbeddedMpvCommandRunner {
         await this.run(id, () => setSubtitleTrack(id, trackId));
     }
 
+    async setSubtitleFile(filePath: string): Promise<void> {
+        const id = this.ctx.sessionId();
+        const electron = this.bridge();
+        if (!id || !filePath || !electron?.setEmbeddedMpvSubtitleFile) {
+            return;
+        }
+        await this.run(id, () =>
+            electron.setEmbeddedMpvSubtitleFile!(id, filePath)
+        );
+    }
+
+    async setSubtitleSettings(settings: PlayerSubtitleSettings): Promise<void> {
+        const id = this.ctx.sessionId();
+        const electron = this.bridge();
+        if (!id || !electron?.setEmbeddedMpvSubtitleSettings) {
+            return;
+        }
+        await this.run(id, () =>
+            electron.setEmbeddedMpvSubtitleSettings!(id, settings)
+        );
+    }
+
     async setSpeed(speed: number): Promise<void> {
         const id = this.ctx.sessionId();
         const electron = this.bridge();
@@ -103,6 +129,15 @@ export class EmbeddedMpvCommandRunner {
         }
         const setAspect = electron.setEmbeddedMpvAspect;
         await this.run(id, () => setAspect(id, aspect));
+    }
+
+    async setPicture(picture: PlayerPictureSettings): Promise<void> {
+        const id = this.ctx.sessionId();
+        const electron = this.bridge();
+        if (!id || !electron?.setEmbeddedMpvPicture) {
+            return;
+        }
+        await this.run(id, () => electron.setEmbeddedMpvPicture!(id, picture));
     }
 
     /**

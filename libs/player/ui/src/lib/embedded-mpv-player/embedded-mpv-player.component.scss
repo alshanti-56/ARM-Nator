@@ -36,12 +36,12 @@
     width: 100vw;
     height: 100vh;
     border-radius: 0;
-    background: #000;
+    background: #000000;
 }
 
 .embedded-mpv-player:fullscreen .embedded-mpv-player__viewport,
 .embedded-mpv-player--fullscreen .embedded-mpv-player__viewport {
-    background: #000;
+    background: #000000;
 }
 
 .embedded-mpv-player__viewport {
@@ -53,6 +53,28 @@
 
 .embedded-mpv-player--controls-enabled .embedded-mpv-player__viewport {
     bottom: var(--embedded-mpv-controls-height);
+}
+
+// The MPV video surface is a native macOS view and cannot be covered by a
+// Chromium z-index. The settings sheet is docked on the right, so reserve a
+// right-side column instead of shrinking the video vertically.
+.embedded-mpv-player--settings-open .embedded-mpv-player__viewport {
+    // Keep the native MPV surface away from the HTML sheet so its rounded
+    // leading corner remains visible. The sheet has a 12px right inset and
+    // the extra 20px reserves a visible left gap as well as the sheet's
+    // 12px right inset. Keep the native surface at its normal vertical
+    // bounds; the HTML sheet owns its own placement.
+    left: 10px;
+    right: calc(min(500px, calc(100% - 24px)) + 32px);
+}
+
+// Keep the settings sheet in its own overlay layer instead of inside the
+// animated control strip. This prevents the strip's transform/opacity stack
+// from clipping the sheet's top edge. The height cap reserves a 10px top
+// clearance while preserving the bottom clearance above the controls.
+.embedded-mpv-player--settings-open > app-player-settings-panel {
+    height: min(620px, calc(100vh - 120px));
+    max-height: min(620px, calc(100% - 120px), calc(100vh - 210px));
 }
 
 .embedded-mpv-player__loader {
