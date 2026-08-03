@@ -1,187 +1,176 @@
 # ARM-Nator
 
-ARM-Nator is a macOS arm64 Electron media workspace with an Angular renderer,
-M3U and Xtream sources, shared metadata/search, and multiple playback engines.
-This README is the single product and architecture reference.
+ARM-Nator is a macOS Apple Silicon Electron media workspace. It imports M3U
+and Xtream sources, stores catalog data in SQLite, provides search and
+refinement tools, and plays streams through several local and browser-based
+engines.
 
-## Product boundary
+This document describes the current repository rather than a historical
+roadmap. The package version in this checkout is `0.23.5`.
 
-- Runtime: macOS arm64 Electron only.
+## What is available now
+
+- M3U imports from files, text, and URLs.
+- Xtream Code sources with movies, series, live TV, recently added, favorites,
+  recently viewed, and global search views.
+- SQLite-backed catalog storage, indexed search, pagination, metadata
+  enrichment, and case-insensitive refinement values.
+- Release-year refinement that prefers release metadata and only falls back to
+  an explicit or title-derived year when trusted release metadata is absent.
+- Playback through ArtPlayer, HTML5, Embedded MPV, external MPV, and VLC.
+- Shared playback controls for seeking, volume, speed, aspect ratio, tracks,
+  subtitles, fullscreen, screenshots, and engine switching.
+- Playback diagnostics for resolution, container/format, video and audio
+  codecs, bitrate, buffer state, and common loading failures.
+- Online subtitle search and download through OpenSubtitles from the player
+  settings panel. A compatible OpenSubtitles API key must be configured for a
+  shared or packaged build.
+- Direct Play at `/workspace/tools/direct-play` for testing a URL, headers, and
+  a selected player engine.
+- Credential/bulk testing at `/workspace/tools/credentials` for Xtream
+  credentials and M3U URLs.
+- An Electron Browser workspace and a YouTube workspace, both backed by
+  persistent Electron `WebContentsView` sessions.
+- YouTube ad filtering, SponsorBlock integration, an app mini-player, and
+  Google sign-in navigation inside the YouTube tab.
+- Light, dark, and system themes, configurable dashboard rails, favorites,
+  recently viewed content, and persisted playback positions.
+
+## Playback and media limitations
+
+The player engine determines which streams can be decoded. H.264/AAC and
+common MP4/HLS/DASH streams are the most broadly compatible. H.265/HEVC,
+unusual containers, audio codecs, and hardware acceleration depend on the
+selected engine, the embedded runtime, and macOS support. The diagnostics panel
+reports the format and codec information that the active engine exposes.
+
+Browser playback uses the web media stack and Shaka integration where a DASH
+manifest requires it. ClearKey can be configured directly. Widevine and
+PlayReady require all of the following:
+
+1. A provider-supplied license server.
+2. Any required authorization or license request headers.
+3. A compatible browser CDM available to the Electron runtime.
+
+Embedded MPV, external MPV, and VLC are intended for clear streams. The app
+does not bypass DRM, decrypt protected content, or turn a protected provider
+stream into a clear stream.
+
+YouTube links should be opened in the YouTube workspace. Direct Play is for
+direct media or provider stream URLs; a normal YouTube page URL is not itself
+a downloadable media stream and may fail in a generic player engine.
+
+## Product boundaries
+
+- Runtime: macOS arm64 Electron.
 - Renderer: one Angular desktop application.
-- Active sources: M3U and Xtream.
-- Active playback engines: Embedded MPV, ArtPlayer, HTML5, external MPV, and VLC.
-- PWA and browser-only runtime paths: removed.
-- In-app Downloads and Stalker: removed. A startup migration deletes old
-  Stalker playlists and drops the old downloads table. Remaining references are
-  migration/rejection guards only.
+- Main process: Electron services, typed IPC, SQLite access, workers, browser
+  views, and native Embedded MPV integration.
+- Active source types: M3U file/text/URL and Xtream.
+- Active player engines: ArtPlayer, HTML5, Embedded MPV, external MPV, and VLC.
+- Browser and YouTube are Electron-hosted features, not generic browser-only
+  routes.
+- PWA/browser-only runtime paths, the old Downloads feature, Stalker, remote
+  control/server surfaces, and Video.js are not active product features.
 
-Browser and YouTube are active Electron-hosted features. Direct Play is the
-currently active tool route.
+## Routes and tools
 
-## v0.23.5
+| Route | Purpose |
+| --- | --- |
+| `/workspace/dashboard` | Configurable dashboard rails |
+| `/workspace/sources` | Source and playlist management |
+| `/workspace/search` | Global catalog search |
+| `/workspace/global-favorites` | Favorites across sources |
+| `/workspace/global-recent` | Recently viewed content |
+| `/workspace/browser` | General Electron browser view |
+| `/workspace/youtube` | YouTube-focused browser view |
+| `/workspace/tools/direct-play` | Play a URL with a selected engine |
+| `/workspace/tools/credentials` | Test credentials and M3U sources in bulk |
+| `/workspace/settings` | Application, player, source, and dashboard settings |
 
-- Added separate resolution, container/format, and codec telemetry to Embedded
-  MPV playback.
-- Added ClearKey plus browser/Shaka DASH license-server plumbing for Widevine
-  and PlayReady streams. Real playback still requires a provider license
-  endpoint, authorization headers, and an available browser CDM.
-- Improved metadata refinement with canonicalized genres and release-year
-  prioritization from trusted metadata before title fallback.
-- Added persistent Electron Browser and YouTube workspace behavior, including
-  YouTube navigation, ad filtering, SponsorBlock integration, mini-player
-  controls, and Google sign-in navigation.
-- Improved Direct Play layout and removed the unused online-subtitle inputs.
+Source-specific movie, series, live TV, recently added, and advanced-search
+routes are mounted below the workspace shell.
 
-## Current status
-
-| Area | Status | Current state | Next work |
-| --- | --- | --- | --- |
-| Product shell | Implemented | Electron main process plus one Angular renderer and workspace shell | Keep new features behind typed boundaries |
-| Sources | Implemented | M3U and Xtream providers with normalized shared contracts | Preserve provider normalization |
-| Search | Implemented | Per-category and global search, scoring, pagination, SQLite indexes/FTS | Measure large-library performance |
-| Filtering and sorting | Implemented | Category, rating, name/date/rating modes with paginated paths | Add only useful metadata filters |
-| Metadata | Implemented | Titles, ratings, dates, posters, categories, provider payloads, TMDB hooks, canonicalized refinement values, and prioritized release years | Choose additional normalized/indexed fields |
-| Playback foundation | Implemented | Shared session, engine switching, diagnostics, tracks, seeking, screenshots, media health | Add cross-engine regression coverage |
-| Playback telemetry | Partial | Web buffer/codec/bitrate snapshots plus native MPV resolution, container, codec, and buffer snapshots | Verify MPV buffer-ahead thresholds |
-| DRM | Partial | ClearKey and Shaka DASH license-server integration for Widevine/PlayReady | Validate provider-specific CDM, license, and header combinations |
-| Lifecycle and memory | Partial | Listener teardown and native session disposal exist | Stress-test switching, routes, timers, observers, IPC, native sessions |
-| Player controls | Implemented | Volume, tracks, subtitles, speed, aspect ratio, fullscreen, seek, episode navigation | Add shared gear-menu video adjustments |
-| Video adjustments | Partial | Shared gear controls now drive browser filters and Embedded MPV picture properties; native black level is folded into brightness | Add OpenSubtitles search/attachment and refine engine-specific picture parity |
-| Themes | Implemented | Light, dark, and system themes | Add tokenized accent colors and optional skins |
-| Direct Play | Implemented | Diagnostics, URL copying, and engine selection at `/workspace/tools/direct-play` | Expand fixtures and failure reporting |
-| Credential/bulk tester | Implemented | Typed Xtream/M3U batch testing with Electron worker IPC, progress UI, credential-inclusive CSV export, save-to-provider synchronization, and cancellation | Expand user-flow coverage |
-| Browser | Implemented | Persistent Electron `WebContentsView` shell with navigation, session partitioning, bounds management, and mini-player support | Expand browser permissions and session controls |
-| YouTube | Implemented | Persistent YouTube workspace with navigation, ad filtering, SponsorBlock, mini-player controls, and Google sign-in navigation | Validate account-specific flows and expand YouTube controls |
-
-Status meanings: Implemented is active code; Partial is incomplete but running;
-Contract only is typed preparation without a complete runtime; Planned is queued
-work.
-
-## Folder structure
-
-```text
-apps/
-├── desktop-ui/                  Angular renderer, routes, app bootstrap
-└── electron-backend/            Electron main process, IPC, native integration
-
-libs/
-├── providers/                   M3U, Xtream, and shared provider features
-│   ├── m3u/                     state, utilities, player feature
-│   ├── xtream/                  data access and catalog features
-│   └── shared/                  normalized contracts, collection, playlist UI
-├── workspace/                   desktop shell and dashboard
-├── player/                      player contract and engine UI
-├── database/                    SQLite schema and connection runtime
-├── services/                    shared runtime services
-├── shared/                      interfaces, contracts, logging
-├── settings/                    settings data access and UI
-├── ui/                          reusable non-player presentation
-├── tools/                       Direct Play and tool contracts
-└── browser/                     future Electron browser contracts
-
-tools/                           build, packaging, Graphify, and native helpers
-vendor/                          vendored Embedded MPV runtime inputs
-graphify-out/                    generated graph reports and query memory
-```
-
-Keep `apps` thin. 
-
-## Runtime boundaries
+## Architecture
 
 ```text
 Angular feature
-  -> provider/service contract
+  -> typed provider/service contract
   -> PlayerFacade or typed Electron preload bridge
-  -> Electron service or worker
-  -> SQLite, HTTP, or native MPV
+  -> Electron service, worker, SQLite, HTTP, or native MPV
 ```
 
-The workspace owns one persistent playback session. Provider pages resolve media
-and navigation callbacks; they do not mount independent player sessions.
+The workspace owns the persistent playback session. Provider pages resolve
+media and navigation callbacks; they do not create independent player
+sessions. `@arm-nator/player/core` owns player registration, engine
+classification, availability, and the `PlayerFacade` contract.
 
-`@arm-nator/player/core` owns supported-player registration, availability,
-engine classification, and the `PlayerFacade` contract. Feature code must use
-that boundary instead of importing player implementation details.
+Electron main-process code owns database initialization and native/browser
+resources. Renderer code uses typed services and preload APIs rather than
+opening SQLite or Node APIs directly.
 
-New browser pages belong in a persistent Electron session partition, not in an
-arbitrary Angular web view. Add preload methods only with matching IPC handlers.
+## Repository layout
 
-## Provider rules
+```text
+apps/
+├── desktop-ui/                  Angular renderer, routes, and app bootstrap
+└── electron-backend/            Electron main process, IPC, workers, and native code
 
-- Normalize M3U and Xtream payloads before shared UI consumes them.
-- Keep provider-specific API/state in the matching provider folder.
-- Keep collection, playlist, navigation, and shared provider UI in
-  `providers/shared`.
-- Do not import Electron main-process or native-player internals into provider UI.
-- Use Nx tags and module-boundary lint rules to enforce dependency direction.
+libs/
+├── providers/                   M3U, Xtream, and shared catalog features
+├── workspace/                   Desktop shell, dashboard, and navigation
+├── player/                      Player contracts, engines, controls, and diagnostics
+├── database/                    SQLite schema and connection runtime
+├── browser/                     Browser, YouTube, ad-filter, and SponsorBlock contracts
+├── services/                    Shared renderer/runtime services
+├── settings/                    Settings data access and UI
+├── shared/                      Interfaces, IPC contracts, and utilities
+├── tools/                       Direct Play and credential tester features
+└── ui/                          Reusable presentation components
 
-## Credential/bulk tester
+tools/                           Build, packaging, fixture, and graph helpers
+vendor/                          Vendored Embedded MPV arm64 runtime inputs
+graphify-out/                    Local/generated Graphify working data when present
+```
 
-`/workspace/tools/credentials` parses up to 100 unique Xtream credentials or
-M3U URLs and starts a typed batch through the preload bridge. Electron main owns
-the batch ID, renderer ownership, terminal state, and one dedicated worker per
-batch; the worker tests at most six sources concurrently. Progress snapshots and
-CSV exports exclude passwords, URL userinfo, credential query values, and raw
-input text. Stopping a batch requests cooperative abort and main-process worker
-termination, then delivers one terminal snapshot. Saving working sources limits
-M3U imports to three at a time and waits for SQLite persistence before state
-hydration.
-
-## Playback rules
-
-Retained engines are protected: Embedded MPV, ArtPlayer, HTML5, external MPV,
-and VLC. Do not remove, disable, or refactor their selection/configuration
-without explicit approval. Video.js is absent.
-
-Playback features publish resolved requests to the shared workspace host. The
-host owns engine switching, stop/restart, screenshots, seeking, tracks,
-diagnostics, media health, mini-player state, and external-player docking.
-
-Browser DRM is handled by the Shaka engine for DASH manifests. ClearKey can be
-configured directly; Widevine and PlayReady require provider-supplied license
-servers and request headers. Embedded MPV, external MPV, and VLC remain
-intended for clear streams unless a provider and engine-specific DRM path is
-added later.
+Keep Angular features thin. Put provider-specific state in the matching
+provider library, keep shared catalog UI in `providers/shared`, and keep
+Electron or native implementation details behind typed contracts.
 
 ## Database
 
-The shared SQLite library owns Drizzle schema and connection utilities. Active
-tables are `playlists`, `categories`, `content`, `recentlyViewed`, and
-`favorites`. The database lives at:
+The shared database library owns the Drizzle schema and SQLite connection
+utilities. The main catalog tables are:
+
+- `playlists`
+- `app_state`
+- `categories`
+- `content`
+- `recently_viewed`
+- `favorites`
+- `playback_positions`
+- `tmdb_metadata`
+
+The default database path is:
 
 ```text
 ~/.arm-nator/databases/arm-nator.db
 ```
 
-Electron main-process code owns read/write initialization. Renderer code uses
-typed services and preload APIs rather than opening SQLite directly.
+The catalog stores provider and metadata text because it supports search,
+refinement, diagnostics, and offline UI state. It does not store poster image
+files as part of the catalog database; poster and backdrop values are URL
+metadata. SQLite access remains in Electron/main-process services.
 
-## Dashboard
+## Embedded MPV
 
-Dashboard rails are read-only views over existing playlist, recent, favorites,
-and Xtream catalog data. Current rails include hero, continue watching, live
-favorites, recently watched live, favorite movies/series, recent sources, and
-recently added Xtream items. Visibility is controlled by
-`Settings.dashboardRails`; the top-level `showDashboard` flag controls route
-availability.
+Embedded MPV is part of the ARM-Nator application in development and in the
+packaged `.app`. It uses the vendored macOS arm64 runtime; Homebrew libraries
+are not release inputs. External MPV and VLC are optional managed players and
+must be installed/configured separately when those engines are used.
 
-## Native Embedded MPV
-
-Embedded MPV is part of the same ARM-Nator application in development and in
-the packaged `.app`. Its separate source/build paths describe an internal
-native boundary, not a separate product or process users launch.
-
-Requirements: macOS, Xcode Command Line Tools, Node.js, pnpm through Corepack,
-and the vendored arm64 MPV runtime. Development, production builds, and
-packages require the vendored runtime; Homebrew runtime links are not release
-inputs.
-
-Homebrew is not an ARM-Nator runtime dependency. The repository mentions it
-only to reject accidental Homebrew dylib links during packaging and to discover
-optional external MPV/VLC installations. Embedded MPV in the packaged app uses
-the vendored runtime.
-
-Runtime sources and generated artifacts:
+Required development inputs are macOS, Xcode Command Line Tools, Node.js,
+pnpm through Corepack, and the vendored MPV runtime.
 
 ```text
 vendor/embedded-mpv/darwin-arm64/
@@ -195,50 +184,58 @@ apps/electron-backend/native/build/Release/
   lib/*.dylib
 ```
 
-Build or stage the runtime with `pnpm embedded-mpv:runtime`. Build the native
-addon with `pnpm embedded-mpv:build`.
-
 ## Development
 
 ```bash
 pnpm install --frozen-lockfile
-pnpm dev       # Electron + Angular watch mode
-pnpm build     # production desktop build
-pnpm package   # ad-hoc-signed macOS arm64 package
-pnpm clean
+pnpm dev                  # Electron + Angular watch mode
+pnpm build                # Production desktop build
+pnpm package              # Ad-hoc-signed macOS arm64 package
+pnpm embedded-mpv:runtime # Stage/verify the vendored MPV runtime
+pnpm embedded-mpv:build   # Build the native Embedded MPV addon
+pnpm player:fixtures      # Run player stream fixture tooling
+pnpm clean                # Remove generated build output
 ```
 
-`pnpm dev` is the normal development workflow. The app currently serves the
-Angular renderer at `http://localhost:4200` while Electron runs the desktop
-window.
+`pnpm dev` is the normal development workflow. The Angular renderer is served
+at `http://localhost:4200` while Electron runs the desktop window.
+
+## Verification
+
+Useful targeted checks are:
+
+```bash
+pnpm exec nx run providers-m3u-utils:lint
+pnpm exec nx run providers-m3u-utils:build
+pnpm exec nx run player-ui:lint
+pnpm exec nx run shared-interfaces:build
+pnpm build
+```
+
+The native build requires the vendored MPV runtime to be present. Packaged
+builds also validate the embedded runtime and macOS arm64 packaging inputs.
 
 ## Graphify
 
-Graphify is a navigation aid for file and symbol relationships, not a status
-source. Generated output is separate from this product document:
-
-- [apps graph](graphify-out/runs/apps/GRAPH_REPORT.md)
-- [historical libs graph](graphify-out/runs/libs/GRAPH_REPORT.md)
-- [current libs graph](/Users/mohammadalshanti/Downloads/Arm-Nator/libs/graphify-out/GRAPH_REPORT.md)
-
-Refresh after substantial code changes:
+Graphify is a navigation aid for file and symbol relationships. Its output is
+local/generated data and is not the product status source. When the Graphify
+tool is available, refresh it after substantial code changes with:
 
 ```bash
 graphify update
 ```
 
-Current libs graph includes provider libraries. Large graphs may skip HTML
-visualization when they exceed the configured node limit.
+Do not put machine-specific absolute paths in project documentation.
 
-## Documentation and maintenance
+## Maintenance rules
 
-This file is the canonical project document. When a feature changes:
+When changing a feature:
 
-1. Update the relevant status row above.
-2. Update folder or boundary rules if architecture changed.
-3. Refresh the relevant Graphify graph.
-4. Keep generated Graphify output separate and disposable.
-
-Historical cleanup already completed: remote-control/server surfaces, PWA
-runtime, Downloads UI/data, Stalker provider/runtime, and Video.js were removed.
-Legacy database cleanup runs once at startup for existing user data.
+1. Update the route, contract, or runtime note above if its user-facing scope
+   changes.
+2. Keep provider normalization before shared UI consumption.
+3. Keep Electron and native code behind typed preload/IPC boundaries.
+4. Add or update targeted verification for playback, database, or provider
+   changes.
+5. Keep generated artifacts and local Graphify output out of the canonical
+   product description.
