@@ -15,8 +15,22 @@ This README is the single product and architecture reference.
   Stalker playlists and drops the old downloads table. Remaining references are
   migration/rejection guards only.
 
-Browser and YouTube are future Electron-hosted features. Direct Play is the
+Browser and YouTube are active Electron-hosted features. Direct Play is the
 currently active tool route.
+
+## v0.23.5
+
+- Added separate resolution, container/format, and codec telemetry to Embedded
+  MPV playback.
+- Added ClearKey plus browser/Shaka DASH license-server plumbing for Widevine
+  and PlayReady streams. Real playback still requires a provider license
+  endpoint, authorization headers, and an available browser CDM.
+- Improved metadata refinement with canonicalized genres and release-year
+  prioritization from trusted metadata before title fallback.
+- Added persistent Electron Browser and YouTube workspace behavior, including
+  YouTube navigation, ad filtering, SponsorBlock integration, mini-player
+  controls, and Google sign-in navigation.
+- Improved Direct Play layout and removed the unused online-subtitle inputs.
 
 ## Current status
 
@@ -26,17 +40,18 @@ currently active tool route.
 | Sources | Implemented | M3U and Xtream providers with normalized shared contracts | Preserve provider normalization |
 | Search | Implemented | Per-category and global search, scoring, pagination, SQLite indexes/FTS | Measure large-library performance |
 | Filtering and sorting | Implemented | Category, rating, name/date/rating modes with paginated paths | Add only useful metadata filters |
-| Metadata | Partial | Titles, ratings, dates, posters, categories, provider payloads, TMDB hooks | Choose normalized/indexed fields |
+| Metadata | Implemented | Titles, ratings, dates, posters, categories, provider payloads, TMDB hooks, canonicalized refinement values, and prioritized release years | Choose additional normalized/indexed fields |
 | Playback foundation | Implemented | Shared session, engine switching, diagnostics, tracks, seeking, screenshots, media health | Add cross-engine regression coverage |
-| Playback telemetry | Partial | Web buffer/codec/bitrate snapshots and native MPV snapshots | Verify MPV buffer-ahead thresholds |
+| Playback telemetry | Partial | Web buffer/codec/bitrate snapshots plus native MPV resolution, container, codec, and buffer snapshots | Verify MPV buffer-ahead thresholds |
+| DRM | Partial | ClearKey and Shaka DASH license-server integration for Widevine/PlayReady | Validate provider-specific CDM, license, and header combinations |
 | Lifecycle and memory | Partial | Listener teardown and native session disposal exist | Stress-test switching, routes, timers, observers, IPC, native sessions |
 | Player controls | Implemented | Volume, tracks, subtitles, speed, aspect ratio, fullscreen, seek, episode navigation | Add shared gear-menu video adjustments |
 | Video adjustments | Partial | Shared gear controls now drive browser filters and Embedded MPV picture properties; native black level is folded into brightness | Add OpenSubtitles search/attachment and refine engine-specific picture parity |
 | Themes | Implemented | Light, dark, and system themes | Add tokenized accent colors and optional skins |
 | Direct Play | Implemented | Diagnostics, URL copying, and engine selection at `/workspace/tools/direct-play` | Expand fixtures and failure reporting |
 | Credential/bulk tester | Implemented | Typed Xtream/M3U batch testing with Electron worker IPC, progress UI, credential-inclusive CSV export, save-to-provider synchronization, and cancellation | Expand user-flow coverage |
-| Browser | Contract only | Browser tab/navigation/session contracts exist | Build persistent Electron `WebContentsView` shell |
-| YouTube | Partial | Trailer embeds and URL normalization exist | Build full workspace, filtering, and SponsorBlock behavior |
+| Browser | Implemented | Persistent Electron `WebContentsView` shell with navigation, session partitioning, bounds management, and mini-player support | Expand browser permissions and session controls |
+| YouTube | Implemented | Persistent YouTube workspace with navigation, ad filtering, SponsorBlock, mini-player controls, and Google sign-in navigation | Validate account-specific flows and expand YouTube controls |
 
 Status meanings: Implemented is active code; Partial is incomplete but running;
 Contract only is typed preparation without a complete runtime; Planned is queued
@@ -121,6 +136,12 @@ without explicit approval. Video.js is absent.
 Playback features publish resolved requests to the shared workspace host. The
 host owns engine switching, stop/restart, screenshots, seeking, tracks,
 diagnostics, media health, mini-player state, and external-player docking.
+
+Browser DRM is handled by the Shaka engine for DASH manifests. ClearKey can be
+configured directly; Widevine and PlayReady require provider-supplied license
+servers and request headers. Embedded MPV, external MPV, and VLC remain
+intended for clear streams unless a provider and engine-specific DRM path is
+added later.
 
 ## Database
 
