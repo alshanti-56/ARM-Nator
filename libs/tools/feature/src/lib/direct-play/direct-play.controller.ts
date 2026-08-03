@@ -80,9 +80,6 @@ export class DirectPlayController implements OnDestroy {
   url = "";
   title = "";
   headersText = "";
-  subtitleUrl = "";
-  subtitleLabel = "Online subtitle";
-  subtitleLanguage = "en";
   isLive = true;
   seekStepSeconds = 10;
   frameRate = 25;
@@ -265,9 +262,6 @@ export class DirectPlayController implements OnDestroy {
       title: this.title.trim() || "Direct stream",
       headers: this.parseHeaders(this.headersText),
       isLive: this.isLive,
-      subtitleUrl: this.subtitleUrl.trim() || undefined,
-      subtitleLabel: this.subtitleLabel.trim() || undefined,
-      subtitleLanguage: this.subtitleLanguage.trim() || undefined,
     };
 
     const firstRequest = this.playback() === null;

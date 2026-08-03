@@ -18,7 +18,6 @@
                         <button
                             type="button"
                             [class.is-active]="state.engine() === engine.id"
-                            [disabled]="!engineAvailable(engine.id)"
                             (click)="switchEngine(engine.id)"
                         >
                             {{ engine.id }}
@@ -33,9 +32,9 @@
                         >{{ mediaSummary().resolution }}</span
                     >
                     <span
-                        matTooltip="Buffer"
+                        matTooltip="Format"
                         matTooltipPosition="above"
-                        >Buffer {{ mediaSummary().buffer }}</span
+                        >{{ mediaSummary().format }}</span
                     >
                     <span
                         matTooltip="Codec"

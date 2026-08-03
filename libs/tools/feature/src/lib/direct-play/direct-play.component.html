@@ -37,10 +37,12 @@
         </div>
       </div>
 
-      <mat-form-field class="wide-field">
-        <mat-label>Playback URL</mat-label>
+      <div class="field-group wide-field">
+        <label class="field-label" for="direct-play-url">Playback URL</label>
+        <mat-form-field class="field-control">
         <input
           matInput
+          id="direct-play-url"
           [(ngModel)]="url"
           placeholder="https://server.example/live/stream.m3u8"
           (keydown.enter)="play()"
@@ -56,21 +58,27 @@
             <mat-icon>content_copy</mat-icon>
           </button>
         }
-      </mat-form-field>
+        </mat-form-field>
+      </div>
 
       <div class="form-row">
-        <mat-form-field>
-          <mat-label>Title</mat-label>
+        <div class="field-group">
+          <label class="field-label" for="direct-play-title">Title</label>
+          <mat-form-field class="field-control">
           <input
             matInput
+            id="direct-play-title"
             [(ngModel)]="title"
             placeholder="Optional display title"
           />
-        </mat-form-field>
+          </mat-form-field>
+        </div>
 
-        <mat-form-field>
-          <mat-label>Player engine</mat-label>
+        <div class="field-group">
+          <label class="field-label" for="direct-play-engine">Player engine</label>
+          <mat-form-field class="field-control">
           <mat-select
+            id="direct-play-engine"
             [ngModel]="selectedEngine()"
             (ngModelChange)="selectEngine($event)"
           >
@@ -80,37 +88,21 @@
               </mat-option>
             }
           </mat-select>
-        </mat-form-field>
+          </mat-form-field>
+        </div>
       </div>
 
-      <mat-form-field class="wide-field headers-field">
-        <mat-label>HTTP headers</mat-label>
+      <div class="field-group wide-field headers-field">
+        <label class="field-label" for="direct-play-headers">HTTP headers</label>
+        <mat-form-field class="field-control">
         <textarea
           matInput
+          id="direct-play-headers"
           [(ngModel)]="headersText"
           rows="4"
           placeholder="User-Agent: ...&#10;Referer: ...&#10;Origin: ..."
         ></textarea>
         <mat-hint>One Name: Value header per line</mat-hint>
-      </mat-form-field>
-
-      <div class="subtitle-fields">
-        <mat-form-field class="subtitle-url-field">
-          <mat-label>Online subtitle URL</mat-label>
-          <input
-            matInput
-            [(ngModel)]="subtitleUrl"
-            placeholder="https://example.com/subtitles/movie.vtt"
-          />
-          <mat-hint>Web players currently support WebVTT URLs</mat-hint>
-        </mat-form-field>
-        <mat-form-field>
-          <mat-label>Subtitle label</mat-label>
-          <input matInput [(ngModel)]="subtitleLabel" />
-        </mat-form-field>
-        <mat-form-field>
-          <mat-label>Language</mat-label>
-          <input matInput [(ngModel)]="subtitleLanguage" placeholder="en" />
         </mat-form-field>
       </div>
 

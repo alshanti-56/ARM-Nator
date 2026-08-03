@@ -12,7 +12,7 @@ function ensureDirectory(dirPath: string): string {
     return dirPath;
 }
 
-export function getIptvnatorDataRoot(): string {
+export function getArmNatorDataRoot(): string {
     const e2eDataDir = process.env[ARM_NATOR_E2E_DATA_DIR_ENV]?.trim();
 
     if (e2eDataDir) {
@@ -22,12 +22,12 @@ export function getIptvnatorDataRoot(): string {
     return ensureDirectory(join(homedir(), '.arm-nator'));
 }
 
-export function getIptvnatorDatabaseDirectory(): string {
-    return ensureDirectory(join(getIptvnatorDataRoot(), 'databases'));
+export function getArmNatorDatabaseDirectory(): string {
+    return ensureDirectory(join(getArmNatorDataRoot(), 'databases'));
 }
 
-export function getIptvnatorDatabasePath(): string {
-    return join(getIptvnatorDatabaseDirectory(), 'arm-nator.db');
+export function getArmNatorDatabasePath(): string {
+    return join(getArmNatorDatabaseDirectory(), 'arm-nator.db');
 }
 
 export function getElectronUserDataPath(): string | null {

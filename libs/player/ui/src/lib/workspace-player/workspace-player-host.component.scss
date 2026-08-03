@@ -28,6 +28,8 @@
 }
 
 .workspace-player__header {
+    position: relative;
+    z-index: 2;
     display: flex;
     min-height: 52px;
     align-items: center;
@@ -35,6 +37,8 @@
     padding: 8px 10px 8px 14px;
     border-bottom: 1px solid rgb(255 255 255 / 9%);
     background: rgb(20 23 31 / 98%);
+    app-region: no-drag;
+    -webkit-app-region: no-drag;
 }
 
 .workspace-player__identity {
@@ -59,12 +63,19 @@
 }
 
 .workspace-player__engines {
+    position: relative;
+    z-index: 1;
     display: flex;
     min-width: 0;
     gap: 4px;
+    pointer-events: auto;
 }
 
 .workspace-player__engines button {
+    display: inline-flex;
+    min-width: max-content;
+    align-items: center;
+    justify-content: center;
     padding: 5px 8px;
     border: 0;
     border-radius: 7px;
@@ -73,6 +84,9 @@
     cursor: pointer;
     font: inherit;
     font-size: 0.72rem;
+    pointer-events: auto;
+    app-region: no-drag;
+    -webkit-app-region: no-drag;
 }
 
 .workspace-player__engines button:hover,

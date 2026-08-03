@@ -177,6 +177,15 @@
         </div>
 
         <div class="player-controls__actions">
+            @if (bufferLabel(); as buffer) {
+                <span
+                    class="player-controls__buffer"
+                    [matTooltip]="'Buffer ' + buffer"
+                    matTooltipPosition="above"
+                    >Buffer {{ buffer }}</span
+                >
+            }
+
             @if (capabilities().volume) {
                 <div
                     class="player-controls__popover-anchor"

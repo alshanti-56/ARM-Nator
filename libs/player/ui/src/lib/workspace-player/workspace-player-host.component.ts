@@ -15,7 +15,6 @@ import {
     PLAYER_FACADE,
     isManagedExternalPlayer,
 } from '@arm-nator/player/core';
-import { RuntimeCapabilitiesService } from '@arm-nator/services';
 import type { BrowserViewBounds } from '@arm-nator/shared/interfaces';
 import { VideoPlayer } from '@arm-nator/shared/interfaces';
 import type { PlaybackFallbackRequest } from '../playback-diagnostics/playback-diagnostics.model';
@@ -55,14 +54,15 @@ function safeMediaLabel(value: string | undefined): string | null {
     return label;
 }
 
-function formatCodecLabel(
-    codec: string | undefined,
-    container: string | undefined
-): string {
+function formatCodecLabel(codec: string | undefined): string {
     const safeCodec = safeMediaLabel(codec);
     if (safeCodec) {
         return CODEC_ALIASES[safeCodec.toLowerCase()] ?? safeCodec;
     }
+    return '—';
+}
+
+function formatMediaFormat(container: string | undefined): string {
     return safeMediaLabel(container) ?? '—';
 }
 
@@ -76,7 +76,6 @@ function formatCodecLabel(
 export class WorkspacePlayerHostComponent {
     private readonly element = inject(ElementRef<HTMLElement>).nativeElement;
     private readonly player = inject(PLAYER_FACADE);
-    private readonly runtime = inject(RuntimeCapabilitiesService);
     private readonly playerSurface = viewChild<ElementRef<HTMLElement>>(
         'playerSurface'
     );
@@ -120,7 +119,7 @@ export class WorkspacePlayerHostComponent {
         if (!media) {
             return {
                 resolution: '—',
-                buffer: '—',
+                format: '—',
                 codec: '—',
             };
         }
@@ -129,25 +128,10 @@ export class WorkspacePlayerHostComponent {
                 media.width && media.height
                     ? `${media.width}×${media.height}`
                     : '—',
-            buffer:
-                typeof media.bufferAheadSeconds === 'number'
-                    ? `${media.bufferAheadSeconds.toFixed(1)}s`
-                    : typeof media.bufferedSeconds === 'number'
-                      ? `${media.bufferedSeconds.toFixed(1)}s`
-                      : '—',
-            codec: formatCodecLabel(media.videoCodec, media.container),
+            format: formatMediaFormat(media.container),
+            codec: formatCodecLabel(media.videoCodec),
         };
     });
-
-    engineAvailable(engine: VideoPlayer): boolean {
-        if (engine === VideoPlayer.EmbeddedMpv) {
-            return this.runtime.supportsEmbeddedMpv;
-        }
-        if (isManagedExternalPlayer(engine)) {
-            return this.runtime.supportsManagedExternalPlayers;
-        }
-        return true;
-    }
 
     async switchEngine(engine: VideoPlayer): Promise<void> {
         const playback = this.state.playback();

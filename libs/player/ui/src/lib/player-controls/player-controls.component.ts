@@ -1,3 +1,4 @@
+/* eslint-disable max-lines */
 import {
     ChangeDetectionStrategy,
     Component,
@@ -25,12 +26,17 @@ import { ControlsTimeline } from './controls-timeline';
 import { ControlsVisibility } from './controls-visibility';
 import { createControlsViewModel } from './controls-view-model';
 import { ControlsVolume } from './controls-volume';
-import { formatTime, speedLabel } from './controls-format.utils';
+import {
+    formatBufferSeconds,
+    formatTime,
+    speedLabel,
+} from './controls-format.utils';
 import { PlayerSettingsPanelComponent } from './player-settings-panel.component';
 import type {
     PlayerController,
     PlayerPictureSettings,
     PlayerMediaTitle,
+    PlayerMediaTelemetry,
 } from './player-controls.model';
 
 @Component({
@@ -58,6 +64,7 @@ export class PlayerControlsComponent implements OnDestroy {
     readonly showControls = input(true);
     readonly shortcutsEnabled = input(true);
     readonly mediaTitle = input<PlayerMediaTitle | null>(null);
+    readonly media = input<PlayerMediaTelemetry | null>(null);
     readonly previousEpisodeRequested = output<void>();
     readonly nextEpisodeRequested = output<void>();
     readonly barHovered = signal(false);
@@ -145,6 +152,13 @@ export class PlayerControlsComponent implements OnDestroy {
     readonly volumePercent = computed(() =>
         Math.round(this.displayVolume() * 100)
     );
+    readonly bufferLabel = computed(() => {
+        const media = this.media();
+        return formatBufferSeconds(
+            media?.bufferAheadSeconds,
+            media?.bufferedSeconds
+        );
+    });
     readonly controlsAreVisible = this.vm.controlsAreVisible;
     readonly hideCursor = this.vm.hideCursor;
     constructor() {

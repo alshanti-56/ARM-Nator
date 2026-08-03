@@ -30,9 +30,21 @@ export interface ShakaErrorLike {
     data?: unknown[];
 }
 
+export interface ShakaRequestLike {
+    uris: string[];
+    headers: Record<string, string>;
+}
+
+export interface ShakaNetworkingEngineLike {
+    registerRequestFilter(
+        filter: (type: number, request: ShakaRequestLike) => void
+    ): void;
+}
+
 export interface ShakaPlayerLike {
     attach(mediaElement: HTMLMediaElement): Promise<unknown>;
     configure(config: Record<string, unknown>): boolean;
+    getNetworkingEngine(): ShakaNetworkingEngineLike | null;
     load(assetUri: string): Promise<unknown>;
     destroy(): Promise<unknown>;
     addEventListener(type: string, listener: (event: Event) => void): void;

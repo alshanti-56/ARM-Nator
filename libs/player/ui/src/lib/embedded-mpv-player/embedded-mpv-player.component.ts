@@ -29,6 +29,7 @@ import type {
     PlayerMediaTitle,
     PlayerRuntimeSnapshot,
 } from '../player-controls/player-controls.model';
+import { formatBufferSeconds } from '../player-controls/controls-format.utils';
 import { PlayerSettingsPanelComponent } from '../player-controls/player-settings-panel.component';
 import type { SeriesPlaybackNavigation } from '../portal-inline-player/series-playback-navigation';
 import { EmbeddedMpvControlsAdapter } from './embedded-mpv-controls.adapter';
@@ -132,6 +133,9 @@ export class EmbeddedMpvPlayerComponent implements OnDestroy {
     readonly aspectPresets = ASPECT_PRESETS;
     readonly picture = computed(
         () => this.session()?.picture ?? DEFAULT_PICTURE_SETTINGS
+    );
+    readonly bufferLabel = computed(() =>
+        formatBufferSeconds(this.session()?.bufferedSeconds)
     );
 
     readonly isSupported = computed(() => this.support()?.supported ?? false);
@@ -349,6 +353,7 @@ export class EmbeddedMpvPlayerComponent implements OnDestroy {
                     resolvedUrl: session?.streamUrl,
                     width: session?.videoWidth,
                     height: session?.videoHeight,
+                    container: session?.container,
                     videoCodec: session?.videoCodec,
                     audioCodec: session?.audioCodec,
                     fps: session?.fps,

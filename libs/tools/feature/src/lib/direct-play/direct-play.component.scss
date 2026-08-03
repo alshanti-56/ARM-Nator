@@ -157,12 +157,12 @@
 
 .setup-card,
 .info-card {
-  padding: 22px;
+  padding: 28px;
 }
 
 .section-heading {
   gap: 12px;
-  margin-bottom: 20px;
+  margin-bottom: 28px;
 
   > mat-icon {
     width: 42px;
@@ -186,6 +186,20 @@
   }
 }
 
+.field-group {
+  min-width: 0;
+}
+
+.field-label {
+  display: block;
+  margin: 0 0 8px 3px;
+  color: var(--mat-sys-on-surface);
+  font-size: 16px;
+  font-weight: 700;
+  line-height: 1.25;
+}
+
+.field-control,
 .wide-field {
   width: 100%;
 }
@@ -193,31 +207,18 @@
 .form-row {
   display: grid;
   grid-template-columns: 1fr 1fr;
-  gap: 14px;
+  gap: 18px;
+  margin-top: 4px;
 
-  mat-form-field {
-    width: 100%;
-  }
 }
 
 .headers-field {
-  margin-top: 2px;
-}
-
-.subtitle-fields {
-  display: grid;
-  grid-template-columns: minmax(0, 1.8fr) minmax(140px, 0.7fr) 100px;
-  gap: 12px;
   margin-top: 10px;
-
-  mat-form-field {
-    width: 100%;
-  }
 }
 
 .setup-footer {
   justify-content: space-between;
-  margin-top: 12px;
+  margin-top: 20px;
 }
 
 .setup-actions {
@@ -687,11 +688,6 @@
   }
 
   .form-row {
-    grid-template-columns: 1fr;
-    gap: 0;
-  }
-
-  .subtitle-fields {
     grid-template-columns: 1fr;
     gap: 0;
   }

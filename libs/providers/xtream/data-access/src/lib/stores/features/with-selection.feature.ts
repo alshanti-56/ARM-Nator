@@ -13,6 +13,7 @@ import {
   catalogSearchText,
   catalogTitle,
   catalogYear,
+  canonicalCatalogGenre,
   collectCatalogGenres,
   collectCatalogYears,
   normalizeTitleKeys,
@@ -297,7 +298,7 @@ export function withSelection() {
         }
         return items.filter((item) =>
           catalogGenreValues(item).some(
-            (value) => value.toLocaleLowerCase() === genre.toLocaleLowerCase(),
+            (value) => canonicalCatalogGenre(value) === canonicalCatalogGenre(genre),
           ),
         );
       };

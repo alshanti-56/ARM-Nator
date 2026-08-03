@@ -35,6 +35,7 @@ export interface NativeEmbeddedMpvSessionSnapshot {
     picture?: PlayerPictureSettings;
     videoWidth?: number;
     videoHeight?: number;
+    container?: string;
     videoCodec?: string;
     audioCodec?: string;
     fps?: number;
@@ -601,6 +602,16 @@ export class EmbeddedMpvNativeService {
                     ? Math.max(0, Math.floor(snapshot.durationSeconds))
                     : null,
             volume: typeof snapshot.volume === 'number' ? snapshot.volume : 1,
+            ...(typeof snapshot.videoWidth === 'number' &&
+            typeof snapshot.videoHeight === 'number'
+                ? {
+                      videoWidth: snapshot.videoWidth,
+                      videoHeight: snapshot.videoHeight,
+                  }
+                : {}),
+            ...(typeof snapshot.container === 'string'
+                ? { container: snapshot.container }
+                : {}),
             audioTracks: Array.isArray(snapshot.audioTracks)
                 ? snapshot.audioTracks
                 : [],

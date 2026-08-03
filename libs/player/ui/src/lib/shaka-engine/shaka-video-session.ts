@@ -1,3 +1,4 @@
+/* eslint-disable max-lines -- keeps the Shaka session lifecycle and DRM wiring together. */
 import type { ChannelDrm } from '@arm-nator/shared/interfaces';
 import type {
     InlinePlaybackPlayer,
@@ -19,6 +20,7 @@ import {
 import { ShakaTextTrackSuppression } from './shaka-text-track-suppression';
 import {
     loadShakaModule,
+    type ShakaNetworkingEngineLike,
     type ShakaErrorLike,
     type ShakaModuleLike,
     type ShakaModuleLoader,
@@ -38,6 +40,7 @@ const SHAKA_SEVERITY_RECOVERABLE = 1;
 /** `shaka.util.Error.Code.LOAD_INTERRUPTED` — expected when a newer
  * `load()`/`destroy()` supersedes an in-flight one. */
 const SHAKA_LOAD_INTERRUPTED = 7000;
+const SHAKA_LICENSE_REQUEST_TYPE = 2;
 
 const PLAYER_REFRESH_EVENTS = [
     'loaded',
@@ -57,8 +60,9 @@ const PLAYER_REFRESH_EVENTS = [
  *   serialized on an internal chain and guarded by a generation counter, so a
  *   channel switch during an in-flight load can never resurrect a stale
  *   engine.
- * - ClearKey DRM comes from the channel's {@link ChannelDrm}; unsupported
- *   license types emit a DRM diagnostic instead of starting an engine.
+ * - ClearKey, Widevine, and PlayReady DRM come from the channel's
+ *   {@link ChannelDrm}; unsupported license types emit a DRM diagnostic
+ *   instead of starting an engine.
  */
 export class ShakaVideoSession {
     private module: ShakaModuleLike | null = null;
@@ -171,8 +175,18 @@ export class ShakaVideoSession {
         this.player = player;
         this.bindPlayerListeners(player, generation, url, drm !== undefined);
 
-        if (drm?.clearKeys) {
-            player.configure({ drm: { clearKeys: drm.clearKeys } });
+        if (drm) {
+            const drmConfig: Record<string, unknown> = {};
+            if (drm.clearKeys) {
+                drmConfig['clearKeys'] = drm.clearKeys;
+            }
+            if (drm.licenseServerUrl) {
+                drmConfig['servers'] = {
+                    [drm.licenseType]: drm.licenseServerUrl,
+                };
+            }
+            player.configure({ drm: drmConfig });
+            this.configureLicenseHeaders(player, drm.licenseRequestHeaders);
         }
 
         try {
@@ -247,9 +261,27 @@ export class ShakaVideoSession {
         this.beginPlayerTeardown();
     }
 
+    private configureLicenseHeaders(
+        player: ShakaPlayerLike,
+        headers: Record<string, string> | undefined
+    ): void {
+        if (!headers || Object.keys(headers).length === 0) {
+            return;
+        }
+
+        const networkingEngine: ShakaNetworkingEngineLike | null =
+            player.getNetworkingEngine();
+        networkingEngine?.registerRequestFilter((type, request) => {
+            if (type !== SHAKA_LICENSE_REQUEST_TYPE) {
+                return;
+            }
+            Object.assign(request.headers, headers);
+        });
+    }
+
     /**
-     * Channels carrying KODIPROP ClearKey config cannot be handed to MPV/VLC
-     * at all — external players never receive the license config, so the
+     * Channels carrying KODIPROP DRM config cannot be handed to MPV/VLC at
+     * all — external players never receive the license config, so the
      * encrypted stream fails there regardless of what broke inline (DRM,
      * manifest, codec, network, …). Suppress the fallback hint entirely.
      */

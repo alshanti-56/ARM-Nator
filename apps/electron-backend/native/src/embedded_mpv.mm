@@ -95,6 +95,9 @@ struct SessionSnapshot {
     double durationSeconds = -1.0;
     double volumePercent = 100.0;
     std::string streamUrl;
+    int64_t videoWidth = 0;
+    int64_t videoHeight = 0;
+    std::string container;
     std::string error;
     std::string videoCodec;
     std::string audioCodec;
@@ -890,6 +893,51 @@ std::string sanitizeCodecLabel(const char* value)
     return codec;
 }
 
+bool readMpvStringProperty(
+    mpv_handle* handle,
+    const char* propertyName,
+    std::string& output
+)
+{
+    if (!handle || !propertyName) {
+        return false;
+    }
+
+    void* rawValue = nullptr;
+    const int result = mpv_get_property(
+        handle,
+        propertyName,
+        MPV_FORMAT_STRING,
+        &rawValue
+    );
+    if (result < 0 || !rawValue) {
+        return false;
+    }
+
+    const auto* value = static_cast<const char*>(rawValue);
+    if (value && *value) {
+        output = value;
+    }
+    mpv_free(rawValue);
+    return !output.empty();
+}
+
+void refreshMediaMetadata(Session& session)
+{
+    std::string value;
+    if (readMpvStringProperty(session.handle, "video-codec", value)) {
+        session.snapshot.videoCodec = sanitizeCodecLabel(value.c_str());
+    }
+    value.clear();
+    if (readMpvStringProperty(session.handle, "audio-codec-name", value)) {
+        session.snapshot.audioCodec = sanitizeCodecLabel(value.c_str());
+    }
+    value.clear();
+    if (readMpvStringProperty(session.handle, "file-format", value)) {
+        session.snapshot.container = value;
+    }
+}
+
 std::string sanitizeAspectOverride(const char* value)
 {
     const std::string aspect = value ? value : "";
@@ -1096,6 +1144,7 @@ void runEventLoop(const std::shared_ptr<Session>& session)
                 session->snapshot.status = session->paused
                     ? SessionStatus::Paused
                     : SessionStatus::Playing;
+                refreshMediaMetadata(*session);
                 break;
             case MPV_EVENT_END_FILE: {
                 const auto* endFile =
@@ -1190,6 +1239,28 @@ void runEventLoop(const std::shared_ptr<Session>& session)
                     const auto* pathValue =
                         static_cast<char*>(property->data);
                     session->snapshot.streamUrl = pathValue ? pathValue : "";
+                    break;
+                }
+
+                if ((propertyName == "video-params/w" ||
+                     propertyName == "video-params/h") &&
+                    property->format == MPV_FORMAT_INT64 &&
+                    property->data) {
+                    const auto value =
+                        *static_cast<int64_t*>(property->data);
+                    if (propertyName == "video-params/w") {
+                        session->snapshot.videoWidth = value;
+                    } else {
+                        session->snapshot.videoHeight = value;
+                    }
+                    break;
+                }
+
+                if (propertyName == "file-format" &&
+                    property->format == MPV_FORMAT_STRING &&
+                    property->data) {
+                    const auto* value = static_cast<char*>(property->data);
+                    session->snapshot.container = value ? value : "";
                     break;
                 }
 
@@ -1737,6 +1808,9 @@ Napi::Value CreateSession(const Napi::CallbackInfo& info)
     mpv_observe_property(session->handle, 15, "video-bitrate", MPV_FORMAT_DOUBLE);
     mpv_observe_property(session->handle, 16, "drop-frame-count", MPV_FORMAT_INT64);
     mpv_observe_property(session->handle, 17, "demuxer-cache-duration", MPV_FORMAT_DOUBLE);
+    mpv_observe_property(session->handle, 18, "video-params/w", MPV_FORMAT_INT64);
+    mpv_observe_property(session->handle, 19, "video-params/h", MPV_FORMAT_INT64);
+    mpv_observe_property(session->handle, 20, "file-format", MPV_FORMAT_STRING);
 
     session->running.store(true);
     session->eventThread = std::thread(runEventLoop, session);
@@ -2435,6 +2509,7 @@ Napi::Value GetSessionSnapshot(const Napi::CallbackInfo& info)
     SessionSnapshot snapshot;
     {
         std::lock_guard<std::mutex> lock(session->mutex);
+        refreshMediaMetadata(*session);
         snapshot = session->snapshot;
     }
 
@@ -2454,6 +2529,19 @@ Napi::Value GetSessionSnapshot(const Napi::CallbackInfo& info)
     }
     result.Set("volume", Napi::Number::New(env, snapshot.volumePercent / 100.0));
     result.Set("streamUrl", Napi::String::New(env, snapshot.streamUrl));
+    if (snapshot.videoWidth > 0 && snapshot.videoHeight > 0) {
+        result.Set(
+            "videoWidth",
+            Napi::Number::New(env, snapshot.videoWidth)
+        );
+        result.Set(
+            "videoHeight",
+            Napi::Number::New(env, snapshot.videoHeight)
+        );
+    }
+    if (!snapshot.container.empty()) {
+        result.Set("container", Napi::String::New(env, snapshot.container));
+    }
     if (!snapshot.videoCodec.empty()) {
         result.Set("videoCodec", Napi::String::New(env, snapshot.videoCodec));
     }

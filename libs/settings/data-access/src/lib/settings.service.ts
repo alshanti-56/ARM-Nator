@@ -180,7 +180,7 @@ export class SettingsService {
         return this.http
             .get<
                 { created_at: string; name: string }[]
-            >('https://api.github.com/repos/4gray/arm-nator/releases')
+            >('https://api.github.com/repos/alshanti-56/ARM-Nator/releases')
             .pipe(
                 map((response) => {
                     // Filter out pre-release versions (beta, alpha, rc, etc.)

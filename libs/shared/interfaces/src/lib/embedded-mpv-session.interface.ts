@@ -59,6 +59,8 @@ export interface EmbeddedMpvSession {
     /** Source video size reported by MPV. */
     videoWidth?: number;
     videoHeight?: number;
+    /** Container format reported by MPV (for example, matroska or MPEG-TS). */
+    container?: string;
     videoCodec?: string;
     audioCodec?: string;
     fps?: number;

@@ -82,6 +82,10 @@ function isYouTubeHost(hostname: string): boolean {
     );
 }
 
+function isYouTubeAuthenticationHost(hostname: string): boolean {
+    return hostname.toLowerCase() === 'accounts.google.com';
+}
+
 function normalizeUrl(value: string, mode: BrowserViewMode): string {
     const candidate = value.trim();
     const withProtocol = /^[a-z][a-z\d+.-]*:/i.test(candidate)
@@ -93,8 +97,14 @@ function normalizeUrl(value: string, mode: BrowserViewMode): string {
         throw new Error('Only HTTP and HTTPS pages can be opened here.');
     }
 
-    if (mode === 'youtube' && !isYouTubeHost(parsed.hostname)) {
-        throw new Error('YouTube mode only allows YouTube pages.');
+    if (
+        mode === 'youtube' &&
+        !isYouTubeHost(parsed.hostname) &&
+        !isYouTubeAuthenticationHost(parsed.hostname)
+    ) {
+        throw new Error(
+            'YouTube mode only allows YouTube pages and Google sign-in.'
+        );
     }
 
     return parsed.toString();
