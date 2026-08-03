@@ -267,6 +267,15 @@ export default [
         },
     },
     {
+        files: ['libs/tools/feature/src/lib/direct-play/direct-play.controller.ts'],
+        rules: {
+            'max-lines': [
+                'error',
+                { max: 800, skipBlankLines: false, skipComments: false },
+            ],
+        },
+    },
+    {
         files: [
             'apps/desktop-ui/src/app/app.component.ts',
             'apps/electron-backend/src/app/events/player.events.ts',
