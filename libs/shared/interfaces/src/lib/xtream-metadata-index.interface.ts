@@ -8,6 +8,7 @@ export type XtreamMetadataIndexState =
     | 'idle'
     | 'queued'
     | 'running'
+    | 'stopping'
     | 'complete'
     | 'error';
 

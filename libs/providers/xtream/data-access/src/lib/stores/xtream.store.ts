@@ -245,7 +245,8 @@ export const XtreamStore = signalStore(
         password: playlist.password,
       };
       const total = store.vodStreams().length + store.serialStreams().length;
-      if (!metadataIndexService.beginExternal(playlistId, total)) {
+      const sessionId = crypto.randomUUID();
+      if (!(await metadataIndexService.beginExternal(playlistId, total, sessionId))) {
         return;
       }
       const generation = ++metadataBackfillGeneration;
@@ -265,14 +266,18 @@ export const XtreamStore = signalStore(
       const request = backfillXtreamCatalogMetadata({
         movies: store.vodStreams() as unknown as CatalogMetadataRecord[],
         series: store.serialStreams() as unknown as CatalogMetadataRecord[],
-        isActive,
+        isActive: () =>
+          isActive() && metadataIndexService.shouldContinue(playlistId),
         fetchDetails: async (job) => {
           const xtreamId = jobXtreamId(job);
           return (job.type === "movie"
-            ? await xtreamApiService.getVodInfo(credentials, xtreamId)
+            ? await xtreamApiService.getVodInfo(credentials, xtreamId, {
+                sessionId,
+              })
             : await xtreamApiService.getSeriesInfo(
                 credentials,
                 xtreamId,
+                { sessionId },
               )) as unknown as CatalogMetadataRecord;
         },
         persist: (job, metadata, enrichment) =>

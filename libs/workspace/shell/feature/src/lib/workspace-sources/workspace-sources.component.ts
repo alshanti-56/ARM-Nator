@@ -191,6 +191,10 @@ export class WorkspaceSourcesComponent {
         void this.metadataIndexService.start(playlist);
     }
 
+    stopMetadataIndexing(playlist: PlaylistMeta): void {
+        this.metadataIndexService.stop(playlist._id);
+    }
+
     isSortActive(option: SortOption): boolean {
         const current = this.currentSortOptions();
         return current.by === option.by && current.order === option.order;

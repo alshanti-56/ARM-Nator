@@ -123,6 +123,8 @@
                     <mat-icon inline>{{
                         index.state === 'running'
                             ? 'sync'
+                            : index.state === 'stopping'
+                              ? 'stop_circle'
                             : index.indexed >= index.total && index.total > 0
                               ? 'check_circle'
                               : 'search'
@@ -133,6 +135,8 @@
                         {{ 'WORKSPACE.SOURCES.METADATA_QUEUED' | translate }}
                     } @else if (index.state === 'running') {
                         {{ 'WORKSPACE.SOURCES.METADATA_INDEXING' | translate }}
+                    } @else if (index.state === 'stopping') {
+                        {{ 'WORKSPACE.SOURCES.METADATA_STOPPING' | translate }}
                     } @else if (index.indexed >= index.total) {
                         {{ 'WORKSPACE.SOURCES.METADATA_READY' | translate }}
                     } @else {
@@ -185,6 +189,7 @@
                         index.total > 0 &&
                         index.state !== 'running' &&
                         index.state !== 'queued' &&
+                        index.state !== 'stopping' &&
                         index.indexed < index.total
                     ) {
                         <button
@@ -198,6 +203,24 @@
                         >
                             <mat-icon>play_arrow</mat-icon>
                             {{ 'WORKSPACE.SOURCES.START_INDEXING' | translate }}
+                        </button>
+                    }
+                    @if (
+                        index.state === 'running' ||
+                        index.state === 'queued' ||
+                        index.state === 'stopping'
+                    ) {
+                        <button
+                            mat-stroked-button
+                            class="metadata-index-btn metadata-index-stop-btn"
+                            (click)="
+                                $event.stopPropagation();
+                                stopMetadataIndexingClicked.emit()
+                            "
+                            [disabled]="index.state === 'stopping'"
+                        >
+                            <mat-icon>stop</mat-icon>
+                            {{ 'WORKSPACE.SOURCES.STOP_INDEXING' | translate }}
                         </button>
                     }
                 }

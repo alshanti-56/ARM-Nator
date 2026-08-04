@@ -102,6 +102,7 @@ export class RecentPlaylistsComponent {
         (playlistId: string) => XtreamMetadataIndexView | null
     >(() => null);
     readonly startMetadataIndexingClicked = output<PlaylistMeta>();
+    readonly stopMetadataIndexingClicked = output<PlaylistMeta>();
 
     get isElectron(): boolean {
         return this.runtime.isElectron;

@@ -1131,7 +1131,9 @@
             "METADATA_QUEUED": "Queued for metadata indexing",
             "METADATA_READY": "Search metadata ready",
             "METADATA_NOT_INDEXED": "Metadata not indexed",
-            "START_INDEXING": "Start indexing"
+            "START_INDEXING": "Start indexing",
+            "STOP_INDEXING": "Stop indexing",
+            "METADATA_STOPPING": "Stopping metadata indexing"
         },
         "CONTEXT": {
             "CATEGORIES": "Categories",

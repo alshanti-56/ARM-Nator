@@ -587,8 +587,12 @@ export class ElectronService extends DataService {
 
             // Only show snackbar for user-triggered Xtream requests
             if (!isSilentAction) {
+                const requestContext = this.getXtreamRequestContext(payload);
+                const statusSuffix = errorInfo?.status
+                    ? ` (HTTP ${errorInfo.status})`
+                    : '';
                 this.snackBar.open(
-                    `Xtream request failed: ${normalizedMessage}`,
+                    `Xtream request failed · ${requestContext}${statusSuffix}: ${normalizedMessage}`,
                     'Close',
                     {
                         duration: 5000,
@@ -601,6 +605,40 @@ export class ElectronService extends DataService {
                 status: errorInfo?.status ?? 500,
                 message: normalizedMessage,
             };
+        }
+    }
+
+    private getXtreamRequestContext(payload: {
+        url: string;
+        params: Record<string, string>;
+    }): string {
+        const host = this.getXtreamRequestHost(payload.url);
+        const action = payload.params?.action;
+        const actionLabels: Record<string, string> = {
+            [XtreamCodeActions.GetAccountInfo]: 'account status',
+            [XtreamCodeActions.GetLiveStreams]: 'live catalog',
+            [XtreamCodeActions.GetLiveCategories]: 'live categories',
+            [XtreamCodeActions.GetSeries]: 'series catalog',
+            [XtreamCodeActions.GetSeriesCategories]: 'series categories',
+            [XtreamCodeActions.GetSeriesInfo]: 'series metadata',
+            [XtreamCodeActions.GetVodStreams]: 'movie catalog',
+            [XtreamCodeActions.GetVodCategories]: 'movie categories',
+            [XtreamCodeActions.GetVodInfo]: 'movie metadata',
+        };
+        const requestLabel = action
+            ? `${actionLabels[action] ?? action}`
+            : 'account/status fallback';
+        const itemId = payload.params?.vod_id ?? payload.params?.series_id;
+
+        return `${host} · ${requestLabel}${itemId ? ` #${itemId}` : ''}`;
+    }
+
+    private getXtreamRequestHost(url: string): string {
+        try {
+            const parsed = new URL(url.includes('://') ? url : `http://${url}`);
+            return normalizeHost(parsed.host);
+        } catch {
+            return normalizeHost(url).replace(/^https?:\/\//, '') || 'unknown server';
         }
     }
 

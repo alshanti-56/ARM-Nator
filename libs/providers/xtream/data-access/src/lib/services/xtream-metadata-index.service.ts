@@ -19,15 +19,20 @@ const EMPTY_STATUS: XtreamMetadataIndexView = {
     failed: 0,
     state: 'idle',
 };
+const PERSISTED_STOPPED_SOURCES_KEY = 'xtream-metadata-index-stopped-v1';
 
 @Injectable({ providedIn: 'root' })
 export class XtreamMetadataIndexService {
     private readonly databaseService = inject(DatabaseService);
     private readonly xtreamApiService = inject(XtreamApiService);
+    private readonly persistedStopsReady = this.loadPersistedStops();
     private readonly statusMap = signal<Record<string, XtreamMetadataIndexView>>(
         {}
     );
     private readonly activeSources = new Set<string>();
+    private readonly stopRequested = new Set<string>();
+    private readonly manuallyStoppedSources = new Set<string>();
+    private readonly sessionIds = new Map<string, string>();
     private activePlaylistId: string | null = null;
     private readonly queuedPlaylists = new Map<string, PlaylistMeta>();
     private readonly statusRequests = new Map<
@@ -77,6 +82,7 @@ export class XtreamMetadataIndexService {
     }
 
     async start(playlist: PlaylistMeta): Promise<void> {
+        await this.persistedStopsReady;
         const playlistId = playlist._id;
         if (
             !playlist.serverUrl ||
@@ -86,6 +92,10 @@ export class XtreamMetadataIndexService {
         ) {
             return;
         }
+
+        this.manuallyStoppedSources.delete(playlistId);
+        this.persistStoppedSources();
+        this.stopRequested.delete(playlistId);
 
         if (
             this.activePlaylistId ||
@@ -102,6 +112,8 @@ export class XtreamMetadataIndexService {
 
         this.activePlaylistId = playlistId;
         this.activeSources.add(playlistId);
+        const sessionId = crypto.randomUUID();
+        this.sessionIds.set(playlistId, sessionId);
         this.setStatus(playlistId, {
             ...this.getStatus(playlistId),
             state: 'running',
@@ -133,7 +145,7 @@ export class XtreamMetadataIndexService {
             await backfillXtreamCatalogMetadata({
                 movies: movies as unknown as CatalogMetadataRecord[],
                 series: series as unknown as CatalogMetadataRecord[],
-                isActive: () => this.activeSources.has(playlistId),
+                isActive: () => this.shouldContinue(playlistId),
                 fetchDetails: async (job) => {
                     const item = job.item;
                     const id =
@@ -145,10 +157,13 @@ export class XtreamMetadataIndexService {
                     }
 
                     return (job.type === 'movie'
-                        ? await this.xtreamApiService.getVodInfo(credentials, id)
+                        ? await this.xtreamApiService.getVodInfo(credentials, id, {
+                              sessionId,
+                          })
                         : await this.xtreamApiService.getSeriesInfo(
                               credentials,
-                              id
+                              id,
+                              { sessionId }
                           )) as unknown as CatalogMetadataRecord;
                 },
                 persist: async (job, metadata, enrichment) => {
@@ -174,6 +189,8 @@ export class XtreamMetadataIndexService {
             });
         } finally {
             this.activeSources.delete(playlistId);
+            this.stopRequested.delete(playlistId);
+            this.sessionIds.delete(playlistId);
             if (this.activePlaylistId === playlistId) {
                 this.activePlaylistId = null;
             }
@@ -183,13 +200,18 @@ export class XtreamMetadataIndexService {
         }
     }
 
-    beginExternal(
+    async beginExternal(
         playlistId: string,
-        total = this.getStatus(playlistId).total
-    ): boolean {
+        total = this.getStatus(playlistId).total,
+        sessionId = crypto.randomUUID()
+    ): Promise<boolean> {
+        await this.persistedStopsReady;
+        if (this.manuallyStoppedSources.has(playlistId)) return false;
         if (this.activeSources.size > 0) return false;
 
+        this.stopRequested.delete(playlistId);
         this.activeSources.add(playlistId);
+        this.sessionIds.set(playlistId, sessionId);
         this.setStatus(playlistId, {
             ...this.getStatus(playlistId),
             total,
@@ -210,8 +232,73 @@ export class XtreamMetadataIndexService {
 
     finishExternal(playlistId: string): void {
         this.activeSources.delete(playlistId);
+        this.stopRequested.delete(playlistId);
+        this.sessionIds.delete(playlistId);
         void this.refreshStatus(playlistId);
         this.startNextQueued();
+    }
+
+    shouldContinue(playlistId: string): boolean {
+        return (
+            this.activeSources.has(playlistId) &&
+            !this.stopRequested.has(playlistId)
+        );
+    }
+
+    stop(playlistId: string): void {
+        if (this.queuedPlaylists.delete(playlistId)) {
+            this.manuallyStoppedSources.add(playlistId);
+            this.persistStoppedSources();
+            this.setStatus(playlistId, {
+                ...this.getStatus(playlistId),
+                state: 'idle',
+            });
+            return;
+        }
+
+        if (!this.activeSources.has(playlistId)) return;
+
+        this.manuallyStoppedSources.add(playlistId);
+        this.persistStoppedSources();
+        this.stopRequested.add(playlistId);
+        this.setStatus(playlistId, {
+            ...this.getStatus(playlistId),
+            state: 'stopping',
+        });
+
+        const sessionId = this.sessionIds.get(playlistId);
+        if (sessionId) {
+            void this.xtreamApiService.cancelSession(sessionId);
+        }
+    }
+
+    private async loadPersistedStops(): Promise<void> {
+        const raw = await this.databaseService.getAppState(
+            PERSISTED_STOPPED_SOURCES_KEY
+        );
+        if (!raw) return;
+
+        try {
+            const playlistIds = JSON.parse(raw) as unknown;
+            if (Array.isArray(playlistIds)) {
+                playlistIds
+                    .filter((playlistId): playlistId is string =>
+                        typeof playlistId === 'string' && playlistId.length > 0
+                    )
+                    .forEach((playlistId) =>
+                        this.manuallyStoppedSources.add(playlistId)
+                    );
+            }
+        } catch {
+            // Ignore an invalid persisted value and start normally.
+        }
+    }
+
+    private persistStoppedSources(): void {
+        void this.databaseService.setAppState(
+            PERSISTED_STOPPED_SOURCES_KEY,
+            JSON.stringify([...this.manuallyStoppedSources])
+        );
     }
 
     private startNextQueued(): void {

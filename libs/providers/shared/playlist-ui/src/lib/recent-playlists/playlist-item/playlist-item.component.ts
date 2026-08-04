@@ -61,6 +61,7 @@ export class PlaylistItemComponent implements OnInit {
     readonly removeClicked = output<string>();
     readonly cancelBusyActionClicked = output<void>();
     readonly startMetadataIndexingClicked = output<void>();
+    readonly stopMetadataIndexingClicked = output<void>();
     readonly metadataIndexPercent = computed(() => {
         const status = this.metadataIndexStatus();
         if (!status || status.total <= 0) return 0;

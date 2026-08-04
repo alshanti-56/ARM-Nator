@@ -260,6 +260,22 @@
     }
 }
 
+.metadata-index-stop-btn {
+    width: 128px !important;
+    min-width: 128px !important;
+    color: var(--mat-sys-error) !important;
+    border-color: color-mix(
+        in srgb,
+        var(--mat-sys-error) 55%,
+        transparent
+    ) !important;
+    background: color-mix(in srgb, var(--mat-sys-error) 8%, transparent);
+
+    &:hover {
+        background: color-mix(in srgb, var(--mat-sys-error) 15%, transparent);
+    }
+}
+
 .action-spinner {
     display: block;
     margin: 0 auto;
