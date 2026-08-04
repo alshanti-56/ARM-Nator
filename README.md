@@ -15,6 +15,17 @@ roadmap. The package version in this checkout is `0.23.5`.
   recently viewed, and global search views.
 - SQLite-backed catalog storage, indexed search, pagination, metadata
   enrichment, and case-insensitive refinement values.
+- Per-Xtream-source metadata indexing status on the Sources page, including
+  indexed/total counts, progress, queued work, and a Start indexing action.
+- Provider metadata indexing uses a bounded single-source queue, skips complete
+  records, and keeps failed records retryable without repeatedly re-indexing the
+  entire catalog.
+- Global Search searches the local database across Xtream and M3U sources;
+  title search is available after import while metadata search improves as
+  each Xtream source is indexed.
+- Optional TMDB enrichment for on-demand detail views and the Dashboard
+  trending rail. TMDB enrichment is separate from provider metadata indexing
+  and does not scan the entire catalog when enabled.
 - Release-year refinement that prefers release metadata and only falls back to
   an explicit or title-derived year when trusted release metadata is absent.
 - Playback through ArtPlayer, HTML5, Embedded MPV, external MPV, and VLC.
@@ -78,7 +89,7 @@ a downloadable media stream and may fail in a generic player engine.
 | Route | Purpose |
 | --- | --- |
 | `/workspace/dashboard` | Configurable dashboard rails |
-| `/workspace/sources` | Source and playlist management |
+| `/workspace/sources` | Source and playlist management, including per-source Xtream metadata indexing |
 | `/workspace/search` | Global catalog search |
 | `/workspace/global-favorites` | Favorites across sources |
 | `/workspace/global-recent` | Recently viewed content |
@@ -162,6 +173,16 @@ refinement, diagnostics, and offline UI state. It does not store poster image
 files as part of the catalog database; poster and backdrop values are URL
 metadata. SQLite access remains in Electron/main-process services.
 
+Xtream movie and series rows also track metadata enrichment status, attempt
+time, and retry time. The Sources page reads aggregate counts from SQLite so
+it does not load every catalog row merely to render indexing status. Metadata
+detail requests are performed through the provider API and persisted in paced
+batches; Global Search itself does not contact providers while the user types.
+
+TMDB data is stored separately in `tmdb_metadata`. It is optional, cached
+locally, and fetched on demand for supported detail, person, season, hero, or
+trending views.
+
 ## Embedded MPV
 
 Embedded MPV is part of the ARM-Nator application in development and in the
@@ -199,6 +220,10 @@ pnpm clean                # Remove generated build output
 
 `pnpm dev` is the normal development workflow. The Angular renderer is served
 at `http://localhost:4200` while Electron runs the desktop window.
+
+When validating large Xtream catalogs, open `/workspace/sources` first. Start
+one source at a time, observe its indexed/total progress, and then verify
+Global Search against metadata fields such as cast, genre, director, and plot.
 
 ## Verification
 
@@ -239,3 +264,5 @@ When changing a feature:
    changes.
 5. Keep generated artifacts and local Graphify output out of the canonical
    product description.
+6. Keep `README.md` current for shipped behavior and `docs/PRD.md` current for
+   product requirements and release intent.
