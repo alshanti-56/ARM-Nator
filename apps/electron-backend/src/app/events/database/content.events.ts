@@ -128,12 +128,14 @@ handleWorkerRequest(
         playlistId: string,
         searchTerm: string,
         types: string[],
-        excludeHidden = false
+        excludeHidden = false,
+        options?: GlobalSearchPaginationOptions
     ) => ({
         playlistId,
         searchTerm,
         types,
         excludeHidden,
+        options,
     })
 );
 

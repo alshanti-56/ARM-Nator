@@ -597,13 +597,15 @@ export class DatabaseService {
         playlistId: string,
         searchTerm: string,
         types: string[],
-        excludeHidden?: boolean
+        excludeHidden?: boolean,
+        options?: GlobalSearchPaginationOptions
     ): Promise<XtreamContent[]> {
         return await window.electron.dbSearchContent(
             playlistId,
             searchTerm,
             types,
-            excludeHidden
+            excludeHidden,
+            options
         );
     }
 

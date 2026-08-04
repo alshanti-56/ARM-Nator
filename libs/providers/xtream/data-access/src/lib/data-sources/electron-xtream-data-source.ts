@@ -8,6 +8,7 @@ import {
 } from '@arm-nator/services';
 import {
     PlaybackPositionData,
+    GlobalSearchPaginationOptions,
     PlaylistMeta,
     XtreamPendingRestoreState,
     XtreamCategory,
@@ -376,13 +377,15 @@ export class ElectronXtreamDataSource implements IXtreamDataSource {
         playlistId: string,
         searchTerm: string,
         types: string[],
-        excludeHidden?: boolean
+        excludeHidden?: boolean,
+        options?: GlobalSearchPaginationOptions
     ): Promise<XtreamContentItem[]> {
         return this.dbService.searchXtreamContent(
             playlistId,
             searchTerm,
             types,
-            excludeHidden
+            excludeHidden,
+            options
         );
     }
 

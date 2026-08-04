@@ -43,6 +43,9 @@ export { scoreSearchTextMatch } from './content-search.util';
 const DEFAULT_GLOBAL_SEARCH_LIMIT = 50;
 const MAX_GLOBAL_SEARCH_LIMIT = 500;
 const MAX_GLOBAL_SEARCH_CANDIDATE_LIMIT = 5000;
+const DEFAULT_PLAYLIST_SEARCH_LIMIT = 50;
+const MAX_PLAYLIST_SEARCH_LIMIT = 500;
+const MAX_PLAYLIST_SEARCH_CANDIDATE_LIMIT = 5000;
 const M3U_PLAYLIST_TYPES = ['m3u-file', 'm3u-text', 'm3u-url'] as const;
 
 interface NormalizedGlobalSearchPagination {
@@ -353,7 +356,8 @@ async function selectXtreamPlaylistSearchCandidatesWithFts(
     playlistId: string,
     matchQuery: string,
     types: string[],
-    excludeHidden: boolean
+    excludeHidden: boolean,
+    candidateLimit: number
 ): Promise<XtreamMetadataSearchCandidate[]> {
     if (!matchQuery || types.length === 0) {
         return [];
@@ -390,7 +394,7 @@ async function selectXtreamPlaylistSearchCandidatesWithFts(
         )})
         ${excludeHidden ? sql`AND cat.hidden = 0` : sql``}
         ORDER BY rank, c.title
-        LIMIT 200
+        LIMIT ${candidateLimit}
     `)) as XtreamMetadataSearchCandidate[];
 }
 
@@ -1157,7 +1161,8 @@ export async function searchContent(
     playlistId: string,
     searchTerm: string,
     types: string[],
-    excludeHidden = false
+    excludeHidden = false,
+    options?: GlobalSearchPaginationOptions
 ) {
     if (!types || types.length === 0 || !normalizeSearchMatchText(searchTerm)) {
         return [];
@@ -1176,6 +1181,23 @@ export async function searchContent(
         conditions.push(eq(schema.categories.hidden, false));
     }
 
+    const requestedLimit = Number.isFinite(options?.limit)
+        ? Math.min(
+              Math.max(Math.trunc(options?.limit ?? 0), 1),
+              MAX_PLAYLIST_SEARCH_LIMIT
+          )
+        : DEFAULT_PLAYLIST_SEARCH_LIMIT;
+    const offset = Number.isFinite(options?.offset)
+        ? Math.max(Math.trunc(options?.offset ?? 0), 0)
+        : 0;
+    // Relevance is scored in JavaScript after the FTS/content query. For a
+    // paginated request, collect the bounded candidate window before slicing;
+    // otherwise page 2 can overlap page 1 when FTS rank differs from the
+    // metadata relevance score.
+    const candidateLimit = options
+        ? MAX_PLAYLIST_SEARCH_CANDIDATE_LIMIT
+        : DEFAULT_PLAYLIST_SEARCH_LIMIT;
+
     let candidates: XtreamMetadataSearchCandidate[];
     if (shouldUseContentTitleFts(searchTerm)) {
         try {
@@ -1184,7 +1206,8 @@ export async function searchContent(
                 playlistId,
                 buildContentTitleFtsMatchQuery(searchTerm),
                 types,
-                excludeHidden
+                excludeHidden,
+                candidateLimit
             );
         } catch {
             candidates = await db
@@ -1195,7 +1218,7 @@ export async function searchContent(
                     eq(schema.content.categoryId, schema.categories.id)
                 )
                 .where(and(...conditions))
-                .limit(200);
+                .limit(candidateLimit);
         }
     } else {
         candidates = await db
@@ -1206,7 +1229,7 @@ export async function searchContent(
                 eq(schema.content.categoryId, schema.categories.id)
             )
             .where(and(...conditions))
-            .limit(200);
+            .limit(candidateLimit);
     }
 
     return candidates
@@ -1219,7 +1242,7 @@ export async function searchContent(
                 (scoreXtreamMetadataMatch(left, searchTerm) ?? Infinity) -
                 (scoreXtreamMetadataMatch(right, searchTerm) ?? Infinity)
         )
-        .slice(0, 50);
+        .slice(offset, offset + requestedLimit);
 }
 
 export async function globalSearch(

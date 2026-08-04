@@ -13,7 +13,7 @@ import {
 } from "@angular/core";
 import { Location } from "@angular/common";
 import { FormsModule } from "@angular/forms";
-import { MatIconButton } from "@angular/material/button";
+import { MatButtonModule, MatIconButton } from "@angular/material/button";
 import { MatCheckboxModule } from "@angular/material/checkbox";
 import {
   MAT_DIALOG_DATA,
@@ -66,6 +66,7 @@ interface GlobalSearchResultGroup {
 }
 
 const GLOBAL_SEARCH_PAGE_SIZE = 100;
+const PLAYLIST_SEARCH_PAGE_SIZE = 50;
 
 function resultIdentity(item: XtreamSearchResultItem): string {
   return `${item.playlist_id ?? ""}:${item.type}:${item.xtream_id}`;
@@ -115,6 +116,7 @@ function groupResultsByPlaylistId(
   imports: [
     ContentCardComponent,
     FormsModule,
+    MatButtonModule,
     MatCheckboxModule,
     MatDialogModule,
     MatIcon,
@@ -159,11 +161,14 @@ export class SearchResultsComponent implements AfterViewInit {
   readonly filters = this.xtreamStore.searchFilters;
   private globalSearchRequestVersion = 0;
   private portalSearchRequestVersion = 0;
+  private portalSearchOffset = 0;
   private lastGlobalSearchTerm = "";
   private lastGlobalSearchTypes: string[] = [];
   private lastGlobalSearchExcludeHidden?: boolean;
   readonly hasMoreGlobalResults = signal(false);
   readonly isLoadingMoreGlobalResults = signal(false);
+  readonly hasMorePortalResults = signal(false);
+  readonly isLoadingMorePortalResults = signal(false);
 
   private static readonly GROUP_BY_STORAGE_KEY =
     "global-search-group-by-playlist";
@@ -325,6 +330,9 @@ export class SearchResultsComponent implements AfterViewInit {
     this.xtreamStore.setIsSearching(false);
     this.hasMoreGlobalResults.set(false);
     this.isLoadingMoreGlobalResults.set(false);
+    this.hasMorePortalResults.set(false);
+    this.isLoadingMorePortalResults.set(false);
+    this.portalSearchOffset = 0;
     this.lastGlobalSearchTerm = "";
     this.lastGlobalSearchTypes = [];
     this.lastGlobalSearchExcludeHidden = undefined;
@@ -454,6 +462,24 @@ export class SearchResultsComponent implements AfterViewInit {
     );
   }
 
+  async loadMorePortalResults(): Promise<void> {
+    if (this.isGlobalSearch) {
+      return;
+    }
+
+    const filters = this.filters();
+    const types = Object.entries(filters)
+      .filter(([, enabled]) => enabled)
+      .map(([type]) => type);
+
+    await this.searchPortal(
+      this.searchTerm(),
+      types,
+      this.excludeHidden(),
+      true,
+    );
+  }
+
   selectItem(item: XtreamSearchResultItem) {
     if (isM3uGlobalSearchResult(item as GlobalSearchResult)) {
       this.selectM3uItem(item as GlobalSearchResult);
@@ -568,19 +594,81 @@ export class SearchResultsComponent implements AfterViewInit {
     term: string,
     types: string[],
     excludeHidden?: boolean,
+    append = false,
   ): Promise<void> {
-    const requestVersion = ++this.portalSearchRequestVersion;
-    const playlistId = this.xtreamStore.playlistId();
-    const [results, personResults] = await Promise.all([
-      this.xtreamStore.searchContent({ term, types, excludeHidden }),
-      this.searchActorCatalog(term, types, playlistId ?? undefined),
-    ]);
-    if (requestVersion !== this.portalSearchRequestVersion) {
+    if (
+      append &&
+      (!this.hasMorePortalResults() ||
+        this.isLoadingMorePortalResults() ||
+        this.xtreamStore.isSearching())
+    ) {
       return;
     }
-    this.xtreamStore.setSearchResults(
-      mergeSearchResults(results, personResults),
-    );
+
+    const requestVersion = ++this.portalSearchRequestVersion;
+    const playlistId = this.xtreamStore.playlistId();
+    const offset = append ? this.portalSearchOffset : 0;
+    const previousResults = append
+      ? [...this.xtreamStore.searchResults()]
+      : [];
+
+    if (append) {
+      this.isLoadingMorePortalResults.set(true);
+    } else {
+      this.portalSearchOffset = 0;
+      this.hasMorePortalResults.set(false);
+      this.isLoadingMorePortalResults.set(false);
+      this.xtreamStore.setIsSearching(true);
+    }
+
+    try {
+      const [results, personResults] = await Promise.all([
+        this.xtreamStore.searchContent({
+          term,
+          types,
+          excludeHidden,
+          pagination: {
+            limit: PLAYLIST_SEARCH_PAGE_SIZE + 1,
+            offset,
+          },
+        }),
+        append
+          ? Promise.resolve([])
+          : this.searchActorCatalog(term, types, playlistId ?? undefined),
+      ]);
+      if (requestVersion !== this.portalSearchRequestVersion) {
+        return;
+      }
+
+      const visibleResults = results.slice(0, PLAYLIST_SEARCH_PAGE_SIZE);
+      this.portalSearchOffset = offset + visibleResults.length;
+      this.hasMorePortalResults.set(
+        results.length > PLAYLIST_SEARCH_PAGE_SIZE,
+      );
+      this.xtreamStore.setSearchResults(
+        append
+          ? mergeSearchResults(previousResults, visibleResults)
+          : mergeSearchResults(visibleResults, personResults),
+      );
+    } catch (error) {
+      if (requestVersion !== this.portalSearchRequestVersion) {
+        return;
+      }
+
+      this.logger.error("Error in playlist search", error);
+      if (append) {
+        this.hasMorePortalResults.set(false);
+      } else {
+        this.xtreamStore.setSearchResults([]);
+      }
+    } finally {
+      if (requestVersion === this.portalSearchRequestVersion) {
+        this.isLoadingMorePortalResults.set(false);
+        if (!append) {
+          this.xtreamStore.setIsSearching(false);
+        }
+      }
+    }
   }
 
   private async searchActorCatalog(

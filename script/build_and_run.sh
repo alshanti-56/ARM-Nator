@@ -22,7 +22,8 @@ if [[ ! -d node_modules ]]; then
   pnpm install --frozen-lockfile
 fi
 
-pnpm run build:mac
+pnpm embedded-mpv:runtime
+pnpm run build
 
 ELECTRON_BIN="$ROOT_DIR/node_modules/.bin/electron"
 MAIN_JS="$ROOT_DIR/dist/apps/electron-backend/main.js"
@@ -32,7 +33,8 @@ if [[ ! -x "$ELECTRON_BIN" || ! -f "$MAIN_JS" ]]; then
   exit 1
 fi
 
-nohup "$ELECTRON_BIN" "$MAIN_JS" >"${TMPDIR:-/tmp}/arm-nator-mac.log" 2>&1 &
+ELECTRON_IS_DEV=0 nohup "$ELECTRON_BIN" "$MAIN_JS" \
+  >"${TMPDIR:-/tmp}/arm-nator-mac.log" 2>&1 &
 
 if [[ "${1:-}" == "--verify" ]]; then
   sleep 3

@@ -5,7 +5,10 @@ import {
   withMethods,
   withState,
 } from "@ngrx/signals";
-import { GlobalSearchResult } from "@arm-nator/shared/interfaces";
+import {
+  GlobalSearchPaginationOptions,
+  GlobalSearchResult,
+} from "@arm-nator/shared/interfaces";
 import {
   XTREAM_DATA_SOURCE,
   XtreamContentItem,
@@ -37,6 +40,7 @@ type SearchContentParams = {
   term: string;
   types: string[];
   excludeHidden?: boolean;
+  pagination?: GlobalSearchPaginationOptions;
 };
 
 /**
@@ -99,6 +103,11 @@ export function withSearch() {
             typeof searchTermOrParams === "string"
               ? excludeHiddenArg
               : searchTermOrParams.excludeHidden;
+          const pagination =
+            typeof searchTermOrParams === "string"
+              ? undefined
+              : searchTermOrParams.pagination;
+          const isPaginatedRequest = (pagination?.offset ?? 0) > 0;
 
           // Access parent store's playlistId (from withPortal)
           const storeAny = store as ParentSearchStoreLike;
@@ -121,16 +130,21 @@ export function withSearch() {
               searchTerm,
               types,
               excludeHidden,
+              pagination,
             );
 
             if (requestVersion !== searchRequestVersion) {
               return results;
             }
 
-            patchState(store, {
-              searchResults: results,
-              isSearching: false,
-            });
+            if (isPaginatedRequest) {
+              patchState(store, { isSearching: false });
+            } else {
+              patchState(store, {
+                searchResults: results,
+                isSearching: false,
+              });
+            }
 
             return results;
           } catch (error) {
@@ -140,10 +154,12 @@ export function withSearch() {
               return [];
             }
 
-            patchState(store, {
-              searchResults: [],
-              isSearching: false,
-            });
+            patchState(
+              store,
+              isPaginatedRequest
+                ? { isSearching: false }
+                : { searchResults: [], isSearching: false },
+            );
             return [];
           }
         },

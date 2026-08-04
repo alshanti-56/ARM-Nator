@@ -1,11 +1,15 @@
 <app-search-layout
     [searchTerm]="searchTerm()"
     [resultsCount]="xtreamStore.searchResults().length"
-    [isLoading]="xtreamStore.isSearching()"
     [showCloseButton]="false"
     [showBackButton]="showBackButton"
     [showResultsCount]="!isGlobalSearch || !groupByPlaylist()"
     [showSearchInput]="showInlineSearchInput"
+    [isLoading]="
+        xtreamStore.isSearching() &&
+        !isLoadingMoreGlobalResults() &&
+        !isLoadingMorePortalResults()
+    "
     [minSearchLength]="minSearchLength"
     [initialDescriptionKey]="initialDescriptionKey"
     (searchTermChange)="updateSearchTerm($event)"
@@ -228,6 +232,35 @@
                     />
                 }
             </div>
+            @if (hasMorePortalResults()) {
+                <div class="playlist-search-load-more">
+                    <button
+                        type="button"
+                        mat-flat-button
+                        color="primary"
+                        class="playlist-search-load-more__button"
+                        [disabled]="isLoadingMorePortalResults()"
+                        (click)="loadMorePortalResults()"
+                    >
+                        @if (isLoadingMorePortalResults()) {
+                            <mat-spinner diameter="18" />
+                            <span>
+                                {{
+                                    'PORTALS.SEARCH_VIEW.LOADING_MORE_RESULTS'
+                                        | translate
+                                }}
+                            </span>
+                        } @else {
+                            <ng-container>
+                                <mat-icon aria-hidden="true"
+                                    >expand_more</mat-icon
+                                >
+                                <span>{{ 'CHANNELS.LOAD_MORE' | translate }}</span>
+                            </ng-container>
+                        }
+                    </button>
+                </div>
+            }
         }
     </ng-container>
 </app-search-layout>

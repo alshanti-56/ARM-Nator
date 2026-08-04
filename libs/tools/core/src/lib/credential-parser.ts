@@ -22,6 +22,22 @@ function tokenize(value: string): string[] {
   return value.split(TOKEN_SEPARATOR).map(trimToken).filter(Boolean);
 }
 
+function labeledCredentialValue(
+  value: string,
+  label: "username" | "password",
+): string | null {
+  const labels = label === "username" ? "username|user" : "password|pass";
+  const match = value.match(new RegExp(`^(?:${labels})\\s*[:=]\\s*(.+)$`, "i"));
+  return match?.[1] ? trimToken(match[1]) : null;
+}
+
+function labeledServerValue(value: string): string | null {
+  const match = value.match(
+    /^(?:(?:xtream\s+)?(?:host|server))\s*[:=]\s*(https?:\/\/[^\s,;]+)\s*$/i,
+  );
+  return match?.[1] ? trimToken(match[1]) : null;
+}
+
 function serverRoot(url: URL): string {
   return `${url.protocol.toLowerCase()}//${url.host.toLowerCase()}`;
 }
@@ -114,6 +130,26 @@ function looksLikeM3u(value: string): boolean {
   );
 }
 
+function isLikelyHttpsIptvLine(line: string): boolean {
+  const match = line.match(URL_PATTERN);
+  if (!match) {
+    return false;
+  }
+
+  const urlText = trimToken(match[0]);
+  try {
+    const url = new URL(urlText);
+    if (url.username || url.password || looksLikeM3u(urlText)) {
+      return true;
+    }
+  } catch {
+    return false;
+  }
+
+  const trailingTokens = tokenize(line.replace(match[0], " "));
+  return line.trim().startsWith(urlText) && trailingTokens.length >= 2;
+}
+
 function parseUrlCandidate(line: string): BulkTestCandidate | null {
   const match = line.match(URL_PATTERN);
   if (!match) {
@@ -169,6 +205,14 @@ function parseSpacedCredentials(line: string): BulkTestCandidate | null {
 }
 
 function parseSlashCredentials(line: string): BulkTestCandidate | null {
+  const firstToken = tokenize(line)[0] ?? "";
+  if (
+    !firstToken ||
+    (!firstToken.includes(".") && !firstToken.includes(":"))
+  ) {
+    return null;
+  }
+
   const value = /^https?:\/\//i.test(line) ? line : `http://${line}`;
   try {
     const url = new URL(value);
@@ -182,6 +226,10 @@ function parseSlashCredentials(line: string): BulkTestCandidate | null {
 }
 
 function parseLine(line: string): BulkTestCandidate | null {
+  if (/https:\/\//i.test(line) && !isLikelyHttpsIptvLine(line)) {
+    return null;
+  }
+
   return (
     parseUrlCandidate(line) ??
     parseSpacedCredentials(line) ??
@@ -190,7 +238,7 @@ function parseLine(line: string): BulkTestCandidate | null {
 }
 
 function splitInput(rawInput: string): string[] {
-  return rawInput
+  const lines = rawInput
     .replace(/\r/g, "\n")
     .split("\n")
     .reduce<string[]>((entries, line) => {
@@ -203,6 +251,56 @@ function splitInput(rawInput: string): string[] {
       return entries;
     }, [])
     .filter(Boolean);
+
+  const entries: string[] = [];
+  for (let index = 0; index < lines.length; index += 1) {
+    const serverLine = lines[index];
+
+    if (
+      /^xtream\s+server\s*$/i.test(serverLine) &&
+      labeledServerValue(lines[index + 1] ?? '')
+    ) {
+      continue;
+    }
+
+    const labeledServer = labeledServerValue(serverLine);
+    if (labeledServer) {
+      const username = lines[index + 1]
+        ? labeledCredentialValue(lines[index + 1], "username")
+        : null;
+      const password = lines[index + 2]
+        ? labeledCredentialValue(lines[index + 2], "password")
+        : null;
+
+      if (username && password) {
+        entries.push(`${labeledServer} ${username} ${password}`);
+        index += 2;
+        continue;
+      }
+    }
+
+    if (!/^https?:\/\/[^\s,;]+$/i.test(serverLine)) {
+      entries.push(serverLine);
+      continue;
+    }
+
+    const username = lines[index + 1]
+      ? labeledCredentialValue(lines[index + 1], "username")
+      : null;
+    const password = lines[index + 2]
+      ? labeledCredentialValue(lines[index + 2], "password")
+      : null;
+
+    if (username && password) {
+      entries.push(`${serverLine} ${username} ${password}`);
+      index += 2;
+      continue;
+    }
+
+    entries.push(serverLine);
+  }
+
+  return entries;
 }
 
 export function parseIptvCredentials(

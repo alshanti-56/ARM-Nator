@@ -552,13 +552,15 @@ async function executeRequest(
                 searchTerm: string;
                 types: string[];
                 excludeHidden?: boolean;
+                options?: import('@arm-nator/shared/interfaces').GlobalSearchPaginationOptions;
             };
             return searchContent(
                 db,
                 payload.playlistId,
                 payload.searchTerm,
                 payload.types,
-                payload.excludeHidden
+                payload.excludeHidden,
+                payload.options
             );
         }
 

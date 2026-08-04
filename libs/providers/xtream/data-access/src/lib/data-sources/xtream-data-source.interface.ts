@@ -2,6 +2,7 @@
 import { InjectionToken } from '@angular/core';
 import {
     PlaybackPositionData,
+    GlobalSearchPaginationOptions,
     XtreamPendingRestoreState,
     XtreamCategory,
     XtreamLiveStream,
@@ -292,7 +293,8 @@ export interface IXtreamDataSource {
         playlistId: string,
         searchTerm: string,
         types: string[],
-        excludeHidden?: boolean
+        excludeHidden?: boolean,
+        options?: GlobalSearchPaginationOptions
     ): Promise<XtreamContentItem[]>;
 
     // =========================================================================

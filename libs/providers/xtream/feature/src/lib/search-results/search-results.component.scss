@@ -167,3 +167,30 @@
     color: var(--mat-sys-on-surface-variant);
     font-size: 0.85rem;
 }
+
+.playlist-search-load-more {
+    display: flex;
+    justify-content: center;
+    padding: 8px 0 28px;
+
+    &__button {
+        min-width: 168px;
+        min-height: 40px;
+        border-radius: 999px;
+        box-shadow: 0 4px 12px color-mix(in srgb, var(--mat-sys-primary) 20%, transparent);
+        font-weight: 650;
+
+        &:hover:not(:disabled) {
+            box-shadow: 0 6px 16px color-mix(in srgb, var(--mat-sys-primary) 28%, transparent);
+        }
+
+        &:disabled {
+            cursor: default;
+            opacity: 0.65;
+        }
+
+        mat-icon {
+            margin-inline-end: 2px;
+        }
+    }
+}

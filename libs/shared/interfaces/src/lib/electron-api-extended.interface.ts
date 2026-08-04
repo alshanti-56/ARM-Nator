@@ -314,7 +314,7 @@ export interface ElectronBridgeApi {
     dbGetXtreamMetadataIndexStatus: (playlistId: string) => Promise<XtreamMetadataIndexStatus>;
     dbSaveContent: (playlistId: string, streams: ElectronBridgeXtreamContentStream[], type: string, operationId?: string) => Promise<ElectronBridgeCountResult>;
     dbClearXtreamImportCache: (playlistId: string, type: ElectronBridgePortalContentType) => Promise<ElectronBridgeResult>;
-    dbSearchContent: (playlistId: string, searchTerm: string, types: string[], excludeHidden?: boolean) => Promise<ElectronBridgeXtreamContent[]>;
+    dbSearchContent: (playlistId: string, searchTerm: string, types: string[], excludeHidden?: boolean, options?: GlobalSearchPaginationOptions) => Promise<ElectronBridgeXtreamContent[]>;
     dbGlobalSearch: (searchTerm: string, types: string[], excludeHidden?: boolean, sources?: GlobalSearchResultSource[], options?: GlobalSearchPaginationOptions) => Promise<ElectronBridgeGlobalSearchResult[]>;
     dbGetGlobalRecentlyAdded: (kind: ElectronBridgeGlobalRecentlyAddedKind, limit?: number, playlistType?: ElectronBridgePlaylistType) => Promise<ElectronBridgeGlobalRecentlyAddedItem[]>;
     dbGetRecentlyViewed: () => Promise<ElectronBridgeGlobalRecentItem[]>;

@@ -45,6 +45,7 @@ import {
 
 const MAX_CONCURRENT_TESTS = 6;
 const TEST_TIMEOUT_MS = 12_000;
+type EditableCandidateField = 'source' | 'username' | 'password';
 
 function isTerminal(progress: CredentialTestProgress): boolean {
     return (
@@ -353,6 +354,73 @@ export class CredentialTesterComponent implements OnDestroy {
             : candidate.serverUrl;
     }
 
+    updateCandidateField(
+        id: string,
+        field: EditableCandidateField,
+        value: string
+    ): void {
+        if (this.isTesting()) {
+            return;
+        }
+
+        const trimmedValue = value.trim();
+        this.results.update((results) =>
+            results.map((result) => {
+                if (result.id !== id) {
+                    return result;
+                }
+
+                const candidate = result.candidate;
+                const editedCandidate: BulkTestCandidate =
+                    candidate.type === 'm3u'
+                        ? {
+                              ...candidate,
+                              playlistUrl:
+                                  field === 'source'
+                                      ? trimmedValue
+                                      : candidate.playlistUrl,
+                          }
+                        : {
+                              ...candidate,
+                              serverUrl:
+                                  field === 'source'
+                                      ? trimmedValue
+                                      : candidate.serverUrl,
+                              username:
+                                  field === 'username'
+                                      ? trimmedValue
+                                      : candidate.username,
+                              password:
+                                  field === 'password'
+                                      ? trimmedValue
+                                      : candidate.password,
+                          };
+
+                return {
+                    ...result,
+                    candidate: {
+                        ...editedCandidate,
+                        normalizedKey: this.editedCandidateKey(editedCandidate),
+                    },
+                    status: 'pending',
+                    message: 'Edited. Ready to test.',
+                    selected: false,
+                    responseTimeMs: undefined,
+                    httpStatus: undefined,
+                    accountStatus: undefined,
+                    expiresAt: undefined,
+                    activeConnections: undefined,
+                    maxConnections: undefined,
+                    liveCategoriesCount: undefined,
+                    moviesCount: undefined,
+                    seriesCount: undefined,
+                    playlistChannelCount: undefined,
+                    lastCheckedAt: undefined,
+                };
+            })
+        );
+    }
+
     connectionText(result: BulkTestResult): string {
         if (!result.activeConnections && !result.maxConnections) {
             return '—';
@@ -522,6 +590,12 @@ export class CredentialTesterComponent implements OnDestroy {
 
     private sourceKey(candidate: BulkTestCandidate): string {
         return candidate.normalizedKey;
+    }
+
+    private editedCandidateKey(candidate: BulkTestCandidate): string {
+        return candidate.type === 'm3u'
+            ? this.normalizeM3uKey(candidate.playlistUrl)
+            : `xtream|${this.normalizeServerKey(candidate.serverUrl)}|${candidate.username}|${candidate.password}`;
     }
 
     private normalizeServerKey(serverUrl: string): string {

@@ -680,14 +680,16 @@ const electronApi: ElectronBridgeApi = {
         playlistId: string,
         searchTerm: string,
         types: string[],
-        excludeHidden?: boolean
+        excludeHidden?: boolean,
+        options?: GlobalSearchPaginationOptions
     ) =>
         ipcRenderer.invoke(
             'DB_SEARCH_CONTENT',
             playlistId,
             searchTerm,
             types,
-            excludeHidden
+            excludeHidden,
+            options
         ),
     dbGlobalSearch: (
         searchTerm: string,
