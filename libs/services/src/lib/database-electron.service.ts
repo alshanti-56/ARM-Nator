@@ -16,6 +16,7 @@ import type {
     XtreamCategory,
     XtreamContentMetadata,
     XtreamMetadataEnrichmentState,
+    XtreamMetadataIndexStatus,
 } from '@arm-nator/shared/interfaces';
 
 export interface XCategoryFromDb {
@@ -466,6 +467,19 @@ export class DatabaseService {
         type: 'live' | 'movie' | 'series'
     ): Promise<XtreamContent[]> {
         return await window.electron.dbGetContent(playlistId, type);
+    }
+
+    async getXtreamMetadataIndexStatus(
+        playlistId: string
+    ): Promise<XtreamMetadataIndexStatus> {
+        if (
+            typeof window.electron?.dbGetXtreamMetadataIndexStatus !==
+            'function'
+        ) {
+            return { total: 0, indexed: 0, failed: 0 };
+        }
+
+        return await window.electron.dbGetXtreamMetadataIndexStatus(playlistId);
     }
 
     /**

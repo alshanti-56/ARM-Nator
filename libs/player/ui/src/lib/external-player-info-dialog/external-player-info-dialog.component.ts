@@ -22,7 +22,7 @@ import { TranslateModule } from '@ngx-translate/core';
                         style="cursor: pointer"
                         (click)="
                             openUrl(
-                                'https://github.com/4gray/arm-nator/wiki/What-is-mpv-video-player-and-how-to-install-it-on-different-operating-systems%3F'
+                                'https://github.com/alshanti-56/ARM-Nator/wiki/What-is-mpv-video-player-and-how-to-install-it-on-different-operating-systems%3F'
                             )
                         "
                         >installation instructions</a

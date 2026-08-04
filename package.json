@@ -1,13 +1,8 @@
 {
   "name": "arm-nator",
-  "version": "0.23.4",
+  "version": "0.23.6",
   "license": "MIT",
   "description": "ARM-Nator Apple Silicon IPTV player application.",
-  "homepage": "https://github.com/4gray/arm-nator",
-  "author": {
-    "name": "4gray",
-    "email": "fourgray@proton.me"
-  },
   "keywords": [
     "angular",
     "electron",

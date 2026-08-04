@@ -14,17 +14,26 @@ import { ChannelDrm, ChannelDrmClearKeys } from '@arm-nator/shared/interfaces';
  *
  * ClearKey key formats: single `kid:key` hex pair, comma-separated pairs, the
  * W3C ClearKey license JSON (`{"keys":[{"kty":"oct","k":...,"kid":...}]}`)
- * and the plain `{kid: key}` JSON map. Anything else (license-server URLs,
- * Widevine/PlayReady types, malformed values) yields `supported: false` so the
- * player can show a clear DRM diagnostic instead of crashing.
+ * and the plain `{kid: key}` JSON map. Widevine/PlayReady license keys may use
+ * the Kodi form `https://license.example|Header=value&Other=value`; the URL
+ * and headers are preserved for the browser DRM engine.
  */
 
 const KODIPROP_PREFIX = '#kodiprop:';
 const LICENSE_TYPE_PROP = 'inputstream.adaptive.license_type';
 const LICENSE_KEY_PROP = 'inputstream.adaptive.license_key';
+const LICENSE_URL_PROP = 'inputstream.adaptive.license_url';
 const DRM_LEGACY_PROP = 'inputstream.adaptive.drm_legacy';
 
 const CLEARKEY_LICENSE_TYPES = new Set(['clearkey', 'org.w3.clearkey']);
+const LICENSE_SERVER_TYPES = new Set([
+    'com.widevine.alpha',
+    'widevine',
+    'com.microsoft.playready',
+    'com.microsoft.playready.recommendation',
+    'com.microsoft.playready.hardware',
+    'playready',
+]);
 
 const HEX_128_BIT_PATTERN = /^[0-9a-f]{32}$/;
 
@@ -60,6 +69,7 @@ export function extractDrmFromRaw(
     }
 
     const normalizedType = licenseType.toLowerCase();
+    const normalizedLicenseType = normalizeLicenseType(normalizedType);
     const clearKeys = isClearKeyLicenseType(normalizedType)
         ? parseClearKeys(licenseKey)
         : !normalizedType
@@ -67,17 +77,25 @@ export function extractDrmFromRaw(
             parseClearKeys(licenseKey)
           : undefined;
 
+    const license = parseLicenseServer(
+        props.get(LICENSE_URL_PROP) || licenseKey
+    );
+
     if (clearKeys) {
         return {
-            licenseType: normalizedType || 'clearkey',
+            licenseType: normalizedLicenseType || 'org.w3.clearkey',
             supported: true,
             clearKeys,
         };
     }
 
     return {
-        licenseType: normalizedType,
-        supported: false,
+        licenseType: normalizedLicenseType,
+        supported:
+            LICENSE_SERVER_TYPES.has(normalizedType) &&
+            Boolean(license?.url),
+        ...(license?.url ? { licenseServerUrl: license.url } : {}),
+        ...(license?.headers ? { licenseRequestHeaders: license.headers } : {}),
     };
 }
 
@@ -106,6 +124,7 @@ function collectKodipropValues(
         if (
             name === LICENSE_TYPE_PROP ||
             name === LICENSE_KEY_PROP ||
+            name === LICENSE_URL_PROP ||
             name === DRM_LEGACY_PROP
         ) {
             props.set(name, value);
@@ -113,6 +132,70 @@ function collectKodipropValues(
     }
 
     return props;
+}
+
+function normalizeLicenseType(licenseType: string): string {
+    switch (licenseType) {
+        case 'clearkey':
+            return 'org.w3.clearkey';
+        case 'widevine':
+            return 'com.widevine.alpha';
+        case 'playready':
+            return 'com.microsoft.playready';
+        default:
+            return licenseType;
+    }
+}
+
+function parseLicenseServer(
+    value: string
+): { url: string; headers?: Record<string, string> } | undefined {
+    const [urlPart, headerPart] = value.split('|', 2);
+    if (!urlPart || !/^https?:\/\//i.test(urlPart)) {
+        return undefined;
+    }
+
+    let url: URL;
+    try {
+        url = new URL(urlPart);
+    } catch {
+        return undefined;
+    }
+
+    const headers = parseLicenseHeaders(headerPart);
+    return headers && Object.keys(headers).length > 0
+        ? { url: url.toString(), headers }
+        : { url: url.toString() };
+}
+
+function parseLicenseHeaders(
+    value: string | undefined
+): Record<string, string> | undefined {
+    if (!value) {
+        return undefined;
+    }
+
+    const headers: Record<string, string> = {};
+    for (const pair of value.split('&')) {
+        const separatorIndex = pair.indexOf('=');
+        if (separatorIndex <= 0) {
+            continue;
+        }
+        const name = decodeLicensePart(pair.slice(0, separatorIndex));
+        const headerValue = decodeLicensePart(pair.slice(separatorIndex + 1));
+        if (name && headerValue) {
+            headers[name] = headerValue;
+        }
+    }
+    return Object.keys(headers).length > 0 ? headers : undefined;
+}
+
+function decodeLicensePart(value: string): string {
+    try {
+        return decodeURIComponent(value.replace(/\+/g, ' ')).trim();
+    } catch {
+        return value.trim();
+    }
 }
 
 function parseClearKeys(value: string): ChannelDrmClearKeys | undefined {

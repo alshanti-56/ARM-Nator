@@ -14,7 +14,7 @@ import Database from 'better-sqlite3';
 import type { BetterSQLite3Database } from 'drizzle-orm/better-sqlite3';
 import { drizzle } from 'drizzle-orm/better-sqlite3';
 import * as schema from './schema';
-import { getIptvnatorDatabasePath } from './path-utils';
+import { getArmNatorDatabasePath } from './path-utils';
 
 export type DatabaseInstance = BetterSQLite3Database<typeof schema>;
 
@@ -69,7 +69,7 @@ function traceSql(scope: string, message: string, payload?: unknown): void {
  * Get the database file path
  */
 export function getDatabasePath(): string {
-    return getIptvnatorDatabasePath();
+    return getArmNatorDatabasePath();
 }
 
 /**

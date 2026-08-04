@@ -9,6 +9,7 @@
         [controller]="controlsAdapter"
         [playerSurface]="playerRoot"
         [mediaTitle]="mediaTitle()"
+        [media]="controlsAdapter.mediaTelemetry()"
         [showControls]="interactionEnabled()"
         [shortcutsEnabled]="interactionEnabled()"
         (previousEpisodeRequested)="previousEpisodeRequested.emit()"

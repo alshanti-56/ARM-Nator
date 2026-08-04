@@ -815,7 +815,12 @@
             "VISIBLE_CATEGORIES_ONLY": "Visible categories only",
             "GLOBAL_SEARCH_SOURCE_NOTE": "Global search includes results from Xtream and M3U playlists.",
             "GLOBAL_INITIAL_DESCRIPTION": "Enter at least 2 characters to search across Xtream and M3U playlists.",
-            "LOADING_MORE_RESULTS": "Loading more results..."
+            "LOADING_MORE_RESULTS": "Loading more results...",
+            "METADATA_SEARCH_IN_PROGRESS": "Search ready — metadata indexing in progress",
+            "METADATA_SEARCH_PROGRESS": "{{completed}} / {{total}} items indexed",
+            "METADATA_SEARCH_COMPLETE": "Search ready — metadata indexing complete",
+            "METADATA_SEARCH_FAILED": "{{count}} items could not be indexed.",
+            "DISMISS_METADATA_SEARCH_STATUS": "Dismiss metadata indexing status"
         },
         "STREAM_URL_COPIED": "Stream URL copied to clipboard",
         "COPY_STREAM_URL": "Copy Stream URL",
@@ -1120,7 +1125,13 @@
             "STALKER_PLAYLISTS": "Stalker Playlists",
             "ALL_PLAYLISTS": "All Playlists",
             "PLAYLIST_COUNT_ONE": "1 playlist",
-            "PLAYLIST_COUNT_OTHER": "{{count}} playlists"
+            "PLAYLIST_COUNT_OTHER": "{{count}} playlists",
+            "METADATA_NO_CONTENT": "No movie or series content",
+            "METADATA_INDEXING": "Metadata indexing",
+            "METADATA_QUEUED": "Queued for metadata indexing",
+            "METADATA_READY": "Search metadata ready",
+            "METADATA_NOT_INDEXED": "Metadata not indexed",
+            "START_INDEXING": "Start indexing"
         },
         "CONTEXT": {
             "CATEGORIES": "Categories",

@@ -657,6 +657,8 @@ const electronApi: ElectronBridgeApi = {
         ipcRenderer.invoke('DB_HAS_CONTENT', playlistId, type),
     dbGetContent: (playlistId: string, type: string) =>
         ipcRenderer.invoke('DB_GET_CONTENT', playlistId, type),
+    dbGetXtreamMetadataIndexStatus: (playlistId: string) =>
+        ipcRenderer.invoke('DB_GET_XTREAM_METADATA_INDEX_STATUS', playlistId),
     dbSaveContent: (
         playlistId: string,
         streams: ElectronBridgeXtreamContentStream[],

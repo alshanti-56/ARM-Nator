@@ -1,6 +1,6 @@
 import type BetterSqlite3 from 'better-sqlite3';
 import * as schema from '@arm-nator/database/schema';
-import { getIptvnatorDatabasePath } from '@arm-nator/database/path-utils';
+import { getArmNatorDatabasePath } from '@arm-nator/database/path-utils';
 import { workerData } from 'worker_threads';
 import type { AppDatabase } from '../database/database.types';
 import {
@@ -67,7 +67,7 @@ export async function getWorkerDatabase(): Promise<AppDatabase> {
         return db;
     }
 
-    const filePath = getIptvnatorDatabasePath();
+    const filePath = getArmNatorDatabasePath();
     sqlite = new Database(filePath, {
         verbose: isSqlTraceEnabled()
             ? (sql: string) => {

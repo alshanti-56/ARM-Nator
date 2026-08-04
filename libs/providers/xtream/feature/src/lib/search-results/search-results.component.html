@@ -44,6 +44,67 @@
     </ng-container>
 
     <ng-container subheader>
+        @if (showMetadataBackfillNotice()) {
+            <div
+                class="metadata-search-status"
+                [class.metadata-search-status--complete]="
+                    metadataBackfillProgress().status === 'complete'
+                "
+            >
+                <mat-icon aria-hidden="true">
+                    {{
+                        metadataBackfillProgress().status === 'complete'
+                            ? 'check_circle'
+                            : 'sync'
+                    }}
+                </mat-icon>
+                <div class="metadata-search-status__copy">
+                    @if (metadataBackfillProgress().status === 'complete') {
+                        <strong>
+                            {{
+                                'PORTALS.SEARCH_VIEW.METADATA_SEARCH_COMPLETE'
+                                    | translate
+                            }}
+                        </strong>
+                        @if (metadataBackfillProgress().failed > 0) {
+                            <span>
+                                {{
+                                    'PORTALS.SEARCH_VIEW.METADATA_SEARCH_FAILED'
+                                        | translate: { count: metadataBackfillProgress().failed }
+                                }}
+                            </span>
+                        }
+                    } @else {
+                        <strong>
+                            {{
+                                'PORTALS.SEARCH_VIEW.METADATA_SEARCH_IN_PROGRESS'
+                                    | translate
+                            }}
+                        </strong>
+                        <span>
+                            {{
+                                'PORTALS.SEARCH_VIEW.METADATA_SEARCH_PROGRESS'
+                                    | translate: {
+                                        completed: metadataBackfillProgress().completed,
+                                        total: metadataBackfillProgress().total
+                                    }
+                            }}
+                        </span>
+                    }
+                </div>
+                <button
+                    mat-icon-button
+                    type="button"
+                    [attr.aria-label]="
+                        'PORTALS.SEARCH_VIEW.DISMISS_METADATA_SEARCH_STATUS'
+                            | translate
+                    "
+                    (click)="xtreamStore.dismissMetadataBackfillNotice()"
+                >
+                    <mat-icon>close</mat-icon>
+                </button>
+            </div>
+        }
         @if (isGlobalSearch) {
             <div class="global-search-subheader">
                 <div class="global-search-note">

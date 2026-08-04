@@ -10,7 +10,7 @@ import {
     output,
 } from '@angular/core';
 import { toSignal } from '@angular/core/rxjs-interop';
-import { MatIconButton } from '@angular/material/button';
+import { MatButtonModule, MatIconButton } from '@angular/material/button';
 import { MatIcon } from '@angular/material/icon';
 import { MatProgressBarModule } from '@angular/material/progress-bar';
 import { MatProgressSpinnerModule } from '@angular/material/progress-spinner';
@@ -24,6 +24,7 @@ import {
     RuntimeCapabilitiesService,
 } from '@arm-nator/services';
 import { PlaylistMeta } from '@arm-nator/shared/interfaces';
+import type { XtreamMetadataIndexView } from '@arm-nator/shared/interfaces';
 
 @Component({
     selector: 'app-playlist-item',
@@ -32,6 +33,7 @@ import { PlaylistMeta } from '@arm-nator/shared/interfaces';
     imports: [
         DatePipe,
         DragDropModule,
+        MatButtonModule,
         MatIconButton,
         MatIcon,
         MatProgressBarModule,
@@ -49,6 +51,7 @@ export class PlaylistItemComponent implements OnInit {
     readonly isDeleting = input(false);
     readonly busyMessage = input('');
     readonly busyProgress = input<number | null>(null);
+    readonly metadataIndexStatus = input<XtreamMetadataIndexView | null>(null);
     readonly canCancelBusyAction = input(false);
     readonly isBusy = computed(() => this.isRefreshing() || this.isDeleting());
 
@@ -57,6 +60,12 @@ export class PlaylistItemComponent implements OnInit {
     readonly refreshClicked = output<PlaylistMeta>();
     readonly removeClicked = output<string>();
     readonly cancelBusyActionClicked = output<void>();
+    readonly startMetadataIndexingClicked = output<void>();
+    readonly metadataIndexPercent = computed(() => {
+        const status = this.metadataIndexStatus();
+        if (!status || status.total <= 0) return 0;
+        return Math.min(100, Math.round((status.indexed / status.total) * 100));
+    });
 
     portalStatus: PortalStatus = 'unavailable';
     private readonly portalStatusService = inject(PortalStatusService);

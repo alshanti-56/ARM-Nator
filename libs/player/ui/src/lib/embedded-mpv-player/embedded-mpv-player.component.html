@@ -252,6 +252,15 @@
                 </div>
 
                 <div class="embedded-mpv-player__actions">
+                    @if (bufferLabel(); as buffer) {
+                        <span
+                            class="embedded-mpv-player__buffer"
+                            [matTooltip]="'Buffer ' + buffer"
+                            matTooltipPosition="below"
+                            >Buffer {{ buffer }}</span
+                        >
+                    }
+
                     <div
                         class="embedded-mpv-player__volume-group"
                         (pointerenter)="onVolumeHoverEnter()"

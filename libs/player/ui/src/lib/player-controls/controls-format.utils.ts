@@ -24,6 +24,20 @@ export function volumeLabel(value: number): string {
     return `Volume ${Math.round(value * 100)}%`;
 }
 
+export function formatBufferSeconds(
+    bufferAheadSeconds?: number,
+    bufferedSeconds?: number
+): string | null {
+    const value =
+        typeof bufferAheadSeconds === 'number'
+            ? bufferAheadSeconds
+            : bufferedSeconds;
+    if (typeof value !== 'number' || !Number.isFinite(value)) {
+        return null;
+    }
+    return `${Math.max(0, value).toFixed(1)}s`;
+}
+
 /** Rounds and formats a playback rate as e.g. `1.5×` for tooltips. */
 export function speedLabel(speed: number): string {
     const value = Math.round(speed * 100) / 100;

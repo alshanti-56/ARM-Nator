@@ -148,16 +148,96 @@ export function catalogGenre(item: CatalogMetadataRecord): string | undefined {
   return firstText(item, ["genre", "genres"]);
 }
 
+const CATALOG_GENRE_ALIASES: Readonly<Record<string, string>> = {
+  adventeur: "adventure",
+  aventure: "adventure",
+  comedie: "comedy",
+  comidie: "comedy",
+};
+
+const CATALOG_GENRE_LABELS: Readonly<Record<string, string>> = {
+  adventure: "Adventure",
+  comedy: "Comedy",
+};
+
+function normalizeGenreKey(value: string): string {
+  return value
+    .normalize("NFKC")
+    .trim()
+    .replace(/\s+/g, " ")
+    .toLocaleLowerCase()
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "");
+}
+
+/** Returns the stable comparison key used by the Refine genre filter. */
+export function canonicalCatalogGenre(value: string): string {
+  const key = normalizeGenreKey(value);
+  return CATALOG_GENRE_ALIASES[key] ?? key;
+}
+
+function catalogGenreLabel(key: string): string {
+  const knownLabel = CATALOG_GENRE_LABELS[key];
+  if (knownLabel) return knownLabel;
+
+  return key.replace(/(^|\s)\S/g, (letter) => letter.toLocaleUpperCase());
+}
+
 export function catalogYear(item: CatalogMetadataRecord): number | null {
-  const releaseDate = firstText(item, [
+  const releaseMetadataFields = [
     "releaseDate",
     "releasedate",
     "release_date",
     "first_air_date",
-    "year",
-  ]);
-  const match = (releaseDate ?? catalogTitle(item)).match(/\b(19|20)\d{2}\b/);
-  return match ? Number(match[0]) : null;
+  ];
+  const explicitYearFields = ["year"];
+
+  const releaseMetadata = firstValidYear(item, releaseMetadataFields);
+  if (releaseMetadata.value !== null || releaseMetadata.hasValue) {
+    return releaseMetadata.value;
+  }
+
+  const explicitYear = firstValidYear(item, explicitYearFields);
+  if (explicitYear.value !== null || explicitYear.hasValue) {
+    return explicitYear.value;
+  }
+
+  // A title is only a last-resort source. In particular, do not allow a
+  // future year embedded in a title (for example, "|EN| 2073") into Refine.
+  const titleYear = extractPlausibleYear(catalogTitle(item));
+  return titleYear;
+}
+
+const MIN_PLAUSIBLE_YEAR = 1888;
+
+function extractPlausibleYear(value: string): number | null {
+  const match = value.match(/\b(19|20)\d{2}\b/);
+  if (!match) return null;
+
+  const year = Number(match[0]);
+  const maximumYear = new Date().getFullYear() + 2;
+  return year >= MIN_PLAUSIBLE_YEAR && year <= maximumYear ? year : null;
+}
+
+function firstValidYear(
+  item: CatalogMetadataRecord,
+  fields: readonly string[],
+): { value: number | null; hasValue: boolean } {
+  const info = nestedInfo(item);
+  let hasValue = false;
+
+  for (const field of fields) {
+    for (const value of [item[field], info?.[field]]) {
+      const text = metadataText(value);
+      if (!text) continue;
+
+      hasValue = true;
+      const year = extractPlausibleYear(text);
+      if (year !== null) return { value: year, hasValue: true };
+    }
+  }
+
+  return { value: null, hasValue };
 }
 
 export function catalogRating(item: CatalogMetadataRecord): number | null {
@@ -222,6 +302,25 @@ export function normalizeXtreamContentMetadata(
   };
 }
 
+/**
+ * Bulk Xtream list responses can already contain the metadata needed by the
+ * catalog search index. Keep the rule deliberately conservative: country is
+ * not consistently present in list responses, but the core searchable fields
+ * below are enough to avoid a detail request without hiding useful metadata.
+ */
+export function hasCompleteXtreamSearchMetadata(
+  item: CatalogMetadataRecord,
+): boolean {
+  const metadata = normalizeXtreamContentMetadata(item);
+  return Boolean(
+    metadata.genre?.trim() &&
+      metadata.releaseDate?.trim() &&
+      metadata.director?.trim() &&
+      metadata.cast?.trim() &&
+      metadata.description?.trim(),
+  );
+}
+
 /** Search all useful catalog metadata, not just the poster title. */
 export function catalogSearchText(item: CatalogMetadataRecord): string {
   const info = nestedInfo(item);
@@ -251,11 +350,14 @@ export function catalogGenreValues(item: CatalogMetadataRecord): string[] {
 export function collectCatalogGenres(
   items: readonly CatalogMetadataRecord[],
 ): string[] {
-  const genres = new Set<string>();
+  const genres = new Map<string, string>();
   for (const item of items) {
-    for (const genre of catalogGenreValues(item)) genres.add(genre);
+    for (const genre of catalogGenreValues(item)) {
+      const key = canonicalCatalogGenre(genre);
+      if (!genres.has(key)) genres.set(key, catalogGenreLabel(key));
+    }
   }
-  return Array.from(genres).sort((a, b) =>
+  return Array.from(genres.values()).sort((a, b) =>
     a.localeCompare(b, undefined, { sensitivity: "base" }),
   );
 }

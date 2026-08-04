@@ -2,6 +2,7 @@ import type {
     ShakaAudioTrackLike,
     ShakaModuleLike,
     ShakaModuleLoader,
+    ShakaNetworkingEngineLike,
     ShakaPlayerLike,
     ShakaTextTrackLike,
 } from './shaka-module.types';
@@ -35,6 +36,14 @@ export class FakeShakaPlayer implements ShakaPlayerLike {
     stallNextLoad = false;
     loadResult: Promise<unknown> = Promise.resolve();
     private pendingLoadReject: ((error: unknown) => void) | null = null;
+    readonly requestFilters: Array<
+        (type: number, request: { uris: string[]; headers: Record<string, string> }) => void
+    > = [];
+    private readonly networkingEngine: ShakaNetworkingEngineLike = {
+        registerRequestFilter: (filter) => {
+            this.requestFilters.push(filter);
+        },
+    };
 
     attach(mediaElement: HTMLMediaElement): Promise<unknown> {
         this.attachedTo = mediaElement;
@@ -44,6 +53,10 @@ export class FakeShakaPlayer implements ShakaPlayerLike {
     configure(config: Record<string, unknown>): boolean {
         this.configureCalls.push(config);
         return true;
+    }
+
+    getNetworkingEngine(): ShakaNetworkingEngineLike {
+        return this.networkingEngine;
     }
 
     load(assetUri: string): Promise<unknown> {

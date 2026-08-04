@@ -38,6 +38,7 @@ import {
     getContent,
     getContentByXtreamId,
     getGlobalRecentlyAdded,
+    getXtreamMetadataIndexStatus,
     globalSearch,
     hasContent,
     saveContent,
@@ -432,6 +433,11 @@ async function executeRequest(
                 type: 'live' | 'movie' | 'series';
             };
             return getContent(db, payload.playlistId, payload.type);
+        }
+
+        case 'DB_GET_XTREAM_METADATA_INDEX_STATUS': {
+            const payload = message.payload as { playlistId: string };
+            return getXtreamMetadataIndexStatus(db, payload.playlistId);
         }
 
         case 'DB_GET_GLOBAL_RECENTLY_ADDED': {
