@@ -302,6 +302,25 @@ export function normalizeXtreamContentMetadata(
   };
 }
 
+/**
+ * Bulk Xtream list responses can already contain the metadata needed by the
+ * catalog search index. Keep the rule deliberately conservative: country is
+ * not consistently present in list responses, but the core searchable fields
+ * below are enough to avoid a detail request without hiding useful metadata.
+ */
+export function hasCompleteXtreamSearchMetadata(
+  item: CatalogMetadataRecord,
+): boolean {
+  const metadata = normalizeXtreamContentMetadata(item);
+  return Boolean(
+    metadata.genre?.trim() &&
+      metadata.releaseDate?.trim() &&
+      metadata.director?.trim() &&
+      metadata.cast?.trim() &&
+      metadata.description?.trim(),
+  );
+}
+
 /** Search all useful catalog metadata, not just the poster title. */
 export function catalogSearchText(item: CatalogMetadataRecord): string {
   const info = nestedInfo(item);

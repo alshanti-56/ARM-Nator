@@ -2,17 +2,26 @@ import {
   CatalogMetadataRecord,
   XtreamContentMetadata,
   XtreamMetadataEnrichmentState,
+  hasCompleteXtreamSearchMetadata,
   normalizeXtreamContentMetadata,
 } from "@arm-nator/shared/interfaces";
 
 const RETRY_DELAY_MS = 6 * 60 * 60 * 1000;
 const REQUEST_INTERVAL_MS = 250;
+const PROGRESS_REPORT_INTERVAL = 100;
+const CATALOG_REFRESH_INTERVAL = 2000;
 
 export type XtreamCatalogMetadataType = "movie" | "series";
 
 export interface XtreamCatalogMetadataJob {
   item: CatalogMetadataRecord;
   type: XtreamCatalogMetadataType;
+}
+
+export interface XtreamCatalogMetadataProgress {
+  total: number;
+  completed: number;
+  failed: number;
 }
 
 interface XtreamCatalogMetadataBackfillOptions {
@@ -27,6 +36,8 @@ interface XtreamCatalogMetadataBackfillOptions {
     metadata: XtreamContentMetadata,
     enrichment: XtreamMetadataEnrichmentState,
   ) => Promise<void>;
+  onProgress?: (progress: XtreamCatalogMetadataProgress) => void;
+  onCatalogBatch?: () => void;
   onFailure?: (job: XtreamCatalogMetadataJob, error: unknown) => void;
 }
 
@@ -34,7 +45,10 @@ function shouldFetchMetadata(
   item: CatalogMetadataRecord,
   now: number,
 ): boolean {
-  if (item["metadata_status"] === "complete") {
+  if (
+    item["metadata_status"] === "complete" ||
+    hasCompleteXtreamSearchMetadata(item)
+  ) {
     return false;
   }
 
@@ -45,6 +59,19 @@ function shouldFetchMetadata(
 
   const retryAt = Date.parse(retryAfter);
   return !Number.isFinite(retryAt) || retryAt <= now;
+}
+
+function isDeferredFailure(
+  item: CatalogMetadataRecord,
+  now: number,
+): boolean {
+  if (item["metadata_status"] !== "failed") return false;
+
+  const retryAfter = item["metadata_retry_after"];
+  if (typeof retryAfter !== "string" || !retryAfter.trim()) return false;
+
+  const retryAt = Date.parse(retryAfter);
+  return Number.isFinite(retryAt) && retryAt > now;
 }
 
 function enrichmentState(
@@ -73,9 +100,51 @@ export async function backfillXtreamCatalogMetadata(
       .filter((item) => shouldFetchMetadata(item, now))
       .map((item) => ({ item, type: "series" as const })),
   ];
+  const total = options.movies.length + options.series.length;
+  const initiallyDeferredFailures = [...options.movies, ...options.series].filter(
+    (item) => isDeferredFailure(item, now),
+  ).length;
+  const initiallyComplete = total - jobs.length - initiallyDeferredFailures;
 
   let nextJob = 0;
-  let completed = 0;
+  let completed = initiallyComplete;
+  let failed = initiallyDeferredFailures;
+  let lastReportedProcessed = initiallyComplete;
+  let lastReportedCatalogProcessed = initiallyComplete;
+  const reportProgress = (force = false): void => {
+    const processed = completed + failed;
+    if (
+      !force &&
+      processed !== total &&
+      processed !== initiallyComplete + 1 &&
+      processed - lastReportedProcessed < PROGRESS_REPORT_INTERVAL
+    ) {
+      return;
+    }
+
+    lastReportedProcessed = processed;
+    options.onProgress?.({
+      total,
+      completed,
+      failed,
+    });
+  };
+  const refreshCatalog = (force = false): void => {
+    const processed = completed + failed;
+    if (
+      !force &&
+      processed !== total &&
+      processed - lastReportedCatalogProcessed < CATALOG_REFRESH_INTERVAL
+    ) {
+      return;
+    }
+
+    lastReportedCatalogProcessed = processed;
+    options.onCatalogBatch?.();
+  };
+
+  reportProgress(true);
+
   const worker = async (): Promise<void> => {
     while (options.isActive() && nextJob < jobs.length) {
       const job = jobs[nextJob++];
@@ -91,10 +160,15 @@ export async function backfillXtreamCatalogMetadata(
           enrichmentState("complete", attemptedAt),
         );
         completed += 1;
+        refreshCatalog();
+        reportProgress();
       } catch (error) {
         if (!options.isActive()) return;
 
         await options.persist(job, {}, enrichmentState("failed", attemptedAt));
+        failed += 1;
+        refreshCatalog();
+        reportProgress();
         options.onFailure?.(job, error);
       }
 
@@ -107,5 +181,7 @@ export async function backfillXtreamCatalogMetadata(
   };
 
   await Promise.all([worker(), worker()]);
+  refreshCatalog(true);
+  reportProgress(true);
   return completed;
 }

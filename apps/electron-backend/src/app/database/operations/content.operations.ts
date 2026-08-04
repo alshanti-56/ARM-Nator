@@ -10,6 +10,7 @@ import {
     GlobalSearchResultSource,
     M3uGlobalSearchResult,
     catalogSearchText,
+    hasCompleteXtreamSearchMetadata,
     getXtreamRecentlyAddedMaxEpochSeconds,
     normalizeXtreamContentMetadata,
     toXtreamRecentlyAddedEpochSeconds,
@@ -714,6 +715,43 @@ export async function hasContent(
     return result[0].count > 0;
 }
 
+export async function getXtreamMetadataIndexStatus(
+    db: AppDatabase,
+    playlistId: string
+) {
+    const result = await db
+        .select({
+            total: sql<number>`count(*)`,
+            indexed: sql<number>`sum(case when ${schema.content.metadataStatus} = 'complete'
+                or (
+                    trim(coalesce(${schema.content.genre}, '')) <> ''
+                    and trim(coalesce(${schema.content.releaseDate}, '')) <> ''
+                    and trim(coalesce(${schema.content.director}, '')) <> ''
+                    and trim(coalesce(${schema.content.cast}, '')) <> ''
+                    and trim(coalesce(${schema.content.description}, '')) <> ''
+                ) then 1 else 0 end)`,
+            failed: sql<number>`sum(case when ${schema.content.metadataStatus} = 'failed' then 1 else 0 end)`,
+        })
+        .from(schema.content)
+        .innerJoin(
+            schema.categories,
+            eq(schema.content.categoryId, schema.categories.id)
+        )
+        .where(
+            and(
+                eq(schema.categories.playlistId, playlistId),
+                inArray(schema.content.type, ['movie', 'series'])
+            )
+        );
+
+    const row = result[0];
+    return {
+        total: Number(row?.total ?? 0),
+        indexed: Number(row?.indexed ?? 0),
+        failed: Number(row?.failed ?? 0),
+    };
+}
+
 export async function getContent(
     db: AppDatabase,
     playlistId: string,
@@ -848,7 +886,8 @@ type XtreamContentValue = {
     country?: string;
     director?: string;
     cast?: string;
-    description?: string;
+  description?: string;
+  metadataStatus?: 'complete';
     added: string;
     posterUrl: string;
     tvArchive?: number | null;
@@ -921,6 +960,10 @@ function toXtreamContentValue(
         director: metadata.director,
         cast: metadata.cast,
         description: metadata.description,
+        metadataStatus:
+            type !== 'live' && hasCompleteXtreamSearchMetadata(source)
+                ? 'complete'
+                : undefined,
         added: toXtreamRecentlyAddedEpochSeconds(
             type === 'series'
                 ? source.last_modified || source.added

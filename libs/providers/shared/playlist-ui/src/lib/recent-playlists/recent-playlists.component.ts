@@ -47,6 +47,7 @@ import {
     PlaylistMeta,
     PlaylistRefreshEvent,
 } from '@arm-nator/shared/interfaces';
+import type { XtreamMetadataIndexView } from '@arm-nator/shared/interfaces';
 
 import { EmptyStateComponent } from './empty-state/empty-state.component';
 import type { PlaylistType } from '../add-playlist-menu/playlist-type';
@@ -97,6 +98,10 @@ export class RecentPlaylistsComponent {
     readonly searchQueryInput = input<string>('');
     readonly playlistClicked = output<string>();
     readonly addPlaylistClicked = output<PlaylistType | undefined>();
+    readonly metadataIndexStatusFor = input<
+        (playlistId: string) => XtreamMetadataIndexView | null
+    >(() => null);
+    readonly startMetadataIndexingClicked = output<PlaylistMeta>();
 
     get isElectron(): boolean {
         return this.runtime.isElectron;
@@ -217,6 +222,10 @@ export class RecentPlaylistsComponent {
 
     onAddPlaylist(type?: PlaylistType) {
         this.addPlaylistClicked.emit(type);
+    }
+
+    getMetadataIndexStatus(playlistId: string): XtreamMetadataIndexView | null {
+        return this.metadataIndexStatusFor()(playlistId);
     }
 
     getPlaylist(playlistMeta: PlaylistMeta): void {

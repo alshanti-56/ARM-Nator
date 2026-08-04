@@ -1,4 +1,4 @@
-import { Component, computed, inject } from '@angular/core';
+import { Component, computed, effect, inject } from '@angular/core';
 import { toSignal } from '@angular/core/rxjs-interop';
 import { MatButtonModule } from '@angular/material/button';
 import { MatIconModule } from '@angular/material/icon';
@@ -6,10 +6,12 @@ import { MatMenuModule } from '@angular/material/menu';
 import { ActivatedRoute, RouterLink } from '@angular/router';
 import { Store } from '@ngrx/store';
 import { RecentPlaylistsComponent } from '@arm-nator/providers/shared/playlist-ui';
+import { XtreamMetadataIndexService } from '@arm-nator/providers/xtream/data-access';
 import { TranslatePipe, TranslateService } from '@ngx-translate/core';
 import { selectActiveTypeFilters, selectAllPlaylistsMeta } from '@arm-nator/providers/m3u/state';
 import { map, startWith } from 'rxjs';
 import { SortBy, SortOrder, SortService } from '@arm-nator/services';
+import { PlaylistMeta } from '@arm-nator/shared/interfaces';
 import {
     WORKSPACE_SHELL_ACTIONS,
     WorkspacePlaylistType,
@@ -41,6 +43,9 @@ export class WorkspaceSourcesComponent {
     private readonly workspaceActions = inject(WORKSPACE_SHELL_ACTIONS);
     private readonly translate = inject(TranslateService);
     private readonly sortService = inject(SortService);
+    private readonly metadataIndexService = inject(
+        XtreamMetadataIndexService
+    );
 
     private readonly activeTypeFilters = this.store.selectSignal(
         selectActiveTypeFilters
@@ -52,6 +57,9 @@ export class WorkspaceSourcesComponent {
         this.translate.onLangChange.pipe(startWith(null)),
         { initialValue: null }
     );
+
+    readonly metadataIndexStatusFor = (playlistId: string) =>
+        this.metadataIndexService.getStatus(playlistId);
 
     readonly sortOptions: SortOption[] = [
         {
@@ -162,8 +170,25 @@ export class WorkspaceSourcesComponent {
         );
     });
 
+    constructor() {
+        effect(() => {
+            const xtreamPlaylistIds = this.playlists()
+                .filter((item) => Boolean(item.serverUrl))
+                .map((item) => item._id);
+            if (xtreamPlaylistIds.length > 0) {
+                void this.metadataIndexService.refreshStatuses(
+                    xtreamPlaylistIds
+                );
+            }
+        });
+    }
+
     onAddPlaylist(type?: WorkspacePlaylistType): void {
         this.workspaceActions.openAddPlaylistDialog(type);
+    }
+
+    startMetadataIndexing(playlist: PlaylistMeta): void {
+        void this.metadataIndexService.start(playlist);
     }
 
     isSortActive(option: SortOption): boolean {

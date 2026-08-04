@@ -147,6 +147,14 @@ export class SearchResultsComponent implements AfterViewInit {
   /** Search term from store */
   readonly searchTerm = this.xtreamStore.searchTerm;
 
+  /** Coarse-grained provider metadata progress for the persistent search status. */
+  readonly metadataBackfillProgress =
+    this.xtreamStore.metadataBackfillProgress;
+  readonly showMetadataBackfillNotice = computed(() => {
+    const progress = this.metadataBackfillProgress();
+    return progress.status !== "idle" && !progress.dismissed;
+  });
+
   /** Search filters from store */
   readonly filters = this.xtreamStore.searchFilters;
   private globalSearchRequestVersion = 0;

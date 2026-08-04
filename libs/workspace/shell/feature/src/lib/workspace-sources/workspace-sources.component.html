@@ -52,7 +52,9 @@
     >
         <app-recent-playlists
             [searchQueryInput]="searchQuery()"
+            [metadataIndexStatusFor]="metadataIndexStatusFor"
             (addPlaylistClicked)="onAddPlaylist($event)"
+            (startMetadataIndexingClicked)="startMetadataIndexing($event)"
         />
     </div>
 </section>
