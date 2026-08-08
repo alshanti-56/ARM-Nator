@@ -4,6 +4,12 @@ on:
   push:
     tags:
       - "v*.*.*"
+  workflow_dispatch:
+    inputs:
+      release_tag:
+        description: "Existing release tag to build and publish"
+        required: true
+        type: string
 
 permissions:
   contents: write
@@ -17,15 +23,17 @@ jobs:
     name: Build and publish macOS release
     runs-on: macos-26
     timeout-minutes: 90
+    env:
+      RELEASE_TAG: ${{ github.event_name == 'workflow_dispatch' && inputs.release_tag || github.ref_name }}
 
     steps:
       - name: Check out release tag
         uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event_name == 'workflow_dispatch' && inputs.release_tag || github.ref }}
 
       - name: Set up pnpm
         uses: pnpm/action-setup@v4
-        with:
-          version: 10.33.0
 
       - name: Set up Node.js
         uses: actions/setup-node@v4
@@ -39,8 +47,6 @@ jobs:
           node -p "process.platform + '-' + process.arch"
 
       - name: Verify tag matches package version
-        env:
-          RELEASE_TAG: ${{ github.ref_name }}
         run: |
           package_version="$(node -p "require('./package.json').version")"
           expected_tag="v${package_version}"
@@ -65,7 +71,7 @@ jobs:
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
-          gh release create "${GITHUB_REF_NAME}" dist/executables/* \
+          gh release create "${RELEASE_TAG}" dist/executables/* \
             --verify-tag \
             --title "ARM-Nator ${GITHUB_REF_NAME#v}" \
             --generate-notes
