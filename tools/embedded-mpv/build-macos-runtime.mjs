@@ -133,10 +133,18 @@ const mpvMesonFlags = [
     '-Dvulkan=disabled',
     '-Dshaderc=disabled',
     '-Dspirv-cross=disabled',
-    '-Dcocoa=disabled',
-    '-Dgl-cocoa=disabled',
+    // VideoToolbox's OpenGL interop is the stable in-process path used by
+    // embedded libmpv; it does not require MPV's Vulkan/Metal renderer.
+    '-Dcocoa=enabled',
+    '-Dgl-cocoa=enabled',
     '-Dmacos-cocoa-cb=disabled',
-    '-Dswift-build=disabled',
+    // MPV's Cocoa/OpenGL support uses its generated Swift bridge even when
+    // the cplayer and macOS cocoa-cb window backend are disabled. Keep the
+    // bridge enabled so VideoToolbox can interoperate with ARM-Nator's own
+    // libmpv OpenGL surface without compiling an MPV-owned window.
+    '-Dswift-build=enabled',
+    '-Dvideotoolbox-gl=enabled',
+    '-Dvideotoolbox-pl=disabled',
     '-Dplain-gl=enabled',
 ];
 

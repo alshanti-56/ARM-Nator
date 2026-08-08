@@ -119,8 +119,10 @@ try {
         throw new Error(`Missing libmpv dylib in ${sourceLibDir}`);
     }
 
-    fs.rmSync(destinationIncludeDir, { recursive: true, force: true });
-    fs.rmSync(destinationLibDir, { recursive: true, force: true });
+    // Replace the whole generated runtime so files from an older renderer
+    // configuration (for example Vulkan ICD metadata) cannot survive a
+    // restage after that backend has been removed.
+    fs.rmSync(destinationRoot, { recursive: true, force: true });
     fs.mkdirSync(destinationRoot, { recursive: true });
 
     copyDirectory(

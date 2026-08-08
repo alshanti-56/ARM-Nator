@@ -38,6 +38,7 @@ export interface NativeEmbeddedMpvSessionSnapshot {
     container?: string;
     videoCodec?: string;
     audioCodec?: string;
+    hwdecCurrent?: string;
     fps?: number;
     bitrate?: number;
     droppedFrames?: number;
@@ -653,6 +654,9 @@ export class EmbeddedMpvNativeService {
                 : {}),
             ...(typeof snapshot.audioCodec === 'string'
                 ? { audioCodec: snapshot.audioCodec }
+                : {}),
+            ...(typeof snapshot.hwdecCurrent === 'string'
+                ? { hwdecCurrent: snapshot.hwdecCurrent }
                 : {}),
             ...(typeof snapshot.fps === 'number' ? { fps: snapshot.fps } : {}),
             ...(typeof snapshot.bitrate === 'number'

@@ -101,6 +101,7 @@ struct SessionSnapshot {
     std::string error;
     std::string videoCodec;
     std::string audioCodec;
+    std::string hwdecCurrent;
     double fps = 0.0;
     double bitrate = 0.0;
     int64_t droppedFrames = 0;
@@ -933,6 +934,10 @@ void refreshMediaMetadata(Session& session)
         session.snapshot.audioCodec = sanitizeCodecLabel(value.c_str());
     }
     value.clear();
+    if (readMpvStringProperty(session.handle, "hwdec-current", value)) {
+        session.snapshot.hwdecCurrent = sanitizeCodecLabel(value.c_str());
+    }
+    value.clear();
     if (readMpvStringProperty(session.handle, "file-format", value)) {
         session.snapshot.container = value;
     }
@@ -1275,6 +1280,14 @@ void runEventLoop(const std::shared_ptr<Session>& session)
                     } else {
                         session->snapshot.audioCodec = sanitizeCodecLabel(value);
                     }
+                    break;
+                }
+
+                if (propertyName == "hwdec-current" &&
+                    property->format == MPV_FORMAT_STRING &&
+                    property->data) {
+                    const auto* value = static_cast<char*>(property->data);
+                    session->snapshot.hwdecCurrent = value ? value : "";
                     break;
                 }
 
@@ -1680,11 +1693,17 @@ Napi::Value CreateSession(const Napi::CallbackInfo& info)
     // Keep parity with the external MPV launch path and avoid yt-dlp probing
     // IPTV-style URLs before handing them to FFmpeg directly.
     mpv_set_option_string(session->handle, "ytdl", "no");
-    // The macOS `wid` path stays black inside Electron. Render into our own
-    // surface instead of asking mpv to own a foreign Cocoa subwindow.
+    // The macOS `wid` path is not supported by MPV's Cocoa VO. Render
+    // into our own libmpv callback surface for the normal embedded mode.
     mpv_set_option_string(session->handle, "vo", "libmpv");
     if (session->renderBackend == RenderBackend::OpenGL) {
-        mpv_set_option_string(session->handle, "hwdec", "auto-safe");
+        // Prefer the native macOS VideoToolbox decoder. If a stream or codec
+        // cannot use it, MPV may still fall back to its safe automatic path.
+        mpv_set_option_string(
+            session->handle,
+            "hwdec",
+            "videotoolbox,auto-safe"
+        );
     }
 
     const auto initialVolume =
@@ -1804,6 +1823,7 @@ Napi::Value CreateSession(const Napi::CallbackInfo& info)
     mpv_observe_property(session->handle, 11, "eof-reached", MPV_FORMAT_FLAG);
     mpv_observe_property(session->handle, 12, "video-codec", MPV_FORMAT_STRING);
     mpv_observe_property(session->handle, 13, "audio-codec-name", MPV_FORMAT_STRING);
+    mpv_observe_property(session->handle, 21, "hwdec-current", MPV_FORMAT_STRING);
     mpv_observe_property(session->handle, 14, "estimated-vf-fps", MPV_FORMAT_DOUBLE);
     mpv_observe_property(session->handle, 15, "video-bitrate", MPV_FORMAT_DOUBLE);
     mpv_observe_property(session->handle, 16, "drop-frame-count", MPV_FORMAT_INT64);
@@ -2547,6 +2567,12 @@ Napi::Value GetSessionSnapshot(const Napi::CallbackInfo& info)
     }
     if (!snapshot.audioCodec.empty()) {
         result.Set("audioCodec", Napi::String::New(env, snapshot.audioCodec));
+    }
+    if (!snapshot.hwdecCurrent.empty()) {
+        result.Set(
+            "hwdecCurrent",
+            Napi::String::New(env, snapshot.hwdecCurrent)
+        );
     }
     if (snapshot.fps > 0) {
         result.Set("fps", Napi::Number::New(env, snapshot.fps));

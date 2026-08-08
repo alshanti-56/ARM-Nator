@@ -39,12 +39,6 @@ const vendoredRuntimeRoot = path.join(
     'embedded-mpv',
     'darwin-arm64'
 );
-const embeddedMpvRequired = ['1', 'true', 'yes', 'on'].includes(
-    String(process.env.ARM_NATOR_REQUIRE_EMBEDDED_MPV ?? '')
-        .trim()
-        .toLowerCase()
-);
-
 function log(message) {
     process.stdout.write(`[embedded-mpv] ${message}\n`);
 }
@@ -54,6 +48,10 @@ function cleanOutput() {
         fs.rmSync(artifact, { force: true });
     }
     fs.rmSync(outputLibDir, { recursive: true, force: true });
+    // Older runtime builds staged a Vulkan ICD next to the addon. Remove the
+    // whole generated metadata directory so a renderer change cannot leak
+    // obsolete files into webpack or the packaged app.
+    fs.rmSync(path.join(outputDir, 'etc'), { recursive: true, force: true });
     fs.rmSync(path.join(outputDir, '.deps'), { recursive: true, force: true });
     fs.rmSync(path.join(outputDir, 'obj.target'), {
         recursive: true,
@@ -126,6 +124,28 @@ function runNodeGyp(command, env) {
     }
 }
 
+function runNativeTarget(target, env) {
+    const result = spawnSync(
+        '/usr/bin/make',
+        [
+            '-C',
+            path.join(nativeRoot, 'build'),
+            'BUILDTYPE=Release',
+            target
+        ],
+        {
+            cwd: workspaceRoot,
+            env,
+            stdio: 'inherit'
+        }
+    );
+    if (result.status !== 0) {
+        throw new Error(
+            `make ${target} failed with status ${result.status ?? 1}.`
+        );
+    }
+}
+
 function assertMacOSAppleSiliconHost() {
     if (process.platform !== 'darwin' || process.arch !== 'arm64') {
         throw new Error(
@@ -147,11 +167,7 @@ function main() {
             `Expected a vendored runtime at ${vendoredRuntimeRoot}.`,
             'Run `pnpm embedded-mpv:runtime` to build the portable runtime.'
         ].join('\n');
-        if (embeddedMpvRequired) {
-            throw new Error(message);
-        }
-        log(message);
-        return;
+        throw new Error(message);
     }
 
     try {
@@ -186,7 +202,9 @@ function main() {
         );
         cleanNativeBuildIntermediates();
         runNodeGyp('configure', env);
-        runNodeGyp('build', env);
+        // Build only the independently owned Embedded MPV target. The
+        // node-gyp aggregate target would also rebuild KSPlayer.
+        runNativeTarget('embedded_mpv', env);
 
         for (const artifact of [outputFile]) {
             if (!fs.existsSync(artifact)) {
