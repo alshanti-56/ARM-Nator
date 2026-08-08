@@ -58,6 +58,9 @@ jobs:
       - name: Install dependencies
         run: pnpm install --frozen-lockfile
 
+      - name: Install native runtime build tools
+        run: brew install meson ninja pkg-config
+
       - name: Build and package ARM-Nator
         env:
           ARM_NATOR_ADHOC_SIGN: "1"
