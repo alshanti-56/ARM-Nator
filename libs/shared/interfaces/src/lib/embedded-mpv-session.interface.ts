@@ -16,6 +16,30 @@ export interface EmbeddedMpvBounds {
     height: number;
 }
 
+/** Native backend currently owning an embedded player session. */
+export type EmbeddedMpvBackend = 'embedded-mpv' | 'ksplayer-metal';
+
+/** Alias used by diagnostics and backend-aware player code. */
+export type PlayerBackend = EmbeddedMpvBackend;
+
+export interface KsPlayerMetalSupport {
+    supported: boolean;
+    reason?: string;
+    architecture?: string;
+    runtimePath?: string;
+}
+
+export interface KsPlayerMetalControls {
+    pause: boolean;
+    seek: boolean;
+    volume: boolean;
+    audioTracks?: boolean;
+    /** Optional for compatibility with older KSPlayer native addons. */
+    playbackSpeed?: boolean;
+}
+
+export type KsPlayerMetalSupportedControls = KsPlayerMetalControls;
+
 export interface EmbeddedMpvCapabilities {
     subtitles: boolean;
     playbackSpeed: boolean;
@@ -28,6 +52,12 @@ export interface EmbeddedMpvSupport {
     platform: string;
     reason?: string;
     capabilities?: EmbeddedMpvCapabilities;
+    /** Backend that produced this support result, when known. */
+    backend?: EmbeddedMpvBackend;
+    /** KSPlayer Metal runtime metadata, when the selected backend is KS. */
+    architecture?: string;
+    runtimePath?: string;
+    controls?: KsPlayerMetalControls;
 }
 
 export interface EmbeddedMpvAudioTrack {
@@ -43,6 +73,8 @@ export type EmbeddedMpvSubtitleTrack = EmbeddedMpvAudioTrack;
 
 export interface EmbeddedMpvSession {
     id: string;
+    /** Actual backend owning this snapshot. Optional for old embedded snapshots. */
+    backend?: EmbeddedMpvBackend;
     title: string;
     streamUrl: string;
     status: EmbeddedMpvSessionStatus;
@@ -63,6 +95,8 @@ export interface EmbeddedMpvSession {
     container?: string;
     videoCodec?: string;
     audioCodec?: string;
+    /** Active MPV hardware-decoder backend, for example videotoolbox or no. */
+    hwdecCurrent?: string;
     fps?: number;
     bitrate?: number;
     droppedFrames?: number;
@@ -71,3 +105,7 @@ export interface EmbeddedMpvSession {
     updatedAt: string;
     error?: string;
 }
+
+export type KsPlayerMetalSession = EmbeddedMpvSession & {
+    backend: 'ksplayer-metal';
+};

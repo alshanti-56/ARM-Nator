@@ -107,6 +107,8 @@ export interface PlayerMediaTelemetry {
     readonly container?: string;
     readonly videoCodec?: string;
     readonly audioCodec?: string;
+    /** Active hardware-decoder backend reported by the player, when available. */
+    readonly hwdecCurrent?: string;
     readonly width?: number;
     readonly height?: number;
     readonly fps?: number;

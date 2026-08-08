@@ -1,27 +1,26 @@
 import { Signal, WritableSignal } from '@angular/core';
 import {
+    EmbeddedMpvBackend,
     EmbeddedMpvSession,
+    KsPlayerMetalControls,
     PlayerPictureSettings,
     PlayerSubtitleSettings,
 } from '@arm-nator/shared/interfaces';
 
 type ElectronBridge = Window['electron'];
+type KsPlayerMetalControl = keyof KsPlayerMetalControls;
 
-/**
- * Context the {@link EmbeddedMpvCommandRunner} reads/writes. The controller owns
- * the signals; the runner only delegates IPC and reconciles the returned
- * snapshot back into `session`.
- */
+/** Context the runner reads/writes; the controller owns all signals. */
 export interface EmbeddedMpvCommandContext {
+    readonly backend?: Signal<EmbeddedMpvBackend>;
     readonly sessionId: Signal<string | null>;
     readonly session: WritableSignal<EmbeddedMpvSession | null>;
+    readonly supportedControls?: Signal<KsPlayerMetalControls | null>;
 }
 
 /**
- * Thin IPC delegators for embedded-MPV transport and track commands.
- * Split out of the controller so each stays a one-liner around `guardIpc`,
- * which swallows races where the session was torn down mid-call (the next
- * broadcast snapshot resyncs state).
+ * Backend-aware IPC delegators. Every KSPlayer Metal command is dispatched to
+ * a KS channel, and every embedded-MPV command remains on the legacy channel.
  */
 export class EmbeddedMpvCommandRunner {
     constructor(private readonly ctx: EmbeddedMpvCommandContext) {}
@@ -30,7 +29,16 @@ export class EmbeddedMpvCommandRunner {
         const id = this.ctx.sessionId();
         const session = this.ctx.session();
         const electron = this.bridge();
-        if (!id || !session || !electron?.setEmbeddedMpvPaused) {
+        if (!id || !session || !electron || !this.supports('pause')) {
+            return;
+        }
+        if (this.backend() === 'ksplayer-metal') {
+            await this.run(id, () =>
+                electron.setKsPlayerMetalPaused(id, session.status !== 'paused')
+            );
+            return;
+        }
+        if (!electron.setEmbeddedMpvPaused) {
             return;
         }
         await this.run(id, () =>
@@ -42,110 +50,148 @@ export class EmbeddedMpvCommandRunner {
         const id = this.ctx.sessionId();
         const session = this.ctx.session();
         const electron = this.bridge();
-        if (!id || !session || !electron?.seekEmbeddedMpv) {
+        if (!id || !session || !electron || !this.supports('seek')) {
             return false;
         }
         const next = Math.max(0, session.positionSeconds + deltaSeconds);
-        await this.run(id, () => electron.seekEmbeddedMpv(id, next));
+        if (this.backend() === 'ksplayer-metal') {
+            await this.run(id, () => electron.seekKsPlayerMetal(id, next));
+        } else if (electron.seekEmbeddedMpv) {
+            await this.run(id, () => electron.seekEmbeddedMpv(id, next));
+        } else {
+            return false;
+        }
         return true;
     }
 
     async seekTo(seconds: number): Promise<void> {
         const id = this.ctx.sessionId();
         const electron = this.bridge();
-        if (!id || !electron?.seekEmbeddedMpv) {
+        if (!id || !electron || !this.supports('seek')) {
             return;
         }
-        await this.run(id, () => electron.seekEmbeddedMpv(id, seconds));
+        if (this.backend() === 'ksplayer-metal') {
+            await this.run(id, () => electron.seekKsPlayerMetal(id, seconds));
+        } else if (electron.seekEmbeddedMpv) {
+            await this.run(id, () => electron.seekEmbeddedMpv(id, seconds));
+        }
     }
 
     async applyVolume(value: number): Promise<void> {
         const id = this.ctx.sessionId();
         const electron = this.bridge();
-        if (!id || !electron?.setEmbeddedMpvVolume) {
+        if (!id || !electron || !this.supports('volume')) {
             return;
         }
-        await this.run(id, () => electron.setEmbeddedMpvVolume(id, value));
+        if (this.backend() === 'ksplayer-metal') {
+            await this.run(id, () => electron.setKsPlayerMetalVolume(id, value));
+        } else if (electron.setEmbeddedMpvVolume) {
+            await this.run(id, () => electron.setEmbeddedMpvVolume(id, value));
+        }
     }
 
     async setAudioTrack(trackId: number): Promise<void> {
         const id = this.ctx.sessionId();
         const electron = this.bridge();
-        if (!id || !electron?.setEmbeddedMpvAudioTrack) {
+        if (!id || !electron) {
             return;
         }
-        await this.run(id, () =>
-            electron.setEmbeddedMpvAudioTrack(id, trackId)
-        );
+        if (this.backend() === 'ksplayer-metal') {
+            if (!this.supports('audioTracks')) {
+                return;
+            }
+            await this.run(id, () =>
+                electron.setKsPlayerMetalAudioTrack(id, trackId)
+            );
+            return;
+        }
+        if (!electron.setEmbeddedMpvAudioTrack) {
+            return;
+        }
+        await this.run(id, () => electron.setEmbeddedMpvAudioTrack(id, trackId));
     }
 
     async setSubtitleTrack(trackId: number): Promise<void> {
-        const id = this.ctx.sessionId();
-        const electron = this.bridge();
-        if (!id || !electron?.setEmbeddedMpvSubtitleTrack) {
+        if (this.backend() === 'ksplayer-metal') {
             return;
         }
-        const setSubtitleTrack = electron.setEmbeddedMpvSubtitleTrack;
+        const id = this.ctx.sessionId();
+        const electron = this.bridge();
+        const setSubtitleTrack = electron?.setEmbeddedMpvSubtitleTrack;
+        if (!id || !setSubtitleTrack) {
+            return;
+        }
         await this.run(id, () => setSubtitleTrack(id, trackId));
     }
 
     async setSubtitleFile(filePath: string): Promise<void> {
-        const id = this.ctx.sessionId();
-        const electron = this.bridge();
-        if (!id || !filePath || !electron?.setEmbeddedMpvSubtitleFile) {
+        if (this.backend() === 'ksplayer-metal') {
             return;
         }
-        await this.run(id, () =>
-            electron.setEmbeddedMpvSubtitleFile!(id, filePath)
-        );
+        const id = this.ctx.sessionId();
+        const electron = this.bridge();
+        const setSubtitleFile = electron?.setEmbeddedMpvSubtitleFile;
+        if (!id || !filePath || !setSubtitleFile) {
+            return;
+        }
+        await this.run(id, () => setSubtitleFile(id, filePath));
     }
 
     async setSubtitleSettings(settings: PlayerSubtitleSettings): Promise<void> {
-        const id = this.ctx.sessionId();
-        const electron = this.bridge();
-        if (!id || !electron?.setEmbeddedMpvSubtitleSettings) {
+        if (this.backend() === 'ksplayer-metal') {
             return;
         }
-        await this.run(id, () =>
-            electron.setEmbeddedMpvSubtitleSettings!(id, settings)
-        );
+        const id = this.ctx.sessionId();
+        const electron = this.bridge();
+        const setSubtitleSettings = electron?.setEmbeddedMpvSubtitleSettings;
+        if (!id || !setSubtitleSettings) {
+            return;
+        }
+        await this.run(id, () => setSubtitleSettings(id, settings));
     }
 
     async setSpeed(speed: number): Promise<void> {
         const id = this.ctx.sessionId();
         const electron = this.bridge();
-        if (!id || !electron?.setEmbeddedMpvSpeed) {
+        if (!id || !electron || !this.supports('playbackSpeed')) {
             return;
         }
-        const setSpeed = electron.setEmbeddedMpvSpeed;
-        await this.run(id, () => setSpeed(id, speed));
+        if (this.backend() === 'ksplayer-metal') {
+            await this.run(id, () => electron.setKsPlayerMetalSpeed(id, speed));
+        } else {
+            const setEmbeddedMpvSpeed = electron.setEmbeddedMpvSpeed;
+            if (setEmbeddedMpvSpeed) {
+                await this.run(id, () => setEmbeddedMpvSpeed(id, speed));
+            }
+        }
     }
 
     async setAspect(aspect: string): Promise<void> {
-        const id = this.ctx.sessionId();
-        const electron = this.bridge();
-        if (!id || !electron?.setEmbeddedMpvAspect) {
+        if (this.backend() === 'ksplayer-metal') {
             return;
         }
-        const setAspect = electron.setEmbeddedMpvAspect;
+        const id = this.ctx.sessionId();
+        const electron = this.bridge();
+        const setAspect = electron?.setEmbeddedMpvAspect;
+        if (!id || !setAspect) {
+            return;
+        }
         await this.run(id, () => setAspect(id, aspect));
     }
 
     async setPicture(picture: PlayerPictureSettings): Promise<void> {
-        const id = this.ctx.sessionId();
-        const electron = this.bridge();
-        if (!id || !electron?.setEmbeddedMpvPicture) {
+        if (this.backend() === 'ksplayer-metal') {
             return;
         }
-        await this.run(id, () => electron.setEmbeddedMpvPicture!(id, picture));
+        const id = this.ctx.sessionId();
+        const electron = this.bridge();
+        const setPicture = electron?.setEmbeddedMpvPicture;
+        if (!id || !setPicture) {
+            return;
+        }
+        await this.run(id, () => setPicture(id, picture));
     }
 
-    /**
-     * Run an IPC call, reconcile the returned snapshot into `session`, and
-     * return it (or null when the call was swallowed). Errors are intentionally
-     * swallowed: the session may have been torn down or an addon-side throw may
-     * have raced the IPC — the next snapshot resyncs state.
-     */
     private async run(
         expectedSessionId: string,
         call: () => Promise<EmbeddedMpvSession | null>
@@ -159,22 +205,21 @@ export class EmbeddedMpvCommandRunner {
         ) {
             return null;
         }
+        const normalized: EmbeddedMpvSession = {
+            ...updated,
+            backend: updated.backend ?? this.backend(),
+        };
         const current = this.ctx.session();
         if (
             current?.id === expectedSessionId &&
-            this.shouldKeepCurrentSnapshot(current, updated, sessionBeforeCall)
+            this.shouldKeepCurrentSnapshot(current, normalized, sessionBeforeCall)
         ) {
             return current;
         }
-        this.ctx.session.set(updated);
-        return updated;
+        this.ctx.session.set(normalized);
+        return normalized;
     }
 
-    /**
-     * Session broadcasts and invoke replies can cross in flight. Preserve a
-     * broadcast observed during this command when it is newer than the reply;
-     * for equal timestamps, renderer arrival order breaks the tie.
-     */
     private shouldKeepCurrentSnapshot(
         current: EmbeddedMpvSession,
         candidate: EmbeddedMpvSession,
@@ -193,6 +238,17 @@ export class EmbeddedMpvCommandRunner {
             (currentUpdatedAt === candidateUpdatedAt &&
                 current !== sessionBeforeCall)
         );
+    }
+
+    private supports(control: KsPlayerMetalControl): boolean {
+        if (this.backend() === 'embedded-mpv') {
+            return true;
+        }
+        return this.ctx.supportedControls?.()?.[control] === true;
+    }
+
+    private backend(): EmbeddedMpvBackend {
+        return this.ctx.backend?.() ?? 'embedded-mpv';
     }
 
     private async guardIpc<T>(call: () => Promise<T>): Promise<T | null> {

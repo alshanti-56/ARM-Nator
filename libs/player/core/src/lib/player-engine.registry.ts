@@ -1,9 +1,11 @@
 import { VideoPlayer } from "@arm-nator/shared/interfaces";
 
-export type PlayerEngineKind = "web" | "embedded-native" | "managed-external";
+export type PlayerEngineKind =
+  "web" | "embedded-native" | "ksplayer-metal" | "managed-external";
 
 export interface PlayerRuntimeCapabilities {
   readonly supportsEmbeddedMpv: boolean;
+  readonly supportsKsPlayerMetal: boolean;
   readonly supportsManagedExternalPlayers: boolean;
 }
 
@@ -34,6 +36,12 @@ export const PLAYER_ENGINES: readonly PlayerEngineDescriptor[] = [
     priority: 30,
   },
   {
+    id: VideoPlayer.KsPlayer,
+    kind: "ksplayer-metal",
+    labelKey: "SETTINGS.PLAYER_KSPLAYER",
+    priority: 35,
+  },
+  {
     id: VideoPlayer.MPV,
     kind: "managed-external",
     labelKey: "SETTINGS.PLAYER_MPV",
@@ -62,6 +70,8 @@ export function getAvailablePlayerEngines(
     switch (engine.kind) {
       case "embedded-native":
         return capabilities.supportsEmbeddedMpv;
+      case "ksplayer-metal":
+        return capabilities.supportsKsPlayerMetal;
       case "managed-external":
         return capabilities.supportsManagedExternalPlayers;
       case "web":

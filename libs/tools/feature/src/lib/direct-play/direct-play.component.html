@@ -40,24 +40,24 @@
       <div class="field-group wide-field">
         <label class="field-label" for="direct-play-url">Playback URL</label>
         <mat-form-field class="field-control">
-        <input
-          matInput
-          id="direct-play-url"
-          [(ngModel)]="url"
-          placeholder="https://server.example/live/stream.m3u8"
-          (keydown.enter)="play()"
-        />
-        @if (url) {
-          <button
-            mat-icon-button
-            matSuffix
-            type="button"
-            [cdkCopyToClipboard]="url"
-            aria-label="Copy playback URL"
-          >
-            <mat-icon>content_copy</mat-icon>
-          </button>
-        }
+          <input
+            matInput
+            id="direct-play-url"
+            [(ngModel)]="url"
+            placeholder="https://server.example/live/stream.m3u8"
+            (keydown.enter)="play()"
+          />
+          @if (url) {
+            <button
+              mat-icon-button
+              matSuffix
+              type="button"
+              [cdkCopyToClipboard]="url"
+              aria-label="Copy playback URL"
+            >
+              <mat-icon>content_copy</mat-icon>
+            </button>
+          }
         </mat-form-field>
       </div>
 
@@ -65,44 +65,63 @@
         <div class="field-group">
           <label class="field-label" for="direct-play-title">Title</label>
           <mat-form-field class="field-control">
-          <input
-            matInput
-            id="direct-play-title"
-            [(ngModel)]="title"
-            placeholder="Optional display title"
-          />
+            <input
+              matInput
+              id="direct-play-title"
+              [(ngModel)]="title"
+              placeholder="Optional display title"
+            />
           </mat-form-field>
         </div>
 
         <div class="field-group">
-          <label class="field-label" for="direct-play-engine">Player engine</label>
-          <mat-form-field class="field-control">
-          <mat-select
-            id="direct-play-engine"
-            [ngModel]="selectedEngine()"
-            (ngModelChange)="selectEngine($event)"
+          <label class="field-label" for="direct-play-engine"
+            >Player engine</label
           >
-            @for (engine of engines; track engine.id) {
-              <mat-option [value]="engine.id">
-                {{ engine.id }}
-              </mat-option>
+          <mat-form-field class="field-control">
+            <mat-select
+              id="direct-play-engine"
+              [ngModel]="selectedEngine()"
+              (ngModelChange)="selectEngine($event)"
+            >
+              @for (engine of engineAvailability(); track engine.engine) {
+                <mat-option
+                  [value]="engine.engine"
+                  [disabled]="engine.native && !engine.available"
+                  [attr.aria-label]="
+                    engine.available
+                      ? engine.engine
+                      : engine.engine + ': unavailable — ' + engine.detail
+                  "
+                  [attr.title]="engine.available ? null : engine.detail"
+                >
+                  {{ engine.engine }}
+                  @if (engine.native && !engine.available) {
+                    (unavailable)
+                  }
+                </mat-option>
+              }
+            </mat-select>
+            @if (selectedNativeEngineMessage(); as message) {
+              <mat-hint>{{ message }}</mat-hint>
             }
-          </mat-select>
           </mat-form-field>
         </div>
       </div>
 
       <div class="field-group wide-field headers-field">
-        <label class="field-label" for="direct-play-headers">HTTP headers</label>
+        <label class="field-label" for="direct-play-headers"
+          >HTTP headers</label
+        >
         <mat-form-field class="field-control">
-        <textarea
-          matInput
-          id="direct-play-headers"
-          [(ngModel)]="headersText"
-          rows="4"
-          placeholder="User-Agent: ...&#10;Referer: ...&#10;Origin: ..."
-        ></textarea>
-        <mat-hint>One Name: Value header per line</mat-hint>
+          <textarea
+            matInput
+            id="direct-play-headers"
+            [(ngModel)]="headersText"
+            rows="4"
+            placeholder="User-Agent: ...&#10;Referer: ...&#10;Origin: ..."
+          ></textarea>
+          <mat-hint>One Name: Value header per line</mat-hint>
         </mat-form-field>
       </div>
 
@@ -116,6 +135,8 @@
             mat-flat-button
             type="button"
             class="play-button"
+            [disabled]="!canLaunchSelectedEngine()"
+            [attr.title]="selectedNativeEngineMessage()"
             (click)="play()"
           >
             <mat-icon>{{
@@ -356,7 +377,18 @@
   </div>
 
   @if (playback(); as current) {
-    @if (isExternalEngine()) {
+    @if (metalPlaybackFailure(); as metalFailure) {
+      <section class="external-placeholder" role="status">
+        <mat-icon>error_outline</mat-icon>
+        <div>
+          <strong>KS Player playback failed</strong>
+          <span>
+            {{ metalFailure }} Playback was stopped; embedded MPV is not used as
+            a fallback.
+          </span>
+        </div>
+      </section>
+    } @else if (isExternalEngine()) {
       <section class="external-placeholder">
         <mat-icon>open_in_new</mat-icon>
         <div>

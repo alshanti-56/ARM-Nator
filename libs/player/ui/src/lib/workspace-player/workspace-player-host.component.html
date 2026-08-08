@@ -1,133 +1,149 @@
 @if (state.playback() || state.youtube()) {
-    <section
-        class="workspace-player"
-        [class.workspace-player--mini]="isMini()"
-        [class.workspace-player--expanded]="!isMini()"
-        [class.workspace-player--youtube]="isYouTube()"
-        aria-label="Now playing"
-    >
-        <header class="workspace-player__header">
-            <div class="workspace-player__identity">
-                <span>{{ isYouTube() ? 'YOUTUBE' : (state.playback()?.isLive ? 'LIVE' : 'NOW PLAYING') }}</span>
-                <strong>{{ mediaTitle() }}</strong>
-            </div>
+  <section
+    class="workspace-player"
+    [class.workspace-player--mini]="isMini()"
+    [class.workspace-player--expanded]="!isMini()"
+    [class.workspace-player--youtube]="isYouTube()"
+    aria-label="Now playing"
+  >
+    <header class="workspace-player__header">
+      <div class="workspace-player__identity">
+        <span>{{
+          isYouTube()
+            ? "YOUTUBE"
+            : state.playback()?.isLive
+              ? "LIVE"
+              : "NOW PLAYING"
+        }}</span>
+        <strong>{{ mediaTitle() }}</strong>
+      </div>
 
-            @if (!isYouTube()) {
-                <nav class="workspace-player__engines" aria-label="Player engine">
-                    @for (engine of engines; track engine.id) {
-                        <button
-                            type="button"
-                            [class.is-active]="state.engine() === engine.id"
-                            (click)="switchEngine(engine.id)"
-                        >
-                            {{ engine.id }}
-                        </button>
-                    }
-                </nav>
+      @if (!isYouTube()) {
+        <nav class="workspace-player__engines" aria-label="Player engine">
+          @for (engine of engineAvailability(); track engine.id) {
+            <button
+              type="button"
+              [class.is-active]="isEngineActive(engine.id)"
+              [disabled]="!engine.available"
+              [attr.aria-label]="
+                engine.available
+                  ? (engine.labelKey | translate)
+                  : (engine.labelKey | translate) + ': ' + engine.detail
+              "
+              [attr.title]="engine.available ? null : engine.detail"
+              (click)="switchEngine(engine.id)"
+            >
+              {{ engine.labelKey | translate }}
+            </button>
+          }
+        </nav>
 
-                <div class="workspace-player__health">
-                    <span
-                        matTooltip="Resolution"
-                        matTooltipPosition="above"
-                        >{{ mediaSummary().resolution }}</span
-                    >
-                    <span
-                        matTooltip="Format"
-                        matTooltipPosition="above"
-                        >{{ mediaSummary().format }}</span
-                    >
-                    <span
-                        matTooltip="Codec"
-                        matTooltipPosition="above"
-                        >{{ mediaSummary().codec }}</span
-                    >
-                </div>
-            }
-
-            <div class="workspace-player__window-actions">
-                @if (!isYouTube()) {
-                    <button
-                        class="workspace-player__media-action"
-                        mat-icon-button
-                        type="button"
-                        matTooltip="Stop"
-                        matTooltipPosition="above"
-                        (click)="state.stop()"
-                    >
-                        <mat-icon>stop</mat-icon>
-                    </button>
-                    <button
-                        class="workspace-player__media-action"
-                        mat-icon-button
-                        type="button"
-                        matTooltip="Restart"
-                        matTooltipPosition="above"
-                        (click)="state.restart()"
-                    >
-                        <mat-icon>restart_alt</mat-icon>
-                    </button>
-                }
-                @if (isMini()) {
-                    <button
-                        mat-icon-button
-                        type="button"
-                        matTooltip="Expand player"
-                        matTooltipPosition="above"
-                        (click)="state.expand()"
-                    >
-                        <mat-icon>open_in_full</mat-icon>
-                    </button>
-                } @else {
-                    <button
-                        mat-icon-button
-                        type="button"
-                        matTooltip="Mini player"
-                        matTooltipPosition="above"
-                        (click)="state.minimize()"
-                    >
-                        <mat-icon>picture_in_picture_alt</mat-icon>
-                    </button>
-                }
-                <button
-                    mat-icon-button
-                    type="button"
-                    matTooltip="Close player"
-                    matTooltipPosition="above"
-                    (click)="state.close()"
-                >
-                    <mat-icon>close</mat-icon>
-                </button>
-            </div>
-        </header>
-
-        <div #playerSurface class="workspace-player__surface">
-            @if (isYouTube()) {
-                <div class="workspace-player__youtube-surface" aria-hidden="true"></div>
-            } @else if (state.stopped()) {
-                <div class="workspace-player__stopped">
-                    <mat-icon>stop_circle</mat-icon>
-                    <strong>Playback stopped</strong>
-                    <button mat-flat-button type="button" (click)="state.restart()">
-                        <mat-icon>restart_alt</mat-icon>
-                        Restart
-                    </button>
-                </div>
-            } @else if (state.playback(); as playback) {
-                <app-web-player-view
-                    [streamUrl]="playback.streamUrl"
-                    [title]="playback.title"
-                    [playback]="playback"
-                    [playerOverride]="state.engine()"
-                    [reloadGeneration]="state.reloadGeneration()"
-                    (timeUpdate)="onTimeUpdate($event)"
-                    (runtimeSnapshotChange)="state.onRuntimeSnapshot($event)"
-                    (playbackDiagnosticChange)="state.onDiagnostic($event)"
-                    (playbackEnded)="state.onEnded()"
-                    (previousEpisodeRequested)="state.previous()"
-                    (nextEpisodeRequested)="state.next()"
-                    (externalFallbackRequested)="openFallback($event)"
-                />
-            }
+        <div class="workspace-player__health">
+          <span matTooltip="Resolution" matTooltipPosition="above">{{
+            mediaSummary().resolution
+          }}</span>
+          <span matTooltip="Format" matTooltipPosition="above">{{
+            mediaSummary().format
+          }}</span>
+          <span matTooltip="Codec" matTooltipPosition="above">{{
+            mediaSummary().codec
+          }}</span>
+          <span matTooltip="Hardware decoder" matTooltipPosition="above">{{
+            mediaSummary().hwdec
+          }}</span>
         </div>
-    </section>
+      }
+
+      <div class="workspace-player__window-actions">
+        @if (!isYouTube()) {
+          <button
+            class="workspace-player__media-action"
+            mat-icon-button
+            type="button"
+            matTooltip="Stop"
+            matTooltipPosition="above"
+            (click)="state.stop()"
+          >
+            <mat-icon>stop</mat-icon>
+          </button>
+          <button
+            class="workspace-player__media-action"
+            mat-icon-button
+            type="button"
+            matTooltip="Restart"
+            matTooltipPosition="above"
+            (click)="state.restart()"
+          >
+            <mat-icon>restart_alt</mat-icon>
+          </button>
+        }
+        @if (isMini()) {
+          <button
+            mat-icon-button
+            type="button"
+            matTooltip="Expand player"
+            matTooltipPosition="above"
+            (click)="state.expand()"
+          >
+            <mat-icon>open_in_full</mat-icon>
+          </button>
+        } @else {
+          <button
+            mat-icon-button
+            type="button"
+            matTooltip="Mini player"
+            matTooltipPosition="above"
+            (click)="state.minimize()"
+          >
+            <mat-icon>picture_in_picture_alt</mat-icon>
+          </button>
+        }
+        <button
+          mat-icon-button
+          type="button"
+          matTooltip="Close player"
+          matTooltipPosition="above"
+          (click)="state.close()"
+        >
+          <mat-icon>close</mat-icon>
+        </button>
+      </div>
+    </header>
+
+    <div #playerSurface class="workspace-player__surface">
+      @if (isYouTube()) {
+        <div class="workspace-player__youtube-surface" aria-hidden="true"></div>
+      } @else if (selectedEngineBlockedReason(); as reason) {
+        <div class="workspace-player__stopped" role="status">
+          <mat-icon>error_outline</mat-icon>
+          <strong>{{ state.engine() }} is unavailable</strong>
+          <span>{{ reason }}</span>
+        </div>
+      } @else if (state.stopped()) {
+        <div class="workspace-player__stopped">
+          <mat-icon>stop_circle</mat-icon>
+          <strong>Playback stopped</strong>
+          <button mat-flat-button type="button" (click)="state.restart()">
+            <mat-icon>restart_alt</mat-icon>
+            Restart
+          </button>
+        </div>
+      } @else if (state.playback(); as playback) {
+        <app-web-player-view
+          [streamUrl]="playback.streamUrl"
+          [title]="playback.title"
+          [playback]="playback"
+          [playerOverride]="state.engine()"
+          [reloadGeneration]="state.reloadGeneration()"
+          (timeUpdate)="onTimeUpdate($event)"
+          (runtimeSnapshotChange)="onRuntimeSnapshot($event)"
+          (playbackDiagnosticChange)="state.onDiagnostic($event)"
+          (playbackEnded)="state.onEnded()"
+          (previousEpisodeRequested)="state.previous()"
+          (nextEpisodeRequested)="state.next()"
+          (externalFallbackRequested)="openFallback($event)"
+        />
+      }
+    </div>
+  </section>
 }

@@ -8,6 +8,9 @@ import ElectronEvents from './app/events/electron.events';
 import EmbeddedMpvEvents, {
     shutdownEmbeddedMpv,
 } from './app/events/embedded-mpv.events';
+import KsPlayerMetalEvents, {
+    shutdownKsPlayerMetal,
+} from './app/events/ksplayer-metal.events';
 import { shutdownMpvSession } from './app/events/mpv-session.service';
 import PlayerEvents from './app/events/player.events';
 import OpenSubtitlesEvents from './app/events/open-subtitles.events';
@@ -36,6 +39,11 @@ const electronUserDataPath = getElectronUserDataPath();
 if (electronUserDataPath) {
     app.setPath('userData', electronUserDataPath);
 }
+
+// Keep development and packaged launches single-instance for this app's
+// user-data directory. A generic Electron shell from another checkout uses a
+// different user-data directory and is not the ARM-Nator app.
+const hasSingleInstanceLock = app.requestSingleInstanceLock();
 
 let fixPathScheduled = false;
 
@@ -83,6 +91,7 @@ export default class Main {
         WindowEvents.bootstrapWindowEvents();
         BrowserEvents.bootstrapBrowserEvents();
         EmbeddedMpvEvents.bootstrapEmbeddedMpvEvents();
+        KsPlayerMetalEvents.bootstrapKsPlayerMetalEvents();
         PlaylistEvents.bootstrapPlaylistEvents();
         SharedEvents.bootstrapSharedEvents();
         PlayerEvents.bootstrapPlayerEvents();
@@ -126,24 +135,41 @@ export default class Main {
     }
 }
 
-runEmbeddedMpvRuntimeDiagnosticOrContinue(process.argv, () => {
-    // bootstrap app
-    Main.bootstrapApp();
-
-    // Bootstrap app events after Electron app is ready
-    app.whenReady().then(async () => {
-        if (isStartupTraceEnabled()) {
-            trace('startup', 'app.whenReady');
+if (!hasSingleInstanceLock) {
+    app.quit();
+} else {
+    app.on('second-instance', () => {
+        const window = App.mainWindow;
+        if (!window || window.isDestroyed()) {
+            return;
         }
-        await Main.bootstrapAppEvents();
+        if (window.isMinimized()) {
+            window.restore();
+        }
+        window.show();
+        window.focus();
     });
 
-    app.on('before-quit', () => {
-        void shutdownCredentialTesterBatches();
-        shutdownBrowserView();
-        shutdownEmbeddedMpv();
-        shutdownMpvSession();
-        shutdownVlcSession();
-        void databaseWorkerClient.shutdown();
+    runEmbeddedMpvRuntimeDiagnosticOrContinue(process.argv, () => {
+        // bootstrap app
+        Main.bootstrapApp();
+
+        // Bootstrap app events after Electron app is ready
+        app.whenReady().then(async () => {
+            if (isStartupTraceEnabled()) {
+                trace('startup', 'app.whenReady');
+            }
+            await Main.bootstrapAppEvents();
+        });
+
+        app.on('before-quit', () => {
+            void shutdownCredentialTesterBatches();
+            shutdownBrowserView();
+            shutdownKsPlayerMetal();
+            shutdownEmbeddedMpv();
+            shutdownMpvSession();
+            shutdownVlcSession();
+            void databaseWorkerClient.shutdown();
+        });
     });
-});
+}

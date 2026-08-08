@@ -3,6 +3,8 @@ import {
     EmbeddedMpvBounds,
     EmbeddedMpvSession,
     EmbeddedMpvSupport,
+    KsPlayerMetalControls,
+    KsPlayerMetalSupport,
 } from './embedded-mpv-session.interface';
 import { ExternalPlayerSession } from './external-player-session.interface';
 import {
@@ -149,6 +151,48 @@ export interface ElectronBridgeXtreamProbeResult {
 
 export interface ElectronBridgeTrustOptions {
     trustedInsecureTlsHosts?: string[];
+}
+
+/** KSPlayer Metal's isolated subset of the renderer bridge. */
+export interface ElectronBridgeKsPlayerMetalApi {
+    onKsPlayerMetalSessionUpdate?: (callback: (data: EmbeddedMpvSession) => void) => () => void;
+    getKsPlayerMetalSupport: () => Promise<KsPlayerMetalSupport>;
+    prepareKsPlayerMetal: () => Promise<KsPlayerMetalSupport>;
+    createKsPlayerMetalSession: (
+        bounds: EmbeddedMpvBounds,
+        title?: string,
+        initialVolume?: number
+    ) => Promise<EmbeddedMpvSession>;
+    loadKsPlayerMetalPlayback: (
+        sessionId: string,
+        playback: ResolvedPortalPlayback
+    ) => Promise<void>;
+    setKsPlayerMetalBounds: (sessionId: string, bounds: EmbeddedMpvBounds) => Promise<void>;
+    setKsPlayerMetalPaused: (
+        sessionId: string,
+        paused: boolean
+    ) => Promise<EmbeddedMpvSession | null>;
+    seekKsPlayerMetal: (
+        sessionId: string,
+        seconds: number
+    ) => Promise<EmbeddedMpvSession | null>;
+    setKsPlayerMetalVolume: (
+        sessionId: string,
+        volume: number
+    ) => Promise<EmbeddedMpvSession | null>;
+    setKsPlayerMetalAudioTrack: (
+        sessionId: string,
+        trackId: number
+    ) => Promise<EmbeddedMpvSession | null>;
+    setKsPlayerMetalSpeed: (
+        sessionId: string,
+        speed: number
+    ) => Promise<EmbeddedMpvSession | null>;
+    getKsPlayerMetalSupportedControls: (
+        sessionId?: string
+    ) => Promise<KsPlayerMetalControls>;
+    disposeKsPlayerMetalSession: (sessionId: string) => Promise<EmbeddedMpvSession | null>;
+    disposeAllKsPlayerMetal: () => Promise<void>;
 }
 
 

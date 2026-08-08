@@ -6,6 +6,7 @@ import {
   Input,
   OnDestroy,
   OnInit,
+  signal,
   ViewEncapsulation,
 } from "@angular/core";
 import { ReactiveFormsModule } from "@angular/forms";
@@ -114,6 +115,8 @@ export class SettingsComponent implements OnInit, OnDestroy {
     this.runtime.supportsManagedExternalPlayers;
   readonly supportsExternalPlayerPathSettings =
     this.runtime.supportsExternalPlayerPathSettings;
+  private readonly ksPlayerMetalSupported = signal(false);
+  readonly supportsKsPlayerMetal = this.ksPlayerMetalSupported.asReadonly();
 
   readonly activeSection = this.settingsCtx.activeSection;
 
@@ -124,6 +127,7 @@ export class SettingsComponent implements OnInit, OnDestroy {
   readonly players = computed(() =>
     buildSettingsPlayerOptions({
       supportsEmbeddedMpv: this.embeddedMpv.supported(),
+      supportsKsPlayerMetal: this.ksPlayerMetalSupported(),
       supportsManagedExternalPlayers: this.supportsManagedExternalPlayers,
     }),
   );
@@ -151,6 +155,7 @@ export class SettingsComponent implements OnInit, OnDestroy {
     this.form.hydrateFromStore();
     this.form.bindDashboardControlsEnabledState();
     void this.embeddedMpv.load();
+    void this.loadKsPlayerMetalSupport();
     if (!this.isDialog) {
       this.settingsCtx.setSections(this.sectionNav);
     }
@@ -218,5 +223,24 @@ export class SettingsComponent implements OnInit, OnDestroy {
     await new Promise<void>((resolve) => {
       window.requestAnimationFrame(() => resolve());
     });
+  }
+
+  private async loadKsPlayerMetalSupport(): Promise<void> {
+    if (!this.runtime.isElectron || typeof window === "undefined") {
+      this.ksPlayerMetalSupported.set(false);
+      return;
+    }
+
+    if (typeof window.electron?.getKsPlayerMetalSupport !== "function") {
+      this.ksPlayerMetalSupported.set(false);
+      return;
+    }
+
+    try {
+      const support = await window.electron.getKsPlayerMetalSupport();
+      this.ksPlayerMetalSupported.set(support.supported === true);
+    } catch {
+      this.ksPlayerMetalSupported.set(false);
+    }
   }
 }

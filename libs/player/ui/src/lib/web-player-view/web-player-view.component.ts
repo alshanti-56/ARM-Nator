@@ -109,7 +109,8 @@ export class WebPlayerViewComponent {
   readonly reloadToken = signal(0);
   readonly playbackDiagnostic = signal<PlaybackDiagnostic | null>(null);
   readonly visiblePlaybackDiagnostic = computed(() =>
-    this.selectedPlayer() === VideoPlayer.EmbeddedMpv
+    this.selectedPlayer() === VideoPlayer.EmbeddedMpv ||
+    this.selectedPlayer() === VideoPlayer.KsPlayer
       ? null
       : this.playbackDiagnostic(),
   );
@@ -217,7 +218,10 @@ export class WebPlayerViewComponent {
   }
 
   handlePlaybackIssue(issue: PlaybackDiagnostic | null): void {
-    if (this.selectedPlayer() === VideoPlayer.EmbeddedMpv) {
+    if (
+      this.selectedPlayer() === VideoPlayer.EmbeddedMpv ||
+      this.selectedPlayer() === VideoPlayer.KsPlayer
+    ) {
       this.playbackDiagnostic.set(null);
       this.playbackDiagnosticChange.emit(null);
       return;

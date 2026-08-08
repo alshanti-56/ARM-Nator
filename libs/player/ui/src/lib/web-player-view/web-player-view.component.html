@@ -1,8 +1,11 @@
-@if (selectedPlayer() === "embedded-mpv") {
+@if (selectedPlayer() === "embedded-mpv" || selectedPlayer() === "ksplayer") {
   <app-embedded-mpv-player
     [playback]="resolvedPlayback()"
     [mediaTitle]="resolvedMediaTitle()"
     [seriesNavigation]="seriesNavigation()"
+    [backend]="
+      selectedPlayer() === 'ksplayer' ? 'ksplayer-metal' : 'embedded-mpv'
+    "
     (timeUpdate)="timeUpdate.emit($event)"
     (runtimeSnapshotChange)="runtimeSnapshotChange.emit($event)"
     (playbackEnded)="playbackEnded.emit()"

@@ -1,10 +1,4 @@
-import {
-    Injectable,
-    Signal,
-    computed,
-    inject,
-    signal,
-} from '@angular/core';
+import { Injectable, Signal, computed, inject, signal } from '@angular/core';
 import { toSignal } from '@angular/core/rxjs-interop';
 import {
     EmbeddedMpvSession,
@@ -80,21 +74,33 @@ export class EmbeddedMpvControlsAdapter implements PlayerController {
         }
 
         const isLive = this.isLivePlayback(context.playback());
+        const backend = this.controller.activeBackend();
+        const ksControls = this.controller.supportedControls();
+        const isKsPlayerMetal = backend === 'ksplayer-metal';
         const optionalCapabilities = this.controller.support()?.capabilities;
 
         return {
             ...DEFAULT_PLAYER_CAPABILITIES,
-            seek: !isLive,
-            volume: true,
-            audioTracks: true,
-            subtitles: optionalCapabilities?.subtitles ?? false,
-            playbackSpeed: optionalCapabilities?.playbackSpeed ?? false,
-            aspectRatio: optionalCapabilities?.aspectOverride ?? false,
+            seek: !isLive && (!isKsPlayerMetal || ksControls?.seek === true),
+            volume: !isKsPlayerMetal || ksControls?.volume === true,
+            audioTracks: !isKsPlayerMetal
+                ? true
+                : ksControls?.audioTracks === true,
+            subtitles:
+                !isKsPlayerMetal && (optionalCapabilities?.subtitles ?? false),
+            playbackSpeed:
+                !isKsPlayerMetal
+                    ? (optionalCapabilities?.playbackSpeed ?? false)
+                    : ksControls?.playbackSpeed === true,
+            aspectRatio:
+                !isKsPlayerMetal &&
+                (optionalCapabilities?.aspectOverride ?? false),
             pictureAdjustments:
-                optionalCapabilities?.pictureAdjustments ?? false,
+                !isKsPlayerMetal &&
+                (optionalCapabilities?.pictureAdjustments ?? false),
             fullscreen: true,
             seriesNavigation: !isLive && context.seriesNavigation() !== null,
-            frameStep: !isLive,
+            frameStep: !isLive && !isKsPlayerMetal,
         };
     });
 
@@ -109,6 +115,7 @@ export class EmbeddedMpvControlsAdapter implements PlayerController {
         const session = this.controller.session();
         const playback = context.playback();
         const isLive = this.isLivePlayback(playback);
+        const capabilities = this.capabilities();
         const durationSeconds = isLive
             ? null
             : (session?.durationSeconds ?? null);
@@ -121,42 +128,56 @@ export class EmbeddedMpvControlsAdapter implements PlayerController {
             positionSeconds: Math.max(0, session?.positionSeconds ?? 0),
             durationSeconds,
             isLive,
-            canSeek: !isLive && (durationSeconds ?? 0) > 0,
+            canSeek: capabilities.seek && !isLive && (durationSeconds ?? 0) > 0,
             volume: session?.volume ?? readStoredVolume(),
-            audioTracks: (session?.audioTracks ?? []).map((track, index) => ({
-                id: track.id,
-                label: audioTrackLabel(track, index, {
-                    fallback: this.translate.instant(
-                        'EMBEDDED_MPV.PLAYER.AUDIO_TRACK_FALLBACK',
-                        { index: index + 1 }
-                    ),
-                    defaultLabel: this.translate.instant(
-                        'EMBEDDED_MPV.PLAYER.TRACK_DEFAULT'
-                    ),
-                }),
-                selected: track.selected,
-            })),
-            subtitleTracks: (session?.subtitleTracks ?? []).map(
-                (track, index) => ({
-                    id: track.id,
-                    label: subtitleTrackLabel(track, index, {
-                        fallback: this.translate.instant(
-                            'EMBEDDED_MPV.PLAYER.SUBTITLE_TRACK_FALLBACK',
-                            { index: index + 1 }
-                        ),
-                        defaultLabel: this.translate.instant(
-                            'EMBEDDED_MPV.PLAYER.TRACK_DEFAULT'
-                        ),
-                    }),
-                    selected: track.selected,
-                })
-            ),
-            subtitlesEnabled: (session?.selectedSubtitleTrackId ?? -1) >= 0,
-            playbackSpeed: session?.playbackSpeed ?? 1,
-            speedPresets: DEFAULT_SPEED_PRESETS,
-            aspectRatio: session?.aspectOverride ?? 'no',
-            aspectPresets: DEFAULT_ASPECT_PRESETS,
-            picture: session?.picture ?? this.picture(),
+            audioTracks: capabilities.audioTracks
+                ? (session?.audioTracks ?? []).map((track, index) => ({
+                      id: track.id,
+                      label: audioTrackLabel(track, index, {
+                          fallback: this.translate.instant(
+                              'EMBEDDED_MPV.PLAYER.AUDIO_TRACK_FALLBACK',
+                              { index: index + 1 }
+                          ),
+                          defaultLabel: this.translate.instant(
+                              'EMBEDDED_MPV.PLAYER.TRACK_DEFAULT'
+                          ),
+                      }),
+                      selected: track.selected,
+                  }))
+                : [],
+            subtitleTracks: capabilities.subtitles
+                ? (session?.subtitleTracks ?? []).map((track, index) => ({
+                      id: track.id,
+                      label: subtitleTrackLabel(track, index, {
+                          fallback: this.translate.instant(
+                              'EMBEDDED_MPV.PLAYER.SUBTITLE_TRACK_FALLBACK',
+                              { index: index + 1 }
+                          ),
+                          defaultLabel: this.translate.instant(
+                              'EMBEDDED_MPV.PLAYER.TRACK_DEFAULT'
+                          ),
+                      }),
+                      selected: track.selected,
+                  }))
+                : [],
+            subtitlesEnabled:
+                capabilities.subtitles &&
+                (session?.selectedSubtitleTrackId ?? -1) >= 0,
+            playbackSpeed: capabilities.playbackSpeed
+                ? (session?.playbackSpeed ?? 1)
+                : 1,
+            speedPresets: capabilities.playbackSpeed
+                ? DEFAULT_SPEED_PRESETS
+                : [],
+            aspectRatio: capabilities.aspectRatio
+                ? (session?.aspectOverride ?? 'no')
+                : 'no',
+            aspectPresets: capabilities.aspectRatio
+                ? DEFAULT_ASPECT_PRESETS
+                : [],
+            picture: capabilities.pictureAdjustments
+                ? (session?.picture ?? this.picture())
+                : DEFAULT_PICTURE_SETTINGS,
             subtitle: this.subtitle(),
             canPreviousEpisode:
                 hasSeriesNavigation && seriesNavigation?.canPrevious === true,
@@ -248,5 +269,4 @@ export class EmbeddedMpvControlsAdapter implements PlayerController {
                 };
         }
     }
-
 }

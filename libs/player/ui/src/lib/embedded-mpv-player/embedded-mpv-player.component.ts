@@ -21,6 +21,7 @@ import { toSignal } from '@angular/core/rxjs-interop';
 import { TranslatePipe, TranslateService } from '@ngx-translate/core';
 import { merge } from 'rxjs';
 import {
+    EmbeddedMpvBackend,
     EmbeddedMpvAudioTrack,
     PlayerPictureSettings,
     ResolvedPortalPlayback,
@@ -37,7 +38,10 @@ import { EmbeddedMpvDockPanelComponent } from './embedded-mpv-dock-panel.compone
 import { EmbeddedMpvDockPanelState } from './embedded-mpv-dock-panels';
 import { EmbeddedMpvLegacyInteractions } from './embedded-mpv-legacy-interactions';
 import { EmbeddedMpvOverlayVisibilityService } from './embedded-mpv-overlay-visibility.service';
-import { EmbeddedMpvSessionController } from './embedded-mpv-session-controller';
+import {
+    EmbeddedMpvSessionController,
+    readSessionActiveUntracked,
+} from './embedded-mpv-session-controller';
 import { EmbeddedMpvShortcuts } from './embedded-mpv-shortcuts';
 import {
     EmbeddedMpvFeedback,
@@ -83,6 +87,7 @@ export class EmbeddedMpvPlayerComponent implements OnDestroy {
     readonly showControls = input(true);
     readonly seriesNavigation = input<SeriesPlaybackNavigation | null>(null);
     readonly mediaTitle = input<PlayerMediaTitle | null>(null);
+    readonly backend = input<EmbeddedMpvBackend>('embedded-mpv');
 
     readonly timeUpdate = output<{
         currentTime: number;
@@ -172,7 +177,9 @@ export class EmbeddedMpvPlayerComponent implements OnDestroy {
     });
     readonly canSeek = computed(
         () =>
-            !this.isLivePlayback() && (this.session()?.durationSeconds ?? 0) > 0
+            this.sharedControls.capabilities().seek &&
+            !this.isLivePlayback() &&
+            (this.session()?.durationSeconds ?? 0) > 0
     );
     readonly canFullscreen = computed(
         () =>
@@ -214,7 +221,11 @@ export class EmbeddedMpvPlayerComponent implements OnDestroy {
         );
     });
     readonly audioTracks = computed(() => this.session()?.audioTracks ?? []);
-    readonly hasAudioTracks = computed(() => this.audioTracks().length > 1);
+    readonly hasAudioTracks = computed(
+        () =>
+            this.controller.activeBackend() === 'embedded-mpv' &&
+            this.audioTracks().length > 1
+    );
     readonly subtitleTracks = computed(
         () => this.session()?.subtitleTracks ?? []
     );
@@ -356,6 +367,7 @@ export class EmbeddedMpvPlayerComponent implements OnDestroy {
                     container: session?.container,
                     videoCodec: session?.videoCodec,
                     audioCodec: session?.audioCodec,
+                    hwdecCurrent: session?.hwdecCurrent,
                     fps: session?.fps,
                     bitrate: session?.bitrate,
                     droppedFrames: session?.droppedFrames,
@@ -365,7 +377,7 @@ export class EmbeddedMpvPlayerComponent implements OnDestroy {
                         session?.status === 'ended' ? 'mpv-eof' : undefined,
                 },
                 engine: {
-                    engine: 'embedded-mpv',
+                    engine: this.controller.activeBackend(),
                     available: support?.supported === true,
                     supportReason: support?.reason,
                     sessionId: session?.id,
@@ -409,13 +421,26 @@ export class EmbeddedMpvPlayerComponent implements OnDestroy {
         effect((onCleanup) => {
             const viewport = this.viewport();
             const playback = this.playback();
-            const supported = this.isSupported();
+            const backend = this.backend();
+            this.controller.setBackend(backend);
+            // Embedded MPV waits for its initial support probe. KSPlayer Metal
+            // probes support inside startSession and writes that signal during
+            // startup, so subscribing to it would tear down and restart the
+            // session whenever startup publishes a fresh support object.
+            const supported =
+                backend === 'ksplayer-metal' ? true : this.isSupported();
+            // This signal is written by startSession and its cleanup. Reading
+            // it reactively creates a false -> true -> false effect loop.
+            const sessionActive = readSessionActiveUntracked(
+                this.controller.sessionActive
+            );
             this.controller.retryToken();
 
             if (
                 !viewport ||
                 !playback.streamUrl ||
-                !supported ||
+                sessionActive ||
+                (backend !== 'ksplayer-metal' && !supported) ||
                 !window.electron
             ) {
                 return;
@@ -428,7 +453,8 @@ export class EmbeddedMpvPlayerComponent implements OnDestroy {
             const teardown = this.controller.startSession(
                 viewport.nativeElement,
                 playback,
-                untracked(() => this.volume())
+                untracked(() => this.volume()),
+                backend
             );
             onCleanup(teardown);
         });
@@ -503,6 +529,9 @@ export class EmbeddedMpvPlayerComponent implements OnDestroy {
 
     async togglePaused(): Promise<void> {
         this.legacyInteractions.revealControls();
+        if (!this.controller.isControlSupported('pause')) {
+            return;
+        }
         await this.controller.togglePaused();
     }
 
@@ -585,6 +614,9 @@ export class EmbeddedMpvPlayerComponent implements OnDestroy {
     }
 
     toggleMute(): void {
+        if (!this.controller.isControlSupported('volume')) {
+            return;
+        }
         const current = this.volume();
         if (current > 0) {
             this.mutedVolume = current;
@@ -653,10 +685,7 @@ export class EmbeddedMpvPlayerComponent implements OnDestroy {
         this.legacyInteractions.scheduleControlsHide();
     }
 
-    setPictureSetting(
-        key: keyof PlayerPictureSettings,
-        value: number
-    ): void {
+    setPictureSetting(key: keyof PlayerPictureSettings, value: number): void {
         void this.controller.setPicture({
             ...this.picture(),
             [key]: value,
@@ -709,6 +738,9 @@ export class EmbeddedMpvPlayerComponent implements OnDestroy {
     };
 
     private adjustVolume(delta: number): void {
+        if (!this.controller.isControlSupported('volume')) {
+            return;
+        }
         const next = Math.max(0, Math.min(1, this.volume() + delta));
         this.applyVolume(next);
         this.legacyInteractions.revealControls();
@@ -716,6 +748,9 @@ export class EmbeddedMpvPlayerComponent implements OnDestroy {
     }
 
     private applyVolume(value: number): void {
+        if (!this.controller.isControlSupported('volume')) {
+            return;
+        }
         this.volume.set(value);
         persistVolume(value);
         void this.controller.applyVolume(value);

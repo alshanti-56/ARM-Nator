@@ -62,6 +62,7 @@ export const SETTINGS_STARTUP_BEHAVIOR_OPTIONS: StartupBehaviorOption[] = [
 
 export interface SettingsPlayerAvailability {
   supportsEmbeddedMpv: boolean;
+  supportsKsPlayerMetal: boolean;
   supportsManagedExternalPlayers: boolean;
 }
 
@@ -71,10 +72,12 @@ export interface SettingsPlayerAvailability {
  */
 export function buildSettingsPlayerOptions({
   supportsEmbeddedMpv,
+  supportsKsPlayerMetal,
   supportsManagedExternalPlayers,
 }: SettingsPlayerAvailability): SettingsPlayerOption[] {
   return getAvailablePlayerEngines({
     supportsEmbeddedMpv,
+    supportsKsPlayerMetal,
     supportsManagedExternalPlayers,
   }).map(({ id, labelKey }) => ({ id, labelKey }));
 }

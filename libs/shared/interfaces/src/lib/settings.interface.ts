@@ -9,6 +9,7 @@ import { TmdbSettings } from './tmdb.interface';
 export enum VideoPlayer {
     Html5Player = 'html5',
     EmbeddedMpv = 'embedded-mpv',
+    KsPlayer = 'ksplayer',
     MPV = 'mpv',
     VLC = 'vlc',
     ArtPlayer = 'artplayer',
@@ -55,8 +56,12 @@ export function normalizeVideoPlayer(
     player: unknown,
     fallback = VideoPlayer.ArtPlayer
 ): VideoPlayer {
-    return Object.values(VideoPlayer).includes(player as VideoPlayer)
-        ? (player as VideoPlayer)
+    const migratedPlayer =
+        player === 'mpv-metal' || player === 'ksplayer-metal'
+            ? VideoPlayer.KsPlayer
+            : player;
+    return Object.values(VideoPlayer).includes(migratedPlayer as VideoPlayer)
+        ? (migratedPlayer as VideoPlayer)
         : fallback;
 }
 

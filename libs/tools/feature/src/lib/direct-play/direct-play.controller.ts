@@ -1,3 +1,4 @@
+/* eslint-disable max-lines */
 import {
   Directive,
   OnDestroy,
@@ -22,11 +23,20 @@ import { SettingsStore } from "@arm-nator/services";
 import {
   type ResolvedPortalPlayback,
   type ExternalPlayerSession,
+  type KsPlayerMetalSupport,
   type PlaybackNetworkInspection,
   type PlayerEngineAvailability,
   VideoPlayer,
   type DirectPlayLayoutMode,
 } from "@arm-nator/shared/interfaces";
+import {
+  type DirectPlayEmbeddedSupport,
+  getDirectPlayNativeEngineAccess,
+  getDirectPlayNativeSupport,
+  getDirectPlayStaticCapabilities,
+  isDirectPlayNativeEngine,
+} from "./direct-play-capabilities";
+import { hasStartedEmbeddedMpvSession } from "./direct-play-native-session";
 
 interface DirectPlaybackInfo {
   readonly protocol: string;
@@ -65,11 +75,10 @@ export class DirectPlayController implements OnDestroy {
   readonly externalSession = signal<ExternalPlayerSession | null>(null);
   readonly playerActive = signal(false);
   readonly layoutMode = signal<DirectPlayLayoutMode>("full");
-  readonly embeddedSupport = signal<{
-    available: boolean;
-    reason?: string;
-    engine?: string;
-  } | null>(null);
+  readonly embeddedSupport = signal<DirectPlayEmbeddedSupport | null>(null);
+  readonly ksPlayerMetalSupport = signal<KsPlayerMetalSupport | null>(null);
+  readonly nativeEngineMessage = signal<string | null>(null);
+  readonly metalPlaybackFailure = signal<string | null>(null);
   readonly externalEngineAvailability = signal<
     readonly PlayerEngineAvailability[]
   >([]);
@@ -84,6 +93,7 @@ export class DirectPlayController implements OnDestroy {
   seekStepSeconds = 10;
   frameRate = 25;
   private readonly unsubscribeExternalSession?: () => void;
+  private pendingPreferredEngine: VideoPlayer | null = null;
 
   constructor() {
     void this.loadPreferences();
@@ -111,33 +121,27 @@ export class DirectPlayController implements OnDestroy {
         untracked(() => this.onDiagnostic(diagnostic));
       }
     });
-    this.unsubscribeExternalSession =
-      window.electron?.onExternalPlayerSessionUpdate?.((session) => {
+    const electron =
+      typeof window === "undefined" ? undefined : window.electron;
+    this.unsubscribeExternalSession = electron?.onExternalPlayerSessionUpdate?.(
+      (session) => {
         this.externalSession.set(session);
         this.recordEvent(
           session.status === "error" ? "error" : "info",
           `${session.player} session: ${session.status}`,
           session.error,
         );
-      });
-    void window.electron
-      ?.getEmbeddedMpvSupport?.()
-      .then((support) =>
-        this.embeddedSupport.set({
-          available: support.supported,
-          reason: support.reason,
-        }),
-      )
-      .catch((error: unknown) =>
-        this.embeddedSupport.set({
-          available: false,
-          reason: error instanceof Error ? error.message : String(error),
-        }),
-      );
-    void window.electron
-      ?.getPlayerEngineAvailability?.()
-      .then((availability) => this.externalEngineAvailability.set(availability))
-      .catch(() => undefined);
+      },
+    );
+    this.loadNativeEngineSupport(electron);
+    if (typeof electron?.getPlayerEngineAvailability === "function") {
+      void electron
+        .getPlayerEngineAvailability()
+        .then((availability) =>
+          this.externalEngineAvailability.set(availability),
+        )
+        .catch(() => undefined);
+    }
   }
 
   ngOnDestroy(): void {
@@ -147,6 +151,27 @@ export class DirectPlayController implements OnDestroy {
   readonly isExternalEngine = computed(() =>
     isManagedExternalPlayer(this.selectedEngine()),
   );
+  readonly isNativeEngine = isDirectPlayNativeEngine;
+  readonly selectedNativeEngineAccess = computed(() =>
+    getDirectPlayNativeEngineAccess(
+      this.selectedEngine(),
+      this.embeddedSupport(),
+      this.ksPlayerMetalSupport(),
+    ),
+  );
+  readonly canLaunchSelectedEngine = computed(
+    () => this.selectedNativeEngineAccess().canLaunch,
+  );
+  readonly selectedNativeEngineMessage = computed(() => {
+    const access = this.selectedNativeEngineAccess();
+    if (access.native && !access.canSelect) {
+      return this.unavailableNativeEngineMessage(
+        this.selectedEngine(),
+        access.detail,
+      );
+    }
+    return this.nativeEngineMessage();
+  });
   readonly inlineEngines = computed(() =>
     this.engines.filter((engine) => !isManagedExternalPlayer(engine.id)),
   );
@@ -171,50 +196,30 @@ export class DirectPlayController implements OnDestroy {
         .map(([label]) => String(label));
     }
 
-    switch (this.selectedEngine()) {
-      case VideoPlayer.EmbeddedMpv:
-        return [
-          "Play / pause",
-          "Seek",
-          "Volume",
-          "Audio tracks",
-          "Subtitles",
-          "Speed",
-          "Aspect",
-          "Fullscreen",
-        ];
-      case VideoPlayer.ArtPlayer:
-      case VideoPlayer.Html5Player:
-        return [
-          "Play / pause",
-          this.isLive ? "Live timeline" : "Seek",
-          "Volume",
-          "Speed",
-          "Picture in picture",
-          "Fullscreen",
-        ];
-      case VideoPlayer.MPV:
-      case VideoPlayer.VLC:
-        return ["Controlled in external player"];
-    }
+    return getDirectPlayStaticCapabilities(this.selectedEngine(), this.isLive);
   });
   readonly engineAvailability = computed(() =>
     this.engines.map((engine) => {
-      if (engine.id === VideoPlayer.EmbeddedMpv) {
-        const support = this.embeddedSupport();
+      const support = getDirectPlayNativeSupport(
+        engine.id,
+        this.embeddedSupport(),
+        this.ksPlayerMetalSupport(),
+      );
+      if (support) {
         return {
           engine: engine.id,
-          available: support?.available ?? false,
-          detail:
-            support?.engine ?? support?.reason ?? "Checking native runtime",
+          native: true,
+          ...support,
         };
       }
       if (engine.id === VideoPlayer.MPV || engine.id === VideoPlayer.VLC) {
+        const availabilityEngine = engine.id;
         const availability = this.externalEngineAvailability().find(
-          (item) => item.engine === engine.id,
+          (item) => item.engine === availabilityEngine,
         );
         return {
           engine: engine.id,
+          native: false,
           available: availability?.available ?? false,
           detail:
             availability?.path ??
@@ -222,7 +227,12 @@ export class DirectPlayController implements OnDestroy {
             "Checking player binary",
         };
       }
-      return { engine: engine.id, available: true, detail: "Available" };
+      return {
+        engine: engine.id,
+        native: false,
+        available: true,
+        detail: "Available",
+      };
     }),
   );
   readonly playbackInfo = computed<DirectPlaybackInfo | null>(() => {
@@ -257,6 +267,11 @@ export class DirectPlayController implements OnDestroy {
       return;
     }
 
+    const engine = this.selectedEngine();
+    if (!this.ensureNativeEngineAccess(engine, "launch")) {
+      return;
+    }
+
     const playback: ResolvedPortalPlayback = {
       streamUrl,
       title: this.title.trim() || "Direct stream",
@@ -276,6 +291,8 @@ export class DirectPlayController implements OnDestroy {
       this.timeline.set([]);
       this.diagnostics.set([]);
     }
+    this.nativeEngineMessage.set(null);
+    this.metalPlaybackFailure.set(null);
     this.errorMessage.set("");
     this.status.set("opening");
     this.recordEvent(
@@ -285,12 +302,11 @@ export class DirectPlayController implements OnDestroy {
     );
     void this.inspectNetwork(playback);
 
-    const engine = this.selectedEngine();
     if (engine === VideoPlayer.MPV || engine === VideoPlayer.VLC) {
       try {
         const session = await this.player.openExternalPlayback(
           playback,
-          engine === VideoPlayer.MPV ? "mpv" : "vlc",
+          engine === VideoPlayer.VLC ? "vlc" : "mpv",
         );
         if (session) {
           this.externalSession.set(session);
@@ -325,7 +341,9 @@ export class DirectPlayController implements OnDestroy {
     if (engine === this.selectedEngine()) {
       return;
     }
-    this.selectEngine(engine);
+    if (!this.selectEngine(engine)) {
+      return;
+    }
     if (this.playback()) {
       this.recordEvent("info", "Player engine changed", engine);
       if (!isManagedExternalPlayer(engine)) {
@@ -343,9 +361,16 @@ export class DirectPlayController implements OnDestroy {
     void this.persistPreferences();
   }
 
-  selectEngine(engine: VideoPlayer): void {
+  selectEngine(engine: VideoPlayer): boolean {
+    this.pendingPreferredEngine = null;
+    if (!this.ensureNativeEngineAccess(engine, "selection")) {
+      return false;
+    }
     this.selectedEngine.set(engine);
+    this.nativeEngineMessage.set(null);
+    this.metalPlaybackFailure.set(null);
     void this.persistPreferences();
+    return true;
   }
 
   setSeekStepSeconds(value: unknown): void {
@@ -388,6 +413,25 @@ export class DirectPlayController implements OnDestroy {
   }
 
   onRuntimeSnapshot(snapshot: PlayerRuntimeSnapshot): void {
+    if (
+      this.selectedEngine() === VideoPlayer.KsPlayer &&
+      hasStartedEmbeddedMpvSession(snapshot.engine)
+    ) {
+      if (!this.metalPlaybackFailure()) {
+        const message =
+          snapshot.engine?.supportReason ??
+          "KS Player failed. Playback was stopped instead of continuing with embedded MPV.";
+        this.metalPlaybackFailure.set(message);
+        this.nativeEngineMessage.set(message);
+        this.errorMessage.set(message);
+        this.playerActive.set(false);
+        this.status.set("error");
+        this.recordEvent("error", "KS Player playback failed", message);
+        this.workspacePlayer.stop();
+      }
+      return;
+    }
+
     this.runtimeSnapshot.set(snapshot);
     this.currentTime.set(snapshot.state.positionSeconds);
     this.duration.set(snapshot.state.durationSeconds ?? 0);
@@ -495,8 +539,7 @@ export class DirectPlayController implements OnDestroy {
   clear(): void {
     void this.stopPlayback();
     if (
-      this.workspacePlayer.playback()?.streamUrl ===
-      this.playback()?.streamUrl
+      this.workspacePlayer.playback()?.streamUrl === this.playback()?.streamUrl
     ) {
       this.workspacePlayer.close();
     }
@@ -510,6 +553,8 @@ export class DirectPlayController implements OnDestroy {
     this.networkInspection.set(null);
     this.externalSession.set(null);
     this.runtimeSnapshot.set(null);
+    this.nativeEngineMessage.set(null);
+    this.metalPlaybackFailure.set(null);
     this.lastRuntimeStatus = "idle";
     this.timeline.set([]);
   }
@@ -517,8 +562,7 @@ export class DirectPlayController implements OnDestroy {
   async stopPlayback(): Promise<void> {
     this.playerActive.set(false);
     if (
-      this.workspacePlayer.playback()?.streamUrl ===
-      this.playback()?.streamUrl
+      this.workspacePlayer.playback()?.streamUrl === this.playback()?.streamUrl
     ) {
       this.workspacePlayer.stop();
     }
@@ -560,18 +604,21 @@ export class DirectPlayController implements OnDestroy {
     if (!playback) {
       return;
     }
+    const engine = this.selectedEngine();
+    if (!this.ensureNativeEngineAccess(engine, "launch")) {
+      return;
+    }
     await this.stopPlayback();
     this.runtimeSnapshot.set(null);
     this.diagnostic.set(null);
     this.status.set("opening");
     this.recordEvent("info", "Playback restarted", this.selectedEngine());
 
-    const engine = this.selectedEngine();
     if (engine === VideoPlayer.MPV || engine === VideoPlayer.VLC) {
       try {
         const session = await this.player.openExternalPlayback(
           playback,
-          engine === VideoPlayer.MPV ? "mpv" : "vlc",
+          engine === VideoPlayer.VLC ? "vlc" : "mpv",
         );
         if (session) {
           this.externalSession.set(session);
@@ -683,7 +730,8 @@ export class DirectPlayController implements OnDestroy {
     if (!preferences) {
       return;
     }
-    this.selectedEngine.set(preferences.engine);
+    this.pendingPreferredEngine = preferences.engine;
+    this.applyPendingPreferredEngine();
     this.layoutMode.set(preferences.layout);
     this.seekStepSeconds = preferences.seekStepSeconds;
     this.frameRate = preferences.frameRate;
@@ -698,6 +746,138 @@ export class DirectPlayController implements OnDestroy {
         frameRate: this.frameRate,
       },
     });
+  }
+
+  private loadNativeEngineSupport(
+    electron: Window["electron"] | undefined,
+  ): void {
+    if (!electron) {
+      this.embeddedSupport.set({
+        available: false,
+        reason: "Embedded MPV requires the Electron desktop app.",
+      });
+      this.ksPlayerMetalSupport.set({
+        supported: false,
+        reason: "KS Player requires the Electron desktop app.",
+      });
+      return;
+    }
+
+    if (typeof electron.getEmbeddedMpvSupport !== "function") {
+      this.embeddedSupport.set({
+        available: false,
+        reason: "Embedded MPV is unavailable in this build.",
+      });
+    } else {
+      void Promise.resolve()
+        .then(() => electron.getEmbeddedMpvSupport())
+        .then((support) => {
+          this.embeddedSupport.set({
+            available: support.supported,
+            reason: support.reason,
+          });
+          this.applyPendingPreferredEngine();
+        })
+        .catch((error: unknown) => {
+          this.embeddedSupport.set({
+            available: false,
+            reason: this.getErrorMessage(error),
+          });
+          this.applyPendingPreferredEngine();
+        });
+    }
+
+    if (typeof electron.getKsPlayerMetalSupport !== "function") {
+      this.ksPlayerMetalSupport.set({
+        supported: false,
+        reason: "KS Player is unavailable in this build.",
+      });
+    } else {
+      void Promise.resolve()
+        .then(() => electron.getKsPlayerMetalSupport())
+        .then((support) => {
+          this.ksPlayerMetalSupport.set(support);
+          this.applyPendingPreferredEngine();
+        })
+        .catch((error: unknown) => {
+          this.ksPlayerMetalSupport.set({
+            supported: false,
+            reason: this.getErrorMessage(error),
+          });
+          this.applyPendingPreferredEngine();
+        });
+    }
+  }
+
+  private applyPendingPreferredEngine(): void {
+    const engine = this.pendingPreferredEngine;
+    if (!engine) {
+      return;
+    }
+
+    const access = getDirectPlayNativeEngineAccess(
+      engine,
+      this.embeddedSupport(),
+      this.ksPlayerMetalSupport(),
+    );
+    if (access.native && !access.canSelect) {
+      if (this.isNativeSupportPending(engine)) {
+        return;
+      }
+      this.pendingPreferredEngine = null;
+      this.nativeEngineMessage.set(
+        this.unavailableNativeEngineMessage(engine, access.detail),
+      );
+      return;
+    }
+
+    this.pendingPreferredEngine = null;
+    this.selectedEngine.set(engine);
+    this.nativeEngineMessage.set(null);
+  }
+
+  private ensureNativeEngineAccess(
+    engine: VideoPlayer,
+    action: "selection" | "launch",
+  ): boolean {
+    const access = getDirectPlayNativeEngineAccess(
+      engine,
+      this.embeddedSupport(),
+      this.ksPlayerMetalSupport(),
+    );
+    if (
+      !access.native ||
+      (action === "selection" ? access.canSelect : access.canLaunch)
+    ) {
+      return true;
+    }
+
+    const message = this.unavailableNativeEngineMessage(engine, access.detail);
+    this.nativeEngineMessage.set(message);
+    if (action === "launch") {
+      this.errorMessage.set(message);
+      this.status.set("error");
+    }
+    this.recordEvent("warning", `${engine} ${action} blocked`, access.detail);
+    return false;
+  }
+
+  private isNativeSupportPending(engine: VideoPlayer): boolean {
+    return (
+      (engine === VideoPlayer.EmbeddedMpv && this.embeddedSupport() === null) ||
+      (engine === VideoPlayer.KsPlayer && this.ksPlayerMetalSupport() === null)
+    );
+  }
+
+  private unavailableNativeEngineMessage(
+    engine: VideoPlayer,
+    detail: string | undefined,
+  ): string {
+    return `${engine} is unavailable: ${detail ?? "Native support is unavailable."}`;
+  }
+
+  private getErrorMessage(error: unknown): string {
+    return error instanceof Error ? error.message : String(error);
   }
 
   private recordEvent(

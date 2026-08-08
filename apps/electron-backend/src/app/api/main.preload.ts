@@ -8,6 +8,8 @@ import type {
     EmbeddedMpvBounds,
     EmbeddedMpvSession,
     EmbeddedMpvSupport,
+    KsPlayerMetalControls,
+    KsPlayerMetalSupport,
     OpenSubtitlesSearchRequest,
     OpenSubtitlesSearchResult,
     OpenSubtitlesDownloadRequest,
@@ -58,6 +60,22 @@ import {
     roundTraceDuration,
     summarizeForTrace,
 } from '../services/debug-trace';
+import {
+    KSPLAYER_METAL_CREATE_SESSION,
+    KSPLAYER_METAL_DISPOSE_ALL,
+    KSPLAYER_METAL_DISPOSE_SESSION,
+    KSPLAYER_METAL_GET_SUPPORTED_CONTROLS,
+    KSPLAYER_METAL_LOAD_PLAYBACK,
+    KSPLAYER_METAL_PREPARE,
+    KSPLAYER_METAL_SEEK,
+    KSPLAYER_METAL_SESSION_UPDATE,
+    KSPLAYER_METAL_SET_BOUNDS,
+    KSPLAYER_METAL_SET_AUDIO_TRACK,
+    KSPLAYER_METAL_SET_PAUSED,
+    KSPLAYER_METAL_SET_SPEED,
+    KSPLAYER_METAL_SET_VOLUME,
+    KSPLAYER_METAL_SUPPORT,
+} from '@arm-nator/shared/interfaces';
 
 const PORTAL_DEBUG_EVENT = 'PORTAL_DEBUG_EVENT';
 const EXTERNAL_PLAYER_SESSION_UPDATE = 'EXTERNAL_PLAYER_SESSION_UPDATE';
@@ -297,6 +315,16 @@ const electronApi: ElectronBridgeApi = {
         ) => callback(data);
         ipcRenderer.on(EMBEDDED_MPV_SESSION_UPDATE, handler);
         return () => ipcRenderer.off(EMBEDDED_MPV_SESSION_UPDATE, handler);
+    },
+    onKsPlayerMetalSessionUpdate: (
+        callback: (data: EmbeddedMpvSession) => void
+    ) => {
+        const handler = (
+            _event: Electron.IpcRendererEvent,
+            data: EmbeddedMpvSession
+        ) => callback(data);
+        ipcRenderer.on(KSPLAYER_METAL_SESSION_UPDATE, handler);
+        return () => ipcRenderer.off(KSPLAYER_METAL_SESSION_UPDATE, handler);
     },
     onDbOperationEvent: (
         callback: (data: ElectronBridgeDbOperationEvent) => void
@@ -541,6 +569,68 @@ const electronApi: ElectronBridgeApi = {
         sessionId: string
     ): Promise<EmbeddedMpvSession | null> =>
         ipcRenderer.invoke('EMBEDDED_MPV_DISPOSE_SESSION', sessionId),
+    getKsPlayerMetalSupport: (): Promise<KsPlayerMetalSupport> =>
+        ipcRenderer.invoke(KSPLAYER_METAL_SUPPORT),
+    prepareKsPlayerMetal: (): Promise<KsPlayerMetalSupport> =>
+        ipcRenderer.invoke(KSPLAYER_METAL_PREPARE),
+    createKsPlayerMetalSession: (
+        bounds: EmbeddedMpvBounds,
+        title?: string,
+        initialVolume?: number
+    ): Promise<EmbeddedMpvSession> =>
+        ipcRenderer.invoke(
+            KSPLAYER_METAL_CREATE_SESSION,
+            bounds,
+            title,
+            initialVolume
+        ),
+    loadKsPlayerMetalPlayback: (
+        sessionId: string,
+        playback: ResolvedPortalPlayback
+    ): Promise<void> =>
+        ipcRenderer.invoke(KSPLAYER_METAL_LOAD_PLAYBACK, sessionId, playback),
+    setKsPlayerMetalBounds: (
+        sessionId: string,
+        bounds: EmbeddedMpvBounds
+    ): Promise<void> =>
+        ipcRenderer.invoke(KSPLAYER_METAL_SET_BOUNDS, sessionId, bounds),
+    setKsPlayerMetalPaused: (
+        sessionId: string,
+        paused: boolean
+    ): Promise<EmbeddedMpvSession | null> =>
+        ipcRenderer.invoke(KSPLAYER_METAL_SET_PAUSED, sessionId, paused),
+    seekKsPlayerMetal: (
+        sessionId: string,
+        seconds: number
+    ): Promise<EmbeddedMpvSession | null> =>
+        ipcRenderer.invoke(KSPLAYER_METAL_SEEK, sessionId, seconds),
+    setKsPlayerMetalVolume: (
+        sessionId: string,
+        volume: number
+    ): Promise<EmbeddedMpvSession | null> =>
+        ipcRenderer.invoke(KSPLAYER_METAL_SET_VOLUME, sessionId, volume),
+    setKsPlayerMetalAudioTrack: (
+        sessionId: string,
+        trackId: number
+    ): Promise<EmbeddedMpvSession | null> =>
+        ipcRenderer.invoke(KSPLAYER_METAL_SET_AUDIO_TRACK, sessionId, trackId),
+    setKsPlayerMetalSpeed: (
+        sessionId: string,
+        speed: number
+    ): Promise<EmbeddedMpvSession | null> =>
+        ipcRenderer.invoke(KSPLAYER_METAL_SET_SPEED, sessionId, speed),
+    getKsPlayerMetalSupportedControls: (
+        sessionId?: string
+    ): Promise<KsPlayerMetalControls> =>
+        sessionId
+            ? ipcRenderer.invoke(KSPLAYER_METAL_GET_SUPPORTED_CONTROLS, sessionId)
+            : ipcRenderer.invoke(KSPLAYER_METAL_GET_SUPPORTED_CONTROLS),
+    disposeKsPlayerMetalSession: (
+        sessionId: string
+    ): Promise<EmbeddedMpvSession | null> =>
+        ipcRenderer.invoke(KSPLAYER_METAL_DISPOSE_SESSION, sessionId),
+    disposeAllKsPlayerMetal: (): Promise<void> =>
+        ipcRenderer.invoke(KSPLAYER_METAL_DISPOSE_ALL),
     autoUpdatePlaylists: (
         playlists: Playlist[],
         options?: ElectronBridgeTrustOptions

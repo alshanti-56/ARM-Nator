@@ -18,7 +18,11 @@
     "**/file-uri-to-path/**",
     "**/*.node",
     "**/*.dylib",
-    "**/embedded-mpv-runtime.json"
+    "**/*.framework/**",
+    "**/*.bundle/**",
+    "**/embedded-mpv-runtime.json",
+    "**/ksplayer-metal-runtime.json",
+    "**/ksplayer-metal/**"
   ],
   "extraMetadata": {
     "name": "arm-nator",

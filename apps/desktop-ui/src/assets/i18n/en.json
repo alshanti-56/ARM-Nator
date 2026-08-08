@@ -257,6 +257,7 @@
         "PLAYER_HTML5": "HTML5 video player",
         "PLAYER_ARTPLAYER": "ArtPlayer",
         "PLAYER_EMBEDDED_MPV": "Embedded MPV (Beta)",
+        "PLAYER_KSPLAYER": "KS Player",
         "PLAYER_MPV": "MPV player",
         "PLAYER_VLC": "VLC",
         "VIDEO_PLAYER_PLACEHOLDER": "Select an option",

@@ -1,4 +1,5 @@
 import { EmbeddedMpvBounds, EmbeddedMpvSession, EmbeddedMpvSupport } from './embedded-mpv-session.interface';
+import type { ElectronBridgeKsPlayerMetalApi } from './electron-api.interface';
 import { ExternalPlayerControlAction, ExternalPlayerSession } from './external-player-session.interface';
 import { GlobalSearchPaginationOptions, GlobalSearchResult, GlobalSearchResultSource } from './global-search-result.interface';
 import { M3uFavoriteChannel } from './m3u-favorite-channel.interface';
@@ -236,7 +237,7 @@ export interface ElectronBridgePlayerError {
 export interface ElectronBridgePlaybackPositionInput extends Omit<PlaybackPositionData, 'playlistId' | 'updatedAt'> {
     playlistType?: ElectronBridgePlaylistType;
 }
-export interface ElectronBridgeApi {
+export interface ElectronBridgeApi extends ElectronBridgeKsPlayerMetalApi {
     onPortalDebugEvent?: (callback: (data: PortalDebugEvent) => void) => () => void;
     onPlaylistRefreshEvent?: (callback: (data: PlaylistRefreshEvent) => void) => () => void;
     getAppVersion: () => Promise<string>;
@@ -394,7 +395,5 @@ export interface ElectronBridgeApi {
         mode?: BrowserViewMode,
         terminate?: boolean
     ) => Promise<void>;
-    onBrowserViewUpdate: (
-        callback: (state: BrowserViewState) => void
-    ) => () => void;
+    onBrowserViewUpdate: (callback: (state: BrowserViewState) => void) => () => void;
 }
