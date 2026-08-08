@@ -50,6 +50,7 @@ const EMPTY_KS_CONTROLS: KsPlayerMetalControls = {
     seek: false,
     volume: false,
     audioTracks: false,
+    subtitles: false,
     playbackSpeed: false,
 };
 
@@ -521,6 +522,7 @@ export class EmbeddedMpvSessionController {
                 seek: controls.seek === true,
                 volume: controls.volume === true,
                 audioTracks: controls.audioTracks === true,
+                subtitles: controls.subtitles === true,
                 playbackSpeed: controls.playbackSpeed === true,
             });
             const support = this.support();

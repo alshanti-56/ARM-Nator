@@ -36,6 +36,7 @@ using CreateSessionFunction = char* (*)(
     double
 );
 using LoadFunction = char* (*)(const char*, const char*, const char*);
+using StringFunction = char* (*)(const char*, const char*);
 using SetBoundsFunction = char* (*)(const char*, double, double, double, double);
 using SetPausedFunction = char* (*)(const char*, int);
 using NumberFunction = char* (*)(const char*, double);
@@ -53,6 +54,9 @@ struct RuntimeApi {
     NumberFunction seek = nullptr;
     NumberFunction setVolume = nullptr;
     NumberFunction setAudioTrack = nullptr;
+    NumberFunction setSubtitleTrack = nullptr;
+    StringFunction setSubtitleFile = nullptr;
+    StringFunction setSubtitleSettings = nullptr;
     NumberFunction setPlaybackSpeed = nullptr;
     SessionFunction getSupportedControls = nullptr;
     SessionFunction getSnapshot = nullptr;
@@ -313,6 +317,21 @@ class RuntimeLoader {
                 "ksplayer_metal_set_audio_track",
                 symbolError
             );
+            candidateApi.setSubtitleTrack = resolveSymbol<NumberFunction>(
+                handle,
+                "ksplayer_metal_set_subtitle_track",
+                symbolError
+            );
+            candidateApi.setSubtitleFile = resolveSymbol<StringFunction>(
+                handle,
+                "ksplayer_metal_set_subtitle_file",
+                symbolError
+            );
+            candidateApi.setSubtitleSettings = resolveSymbol<StringFunction>(
+                handle,
+                "ksplayer_metal_set_subtitle_settings",
+                symbolError
+            );
             candidateApi.setPlaybackSpeed = resolveSymbol<NumberFunction>(
                 handle,
                 "ksplayer_metal_set_playback_speed",
@@ -450,6 +469,27 @@ class RuntimeLoader {
         @try {
             char* value = function(sessionId.c_str(), url.c_str(), headers.c_str());
             return takeJson(value);
+        } @catch (NSException* exception) {
+            return operationErrorJson(
+                std::string("KSPlayer Metal runtime raised an Objective-C exception: ") +
+                    (exception.reason.UTF8String ? exception.reason.UTF8String : "unknown"),
+                sessionId
+            );
+        }
+    }
+
+    std::string invoke(
+        StringFunction function,
+        const std::string& sessionId,
+        const std::string& value
+    )
+    {
+        if (!function) {
+            return operationErrorJson("KSPlayer Metal runtime operation is unavailable.", sessionId);
+        }
+        @try {
+            char* response = function(sessionId.c_str(), value.c_str());
+            return takeJson(response);
         } @catch (NSException* exception) {
             return operationErrorJson(
                 std::string("KSPlayer Metal runtime raised an Objective-C exception: ") +
@@ -1040,6 +1080,7 @@ Napi::Value InvokeNumberOperation(
     const Napi::CallbackInfo& info,
     bool isSeek,
     bool isPlaybackSpeed,
+    bool isSubtitleTrack,
     bool isAudioTrack,
     const char* operation
 )
@@ -1072,9 +1113,11 @@ Napi::Value InvokeNumberOperation(
         }
         const NumberFunction function = isSeek
             ? runtime.api().seek
+            : isSubtitleTrack
+                ? runtime.api().setSubtitleTrack
             : isAudioTrack
                 ? runtime.api().setAudioTrack
-                : isPlaybackSpeed
+            : isPlaybackSpeed
                     ? runtime.api().setPlaybackSpeed
                 : runtime.api().setVolume;
         return parseJsonOrFallback(
@@ -1094,22 +1137,85 @@ Napi::Value InvokeNumberOperation(
 
 Napi::Value Seek(const Napi::CallbackInfo& info)
 {
-    return InvokeNumberOperation(info, true, false, false, "seek");
+    return InvokeNumberOperation(info, true, false, false, false, "seek");
 }
 
 Napi::Value SetVolume(const Napi::CallbackInfo& info)
 {
-    return InvokeNumberOperation(info, false, false, false, "volume");
+    return InvokeNumberOperation(info, false, false, false, false, "volume");
 }
 
 Napi::Value SetAudioTrack(const Napi::CallbackInfo& info)
 {
-    return InvokeNumberOperation(info, false, false, true, "audio track");
+    return InvokeNumberOperation(info, false, false, false, true, "audio track");
+}
+
+Napi::Value SetSubtitleTrack(const Napi::CallbackInfo& info)
+{
+    return InvokeNumberOperation(info, false, false, true, false, "subtitle track");
+}
+
+Napi::Value SetSubtitleFile(const Napi::CallbackInfo& info)
+{
+    try {
+        const auto env = info.Env();
+        std::string sessionId;
+        std::string filePath;
+        std::string error;
+        if (!readRequiredString(info, 0, sessionId, error) ||
+            !readRequiredString(info, 1, filePath, error)) {
+            return operationUnavailable(env, error, sessionId.empty()
+                ? std::nullopt
+                : std::optional<std::string>(sessionId));
+        }
+        auto& runtime = runtimeLoader();
+        if (!runtime.ensureLoaded()) {
+            return operationUnavailable(env, runtime.error(), sessionId);
+        }
+        return parseJsonOrFallback(
+            env,
+            runtime.invoke(runtime.api().setSubtitleFile, sessionId, filePath),
+            operationErrorJson("KSPlayer Metal runtime returned malformed subtitle data.", sessionId)
+        );
+    } catch (const std::exception& exception) {
+        return operationUnavailable(info.Env(), exception.what());
+    } catch (...) {
+        return operationUnavailable(info.Env(), "Unknown KSPlayer Metal addon failure.");
+    }
+}
+
+Napi::Value SetSubtitleSettings(const Napi::CallbackInfo& info)
+{
+    try {
+        const auto env = info.Env();
+        std::string sessionId;
+        std::string settingsJSON;
+        std::string error;
+        if (!readRequiredString(info, 0, sessionId, error) ||
+            !readRequiredString(info, 1, settingsJSON, error)) {
+            return operationUnavailable(env, error, sessionId.empty()
+                ? std::nullopt
+                : std::optional<std::string>(sessionId));
+        }
+        auto& runtime = runtimeLoader();
+        if (!runtime.ensureLoaded()) {
+            return operationUnavailable(env, runtime.error(), sessionId);
+        }
+        return parseJsonOrFallback(
+            env,
+            runtime.invoke(runtime.api().setSubtitleSettings, sessionId, settingsJSON),
+            operationErrorJson("KSPlayer Metal runtime returned malformed subtitle settings data.", sessionId)
+        );
+    } catch (const std::exception& exception) {
+        return operationUnavailable(info.Env(), exception.what());
+    } catch (...) {
+        return operationUnavailable(info.Env(), "Unknown KSPlayer Metal addon failure.");
+    }
 }
 
 Napi::Value SetPlaybackSpeed(const Napi::CallbackInfo& info)
 {
-    return InvokeNumberOperation(info, false, true, false, "playback speed");
+    return InvokeNumberOperation(info, false, true, false, false, "playback speed");
 }
 
 Napi::Value GetSupportedControls(const Napi::CallbackInfo& info)
@@ -1225,6 +1331,9 @@ Napi::Object Init(Napi::Env env, Napi::Object exports)
     exports.Set("seek", Napi::Function::New(env, Seek));
     exports.Set("setVolume", Napi::Function::New(env, SetVolume));
     exports.Set("setAudioTrack", Napi::Function::New(env, SetAudioTrack));
+    exports.Set("setSubtitleTrack", Napi::Function::New(env, SetSubtitleTrack));
+    exports.Set("setSubtitleFile", Napi::Function::New(env, SetSubtitleFile));
+    exports.Set("setSubtitleSettings", Napi::Function::New(env, SetSubtitleSettings));
     exports.Set("setPlaybackSpeed", Napi::Function::New(env, SetPlaybackSpeed));
     exports.Set(
         "getSupportedControls",

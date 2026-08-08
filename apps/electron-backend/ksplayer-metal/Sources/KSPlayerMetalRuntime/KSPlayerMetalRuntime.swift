@@ -197,6 +197,167 @@ private final class KSPlayerMetalContainerView: NSView {
     }
 }
 
+/// Subtitle presentation kept outside KSPlayer's video view. The direct
+/// Metal renderer intentionally has no control or text subviews, so this
+/// transparent sibling lets the runtime display KSPlayer's parsed subtitle
+/// parts without changing the renderer hierarchy.
+private final class KSPlayerMetalSubtitleView: NSView {
+    private let label = NSTextField(labelWithString: "")
+    private var position: CGFloat = 92
+    private var fontSize: CGFloat = 100
+    private var backgroundOpacity: CGFloat = 72
+    private var outlineSize: CGFloat = 2
+    private var renderedCueKey: String?
+
+    override var isFlipped: Bool { true }
+
+    override init(frame frameRect: NSRect) {
+        super.init(frame: frameRect)
+        wantsLayer = true
+        layer?.masksToBounds = true
+        label.alignment = .center
+        label.textColor = .white
+        label.font = .systemFont(ofSize: 26, weight: .medium)
+        label.drawsBackground = false
+        label.isBordered = false
+        label.isEditable = false
+        label.isSelectable = false
+        label.usesSingleLineMode = false
+        label.lineBreakMode = .byWordWrapping
+        label.maximumNumberOfLines = 0
+        label.shadow = {
+            let shadow = NSShadow()
+            shadow.shadowColor = NSColor.black.withAlphaComponent(0.9)
+            shadow.shadowBlurRadius = 3
+            shadow.shadowOffset = NSSize(width: 0, height: -1)
+            return shadow
+        }()
+        addSubview(label)
+        apply(
+            settings: SubtitleSettingsPayload(
+                fontSize: 100,
+                textColor: "#FFFFFF",
+                backgroundColor: "#000000",
+                backgroundOpacity: 72,
+                outlineSize: 2,
+                position: 92,
+                delaySeconds: 0
+            )
+        )
+        isHidden = true
+    }
+
+    @available(*, unavailable)
+    required init?(coder: NSCoder) {
+        fatalError("init(coder:) has not been implemented")
+    }
+
+    override func layout() {
+        super.layout()
+        let labelWidth = max(bounds.width - 56, 0)
+        let measuredHeight = label.attributedStringValue.boundingRect(
+            with: NSSize(width: labelWidth, height: .greatestFiniteMagnitude),
+            options: [.usesLineFragmentOrigin, .usesFontLeading]
+        ).height
+        let maxLabelHeight = max(bounds.height - 18, 34)
+        let labelHeight = min(
+            max(measuredHeight + 18, 34),
+            maxLabelHeight
+        )
+        let availableHeight = max(bounds.height - labelHeight - 18, 0)
+        let originY = availableHeight * min(max(position / 100, 0), 1)
+        label.frame = NSRect(
+            x: 28,
+            y: originY,
+            width: labelWidth,
+            height: labelHeight
+        )
+    }
+
+    func apply(settings: SubtitleSettingsPayload) {
+        fontSize = min(max(CGFloat(settings.fontSize), 50), 200)
+        position = min(max(CGFloat(settings.position), 0), 100)
+        backgroundOpacity = min(max(CGFloat(settings.backgroundOpacity), 0), 100)
+        outlineSize = min(max(CGFloat(settings.outlineSize), 0), 6)
+        label.font = .systemFont(ofSize: 26 * fontSize / 100, weight: .medium)
+        label.textColor = NSColor(hex: settings.textColor) ?? .white
+        label.backgroundColor = (NSColor(hex: settings.backgroundColor) ?? .black)
+            .withAlphaComponent(backgroundOpacity / 100)
+        label.drawsBackground = backgroundOpacity > 0
+        label.wantsLayer = true
+        label.layer?.cornerRadius = 4
+        label.shadow = {
+            let shadow = NSShadow()
+            shadow.shadowColor = NSColor.black.withAlphaComponent(0.95)
+            shadow.shadowBlurRadius = outlineSize * 2
+            shadow.shadowOffset = .zero
+            return shadow
+        }()
+        needsLayout = true
+        layoutSubtreeIfNeeded()
+    }
+
+    func show(part: SubtitlePart?) {
+        guard let text = part?.text, text.length > 0 else {
+            renderedCueKey = nil
+            if isHidden {
+                return
+            }
+            label.attributedStringValue = NSAttributedString(string: "")
+            isHidden = true
+            return
+        }
+        let cueKey = "\(part?.start ?? 0)|\(part?.end ?? 0)|\(text.string)"
+        if renderedCueKey == cueKey {
+            isHidden = false
+            return
+        }
+        renderedCueKey = cueKey
+        let attributed = NSMutableAttributedString(attributedString: text)
+        let paragraphStyle = NSMutableParagraphStyle()
+        paragraphStyle.alignment = .center
+        paragraphStyle.lineBreakMode = .byWordWrapping
+        attributed.addAttribute(
+            .paragraphStyle,
+            value: paragraphStyle,
+            range: NSRange(location: 0, length: attributed.length)
+        )
+        attributed.addAttribute(
+            .font,
+            value: label.font ?? NSFont.systemFont(ofSize: 26, weight: .medium),
+            range: NSRange(location: 0, length: attributed.length)
+        )
+        label.attributedStringValue = attributed
+        isHidden = false
+    }
+}
+
+private struct SubtitleSettingsPayload: Decodable {
+    let fontSize: Double
+    let textColor: String
+    let backgroundColor: String
+    let backgroundOpacity: Double
+    let outlineSize: Double
+    let position: Double
+    let delaySeconds: Double
+}
+
+private extension NSColor {
+    convenience init?(hex: String) {
+        let value = hex.trimmingCharacters(in: .whitespacesAndNewlines)
+            .replacingOccurrences(of: "#", with: "")
+        guard value.count == 6, let rgb = UInt64(value, radix: 16) else {
+            return nil
+        }
+        self.init(
+            calibratedRed: CGFloat((rgb >> 16) & 0xff) / 255,
+            green: CGFloat((rgb >> 8) & 0xff) / 255,
+            blue: CGFloat(rgb & 0xff) / 255,
+            alpha: 1
+        )
+    }
+}
+
 /// Keeps Electron's content view and KSPlayer's renderer on separate layout
 /// paths. KSMEPlayer owns constraints for its internal drawing subviews; only
 /// the plain container is explicitly framed in Electron coordinates.
@@ -227,7 +388,8 @@ private enum KSPlayerMetalEmbeddingLayout {
         _ bounds: Bounds,
         to containerView: NSView,
         playerView: NSView,
-        in hostView: NSView
+        in hostView: NSView,
+        subtitleView: NSView? = nil
     ) {
         let containerFrame = frame(for: bounds, in: hostView)
         let isHidden = containerFrame.width <= 0 || containerFrame.height <= 0
@@ -235,6 +397,10 @@ private enum KSPlayerMetalEmbeddingLayout {
         containerView.isHidden = isHidden
         playerView.frame = containerView.bounds
         playerView.isHidden = isHidden
+        subtitleView?.frame = containerView.bounds
+        if isHidden {
+            subtitleView?.isHidden = true
+        }
         playerView.needsDisplay = true
         containerView.needsDisplay = true
     }
@@ -583,6 +749,7 @@ private struct Controls: Encodable {
     let seek: Bool
     let volume: Bool
     let audioTracks: Bool
+    let subtitles: Bool
     let playbackSpeed: Bool
 }
 
@@ -612,6 +779,8 @@ private struct Snapshot: Encodable {
     let volume: Double?
     let audioTracks: [TrackSnapshot]
     let selectedAudioTrackId: Int?
+    let subtitleTracks: [TrackSnapshot]
+    let selectedSubtitleTrackId: Int?
     let playbackSpeed: Double?
     let resolution: Resolution?
     let videoWidth: Double?
@@ -645,6 +814,8 @@ private struct Snapshot: Encodable {
             volume: nil,
             audioTracks: [],
             selectedAudioTrackId: nil,
+            subtitleTracks: [],
+            selectedSubtitleTrackId: nil,
             playbackSpeed: nil,
             resolution: nil,
             videoWidth: nil,
@@ -724,6 +895,7 @@ private final class KSPlayerMetalSession: NSObject, MediaPlayerDelegate {
     private var player: KSMEPlayer?
     private var containerView: KSPlayerMetalContainerView?
     private var playerView: NSView?
+    private var subtitleView: KSPlayerMetalSubtitleView?
     private var options: MetalOnlyOptions?
     private var bounds: Bounds
     private var childCounts = EmbeddingChildCounts()
@@ -734,6 +906,12 @@ private final class KSPlayerMetalSession: NSObject, MediaPlayerDelegate {
     private var streamURL: String?
     private var loadedURL: URL?
     private var loadedHeaders: [String: String] = [:]
+    private var loadedSubtitleURL: URL?
+    private var externalSubtitleInfos: [Int: any SubtitleInfo] = [:]
+    private var selectedSubtitleTrackID: Int?
+    private var subtitleUpdateTimer: Timer?
+    private var subtitleDelay: TimeInterval = 0
+    private var displayedSubtitlePart: SubtitlePart?
     private var state: SessionState = .idle
     private var lastError: String?
     private var lastSeekError: String?
@@ -793,7 +971,11 @@ private final class KSPlayerMetalSession: NSObject, MediaPlayerDelegate {
             Self.testLateCompletionDelayMilliseconds != nil ? 1 : 0
     }
 
-    func load(url: URL, headers: [String: String]) -> OperationResult {
+    func load(
+        url: URL,
+        headers: [String: String],
+        subtitleURL: URL? = nil
+    ) -> OperationResult {
         invalidatePendingSeek()
         guard let hostView else {
             return .failure("Electron BrowserWindow content view is unavailable.", sessionId: id)
@@ -822,6 +1004,11 @@ private final class KSPlayerMetalSession: NSObject, MediaPlayerDelegate {
         streamURL = url.absoluteString
         loadedURL = url
         loadedHeaders = headers
+        loadedSubtitleURL = subtitleURL
+        externalSubtitleInfos.removeAll()
+        selectedSubtitleTrackID = nil
+        subtitleUpdateTimer?.invalidate()
+        subtitleUpdateTimer = nil
         lastError = nil
         lastSeekError = nil
         state = .loading
@@ -834,7 +1021,14 @@ private final class KSPlayerMetalSession: NSObject, MediaPlayerDelegate {
         )
         self.containerView = containerView
         self.playerView = playerView
+        let subtitleView = KSPlayerMetalSubtitleView(frame: containerView.bounds)
+        containerView.addSubview(subtitleView, positioned: .above, relativeTo: nil)
+        self.subtitleView = subtitleView
         applyBounds()
+        startSubtitleUpdates()
+        if let subtitleURL {
+            _ = setSubtitleFile(subtitleURL.absoluteString)
+        }
 
         player.playbackVolume = requestedVolume
         player.playbackRate = requestedPlaybackSpeed
@@ -954,6 +1148,77 @@ private final class KSPlayerMetalSession: NSObject, MediaPlayerDelegate {
         return .success(sessionId: id, snapshot: snapshot())
     }
 
+    func setSubtitleTrack(_ trackID: Double) -> OperationResult {
+        guard trackID.isFinite,
+              trackID.rounded() == trackID,
+              trackID >= Double(Int32.min),
+              trackID <= Double(Int32.max) else {
+            return .failure("Subtitle track id must be a valid integer.", sessionId: id)
+        }
+        let targetID = Int(trackID)
+        if targetID == -1 {
+            player?.tracks(mediaType: .subtitle).forEach { $0.isEnabled = false }
+            externalSubtitleInfos.values.forEach { $0.isEnabled = false }
+            selectedSubtitleTrackID = nil
+            displayedSubtitlePart = nil
+            subtitleView?.show(part: nil)
+            return .success(sessionId: id, snapshot: snapshot())
+        }
+
+        if let external = externalSubtitleInfos[targetID] {
+            player?.tracks(mediaType: .subtitle).forEach { $0.isEnabled = false }
+            externalSubtitleInfos.values.forEach { $0.isEnabled = false }
+            external.isEnabled = true
+            selectedSubtitleTrackID = targetID
+            displayedSubtitlePart = nil
+            return .success(sessionId: id, snapshot: snapshot())
+        }
+
+        guard let player,
+              let track = player.tracks(mediaType: .subtitle).first(where: {
+                  Int($0.trackID) == targetID
+              }) else {
+            return .failure("Subtitle track was not found.", sessionId: id)
+        }
+        externalSubtitleInfos.values.forEach { $0.isEnabled = false }
+        player.select(track: track)
+        selectedSubtitleTrackID = targetID
+        displayedSubtitlePart = nil
+        return .success(sessionId: id, snapshot: snapshot())
+    }
+
+    func setSubtitleFile(_ rawURL: String) -> OperationResult {
+        guard let url = subtitleURL(from: rawURL) else {
+            return .failure("Subtitle URL or file path is invalid.", sessionId: id)
+        }
+        let id = nextExternalSubtitleID()
+        let info = URLSubtitleInfo(url: url)
+        loadedSubtitleURL = url
+        externalSubtitleInfos[id] = info
+        externalSubtitleInfos.values.forEach { $0.isEnabled = false }
+        info.isEnabled = true
+        selectedSubtitleTrackID = id
+        displayedSubtitlePart = nil
+        startSubtitleUpdates()
+        return .success(sessionId: self.id, snapshot: snapshot())
+    }
+
+    func setSubtitleSettings(_ json: String) -> OperationResult {
+        guard let data = json.data(using: .utf8),
+              let settings = try? JSONDecoder().decode(SubtitleSettingsPayload.self, from: data),
+              settings.fontSize.isFinite,
+              settings.backgroundOpacity.isFinite,
+              settings.outlineSize.isFinite,
+              settings.position.isFinite,
+              settings.delaySeconds.isFinite else {
+            return .failure("Subtitle settings are invalid.", sessionId: id)
+        }
+        subtitleDelay = min(max(settings.delaySeconds, -30), 30)
+        subtitleView?.apply(settings: settings)
+        updateSubtitleView()
+        return .success(sessionId: id, snapshot: snapshot())
+    }
+
     func setPlaybackSpeed(_ speed: Double) -> OperationResult {
         guard speed.isFinite, speed > 0 else {
             return .failure("Playback speed must be a finite positive number.", sessionId: id)
@@ -1011,6 +1276,25 @@ private final class KSPlayerMetalSession: NSObject, MediaPlayerDelegate {
             )
         } ?? []
         let selectedAudioTrackId = audioTracks.first(where: { $0.selected })?.id
+        let embeddedSubtitleTracks = player?.tracks(mediaType: .subtitle).map { track in
+            TrackSnapshot(
+                id: Int(track.trackID),
+                title: nonEmpty(track.name),
+                language: nonEmpty(track.languageCode),
+                selected: selectedSubtitleTrackID == Int(track.trackID) && track.isEnabled
+            )
+        } ?? []
+        let externalSubtitleTracks = externalSubtitleInfos.map { id, info in
+            TrackSnapshot(
+                id: id,
+                title: nonEmpty(info.name),
+                language: nil,
+                selected: selectedSubtitleTrackID == id && info.isEnabled
+            )
+        }.sorted { $0.id < $1.id }
+        let subtitleTracks = [
+            TrackSnapshot(id: -1, title: "Off", language: nil, selected: selectedSubtitleTrackID == nil),
+        ] + embeddedSubtitleTracks + externalSubtitleTracks
 
         return Snapshot(
             state: externalState,
@@ -1022,6 +1306,8 @@ private final class KSPlayerMetalSession: NSObject, MediaPlayerDelegate {
             volume: hasPlayer ? Double(player?.playbackVolume ?? requestedVolume) : Double(requestedVolume),
             audioTracks: audioTracks,
             selectedAudioTrackId: selectedAudioTrackId,
+            subtitleTracks: subtitleTracks,
+            selectedSubtitleTrackId: selectedSubtitleTrackID,
             playbackSpeed: hasPlayer ? Double(player?.playbackRate ?? requestedPlaybackSpeed) : Double(requestedPlaybackSpeed),
             resolution: resolution,
             videoWidth: resolution?.width,
@@ -1129,8 +1415,89 @@ private final class KSPlayerMetalSession: NSObject, MediaPlayerDelegate {
             bounds,
             to: containerView,
             playerView: playerView,
-            in: hostView
+            in: hostView,
+            subtitleView: subtitleView
         )
+    }
+
+    private func startSubtitleUpdates() {
+        subtitleUpdateTimer?.invalidate()
+        guard subtitleView != nil else { return }
+        subtitleUpdateTimer = Timer.scheduledTimer(withTimeInterval: 0.1, repeats: true) {
+            [weak self] _ in
+            Task { @MainActor [weak self] in
+                self?.updateSubtitleView()
+            }
+        }
+        updateSubtitleView()
+    }
+
+    private func updateSubtitleView() {
+        guard
+            let player,
+            let selectedSubtitleTrackID,
+            selectedSubtitleTrackID != -1,
+            let info = subtitleInfo(for: selectedSubtitleTrackID)
+        else {
+            displayedSubtitlePart = nil
+            subtitleView?.show(part: nil)
+            return
+        }
+        let currentTime = player.currentPlaybackTime
+        guard currentTime.isFinite else {
+            displayedSubtitlePart = nil
+            subtitleView?.show(part: nil)
+            return
+        }
+        let subtitleTime = currentTime - info.delay - subtitleDelay
+        if let part = info.search(for: subtitleTime).first {
+            displayedSubtitlePart = part
+            subtitleView?.show(part: part)
+            return
+        }
+
+        // KSPlayer's subtitle search is an exact interval lookup. Playback
+        // time can advance past a cue boundary between timer ticks, and a
+        // decoder can briefly report a slightly stale time while buffering.
+        // Keep the last cue on screen through that tiny boundary instead of
+        // turning it off for one frame and making subtitles visibly blink.
+        if let displayedSubtitlePart,
+           subtitleTime >= displayedSubtitlePart.start - 0.15,
+           subtitleTime <= displayedSubtitlePart.end + 0.15 {
+            subtitleView?.show(part: displayedSubtitlePart)
+            return
+        }
+
+        displayedSubtitlePart = nil
+        subtitleView?.show(part: nil)
+    }
+
+    private func subtitleInfo(for trackID: Int) -> (any SubtitleInfo)? {
+        if let external = externalSubtitleInfos[trackID] {
+            return external
+        }
+        return player?.subtitleDataSouce?.infos.first {
+            $0.subtitleID == String(trackID)
+        }
+    }
+
+    private func nextExternalSubtitleID() -> Int {
+        var candidate = -1
+        while externalSubtitleInfos[candidate] != nil {
+            candidate -= 1
+        }
+        return candidate
+    }
+
+    private func subtitleURL(from raw: String) -> URL? {
+        let expanded = (raw as NSString).expandingTildeInPath
+        if expanded.hasPrefix("/") {
+            return URL(fileURLWithPath: expanded)
+        }
+        guard let url = URL(string: raw), url.scheme != nil else {
+            return nil
+        }
+        return url
     }
 
     private func beginSeek(to target: Double, player: KSMEPlayer) {
@@ -1232,7 +1599,11 @@ private final class KSPlayerMetalSession: NSObject, MediaPlayerDelegate {
             return
         }
 
-        let recovery = load(url: loadedURL, headers: loadedHeaders)
+        let recovery = load(
+            url: loadedURL,
+            headers: loadedHeaders,
+            subtitleURL: loadedSubtitleURL
+        )
         if recovery.ok {
             lastSeekError = recoveryMessage
         } else {
@@ -1276,6 +1647,13 @@ private final class KSPlayerMetalSession: NSObject, MediaPlayerDelegate {
 
     private func detachPlayer() {
         invalidatePendingSeek()
+        subtitleUpdateTimer?.invalidate()
+        subtitleUpdateTimer = nil
+        displayedSubtitlePart = nil
+        subtitleView?.removeFromSuperview()
+        subtitleView = nil
+        externalSubtitleInfos.removeAll()
+        selectedSubtitleTrackID = nil
         let attachedPlayerView = playerView ?? player?.view
         let attachedContainerView = containerView
         KSPlayerMetalEmbeddingLayout.detach(
@@ -1502,6 +1880,27 @@ private final class KSPlayerMetalRuntime {
         return session.setAudioTrack(trackID)
     }
 
+    func setSubtitleTrack(id: String, trackID: Double) -> OperationResult {
+        guard let session = sessions[id] else {
+            return .failure("KSPlayer session was not found.", sessionId: id)
+        }
+        return session.setSubtitleTrack(trackID)
+    }
+
+    func setSubtitleFile(id: String, rawURL: String) -> OperationResult {
+        guard let session = sessions[id] else {
+            return .failure("KSPlayer session was not found.", sessionId: id)
+        }
+        return session.setSubtitleFile(rawURL)
+    }
+
+    func setSubtitleSettings(id: String, json: String) -> OperationResult {
+        guard let session = sessions[id] else {
+            return .failure("KSPlayer session was not found.", sessionId: id)
+        }
+        return session.setSubtitleSettings(json)
+    }
+
     func setPlaybackSpeed(id: String, speed: Double) -> OperationResult {
         guard let session = sessions[id] else {
             return .failure("KSPlayer session was not found.", sessionId: id)
@@ -1510,7 +1909,14 @@ private final class KSPlayerMetalRuntime {
     }
 
     func getSupportedControls(id _: String?) -> Controls {
-        Controls(pause: true, seek: true, volume: true, audioTracks: true, playbackSpeed: true)
+        Controls(
+            pause: true,
+            seek: true,
+            volume: true,
+            audioTracks: true,
+            subtitles: true,
+            playbackSpeed: true
+        )
     }
 
     func getSnapshot(id: String) -> Snapshot {
@@ -1780,6 +2186,47 @@ public func ksplayer_metal_set_audio_track(
     }
     return invokeOnMain {
         encodedJSON(KSPlayerMetalRuntime.shared.setAudioTrack(id: sessionID, trackID: trackID))
+    }
+}
+
+@_cdecl("ksplayer_metal_set_subtitle_track")
+public func ksplayer_metal_set_subtitle_track(
+    _ sessionID: UnsafePointer<CChar>?,
+    _ trackID: Double
+) -> UnsafeMutablePointer<CChar>? {
+    guard let sessionID = stringArgument(sessionID) else {
+        return copiedCString(operationFailure("Session id must be valid UTF-8."))
+    }
+    return invokeOnMain {
+        encodedJSON(KSPlayerMetalRuntime.shared.setSubtitleTrack(id: sessionID, trackID: trackID))
+    }
+}
+
+@_cdecl("ksplayer_metal_set_subtitle_file")
+public func ksplayer_metal_set_subtitle_file(
+    _ sessionID: UnsafePointer<CChar>?,
+    _ rawURL: UnsafePointer<CChar>?
+) -> UnsafeMutablePointer<CChar>? {
+    guard let sessionID = stringArgument(sessionID),
+          let rawURL = stringArgument(rawURL) else {
+        return copiedCString(operationFailure("Session id and subtitle URL must be valid UTF-8."))
+    }
+    return invokeOnMain {
+        encodedJSON(KSPlayerMetalRuntime.shared.setSubtitleFile(id: sessionID, rawURL: rawURL))
+    }
+}
+
+@_cdecl("ksplayer_metal_set_subtitle_settings")
+public func ksplayer_metal_set_subtitle_settings(
+    _ sessionID: UnsafePointer<CChar>?,
+    _ settingsJSON: UnsafePointer<CChar>?
+) -> UnsafeMutablePointer<CChar>? {
+    guard let sessionID = stringArgument(sessionID),
+          let settingsJSON = stringArgument(settingsJSON) else {
+        return copiedCString(operationFailure("Session id and subtitle settings must be valid UTF-8."))
+    }
+    return invokeOnMain {
+        encodedJSON(KSPlayerMetalRuntime.shared.setSubtitleSettings(id: sessionID, json: settingsJSON))
     }
 }
 

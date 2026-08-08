@@ -87,7 +87,9 @@ export class EmbeddedMpvControlsAdapter implements PlayerController {
                 ? true
                 : ksControls?.audioTracks === true,
             subtitles:
-                !isKsPlayerMetal && (optionalCapabilities?.subtitles ?? false),
+                isKsPlayerMetal
+                    ? ksControls?.subtitles === true
+                    : (optionalCapabilities?.subtitles ?? false),
             playbackSpeed:
                 !isKsPlayerMetal
                     ? (optionalCapabilities?.playbackSpeed ?? false)
@@ -162,7 +164,9 @@ export class EmbeddedMpvControlsAdapter implements PlayerController {
                 : [],
             subtitlesEnabled:
                 capabilities.subtitles &&
-                (session?.selectedSubtitleTrackId ?? -1) >= 0,
+                session?.selectedSubtitleTrackId !== null &&
+                session?.selectedSubtitleTrackId !== undefined &&
+                session.selectedSubtitleTrackId !== -1,
             playbackSpeed: capabilities.playbackSpeed
                 ? (session?.playbackSpeed ?? 1)
                 : 1,

@@ -21,6 +21,13 @@ function getControlsMenuAvailability(
     capabilities: PlayerControlsCapabilities,
     state: PlayerControlsState
 ): ControlsMenuAvailability {
+    const hasSettings =
+        capabilities.pictureAdjustments ||
+        capabilities.subtitles ||
+        capabilities.audioTracks ||
+        capabilities.playbackSpeed ||
+        capabilities.aspectRatio;
+
     return {
         volume: showControls && capabilities.volume,
         audio:
@@ -33,7 +40,7 @@ function getControlsMenuAvailability(
             state.subtitleTracks.length > 0,
         speed: showControls && capabilities.playbackSpeed,
         aspect: showControls && capabilities.aspectRatio,
-        settings: showControls && capabilities.pictureAdjustments,
+        settings: showControls && hasSettings,
     };
 }
 

@@ -33,6 +33,7 @@ import {
 import { PortalDebugEvent } from './portal-debug.interface';
 import { CatalogTitleMatch } from './catalog-title-match.interface';
 import { Settings } from './settings.interface';
+import { PlayerSubtitleSettings } from './player-subtitle-settings.interface';
 import {
     TmdbCacheEntry,
     TmdbCacheMediaType,
@@ -183,6 +184,18 @@ export interface ElectronBridgeKsPlayerMetalApi {
     setKsPlayerMetalAudioTrack: (
         sessionId: string,
         trackId: number
+    ) => Promise<EmbeddedMpvSession | null>;
+    setKsPlayerMetalSubtitleTrack: (
+        sessionId: string,
+        trackId: number
+    ) => Promise<EmbeddedMpvSession | null>;
+    setKsPlayerMetalSubtitleFile: (
+        sessionId: string,
+        filePath: string
+    ) => Promise<EmbeddedMpvSession | null>;
+    setKsPlayerMetalSubtitleSettings: (
+        sessionId: string,
+        settings: PlayerSubtitleSettings
     ) => Promise<EmbeddedMpvSession | null>;
     setKsPlayerMetalSpeed: (
         sessionId: string,

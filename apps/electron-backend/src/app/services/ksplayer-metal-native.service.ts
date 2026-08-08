@@ -13,6 +13,7 @@ import {
   KsPlayerMetalSession,
   KsPlayerMetalSupport,
   KSPLAYER_METAL_SESSION_UPDATE,
+  PlayerSubtitleSettings,
   PlayerPictureSettings,
 } from "@arm-nator/shared/interfaces";
 import { toNativeViewBounds } from "./embedded-mpv-bounds.util";
@@ -33,6 +34,7 @@ const DEFAULT_CONTROLS: KsPlayerMetalControls = {
   seek: false,
   volume: false,
   audioTracks: false,
+  subtitles: false,
   playbackSpeed: false,
 };
 
@@ -165,6 +167,9 @@ export interface NativeKsPlayerMetalAddon {
   seek(sessionId: string, seconds: number): unknown;
   setVolume(sessionId: string, volume: number): unknown;
   setAudioTrack(sessionId: string, trackId: number): unknown;
+  setSubtitleTrack(sessionId: string, trackId: number): unknown;
+  setSubtitleFile(sessionId: string, filePath: string): unknown;
+  setSubtitleSettings(sessionId: string, settingsJSON: string): unknown;
   setPlaybackSpeed(sessionId: string, speed: number): unknown;
   getSupportedControls(sessionId?: string): KsPlayerMetalControls;
   getSnapshot(sessionId: string): NativeKsPlayerMetalSessionSnapshot | null;
@@ -278,6 +283,7 @@ function normalizeControls(value: unknown): KsPlayerMetalControls {
     seek: controls?.seek === true,
     volume: controls?.volume === true,
     audioTracks: controls?.audioTracks === true,
+    subtitles: controls?.subtitles === true,
     playbackSpeed: controls?.playbackSpeed === true,
   };
 }
@@ -577,6 +583,7 @@ export class KsPlayerMetalNativeService {
       userAgent?: string;
       referer?: string;
       origin?: string;
+      subtitleUrl?: string;
     },
   ): void {
     const session = this.getRuntimeSession(sessionId);
@@ -598,6 +605,12 @@ export class KsPlayerMetalNativeService {
       this.getAddon().load(sessionId, playback.streamUrl, headers),
       "load",
     );
+    if (playback.subtitleUrl) {
+      assertNativeOperation(
+        this.getAddon().setSubtitleFile(sessionId, playback.subtitleUrl),
+        "setSubtitleFile",
+      );
+    }
     this.refreshSession(sessionId);
   }
 
@@ -654,6 +667,42 @@ export class KsPlayerMetalNativeService {
     assertNativeOperation(
       this.getAddon().setAudioTrack(sessionId, trackId),
       "setAudioTrack",
+    );
+    return this.refreshSession(sessionId);
+  }
+
+  setSubtitleTrack(
+    sessionId: string,
+    trackId: number,
+  ): EmbeddedMpvSession | null {
+    this.getRuntimeSession(sessionId);
+    assertNativeOperation(
+      this.getAddon().setSubtitleTrack(sessionId, trackId),
+      "setSubtitleTrack",
+    );
+    return this.refreshSession(sessionId);
+  }
+
+  setSubtitleFile(
+    sessionId: string,
+    filePath: string,
+  ): EmbeddedMpvSession | null {
+    this.getRuntimeSession(sessionId);
+    assertNativeOperation(
+      this.getAddon().setSubtitleFile(sessionId, filePath),
+      "setSubtitleFile",
+    );
+    return this.refreshSession(sessionId);
+  }
+
+  setSubtitleSettings(
+    sessionId: string,
+    settings: PlayerSubtitleSettings,
+  ): EmbeddedMpvSession | null {
+    this.getRuntimeSession(sessionId);
+    assertNativeOperation(
+      this.getAddon().setSubtitleSettings(sessionId, JSON.stringify(settings)),
+      "setSubtitleSettings",
     );
     return this.refreshSession(sessionId);
   }

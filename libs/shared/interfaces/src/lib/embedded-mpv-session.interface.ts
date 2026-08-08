@@ -35,6 +35,8 @@ export interface KsPlayerMetalControls {
     volume: boolean;
     audioTracks?: boolean;
     /** Optional for compatibility with older KSPlayer native addons. */
+    subtitles?: boolean;
+    /** Optional for compatibility with older KSPlayer native addons. */
     playbackSpeed?: boolean;
 }
 

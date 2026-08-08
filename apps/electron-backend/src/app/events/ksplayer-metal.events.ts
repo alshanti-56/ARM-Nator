@@ -10,11 +10,15 @@ import {
     KSPLAYER_METAL_SEEK,
     KSPLAYER_METAL_SET_BOUNDS,
     KSPLAYER_METAL_SET_AUDIO_TRACK,
+    KSPLAYER_METAL_SET_SUBTITLE_TRACK,
+    KSPLAYER_METAL_SET_SUBTITLE_FILE,
+    KSPLAYER_METAL_SET_SUBTITLE_SETTINGS,
     KSPLAYER_METAL_SET_PAUSED,
     KSPLAYER_METAL_SET_VOLUME,
     KSPLAYER_METAL_SET_SPEED,
     KSPLAYER_METAL_SUPPORT,
     ResolvedPortalPlayback,
+    PlayerSubtitleSettings,
 } from '@arm-nator/shared/interfaces';
 import {
     KsPlayerMetalNativeService,
@@ -86,6 +90,24 @@ handleKsPlayerMetal(
     KSPLAYER_METAL_SET_AUDIO_TRACK,
     (sessionId: string, trackId: number) =>
         getService().setAudioTrack(sessionId, trackId)
+);
+
+handleKsPlayerMetal(
+    KSPLAYER_METAL_SET_SUBTITLE_TRACK,
+    (sessionId: string, trackId: number) =>
+        getService().setSubtitleTrack(sessionId, trackId)
+);
+
+handleKsPlayerMetal(
+    KSPLAYER_METAL_SET_SUBTITLE_FILE,
+    (sessionId: string, filePath: string) =>
+        getService().setSubtitleFile(sessionId, filePath)
+);
+
+handleKsPlayerMetal(
+    KSPLAYER_METAL_SET_SUBTITLE_SETTINGS,
+    (sessionId: string, settings: PlayerSubtitleSettings) =>
+        getService().setSubtitleSettings(sessionId, settings)
 );
 
 handleKsPlayerMetal(

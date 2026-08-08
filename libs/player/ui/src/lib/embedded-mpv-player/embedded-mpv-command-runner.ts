@@ -112,11 +112,16 @@ export class EmbeddedMpvCommandRunner {
     }
 
     async setSubtitleTrack(trackId: number): Promise<void> {
-        if (this.backend() === 'ksplayer-metal') {
-            return;
-        }
         const id = this.ctx.sessionId();
         const electron = this.bridge();
+        if (this.backend() === 'ksplayer-metal') {
+            const setSubtitleTrack = electron?.setKsPlayerMetalSubtitleTrack;
+            if (!id || !setSubtitleTrack || !this.supports('subtitles')) {
+                return;
+            }
+            await this.run(id, () => setSubtitleTrack(id, trackId));
+            return;
+        }
         const setSubtitleTrack = electron?.setEmbeddedMpvSubtitleTrack;
         if (!id || !setSubtitleTrack) {
             return;
@@ -125,11 +130,16 @@ export class EmbeddedMpvCommandRunner {
     }
 
     async setSubtitleFile(filePath: string): Promise<void> {
-        if (this.backend() === 'ksplayer-metal') {
-            return;
-        }
         const id = this.ctx.sessionId();
         const electron = this.bridge();
+        if (this.backend() === 'ksplayer-metal') {
+            const setSubtitleFile = electron?.setKsPlayerMetalSubtitleFile;
+            if (!id || !filePath || !setSubtitleFile || !this.supports('subtitles')) {
+                return;
+            }
+            await this.run(id, () => setSubtitleFile(id, filePath));
+            return;
+        }
         const setSubtitleFile = electron?.setEmbeddedMpvSubtitleFile;
         if (!id || !filePath || !setSubtitleFile) {
             return;
@@ -138,11 +148,16 @@ export class EmbeddedMpvCommandRunner {
     }
 
     async setSubtitleSettings(settings: PlayerSubtitleSettings): Promise<void> {
-        if (this.backend() === 'ksplayer-metal') {
-            return;
-        }
         const id = this.ctx.sessionId();
         const electron = this.bridge();
+        if (this.backend() === 'ksplayer-metal') {
+            const setSubtitleSettings = electron?.setKsPlayerMetalSubtitleSettings;
+            if (!id || !setSubtitleSettings || !this.supports('subtitles')) {
+                return;
+            }
+            await this.run(id, () => setSubtitleSettings(id, settings));
+            return;
+        }
         const setSubtitleSettings = electron?.setEmbeddedMpvSubtitleSettings;
         if (!id || !setSubtitleSettings) {
             return;

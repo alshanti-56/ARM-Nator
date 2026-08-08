@@ -58,6 +58,22 @@ export class PlayerSettingsPanelComponent {
                 this.subtitleSearchQuery.set(title);
             }
         });
+        effect(() => {
+            const activeTab = this.activeTab();
+            const activeTabConfig = this.tabs.find(
+                (tab) => tab.id === activeTab
+            );
+            const firstAvailableTab = this.tabs.find((tab) =>
+                this.isTabAvailable(tab)
+            );
+            if (
+                firstAvailableTab &&
+                activeTabConfig &&
+                !this.isTabAvailable(activeTabConfig)
+            ) {
+                this.activeTab.set(firstAvailableTab.id);
+            }
+        });
     }
 
     readonly tabs: ReadonlyArray<{
@@ -198,13 +214,6 @@ export class PlayerSettingsPanelComponent {
     }
 
     isTabAvailable(tab: (typeof this.tabs)[number]): boolean {
-        if (
-            tab.id === 'subtitles' &&
-            typeof window !== 'undefined' &&
-            typeof window.electron?.searchOpenSubtitles === 'function'
-        ) {
-            return true;
-        }
         return this.capabilities()[tab.capability];
     }
 

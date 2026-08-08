@@ -144,15 +144,13 @@ export class EmbeddedMpvPlayerComponent implements OnDestroy {
     );
 
     readonly isSupported = computed(() => this.support()?.supported ?? false);
-    readonly capabilities = computed(
-        () =>
-            this.support()?.capabilities ?? {
-                subtitles: false,
-                playbackSpeed: false,
-                aspectOverride: false,
-                pictureAdjustments: false,
-            }
-    );
+    /**
+     * Use the adapter's backend-aware capabilities. KSPlayer reports its
+     * controls through `supportedControls`, while embedded MPV reports the
+     * broader optional capability set; the adapter normalizes both paths for
+     * this legacy controls surface.
+     */
+    readonly capabilities = this.sharedControls.capabilities;
     readonly isLoading = computed(
         () =>
             !this.support() ||
@@ -223,9 +221,19 @@ export class EmbeddedMpvPlayerComponent implements OnDestroy {
     readonly audioTracks = computed(() => this.session()?.audioTracks ?? []);
     readonly hasAudioTracks = computed(
         () =>
-            this.controller.activeBackend() === 'embedded-mpv' &&
+            this.capabilities().audioTracks &&
             this.audioTracks().length > 1
     );
+    readonly hasSettings = computed(() => {
+        const capabilities = this.capabilities();
+        return (
+            capabilities.pictureAdjustments ||
+            capabilities.subtitles ||
+            capabilities.audioTracks ||
+            capabilities.playbackSpeed ||
+            capabilities.aspectRatio
+        );
+    });
     readonly subtitleTracks = computed(
         () => this.session()?.subtitleTracks ?? []
     );

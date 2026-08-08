@@ -391,7 +391,7 @@
                         </button>
                     }
 
-                    @if (capabilities().aspectOverride) {
+                    @if (capabilities().aspectRatio) {
                         <button
                             mat-icon-button
                             type="button"
@@ -420,7 +420,7 @@
                         </button>
                     }
 
-                    @if (capabilities().pictureAdjustments) {
+                    @if (hasSettings()) {
                         <button
                             mat-icon-button
                             type="button"
@@ -429,11 +429,11 @@
                             (click)="togglePictureMenu()"
                             [attr.aria-expanded]="menus.pictureOpen()"
                             [attr.aria-label]="
-                                'EMBEDDED_MPV.PLAYER.PICTURE_SETTINGS'
+                                'EMBEDDED_MPV.PLAYER.PLAYER_SETTINGS'
                                     | translate
                             "
                             [matTooltip]="
-                                'EMBEDDED_MPV.PLAYER.PICTURE_SETTINGS'
+                                'EMBEDDED_MPV.PLAYER.PLAYER_SETTINGS'
                                     | translate
                             "
                             matTooltipPosition="below"

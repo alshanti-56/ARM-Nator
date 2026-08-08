@@ -549,7 +549,13 @@
                 </div>
             }
 
-            @if (capabilities().pictureAdjustments) {
+            @if (
+                capabilities().pictureAdjustments ||
+                capabilities().subtitles ||
+                capabilities().audioTracks ||
+                capabilities().playbackSpeed ||
+                capabilities().aspectRatio
+            ) {
                 <div class="player-controls__popover-anchor">
                     <button
                         mat-icon-button
@@ -558,10 +564,10 @@
                         (click)="toggleMenu('settings')"
                         [attr.aria-expanded]="menus.settingsOpen()"
                         [attr.aria-label]="
-                            'EMBEDDED_MPV.PLAYER.PICTURE_SETTINGS' | translate
+                            'EMBEDDED_MPV.PLAYER.PLAYER_SETTINGS' | translate
                         "
                         [matTooltip]="
-                            'EMBEDDED_MPV.PLAYER.PICTURE_SETTINGS' | translate
+                            'EMBEDDED_MPV.PLAYER.PLAYER_SETTINGS' | translate
                         "
                         matTooltipPosition="above"
                     >

@@ -71,6 +71,9 @@ import {
     KSPLAYER_METAL_SESSION_UPDATE,
     KSPLAYER_METAL_SET_BOUNDS,
     KSPLAYER_METAL_SET_AUDIO_TRACK,
+    KSPLAYER_METAL_SET_SUBTITLE_TRACK,
+    KSPLAYER_METAL_SET_SUBTITLE_FILE,
+    KSPLAYER_METAL_SET_SUBTITLE_SETTINGS,
     KSPLAYER_METAL_SET_PAUSED,
     KSPLAYER_METAL_SET_SPEED,
     KSPLAYER_METAL_SET_VOLUME,
@@ -614,6 +617,21 @@ const electronApi: ElectronBridgeApi = {
         trackId: number
     ): Promise<EmbeddedMpvSession | null> =>
         ipcRenderer.invoke(KSPLAYER_METAL_SET_AUDIO_TRACK, sessionId, trackId),
+    setKsPlayerMetalSubtitleTrack: (
+        sessionId: string,
+        trackId: number
+    ): Promise<EmbeddedMpvSession | null> =>
+        ipcRenderer.invoke(KSPLAYER_METAL_SET_SUBTITLE_TRACK, sessionId, trackId),
+    setKsPlayerMetalSubtitleFile: (
+        sessionId: string,
+        filePath: string
+    ): Promise<EmbeddedMpvSession | null> =>
+        ipcRenderer.invoke(KSPLAYER_METAL_SET_SUBTITLE_FILE, sessionId, filePath),
+    setKsPlayerMetalSubtitleSettings: (
+        sessionId: string,
+        settings: PlayerSubtitleSettings
+    ): Promise<EmbeddedMpvSession | null> =>
+        ipcRenderer.invoke(KSPLAYER_METAL_SET_SUBTITLE_SETTINGS, sessionId, settings),
     setKsPlayerMetalSpeed: (
         sessionId: string,
         speed: number
