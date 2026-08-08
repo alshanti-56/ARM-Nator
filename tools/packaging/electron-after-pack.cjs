@@ -4,6 +4,10 @@ const fs = require('node:fs');
 const path = require('node:path');
 const { execFileSync } = require('node:child_process');
 const { validatePackagedEmbeddedMpv } = require('./embedded-mpv-packaging.cjs');
+const {
+    stageKSPlayerMetalMainBundleResources,
+    validatePackagedKSPlayerMetal
+} = require('./ksplayer-metal-packaging.cjs');
 
 function getAppPath(params) {
     const appName = params.appOutDir.endsWith('.app')
@@ -98,22 +102,40 @@ module.exports = async function afterPackHook(params) {
     }
 
     const resourceDir = getResourceDir(params);
+    const appPath = getAppPath(params);
     copyEmbeddedMpvNativeOutput(
         resourceDir,
         params.packager.projectDir ?? process.cwd()
     );
 
-    const errors = validatePackagedEmbeddedMpv(resourceDir, {
+    if (!appPath) {
+        throw new Error(
+            `Unable to locate the macOS app bundle under ${params.appOutDir}.`
+        );
+    }
+    // Keep both KSPlayer resources in Contents/Resources. The Swift runtime
+    // verifies the default library before creating a Metal view, avoiding the
+    // generated SwiftPM accessor's build-tree fallback in packaged builds.
+    stageKSPlayerMetalMainBundleResources(resourceDir, appPath);
+
+    const errors = [
+        ...validatePackagedEmbeddedMpv(resourceDir, {
         platform: 'darwin',
         required: true,
         foreignArch: false,
         executableName: params.packager.executableName
-    });
+        }),
+        ...validatePackagedKSPlayerMetal(resourceDir, {
+            platform: 'darwin',
+            foreignArch: false,
+            appPath
+        })
+    ];
 
     if (errors.length > 0) {
         throw new Error(
             [
-                'Embedded MPV macOS package validation failed.',
+                'Native macOS player package validation failed.',
                 ...errors.map((error) => `- ${error}`)
             ].join('\n')
         );
