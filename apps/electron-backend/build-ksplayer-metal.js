@@ -35,6 +35,26 @@ const swiftReleaseDir = path.join(
   "arm64-apple-macosx",
   "release",
 );
+const ksPlayerPatches = [
+  {
+    path: path.join(
+      packageRoot,
+      "patches",
+      "ksplayer",
+      "in-buffer-backward-seek.patch",
+    ),
+    files: [
+      "Sources/KSPlayer/AVPlayer/KSOptions.swift",
+      "Sources/KSPlayer/MEPlayer/MEPlayerItem.swift",
+      "Sources/KSPlayer/MEPlayer/Model.swift",
+    ],
+    markers: [
+      ["Sources/KSPlayer/AVPlayer/KSOptions.swift", "backwardSeekBufferDuration"],
+      ["Sources/KSPlayer/MEPlayer/MEPlayerItem.swift", "copyForSeekCache"],
+      ["Sources/KSPlayer/MEPlayer/MEPlayerItem.swift", "packetHistoryEndTime"],
+    ],
+  },
+];
 function log(message) {
   process.stdout.write(`[ksplayer-metal] ${message}\n`);
 }
@@ -194,6 +214,55 @@ function readRevision(checkout, expected, name) {
   const revision = run("git", ["-C", checkout, "rev-parse", "HEAD"]).trim();
   if (revision !== expected) {
     fail(`${name} resolved ${revision}; expected exact pin ${expected}.`);
+  }
+}
+
+function applyKSPlayerPatches(checkout) {
+  for (const patchSpec of ksPlayerPatches) {
+    if (!fs.existsSync(patchSpec.path)) {
+      fail(`Missing maintained KSPlayer patch: ${patchSpec.path}`);
+    }
+    const patchFiles = patchSpec.files.map((relativePath) =>
+      path.join(checkout, relativePath),
+    );
+    run("/bin/chmod", ["u+w", ...patchFiles]);
+
+    const check = spawnSync(
+      "git",
+      ["-C", checkout, "apply", "--check", patchSpec.path],
+      { encoding: "utf8", stdio: "pipe" },
+    );
+    if (check.status === 0) {
+      run("git", ["-C", checkout, "apply", patchSpec.path], {
+        stdio: "inherit",
+      });
+      log(`Applied maintained KSPlayer patch: ${path.basename(patchSpec.path)}.`);
+      continue;
+    }
+
+    const reverseCheck = spawnSync(
+      "git",
+      ["-C", checkout, "apply", "--reverse", "--check", patchSpec.path],
+      { encoding: "utf8", stdio: "pipe" },
+    );
+    if (reverseCheck.status === 0) {
+      log(`Maintained KSPlayer patch already applied: ${path.basename(patchSpec.path)}.`);
+      continue;
+    }
+
+    const markerCheck = patchSpec.markers.every(([relativePath, marker]) =>
+      fs.readFileSync(path.join(checkout, relativePath), "utf8").includes(marker),
+    );
+    if (markerCheck) {
+      log(`Maintained KSPlayer patch already included in checkout: ${path.basename(patchSpec.path)}.`);
+      continue;
+    }
+
+    const detail = [check.stdout, check.stderr, reverseCheck.stdout, reverseCheck.stderr]
+      .filter(Boolean)
+      .join("\n")
+      .trim();
+    fail(`Unable to apply the maintained KSPlayer patch.${detail ? `\n${detail}` : ""}`);
   }
 }
 
@@ -433,6 +502,7 @@ function main() {
   try {
     readRevision(ksPlayer, KSPLAYER_REVISION, "KSPlayer");
     readRevision(ffmpegKit, FFMPEGKIT_REVISION, "FFmpegKit");
+    applyKSPlayerPatches(ksPlayer);
     log("Building the pinned Swift runtime...");
     run("swift", ["build", "--configuration", "release", "--arch", "arm64"], {
       cwd: packageRoot,

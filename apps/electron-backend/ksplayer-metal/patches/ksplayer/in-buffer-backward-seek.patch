@@ -1,0 +1,165 @@
+diff --git a/Sources/KSPlayer/AVPlayer/KSOptions.swift b/Sources/KSPlayer/AVPlayer/KSOptions.swift
+index 84556b7f..53f12cfe 100644
+--- a/Sources/KSPlayer/AVPlayer/KSOptions.swift
++++ b/Sources/KSPlayer/AVPlayer/KSOptions.swift
+@@ -41,6 +41,11 @@ open class KSOptions {
+      AVSEEK_FLAG_FRAME: 8
+      */
+     public var seekFlags = Int32(1)
++    /// Retain compressed VOD packets so a short backward seek can replay from
++    /// memory instead of reopening the network range. Live sources never use
++    /// this cache because their timeline is moving and may not be seekable.
++    public var backwardSeekBufferDuration = 30.0
++    public var inBufferBackwardSeek = true
+     // ffmpeg only cache http
+     // 这个开关不能用，因为ff_tempfile: Cannot open temporary file
+     public var cache = false
+diff --git a/Sources/KSPlayer/MEPlayer/MEPlayerItem.swift b/Sources/KSPlayer/MEPlayer/MEPlayerItem.swift
+index 169e00af..90b39606 100644
+--- a/Sources/KSPlayer/MEPlayer/MEPlayerItem.swift
++++ b/Sources/KSPlayer/MEPlayer/MEPlayerItem.swift
+@@ -39,6 +39,8 @@ public final class MEPlayerItem: Sendable {
+     private var videoAdaptation: VideoAdaptationState?
+     private var videoDisplayCount = UInt8(0)
+     private var seekByBytes = false
++    private var packetHistory = [Packet]()
++    private var packetHistoryEndTime = TimeInterval(-1)
+     private var lastVideoDisplayTime = CACurrentMediaTime()
+     public private(set) var chapters: [Chapter] = []
+     public var currentPlaybackTime: TimeInterval {
+@@ -464,6 +466,18 @@ extension MEPlayerItem {
+             if state == .seeking {
+                 let seekToTime = seekTime
+                 let time = mainClock().time
++                if replayPacketHistory(to: seekToTime) {
++                    isSeek = true
++                    DispatchQueue.main.async { [weak self] in
++                        guard let self else { return }
++                        self.seekingCompletionHandler?(true)
++                        self.seekingCompletionHandler = nil
++                    }
++                    audioClock.time = CMTime(seconds: seekToTime, preferredTimescale: time.timescale) + startTime
++                    videoClock.time = CMTime(seconds: seekToTime, preferredTimescale: time.timescale) + startTime
++                    state = .reading
++                    continue
++                }
+                 var increase = Int64(seekTime + startTime.seconds - time.seconds)
+                 var seekFlags = options.seekFlags
+                 let timeStamp: Int64
+@@ -587,6 +601,7 @@ extension MEPlayerItem {
+                     }
+                 }
+                 packet.assetTrack = first
++                remember(packet: packet)
+                 if first.mediaType == .video {
+                     if options.readVideoTime == 0 {
+                         options.readVideoTime = CACurrentMediaTime()
+@@ -618,6 +633,80 @@ extension MEPlayerItem {
+         return readResult
+     }
+ 
++    private func remember(packet: Packet) {
++        guard duration > 0,
++              options.inBufferBackwardSeek,
++              options.backwardSeekBufferDuration > 0,
++              let copy = packet.copyForSeekCache()
++        else {
++            return
++        }
++        let packetTime = packet.seconds - startTime.seconds
++        guard packetTime.isFinite, packetTime >= 0 else {
++            return
++        }
++        packetHistory.append(copy)
++        packetHistoryEndTime = max(packetHistoryEndTime, packetTime)
++        let cutoff = packetHistoryEndTime - options.backwardSeekBufferDuration
++        if cutoff > 0 {
++            let removeCount = packetHistory.prefix { packet in
++                packet.seconds - startTime.seconds < cutoff
++            }.count
++            if removeCount > 0 {
++                packetHistory.removeFirst(removeCount)
++            }
++        }
++    }
++
++    private func replayPacketHistory(to target: TimeInterval) -> Bool {
++        guard duration > 0,
++              options.inBufferBackwardSeek,
++              packetHistory.count > 1,
++              target.isFinite,
++              target >= 0
++        else {
++            return false
++        }
++        let currentTime = (mainClock().time - startTime).seconds
++        guard target + 0.05 < currentTime,
++              packetHistoryEndTime >= currentTime - 1
++        else {
++            return false
++        }
++
++        let keyframeIndex = packetHistory.lastIndex { packet in
++            packet.assetTrack.mediaType == .video &&
++                packet.isKeyFrame &&
++                packet.seconds - startTime.seconds <= target
++        }
++        guard let keyframeIndex else {
++            return false
++        }
++        let keyframeTime = packetHistory[keyframeIndex].seconds - startTime.seconds
++        let replayStart = max(0, keyframeTime - 1.0)
++        guard let startIndex = packetHistory.firstIndex(where: { packet in
++            packet.seconds - startTime.seconds >= replayStart
++        }),
++              packetHistory.last!.seconds - startTime.seconds >= currentTime - 0.5
++        else {
++            return false
++        }
++
++        // seek(time:) has already reset the decoder queues. Replaying the
++        // retained compressed packets rebuilds them without another network
++        // read; the format context remains at its previous read position.
++        for packet in packetHistory[startIndex...] {
++            if packet.assetTrack.mediaType == .video {
++                videoTrack?.putPacket(packet: packet)
++            } else if packet.assetTrack.mediaType == .audio {
++                audioTrack?.putPacket(packet: packet)
++            } else {
++                packet.assetTrack.subtitle?.putPacket(packet: packet)
++            }
++        }
++        return true
++    }
++
+     private func pause() {
+         if state == .reading {
+             state = .paused
+diff --git a/Sources/KSPlayer/MEPlayer/Model.swift b/Sources/KSPlayer/MEPlayer/Model.swift
+index 15766265..2fb12857 100644
+--- a/Sources/KSPlayer/MEPlayer/Model.swift
++++ b/Sources/KSPlayer/MEPlayer/Model.swift
+@@ -222,6 +222,23 @@ final class Packet: ObjectQueueItem {
+         }
+     }
+ 
++    /// Make an independent packet reference for the short VOD rewind cache.
++    /// The active decoder queue owns the original packet; this reference keeps
++    /// its compressed bytes available after that queue consumes it.
++    func copyForSeekCache() -> Packet? {
++        guard let source = corePacket else {
++            return nil
++        }
++        let copy = Packet()
++        guard let destination = copy.corePacket,
++              av_packet_ref(destination, source) >= 0
++        else {
++            return nil
++        }
++        copy.assetTrack = assetTrack
++        return copy
++    }
++
+     deinit {
+         av_packet_unref(corePacket)
+         av_packet_free(&corePacket)
