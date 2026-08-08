@@ -73,7 +73,13 @@ jobs:
 
       - name: Create checksums
         working-directory: dist/executables
-        run: shasum -a 256 * > SHA256SUMS.txt
+        run: |
+          : > SHA256SUMS.txt
+          for artifact in *; do
+            if [[ -f "${artifact}" && "${artifact}" != "SHA256SUMS.txt" ]]; then
+              shasum -a 256 "${artifact}" >> SHA256SUMS.txt
+            fi
+          done
 
       - name: Publish GitHub Release
         env:
