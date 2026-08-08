@@ -85,7 +85,13 @@ jobs:
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
-          gh release create "${RELEASE_TAG}" dist/executables/* \
+          artifacts=()
+          for artifact in dist/executables/*; do
+            if [[ -f "${artifact}" ]]; then
+              artifacts+=("${artifact}")
+            fi
+          done
+          gh release create "${RELEASE_TAG}" "${artifacts[@]}" \
             --verify-tag \
             --title "ARM-Nator ${RELEASE_TAG#v}" \
             --generate-notes
