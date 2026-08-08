@@ -201,6 +201,10 @@ export interface ElectronBridgeKsPlayerMetalApi {
         sessionId: string,
         speed: number
     ) => Promise<EmbeddedMpvSession | null>;
+    setKsPlayerMetalDisplayMode: (
+        sessionId: string,
+        mode: string
+    ) => Promise<EmbeddedMpvSession | null>;
     getKsPlayerMetalSupportedControls: (
         sessionId?: string
     ) => Promise<KsPlayerMetalControls>;

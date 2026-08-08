@@ -751,6 +751,7 @@ private struct Controls: Encodable {
     let audioTracks: Bool
     let subtitles: Bool
     let playbackSpeed: Bool
+    let displayMode: Bool
 }
 
 private struct TrackSnapshot: Encodable {
@@ -782,6 +783,7 @@ private struct Snapshot: Encodable {
     let subtitleTracks: [TrackSnapshot]
     let selectedSubtitleTrackId: Int?
     let playbackSpeed: Double?
+    let aspectOverride: String
     let resolution: Resolution?
     let videoWidth: Double?
     let videoHeight: Double?
@@ -817,6 +819,7 @@ private struct Snapshot: Encodable {
             subtitleTracks: [],
             selectedSubtitleTrackId: nil,
             playbackSpeed: nil,
+            aspectOverride: "fit",
             resolution: nil,
             videoWidth: nil,
             videoHeight: nil,
@@ -903,6 +906,7 @@ private final class KSPlayerMetalSession: NSObject, MediaPlayerDelegate {
     private var requestedPaused: Bool?
     private var requestedVolume: Float = 1
     private var requestedPlaybackSpeed: Float = 1
+    private var requestedDisplayMode = "fit"
     private var streamURL: String?
     private var loadedURL: URL?
     private var loadedHeaders: [String: String] = [:]
@@ -1021,6 +1025,7 @@ private final class KSPlayerMetalSession: NSObject, MediaPlayerDelegate {
         )
         self.containerView = containerView
         self.playerView = playerView
+        applyDisplayMode(to: player)
         let subtitleView = KSPlayerMetalSubtitleView(frame: containerView.bounds)
         containerView.addSubview(subtitleView, positioned: .above, relativeTo: nil)
         self.subtitleView = subtitleView
@@ -1229,6 +1234,20 @@ private final class KSPlayerMetalSession: NSObject, MediaPlayerDelegate {
         return .success(sessionId: id, snapshot: snapshot())
     }
 
+    func setDisplayMode(_ mode: String) -> OperationResult {
+        guard mode == "fit" || mode == "fill" else {
+            return .failure(
+                "KSPlayer display mode must be fit or fill.",
+                sessionId: id
+            )
+        }
+        requestedDisplayMode = mode
+        if let player {
+            applyDisplayMode(to: player)
+        }
+        return .success(sessionId: id, snapshot: snapshot())
+    }
+
     func dispose() {
         state = .disposed
         detachPlayer()
@@ -1309,6 +1328,7 @@ private final class KSPlayerMetalSession: NSObject, MediaPlayerDelegate {
             subtitleTracks: subtitleTracks,
             selectedSubtitleTrackId: selectedSubtitleTrackID,
             playbackSpeed: hasPlayer ? Double(player?.playbackRate ?? requestedPlaybackSpeed) : Double(requestedPlaybackSpeed),
+            aspectOverride: requestedDisplayMode,
             resolution: resolution,
             videoWidth: resolution?.width,
             videoHeight: resolution?.height,
@@ -1634,6 +1654,12 @@ private final class KSPlayerMetalSession: NSObject, MediaPlayerDelegate {
         }
     }
 
+    private func applyDisplayMode(to player: KSMEPlayer) {
+        player.contentMode = requestedDisplayMode == "fill"
+            ? .scaleAspectFill
+            : .scaleAspectFit
+    }
+
     private func cancelSeekTimeout() {
         seekTimeoutWorkItem?.cancel()
         seekTimeoutWorkItem = nil
@@ -1908,6 +1934,13 @@ private final class KSPlayerMetalRuntime {
         return session.setPlaybackSpeed(speed)
     }
 
+    func setDisplayMode(id: String, mode: String) -> OperationResult {
+        guard let session = sessions[id] else {
+            return .failure("KSPlayer session was not found.", sessionId: id)
+        }
+        return session.setDisplayMode(mode)
+    }
+
     func getSupportedControls(id _: String?) -> Controls {
         Controls(
             pause: true,
@@ -1915,7 +1948,8 @@ private final class KSPlayerMetalRuntime {
             volume: true,
             audioTracks: true,
             subtitles: true,
-            playbackSpeed: true
+            playbackSpeed: true,
+            displayMode: true
         )
     }
 
@@ -2240,6 +2274,20 @@ public func ksplayer_metal_set_playback_speed(
     }
     return invokeOnMain {
         encodedJSON(KSPlayerMetalRuntime.shared.setPlaybackSpeed(id: sessionID, speed: speed))
+    }
+}
+
+@_cdecl("ksplayer_metal_set_display_mode")
+public func ksplayer_metal_set_display_mode(
+    _ sessionID: UnsafePointer<CChar>?,
+    _ mode: UnsafePointer<CChar>?
+) -> UnsafeMutablePointer<CChar>? {
+    guard let sessionID = stringArgument(sessionID),
+          let mode = stringArgument(mode) else {
+        return copiedCString(operationFailure("Session id and display mode must be valid UTF-8."))
+    }
+    return invokeOnMain {
+        encodedJSON(KSPlayerMetalRuntime.shared.setDisplayMode(id: sessionID, mode: mode))
     }
 }
 

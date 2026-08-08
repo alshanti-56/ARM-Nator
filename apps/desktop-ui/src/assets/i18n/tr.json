@@ -256,7 +256,7 @@
         "VIDEO_PLAYER_LABEL": "Video oynatıcı",
         "PLAYER_HTML5": "HTML5 video oynatıcı",
         "PLAYER_ARTPLAYER": "ArtPlayer",
-        "PLAYER_EMBEDDED_MPV": "Gömülü MPV (Beta)",
+        "PLAYER_EMBEDDED_MPV": "Gömülü MPV",
         "PLAYER_MPV": "MPV oynatıcı",
         "PLAYER_VLC": "VLC",
         "VIDEO_PLAYER_PLACEHOLDER": "Bir seçenek belirleyin",

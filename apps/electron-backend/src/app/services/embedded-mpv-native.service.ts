@@ -138,7 +138,7 @@ export class EmbeddedMpvNativeService {
             return {
                 supported: false,
                 platform: process.platform,
-                reason: 'Embedded MPV Beta is disabled by the current runtime policy.',
+                reason: 'Embedded MPV is disabled by the current runtime policy.',
             };
         }
 
@@ -755,7 +755,7 @@ export class EmbeddedMpvNativeService {
     private assertEmbeddedMpvEnabled(): void {
         if (!isEmbeddedMpvFeatureEnabled()) {
             throw new Error(
-                'Embedded MPV Beta is disabled by the current runtime policy.'
+                'Embedded MPV is disabled by the current runtime policy.'
             );
         }
     }

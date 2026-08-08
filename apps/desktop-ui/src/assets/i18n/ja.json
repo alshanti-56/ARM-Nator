@@ -256,7 +256,7 @@
         "VIDEO_PLAYER_LABEL": "ビデオプレーヤー",
         "PLAYER_HTML5": "HTML5ビデオプレーヤー",
         "PLAYER_ARTPLAYER": "ArtPlayer",
-        "PLAYER_EMBEDDED_MPV": "組み込みMPV（Beta）",
+        "PLAYER_EMBEDDED_MPV": "組み込みMPV",
         "PLAYER_MPV": "MPVプレーヤー",
         "PLAYER_VLC": "VLC",
         "VIDEO_PLAYER_PLACEHOLDER": "オプションを選択",

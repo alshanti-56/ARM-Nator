@@ -30,6 +30,7 @@ import type {
 import { SeriesPlaybackNavigation } from '../portal-inline-player/series-playback-navigation';
 import {
     audioTrackLabel,
+    KS_DISPLAY_PRESETS,
     readStoredVolume,
     subtitleTrackLabel,
 } from './embedded-mpv-format.utils';
@@ -95,8 +96,9 @@ export class EmbeddedMpvControlsAdapter implements PlayerController {
                     ? (optionalCapabilities?.playbackSpeed ?? false)
                     : ksControls?.playbackSpeed === true,
             aspectRatio:
-                !isKsPlayerMetal &&
-                (optionalCapabilities?.aspectOverride ?? false),
+                isKsPlayerMetal
+                    ? ksControls?.displayMode === true
+                    : (optionalCapabilities?.aspectOverride ?? false),
             pictureAdjustments:
                 !isKsPlayerMetal &&
                 (optionalCapabilities?.pictureAdjustments ?? false),
@@ -117,6 +119,8 @@ export class EmbeddedMpvControlsAdapter implements PlayerController {
         const session = this.controller.session();
         const playback = context.playback();
         const isLive = this.isLivePlayback(playback);
+        const isKsPlayerMetal =
+            this.controller.activeBackend() === 'ksplayer-metal';
         const capabilities = this.capabilities();
         const durationSeconds = isLive
             ? null
@@ -177,7 +181,9 @@ export class EmbeddedMpvControlsAdapter implements PlayerController {
                 ? (session?.aspectOverride ?? 'no')
                 : 'no',
             aspectPresets: capabilities.aspectRatio
-                ? DEFAULT_ASPECT_PRESETS
+                ? isKsPlayerMetal
+                    ? KS_DISPLAY_PRESETS
+                    : DEFAULT_ASPECT_PRESETS
                 : [],
             picture: capabilities.pictureAdjustments
                 ? (session?.picture ?? this.picture())

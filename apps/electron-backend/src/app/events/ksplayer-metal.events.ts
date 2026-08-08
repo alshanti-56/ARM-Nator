@@ -16,6 +16,7 @@ import {
     KSPLAYER_METAL_SET_PAUSED,
     KSPLAYER_METAL_SET_VOLUME,
     KSPLAYER_METAL_SET_SPEED,
+    KSPLAYER_METAL_SET_DISPLAY_MODE,
     KSPLAYER_METAL_SUPPORT,
     ResolvedPortalPlayback,
     PlayerSubtitleSettings,
@@ -113,6 +114,12 @@ handleKsPlayerMetal(
 handleKsPlayerMetal(
     KSPLAYER_METAL_SET_SPEED,
     (sessionId: string, speed: number) => getService().setSpeed(sessionId, speed)
+);
+
+handleKsPlayerMetal(
+    KSPLAYER_METAL_SET_DISPLAY_MODE,
+    (sessionId: string, mode: string) =>
+        getService().setDisplayMode(sessionId, mode)
 );
 
 handleKsPlayerMetal(

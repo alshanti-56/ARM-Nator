@@ -256,7 +256,7 @@
         "VIDEO_PLAYER_LABEL": "Видеоплеер",
         "PLAYER_HTML5": "HTML5-плеер",
         "PLAYER_ARTPLAYER": "ArtPlayer",
-        "PLAYER_EMBEDDED_MPV": "Встроенный MPV (Beta)",
+        "PLAYER_EMBEDDED_MPV": "Встроенный MPV",
         "PLAYER_MPV": "MPV-плеер",
         "PLAYER_VLC": "VLC",
         "VIDEO_PLAYER_PLACEHOLDER": "Выберите из списка",

@@ -36,6 +36,7 @@ const DEFAULT_CONTROLS: KsPlayerMetalControls = {
   audioTracks: false,
   subtitles: false,
   playbackSpeed: false,
+  displayMode: false,
 };
 
 export interface NativeKsPlayerMetalSessionSnapshot extends Partial<EmbeddedMpvSession> {
@@ -171,6 +172,7 @@ export interface NativeKsPlayerMetalAddon {
   setSubtitleFile(sessionId: string, filePath: string): unknown;
   setSubtitleSettings(sessionId: string, settingsJSON: string): unknown;
   setPlaybackSpeed(sessionId: string, speed: number): unknown;
+  setDisplayMode(sessionId: string, mode: string): unknown;
   getSupportedControls(sessionId?: string): KsPlayerMetalControls;
   getSnapshot(sessionId: string): NativeKsPlayerMetalSessionSnapshot | null;
   disposeSession(sessionId: string): unknown;
@@ -285,6 +287,7 @@ function normalizeControls(value: unknown): KsPlayerMetalControls {
     audioTracks: controls?.audioTracks === true,
     subtitles: controls?.subtitles === true,
     playbackSpeed: controls?.playbackSpeed === true,
+    displayMode: controls?.displayMode === true,
   };
 }
 
@@ -655,6 +658,18 @@ export class KsPlayerMetalNativeService {
     assertNativeOperation(
       this.getAddon().setPlaybackSpeed(sessionId, speed),
       "setPlaybackSpeed",
+    );
+    return this.refreshSession(sessionId);
+  }
+
+  setDisplayMode(
+    sessionId: string,
+    mode: string,
+  ): EmbeddedMpvSession | null {
+    this.getRuntimeSession(sessionId);
+    assertNativeOperation(
+      this.getAddon().setDisplayMode(sessionId, mode),
+      "setDisplayMode",
     );
     return this.refreshSession(sessionId);
   }

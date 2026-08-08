@@ -27,6 +27,14 @@ export const ASPECT_PRESETS: ReadonlyArray<{ value: string; label: string }> = [
     { value: '2.35:1', label: '2.35:1' },
 ];
 
+export const KS_DISPLAY_PRESETS: ReadonlyArray<{
+    value: string;
+    label: string;
+}> = [
+    { value: 'fit', label: 'Fit' },
+    { value: 'fill', label: 'Fill' },
+];
+
 export function formatTime(value: number | null | undefined): string {
     const safeValue = Math.max(0, Math.floor(value ?? 0));
     const hours = Math.floor(safeValue / 3600);

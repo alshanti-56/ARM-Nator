@@ -256,7 +256,7 @@
         "VIDEO_PLAYER_LABEL": "影片播放器",
         "PLAYER_HTML5": "HTML5 影片播放器",
         "PLAYER_ARTPLAYER": "ArtPlayer",
-        "PLAYER_EMBEDDED_MPV": "內嵌 MPV（Beta）",
+        "PLAYER_EMBEDDED_MPV": "內嵌 MPV",
         "PLAYER_MPV": "MPV 播放器",
         "PLAYER_VLC": "VLC",
         "VIDEO_PLAYER_PLACEHOLDER": "選擇一個選項",

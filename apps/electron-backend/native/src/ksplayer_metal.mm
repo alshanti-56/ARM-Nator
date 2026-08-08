@@ -57,6 +57,7 @@ struct RuntimeApi {
     NumberFunction setSubtitleTrack = nullptr;
     StringFunction setSubtitleFile = nullptr;
     StringFunction setSubtitleSettings = nullptr;
+    StringFunction setDisplayMode = nullptr;
     NumberFunction setPlaybackSpeed = nullptr;
     SessionFunction getSupportedControls = nullptr;
     SessionFunction getSnapshot = nullptr;
@@ -335,6 +336,11 @@ class RuntimeLoader {
             candidateApi.setPlaybackSpeed = resolveSymbol<NumberFunction>(
                 handle,
                 "ksplayer_metal_set_playback_speed",
+                symbolError
+            );
+            candidateApi.setDisplayMode = resolveSymbol<StringFunction>(
+                handle,
+                "ksplayer_metal_set_display_mode",
                 symbolError
             );
             candidateApi.getSupportedControls = resolveSymbol<SessionFunction>(
@@ -1218,6 +1224,35 @@ Napi::Value SetPlaybackSpeed(const Napi::CallbackInfo& info)
     return InvokeNumberOperation(info, false, true, false, false, "playback speed");
 }
 
+Napi::Value SetDisplayMode(const Napi::CallbackInfo& info)
+{
+    try {
+        const auto env = info.Env();
+        std::string sessionId;
+        std::string mode;
+        std::string error;
+        if (!readRequiredString(info, 0, sessionId, error) ||
+            !readRequiredString(info, 1, mode, error)) {
+            return operationUnavailable(env, error, sessionId.empty()
+                ? std::nullopt
+                : std::optional<std::string>(sessionId));
+        }
+        auto& runtime = runtimeLoader();
+        if (!runtime.ensureLoaded()) {
+            return operationUnavailable(env, runtime.error(), sessionId);
+        }
+        return parseJsonOrFallback(
+            env,
+            runtime.invoke(runtime.api().setDisplayMode, sessionId, mode),
+            operationErrorJson("KSPlayer Metal runtime returned malformed display-mode data.", sessionId)
+        );
+    } catch (const std::exception& exception) {
+        return operationUnavailable(info.Env(), exception.what());
+    } catch (...) {
+        return operationUnavailable(info.Env(), "Unknown KSPlayer Metal addon failure.");
+    }
+}
+
 Napi::Value GetSupportedControls(const Napi::CallbackInfo& info)
 {
     try {
@@ -1335,6 +1370,7 @@ Napi::Object Init(Napi::Env env, Napi::Object exports)
     exports.Set("setSubtitleFile", Napi::Function::New(env, SetSubtitleFile));
     exports.Set("setSubtitleSettings", Napi::Function::New(env, SetSubtitleSettings));
     exports.Set("setPlaybackSpeed", Napi::Function::New(env, SetPlaybackSpeed));
+    exports.Set("setDisplayMode", Napi::Function::New(env, SetDisplayMode));
     exports.Set(
         "getSupportedControls",
         Napi::Function::New(env, GetSupportedControls)

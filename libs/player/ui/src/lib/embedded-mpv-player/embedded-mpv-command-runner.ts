@@ -182,11 +182,16 @@ export class EmbeddedMpvCommandRunner {
     }
 
     async setAspect(aspect: string): Promise<void> {
-        if (this.backend() === 'ksplayer-metal') {
-            return;
-        }
         const id = this.ctx.sessionId();
         const electron = this.bridge();
+        if (this.backend() === 'ksplayer-metal') {
+            const setDisplayMode = electron?.setKsPlayerMetalDisplayMode;
+            if (!id || !setDisplayMode || !this.supports('displayMode')) {
+                return;
+            }
+            await this.run(id, () => setDisplayMode(id, aspect));
+            return;
+        }
         const setAspect = electron?.setEmbeddedMpvAspect;
         if (!id || !setAspect) {
             return;

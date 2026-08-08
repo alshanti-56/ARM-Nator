@@ -62,8 +62,11 @@ handleEmbeddedMpv(EMBEDDED_MPV_PREPARE, () => getService().prepareAddon());
 
 handleEmbeddedMpv(
     EMBEDDED_MPV_CREATE_SESSION,
-    (bounds: EmbeddedMpvBounds, title?: string, initialVolume?: number) =>
-        getService().createSession(bounds, title, initialVolume)
+    (
+        bounds: EmbeddedMpvBounds,
+        title?: string,
+        initialVolume?: number
+    ) => getService().createSession(bounds, title, initialVolume)
 );
 
 handleEmbeddedMpv(

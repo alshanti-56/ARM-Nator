@@ -3,7 +3,7 @@ import {
     EmbeddedMpvAudioTrack,
     PlayerPictureSettings,
 } from '@arm-nator/shared/interfaces';
-import { ASPECT_PRESETS, SPEED_PRESETS } from './embedded-mpv-format.utils';
+import { SPEED_PRESETS } from './embedded-mpv-format.utils';
 import type { EmbeddedMpvMenuState } from './embedded-mpv-ui-state';
 
 export type EmbeddedMpvDockPanelKind =
@@ -36,6 +36,9 @@ export interface EmbeddedMpvDockPanelDeps {
     readonly selectedSubtitleTrackId: Signal<number | null>;
     readonly playbackSpeed: Signal<number>;
     readonly aspectOverride: Signal<string>;
+    readonly aspectPresets: Signal<
+        ReadonlyArray<{ value: string; label: string }>
+    >;
     readonly picture: Signal<PlayerPictureSettings>;
     readonly translateLabel: (key: string) => string;
     readonly audioTrackLabel: (
@@ -206,7 +209,7 @@ export class EmbeddedMpvDockPanelState {
                 title: this.deps.translateLabel(
                     'EMBEDDED_MPV.PLAYER.ASPECT_RATIO'
                 ),
-                chips: ASPECT_PRESETS.map((preset) => ({
+                chips: this.deps.aspectPresets().map((preset) => ({
                     id: preset.value,
                     label: this.deps.aspectLabel(preset.value),
                     selected: preset.value === aspect,

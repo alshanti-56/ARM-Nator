@@ -38,6 +38,8 @@ export interface KsPlayerMetalControls {
     subtitles?: boolean;
     /** Optional for compatibility with older KSPlayer native addons. */
     playbackSpeed?: boolean;
+    /** KSPlayer's native content-mode control (fit/fill). */
+    displayMode?: boolean;
 }
 
 export type KsPlayerMetalSupportedControls = KsPlayerMetalControls;
