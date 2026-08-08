@@ -1,7 +1,7 @@
 # ARM-Nator Product Requirements Document
 
 **Status:** Draft for product alignment
-**Product version:** 0.24.0
+**Product version:** 0.25.0
 **Date:** 2026-08-04
 **Owner:** ARM-Nator product team
 
