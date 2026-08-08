@@ -59,7 +59,9 @@ jobs:
         run: pnpm install --frozen-lockfile
 
       - name: Install native runtime build tools
-        run: brew install meson ninja pkg-config
+        run: |
+          brew untap aws/tap 2>/dev/null || true
+          HOMEBREW_NO_AUTO_UPDATE=1 brew install meson ninja pkg-config
 
       - name: Build and package ARM-Nator
         env:
