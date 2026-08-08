@@ -22,6 +22,7 @@
     "embedded-mpv:runtime": "node tools/embedded-mpv/ensure-macos-runtime.mjs",
     "embedded-mpv:build": "nx run electron-backend:build-embedded-mpv",
     "ksplayer-metal:build": "nx run electron-backend:build-ksplayer-metal",
+    "player-backend:compare": "node_modules/.pnpm/electron@41.7.2/node_modules/electron/dist/Electron.app/Contents/MacOS/Electron tools/player-backend-comparison.mjs",
     "graphify:runs": "node tools/graphify-runs.mjs",
     "player:fixtures": "node tools/player-stream-fixtures.mjs",
     "clean": "rm -rf dist tmp apps/electron-backend/native/build"

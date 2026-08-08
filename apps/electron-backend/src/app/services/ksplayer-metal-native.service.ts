@@ -17,6 +17,10 @@ import {
   PlayerPictureSettings,
 } from "@arm-nator/shared/interfaces";
 import { toNativeViewBounds } from "./embedded-mpv-bounds.util";
+import {
+  EMPTY_KSPLAYER_METAL_CONTROLS,
+  normalizeKsPlayerMetalControls,
+} from "./ksplayer-metal-controls";
 
 const BACKEND = "ksplayer-metal" as const;
 const POLL_INTERVAL_MS = 500;
@@ -29,15 +33,7 @@ const DEFAULT_PICTURE = {
   gamma: 0,
 } as const;
 
-const DEFAULT_CONTROLS: KsPlayerMetalControls = {
-  pause: false,
-  seek: false,
-  volume: false,
-  audioTracks: false,
-  subtitles: false,
-  playbackSpeed: false,
-  displayMode: false,
-};
+const DEFAULT_CONTROLS = EMPTY_KSPLAYER_METAL_CONTROLS;
 
 export interface NativeKsPlayerMetalSessionSnapshot extends Partial<EmbeddedMpvSession> {
   backend: "ksplayer-metal";
@@ -173,6 +169,8 @@ export interface NativeKsPlayerMetalAddon {
   setSubtitleSettings(sessionId: string, settingsJSON: string): unknown;
   setPlaybackSpeed(sessionId: string, speed: number): unknown;
   setDisplayMode(sessionId: string, mode: string): unknown;
+  setAspect?(sessionId: string, aspect: string): unknown;
+  setPicture?(sessionId: string, pictureJSON: string): unknown;
   getSupportedControls(sessionId?: string): KsPlayerMetalControls;
   getSnapshot(sessionId: string): NativeKsPlayerMetalSessionSnapshot | null;
   disposeSession(sessionId: string): unknown;
@@ -278,19 +276,6 @@ function hasOwnHeader(headers: Record<string, string>, name: string): boolean {
   );
 }
 
-function normalizeControls(value: unknown): KsPlayerMetalControls {
-  const controls = value as Partial<KsPlayerMetalControls> | null;
-  return {
-    pause: controls?.pause === true,
-    seek: controls?.seek === true,
-    volume: controls?.volume === true,
-    audioTracks: controls?.audioTracks === true,
-    subtitles: controls?.subtitles === true,
-    playbackSpeed: controls?.playbackSpeed === true,
-    displayMode: controls?.displayMode === true,
-  };
-}
-
 function normalizeSupport(
   value: unknown,
   runtimePath?: string,
@@ -362,6 +347,32 @@ function normalizePicture(value: unknown): PlayerPictureSettings {
     saturation: numberOrDefault("saturation"),
     gamma: numberOrDefault("gamma"),
   };
+}
+
+function isValidPicture(picture: PlayerPictureSettings): boolean {
+  return (
+    Object.keys(DEFAULT_PICTURE) as Array<keyof PlayerPictureSettings>
+  ).every((key) => {
+    const value = picture[key];
+    return (
+      typeof value === "number" &&
+      Number.isFinite(value) &&
+      value >= -100 &&
+      value <= 100
+    );
+  });
+}
+
+const KSPLAYER_ASPECT_PRESETS = new Set([
+  "no",
+  "16:9",
+  "4:3",
+  "21:9",
+  "2.35:1",
+]);
+
+function isValidAspectOverride(aspect: string): boolean {
+  return KSPLAYER_ASPECT_PRESETS.has(aspect);
 }
 
 function normalizeStatus(
@@ -559,7 +570,11 @@ export class KsPlayerMetalNativeService {
     // requested initial value without making a successful creation fail
     // when an addon build reports volume as unavailable.
     try {
-      const controls = normalizeControls(addon.getSupportedControls(sessionId));
+      const controls = normalizeKsPlayerMetalControls(
+        addon.getSupportedControls(sessionId),
+        typeof addon.setPicture === "function",
+        typeof addon.setAspect === "function",
+      );
       if (controls.volume) {
         assertNativeOperation(
           addon.setVolume(sessionId, initialVolume),
@@ -662,10 +677,7 @@ export class KsPlayerMetalNativeService {
     return this.refreshSession(sessionId);
   }
 
-  setDisplayMode(
-    sessionId: string,
-    mode: string,
-  ): EmbeddedMpvSession | null {
+  setDisplayMode(sessionId: string, mode: string): EmbeddedMpvSession | null {
     this.getRuntimeSession(sessionId);
     assertNativeOperation(
       this.getAddon().setDisplayMode(sessionId, mode),
@@ -674,10 +686,46 @@ export class KsPlayerMetalNativeService {
     return this.refreshSession(sessionId);
   }
 
-  setAudioTrack(
+  setAspect(sessionId: string, aspect: string): EmbeddedMpvSession | null {
+    this.getRuntimeSession(sessionId);
+    const addon = this.getAddon();
+    if (typeof addon.setAspect !== "function") {
+      throw new Error(
+        "KSPlayer Metal aspect override requires a rebuilt native runtime.",
+      );
+    }
+    if (!isValidAspectOverride(aspect)) {
+      throw new Error("Unsupported KSPlayer Metal aspect override.");
+    }
+    assertNativeOperation(addon.setAspect(sessionId, aspect), "setAspect");
+    return this.refreshSession(sessionId);
+  }
+
+  setPicture(
     sessionId: string,
-    trackId: number,
+    picture: PlayerPictureSettings,
   ): EmbeddedMpvSession | null {
+    this.getRuntimeSession(sessionId);
+    const addon = this.getAddon();
+    if (typeof addon.setPicture !== "function") {
+      throw new Error(
+        "KSPlayer Metal picture adjustments require a rebuilt native runtime.",
+      );
+    }
+    if (!isValidPicture(picture)) {
+      throw new Error(
+        "Picture settings must be finite values between -100 and 100.",
+      );
+    }
+    const normalized = normalizePicture(picture);
+    assertNativeOperation(
+      addon.setPicture(sessionId, JSON.stringify(normalized)),
+      "setPicture",
+    );
+    return this.refreshSession(sessionId);
+  }
+
+  setAudioTrack(sessionId: string, trackId: number): EmbeddedMpvSession | null {
     this.getRuntimeSession(sessionId);
     assertNativeOperation(
       this.getAddon().setAudioTrack(sessionId, trackId),
@@ -724,7 +772,12 @@ export class KsPlayerMetalNativeService {
 
   getSupportedControls(sessionId?: string): KsPlayerMetalControls {
     try {
-      return normalizeControls(this.getAddon().getSupportedControls(sessionId));
+      const addon = this.getAddon();
+      return normalizeKsPlayerMetalControls(
+        addon.getSupportedControls(sessionId),
+        typeof addon.setPicture === "function",
+        typeof addon.setAspect === "function",
+      );
     } catch (error) {
       console.warn("[KSPlayer Metal] Supported-controls query failed:", error);
       return { ...DEFAULT_CONTROLS };

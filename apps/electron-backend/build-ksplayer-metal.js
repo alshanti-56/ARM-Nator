@@ -37,6 +37,11 @@ const swiftReleaseDir = path.join(
 );
 const ksPlayerPatches = [
   {
+    path: path.join(packageRoot, "patches", "ksplayer", "picture-adjustments.patch"),
+    files: ["Sources/KSPlayer/MEPlayer/MetalPlayView.swift", "Sources/KSPlayer/Metal/MetalRender.swift", "Sources/KSPlayer/Metal/Shaders.metal"],
+    markers: [["Sources/KSPlayer/MEPlayer/MetalPlayView.swift", "setPictureAdjustments"], ["Sources/KSPlayer/Metal/Shaders.metal", "applyPictureAdjustments"]],
+  },
+  {
     path: path.join(
       packageRoot,
       "patches",
@@ -52,6 +57,8 @@ const ksPlayerPatches = [
       ["Sources/KSPlayer/AVPlayer/KSOptions.swift", "backwardSeekBufferDuration"],
       ["Sources/KSPlayer/MEPlayer/MEPlayerItem.swift", "copyForSeekCache"],
       ["Sources/KSPlayer/MEPlayer/MEPlayerItem.swift", "packetHistoryEndTime"],
+      ["Sources/KSPlayer/MEPlayer/MEPlayerItem.swift", "Notify callers only after the decoder state and clocks"],
+      ["Sources/KSPlayer/MEPlayer/MEPlayerItem.swift", "Keep it after the seek state and clocks are committed"],
     ],
   },
 ];

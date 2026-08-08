@@ -17,9 +17,12 @@ import {
     KSPLAYER_METAL_SET_VOLUME,
     KSPLAYER_METAL_SET_SPEED,
     KSPLAYER_METAL_SET_DISPLAY_MODE,
+    KSPLAYER_METAL_SET_ASPECT,
+    KSPLAYER_METAL_SET_PICTURE,
     KSPLAYER_METAL_SUPPORT,
     ResolvedPortalPlayback,
     PlayerSubtitleSettings,
+    PlayerPictureSettings,
 } from '@arm-nator/shared/interfaces';
 import {
     KsPlayerMetalNativeService,
@@ -120,6 +123,18 @@ handleKsPlayerMetal(
     KSPLAYER_METAL_SET_DISPLAY_MODE,
     (sessionId: string, mode: string) =>
         getService().setDisplayMode(sessionId, mode)
+);
+
+handleKsPlayerMetal(
+    KSPLAYER_METAL_SET_ASPECT,
+    (sessionId: string, aspect: string) =>
+        getService().setAspect(sessionId, aspect)
+);
+
+handleKsPlayerMetal(
+    KSPLAYER_METAL_SET_PICTURE,
+    (sessionId: string, picture: PlayerPictureSettings) =>
+        getService().setPicture(sessionId, picture)
 );
 
 handleKsPlayerMetal(

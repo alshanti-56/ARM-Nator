@@ -185,11 +185,11 @@ export class EmbeddedMpvCommandRunner {
         const id = this.ctx.sessionId();
         const electron = this.bridge();
         if (this.backend() === 'ksplayer-metal') {
-            const setDisplayMode = electron?.setKsPlayerMetalDisplayMode;
-            if (!id || !setDisplayMode || !this.supports('displayMode')) {
+            const setAspect = electron?.setKsPlayerMetalAspect;
+            if (!id || !setAspect || !this.supports('aspectOverride')) {
                 return;
             }
-            await this.run(id, () => setDisplayMode(id, aspect));
+            await this.run(id, () => setAspect(id, aspect));
             return;
         }
         const setAspect = electron?.setEmbeddedMpvAspect;
@@ -201,6 +201,13 @@ export class EmbeddedMpvCommandRunner {
 
     async setPicture(picture: PlayerPictureSettings): Promise<void> {
         if (this.backend() === 'ksplayer-metal') {
+            const id = this.ctx.sessionId();
+            const electron = this.bridge();
+            const setPicture = electron?.setKsPlayerMetalPicture;
+            if (!id || !setPicture || !this.supports('pictureAdjustments')) {
+                return;
+            }
+            await this.run(id, () => setPicture(id, picture));
             return;
         }
         const id = this.ctx.sessionId();

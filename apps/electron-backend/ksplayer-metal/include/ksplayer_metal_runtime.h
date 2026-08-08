@@ -45,6 +45,8 @@ char* ksplayer_metal_set_subtitle_file(const char* session_id, const char* file_
 char* ksplayer_metal_set_subtitle_settings(const char* session_id, const char* settings_json);
 char* ksplayer_metal_set_playback_speed(const char* session_id, double speed);
 char* ksplayer_metal_set_display_mode(const char* session_id, const char* mode);
+char* ksplayer_metal_set_aspect(const char* session_id, const char* aspect);
+char* ksplayer_metal_set_picture(const char* session_id, const char* picture_json);
 char* ksplayer_metal_get_supported_controls(const char* session_id);
 char* ksplayer_metal_get_snapshot(const char* session_id);
 char* ksplayer_metal_dispose_session(const char* session_id);

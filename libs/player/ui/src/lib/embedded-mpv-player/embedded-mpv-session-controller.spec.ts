@@ -369,6 +369,25 @@ test("unsupported KS probe is terminal and never enters embedded MPV", async () 
   }
 });
 
+test("preserves advertised KSPlayer picture-adjustment controls", async () => {
+  const harness = createHarness(() => ({
+    getKsPlayerMetalSupportedControls: async () => ({
+      pause: true,
+      seek: true,
+      volume: true,
+      pictureAdjustments: true,
+    }),
+  }));
+
+  try {
+    harness.controller.startSession(host, playback, 0.5, "ksplayer-metal");
+    await waitFor(() => harness.controller.supportedControls()?.pictureAdjustments === true);
+    assert.equal(harness.controller.supportedControls()?.pictureAdjustments, true);
+  } finally {
+    harness.destroy();
+  }
+});
+
 test("KS preparation rejection is terminal and cleans native state", async () => {
   const harness = createHarness(() => ({
     prepareKsPlayerMetal: async () => {

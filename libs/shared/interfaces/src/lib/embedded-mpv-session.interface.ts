@@ -40,6 +40,10 @@ export interface KsPlayerMetalControls {
     playbackSpeed?: boolean;
     /** KSPlayer's native content-mode control (fit/fill). */
     displayMode?: boolean;
+    /** MPV-compatible arbitrary display-aspect override presets. */
+    aspectOverride?: boolean;
+    /** Per-session decoded-frame picture adjustments. */
+    pictureAdjustments?: boolean;
 }
 
 export type KsPlayerMetalSupportedControls = KsPlayerMetalControls;

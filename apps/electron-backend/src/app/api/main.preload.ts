@@ -77,6 +77,8 @@ import {
     KSPLAYER_METAL_SET_PAUSED,
     KSPLAYER_METAL_SET_SPEED,
     KSPLAYER_METAL_SET_DISPLAY_MODE,
+    KSPLAYER_METAL_SET_ASPECT,
+    KSPLAYER_METAL_SET_PICTURE,
     KSPLAYER_METAL_SET_VOLUME,
     KSPLAYER_METAL_SUPPORT,
 } from '@arm-nator/shared/interfaces';
@@ -643,6 +645,16 @@ const electronApi: ElectronBridgeApi = {
         mode: string
     ): Promise<EmbeddedMpvSession | null> =>
         ipcRenderer.invoke(KSPLAYER_METAL_SET_DISPLAY_MODE, sessionId, mode),
+    setKsPlayerMetalAspect: (
+        sessionId: string,
+        aspect: string
+    ): Promise<EmbeddedMpvSession | null> =>
+        ipcRenderer.invoke(KSPLAYER_METAL_SET_ASPECT, sessionId, aspect),
+    setKsPlayerMetalPicture: (
+        sessionId: string,
+        picture: PlayerPictureSettings
+    ): Promise<EmbeddedMpvSession | null> =>
+        ipcRenderer.invoke(KSPLAYER_METAL_SET_PICTURE, sessionId, picture),
     getKsPlayerMetalSupportedControls: (
         sessionId?: string
     ): Promise<KsPlayerMetalControls> =>

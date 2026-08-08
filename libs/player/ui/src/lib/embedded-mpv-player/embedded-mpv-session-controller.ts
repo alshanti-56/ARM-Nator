@@ -53,6 +53,8 @@ const EMPTY_KS_CONTROLS: KsPlayerMetalControls = {
     subtitles: false,
     playbackSpeed: false,
     displayMode: false,
+    aspectOverride: false,
+    pictureAdjustments: false,
 };
 
 @Injectable()
@@ -526,6 +528,8 @@ export class EmbeddedMpvSessionController {
                 subtitles: controls.subtitles === true,
                 playbackSpeed: controls.playbackSpeed === true,
                 displayMode: controls.displayMode === true,
+                aspectOverride: controls.aspectOverride === true,
+                pictureAdjustments: controls.pictureAdjustments === true,
             });
             const support = this.support();
             if (support?.backend === 'ksplayer-metal') {

@@ -49,7 +49,6 @@ import {
 } from './embedded-mpv-ui-state';
 import {
     ASPECT_PRESETS,
-    KS_DISPLAY_PRESETS,
     HIDDEN_BOUNDS,
     SPEED_PRESETS,
     aspectLabel,
@@ -136,11 +135,7 @@ export class EmbeddedMpvPlayerComponent implements OnDestroy {
     readonly controlsVisible = signal(true);
 
     readonly speedPresets = SPEED_PRESETS;
-    readonly aspectPresets = computed(() =>
-        this.controller.activeBackend() === 'ksplayer-metal'
-            ? KS_DISPLAY_PRESETS
-            : ASPECT_PRESETS
-    );
+    readonly aspectPresets = computed(() => ASPECT_PRESETS);
     readonly picture = computed(
         () => this.session()?.picture ?? DEFAULT_PICTURE_SETTINGS
     );
@@ -746,9 +741,6 @@ export class EmbeddedMpvPlayerComponent implements OnDestroy {
     speedLabel = speedLabel;
     aspectLabel = (aspect: string) => {
         this.translationsTick();
-        if (this.controller.activeBackend() === 'ksplayer-metal') {
-            return aspect === 'fill' ? 'Fill' : 'Fit';
-        }
         return aspect === 'no'
             ? this.translate.instant('EMBEDDED_MPV.PLAYER.ASPECT_DEFAULT')
             : aspectLabel(aspect);

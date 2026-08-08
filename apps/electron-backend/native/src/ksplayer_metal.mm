@@ -58,6 +58,10 @@ struct RuntimeApi {
     StringFunction setSubtitleFile = nullptr;
     StringFunction setSubtitleSettings = nullptr;
     StringFunction setDisplayMode = nullptr;
+    // Additive so older v1 runtimes remain usable without aspect overrides.
+    StringFunction setAspect = nullptr;
+    // Additive so existing v1 runtimes remain loadable without picture controls.
+    StringFunction setPicture = nullptr;
     NumberFunction setPlaybackSpeed = nullptr;
     SessionFunction getSupportedControls = nullptr;
     SessionFunction getSnapshot = nullptr;
@@ -342,6 +346,14 @@ class RuntimeLoader {
                 handle,
                 "ksplayer_metal_set_display_mode",
                 symbolError
+            );
+            candidateApi.setAspect = resolveOptionalSymbol<StringFunction>(
+                handle,
+                "ksplayer_metal_set_aspect"
+            );
+            candidateApi.setPicture = resolveOptionalSymbol<StringFunction>(
+                handle,
+                "ksplayer_metal_set_picture"
             );
             candidateApi.getSupportedControls = resolveSymbol<SessionFunction>(
                 handle,
@@ -1253,6 +1265,66 @@ Napi::Value SetDisplayMode(const Napi::CallbackInfo& info)
     }
 }
 
+Napi::Value SetAspect(const Napi::CallbackInfo& info)
+{
+    try {
+        const auto env = info.Env();
+        std::string sessionId;
+        std::string aspect;
+        std::string error;
+        if (!readRequiredString(info, 0, sessionId, error) ||
+            !readRequiredString(info, 1, aspect, error)) {
+            return operationUnavailable(env, error, sessionId.empty()
+                ? std::nullopt : std::optional<std::string>(sessionId));
+        }
+        auto& runtime = runtimeLoader();
+        if (!runtime.ensureLoaded()) {
+            return operationUnavailable(env, runtime.error(), sessionId);
+        }
+        if (runtime.api().setAspect == nullptr) {
+            return operationUnavailable(env, "KSPlayer Metal runtime does not support aspect override.", sessionId);
+        }
+        return parseJsonOrFallback(
+            env,
+            runtime.invoke(runtime.api().setAspect, sessionId, aspect),
+            operationErrorJson("KSPlayer Metal runtime returned malformed aspect data.", sessionId)
+        );
+    } catch (const std::exception& exception) {
+        return operationUnavailable(info.Env(), exception.what());
+    } catch (...) {
+        return operationUnavailable(info.Env(), "Unknown KSPlayer Metal addon failure.");
+    }
+}
+
+Napi::Value SetPicture(const Napi::CallbackInfo& info)
+{
+    try {
+        const auto env = info.Env();
+        std::string sessionId;
+        std::string pictureJSON;
+        std::string error;
+        if (!readRequiredString(info, 0, sessionId, error) ||
+            !readRequiredString(info, 1, pictureJSON, error)) {
+            return operationUnavailable(env, error, sessionId.empty()
+                ? std::nullopt
+                : std::optional<std::string>(sessionId));
+        }
+        auto& runtime = runtimeLoader();
+        if (!runtime.ensureLoaded()) {
+            return operationUnavailable(env, runtime.error(), sessionId);
+        }
+        return parseJsonOrFallback(
+            env,
+            runtime.invoke(runtime.api().setPicture, sessionId, pictureJSON),
+            operationErrorJson("KSPlayer Metal runtime returned malformed picture data.", sessionId)
+        );
+    } catch (const std::exception& exception) {
+        return operationUnavailable(info.Env(), exception.what());
+    } catch (...) {
+        return operationUnavailable(info.Env(), "Unknown KSPlayer Metal addon failure.");
+    }
+}
+
 Napi::Value GetSupportedControls(const Napi::CallbackInfo& info)
 {
     try {
@@ -1371,6 +1443,8 @@ Napi::Object Init(Napi::Env env, Napi::Object exports)
     exports.Set("setSubtitleSettings", Napi::Function::New(env, SetSubtitleSettings));
     exports.Set("setPlaybackSpeed", Napi::Function::New(env, SetPlaybackSpeed));
     exports.Set("setDisplayMode", Napi::Function::New(env, SetDisplayMode));
+    exports.Set("setAspect", Napi::Function::New(env, SetAspect));
+    exports.Set("setPicture", Napi::Function::New(env, SetPicture));
     exports.Set(
         "getSupportedControls",
         Napi::Function::New(env, GetSupportedControls)

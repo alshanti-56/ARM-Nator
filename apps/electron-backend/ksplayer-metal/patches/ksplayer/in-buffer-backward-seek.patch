@@ -27,26 +27,53 @@ index 169e00af..90b39606 100644
      private var lastVideoDisplayTime = CACurrentMediaTime()
      public private(set) var chapters: [Chapter] = []
      public var currentPlaybackTime: TimeInterval {
-@@ -464,6 +466,18 @@ extension MEPlayerItem {
+@@ -464,6 +466,22 @@ extension MEPlayerItem {
              if state == .seeking {
                  let seekToTime = seekTime
                  let time = mainClock().time
 +                if replayPacketHistory(to: seekToTime) {
 +                    isSeek = true
++                    audioClock.time = CMTime(seconds: seekToTime, preferredTimescale: time.timescale) + startTime
++                    videoClock.time = CMTime(seconds: seekToTime, preferredTimescale: time.timescale) + startTime
++                    state = .reading
++                    // Notify callers only after the decoder state and clocks
++                    // are ready. The completion is where KSMEPlayer resumes
++                    // Metal/audio outputs, so the old order could restart
++                    // them against a stale seeking clock and freeze playback.
 +                    DispatchQueue.main.async { [weak self] in
 +                        guard let self else { return }
 +                        self.seekingCompletionHandler?(true)
 +                        self.seekingCompletionHandler = nil
 +                    }
-+                    audioClock.time = CMTime(seconds: seekToTime, preferredTimescale: time.timescale) + startTime
-+                    videoClock.time = CMTime(seconds: seekToTime, preferredTimescale: time.timescale) + startTime
-+                    state = .reading
 +                    continue
 +                }
                  var increase = Int64(seekTime + startTime.seconds - time.seconds)
                  var seekFlags = options.seekFlags
                  let timeStamp: Int64
-@@ -587,6 +601,7 @@ extension MEPlayerItem {
+@@ -527,14 +543,17 @@ extension MEPlayerItem {
+                 }
+                 isSeek = true
+                 allPlayerItemTracks.forEach { $0.seek(time: seekToTime) }
+-                DispatchQueue.main.async { [weak self] in
+-                    guard let self else { return }
+-                    self.seekingCompletionHandler?(result >= 0)
+-                    self.seekingCompletionHandler = nil
+-                }
+                 audioClock.time = CMTime(seconds: seekToTime, preferredTimescale: time.timescale) + startTime
+                 videoClock.time = CMTime(seconds: seekToTime, preferredTimescale: time.timescale) + startTime
+                 state = .reading
++                // A client normally resumes renderers from this completion.
++                // Keep it after the seek state and clocks are committed so
++                // Metal/audio cannot observe a stale .seeking clock.
++                DispatchQueue.main.async { [weak self] in
++                    guard let self else { return }
++                    self.seekingCompletionHandler?(result >= 0)
++                    self.seekingCompletionHandler = nil
++                }
+             } else if state == .reading {
+                 autoreleasepool {
+                     _ = reading()
+@@ -587,6 +607,7 @@ extension MEPlayerItem {
                      }
                  }
                  packet.assetTrack = first

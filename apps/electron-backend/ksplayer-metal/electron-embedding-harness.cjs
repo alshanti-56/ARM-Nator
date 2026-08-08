@@ -67,7 +67,9 @@ function snapshotEvidence(snapshot) {
     positionSeconds: snapshot?.positionSeconds ?? null,
     durationSeconds: snapshot?.durationSeconds ?? null,
     resolution: snapshot?.resolution ?? null,
+    aspectOverride: snapshot?.aspectOverride ?? null,
     renderPath: snapshot?.embedding?.renderPath ?? null,
+    picture: snapshot?.picture ?? null,
     ...(typeof snapshot?.error === "string" ? { error: snapshot.error } : {}),
     embedding: snapshot?.embedding ?? null,
   };
@@ -195,6 +197,157 @@ async function requirePositionAdvances(operation) {
   return { before: snapshotEvidence(before), after: snapshotEvidence(after) };
 }
 
+async function exercisePictureAdjustments() {
+  const controls = addon.getSupportedControls(sessionId);
+  if (controls?.pictureAdjustments !== true) {
+    throw new Error("Native runtime did not advertise picture adjustments.");
+  }
+  const changed = {
+    brightness: 25,
+    contrast: -20,
+    blackLevel: 12,
+    saturation: 30,
+    gamma: -10,
+  };
+  requireAccepted(
+    addon.setPicture(sessionId, JSON.stringify(changed)),
+    "set picture",
+  );
+  const afterChange = addon.getSnapshot(sessionId);
+  if (
+    !Object.entries(changed).every(
+      ([key, value]) => afterChange?.picture?.[key] === value,
+    )
+  ) {
+    throw new Error(
+      `Picture snapshot did not update: ${JSON.stringify(afterChange?.picture)}`,
+    );
+  }
+  const advancing = await requirePositionAdvances("picture adjustment");
+  requireAccepted(
+    addon.setPicture(
+      sessionId,
+      JSON.stringify({
+        brightness: 0,
+        contrast: 0,
+        blackLevel: 0,
+        saturation: 0,
+        gamma: 0,
+      }),
+    ),
+    "reset picture",
+  );
+  const afterReset = addon.getSnapshot(sessionId);
+  if (Object.values(afterReset?.picture ?? {}).some((value) => value !== 0)) {
+    throw new Error(
+      `Picture reset did not restore defaults: ${JSON.stringify(afterReset?.picture)}`,
+    );
+  }
+  const invalid = addon.setPicture(
+    sessionId,
+    JSON.stringify({ ...changed, gamma: 101 }),
+  );
+  if (invalid?.ok !== false) {
+    throw new Error("Out-of-range picture setting was accepted.");
+  }
+  return {
+    controls,
+    afterChange: snapshotEvidence(afterChange),
+    afterReset: snapshotEvidence(afterReset),
+    advancing,
+    invalid: operationEvidence(invalid),
+  };
+}
+
+const aspectPresets = ["no", "16:9", "4:3", "21:9", "2.35:1"];
+const aspectRatios = {
+  "16:9": 16 / 9,
+  "4:3": 4 / 3,
+  "21:9": 21 / 9,
+  "2.35:1": 2.35,
+};
+
+function requireEffectiveDar(snapshot, bounds, aspect, defaultRatio) {
+  const frame = snapshot?.embedding?.playerView?.frame;
+  const drawable = snapshot?.embedding?.metalLayer?.drawableSize;
+  if (frame?.width !== bounds.width || frame?.height !== bounds.height) {
+    throw new Error(`Aspect ${aspect} changed outer geometry: ${JSON.stringify({ frame, bounds })}`);
+  }
+  const expected = aspectRatios[aspect] ?? defaultRatio;
+  const actual = drawable?.width / drawable?.height;
+  if (!Number.isFinite(actual) || Math.abs(actual - expected) > 0.08) {
+    throw new Error(`Aspect ${aspect} did not update Metal drawable DAR: ${JSON.stringify({ drawable, expected, actual })}`);
+  }
+}
+
+async function exerciseAspectOverrides(bounds) {
+  const controls = addon.getSupportedControls(sessionId);
+  if (
+    controls?.aspectOverride !== true ||
+    typeof addon.setAspect !== "function"
+  ) {
+    throw new Error(
+      "Native runtime did not advertise an aspect override entry point.",
+    );
+  }
+  const defaultSnapshot = addon.getSnapshot(sessionId);
+  const defaultDrawable = defaultSnapshot?.embedding?.metalLayer?.drawableSize;
+  const defaultRatio = defaultDrawable?.width / defaultDrawable?.height;
+  if (!Number.isFinite(defaultRatio)) throw new Error("Missing default Metal drawable DAR.");
+  const evidence = [];
+  for (const aspect of aspectPresets) {
+    requireAccepted(addon.setAspect(sessionId, aspect), `set aspect ${aspect}`);
+    const snapshot = await waitForSnapshot(
+      (candidate) => candidate?.aspectOverride === aspect,
+      `aspect ${aspect} snapshot`,
+    );
+    requireEffectiveDar(snapshot, bounds, aspect, defaultRatio);
+    requireDirectMetalFrame(snapshot);
+    evidence.push({
+      aspect,
+      snapshot: snapshotEvidence(snapshot),
+      outerFrame: snapshot.embedding.playerView.frame,
+      drawableSize: snapshot.embedding.metalLayer.drawableSize,
+    });
+  }
+  const invalid = addon.setAspect(sessionId, "1.618:1");
+  if (invalid?.ok !== false) {
+    throw new Error("Invalid arbitrary aspect override was accepted.");
+  }
+  const advancing = await requirePositionAdvances("aspect override");
+  return {
+    controls,
+    defaultDrawableRatio: defaultRatio,
+    presets: evidence,
+    invalid: operationEvidence(invalid),
+    advancing,
+  };
+}
+
+async function exercisePausedAspectRefresh(bounds) {
+  requireAccepted(addon.setPaused(sessionId, true), "pause before aspect refresh");
+  await waitForSnapshot(
+    (snapshot) => playbackState(snapshot) === "paused",
+    "pause before aspect refresh",
+  );
+  const aspect = "4:3";
+  requireAccepted(addon.setAspect(sessionId, aspect), "paused aspect refresh");
+  const refreshed = await waitForSnapshot(
+    (snapshot) =>
+      playbackState(snapshot) === "paused" && snapshot?.aspectOverride === aspect,
+    "paused aspect snapshot",
+  );
+  requireEffectiveDar(refreshed, bounds, aspect, 1);
+  requireDirectMetalFrame(refreshed);
+  requireAccepted(addon.setPaused(sessionId, false), "resume after aspect refresh");
+  await waitForSnapshot(
+    (snapshot) => playbackState(snapshot) === "playing",
+    "resume after aspect refresh",
+  );
+  const advancing = await requirePositionAdvances("paused aspect refresh");
+  return { refreshed: snapshotEvidence(refreshed), outerFrame: refreshed.embedding.playerView.frame, drawableSize: refreshed.embedding.metalLayer.drawableSize, advancing };
+}
+
 function seekTarget(duration, fraction) {
   if (!Number.isFinite(duration) || duration < 3) {
     throw new Error(
@@ -207,9 +360,15 @@ function seekTarget(duration, fraction) {
 function createAndLoadProbe(probeSessionId, nativeHandle, bounds) {
   const created = addon.createSession(probeSessionId, nativeHandle, bounds);
   if (created?.ok === false) {
-    throw new Error(created.reason ?? `${probeSessionId} createSession failed.`);
+    throw new Error(
+      created.reason ?? `${probeSessionId} createSession failed.`,
+    );
   }
-  const loaded = addon.load(probeSessionId, pathToFileURL(fixturePath).href, {});
+  const loaded = addon.load(
+    probeSessionId,
+    pathToFileURL(fixturePath).href,
+    {},
+  );
   if (loaded?.ok === false) {
     throw new Error(loaded.reason ?? `${probeSessionId} load failed.`);
   }
@@ -223,10 +382,7 @@ async function exerciseSeekTimeoutRecovery(nativeHandle, duration) {
     await waitForDirectMetalFrame(timeoutProbeSessionId);
 
     requireAccepted(
-      addon.seek(
-        timeoutProbeSessionId,
-        seekTarget(duration, 0.2),
-      ),
+      addon.seek(timeoutProbeSessionId, seekTarget(duration, 0.2)),
       "timeout recovery seek",
     );
     const recovered = await waitForSnapshot(
@@ -281,10 +437,7 @@ async function exerciseDisposedLateCompletion(nativeHandle, duration) {
     probeCreated = true;
     await waitForDirectMetalFrame(disposeProbeSessionId);
     requireAccepted(
-      addon.seek(
-        disposeProbeSessionId,
-        seekTarget(duration, 0.6),
-      ),
+      addon.seek(disposeProbeSessionId, seekTarget(duration, 0.6)),
       "disposed-session seek",
     );
 
@@ -299,7 +452,9 @@ async function exerciseDisposedLateCompletion(nativeHandle, duration) {
     const diagnostic = addon.getEmbeddingDiagnostic(disposeProbeSessionId);
     const evidence = afterLateCallback?.seekTestEvidence;
     if (
-      !String(afterLateCallback?.error ?? "").includes("session was not found") ||
+      !String(afterLateCallback?.error ?? "").includes(
+        "session was not found",
+      ) ||
       evidence?.ignoredCompletionCount !== 1 ||
       diagnostic?.phase !== "disposed"
     ) {
@@ -546,6 +701,7 @@ async function run() {
     const afterLoad = snapshotEvidence(await waitForDirectMetalFrame());
     requireHierarchy(afterLoad.embedding, firstBounds, "attached");
     requireDirectMetalFrame(afterLoad);
+    const pictureAdjustments = await exercisePictureAdjustments();
 
     const beforeBoundsChurn = compositorProcessEvidence(window.webContents);
     await exerciseNativeBounds();
@@ -553,6 +709,8 @@ async function run() {
     const afterBounds = snapshotEvidence(await waitForDirectMetalFrame());
     requireHierarchy(afterBounds.embedding, secondBounds, "attached");
     requireDirectMetalFrame(afterBounds);
+    const aspectOverrides = await exerciseAspectOverrides(secondBounds);
+    const pausedAspectRefresh = await exercisePausedAspectRefresh(secondBounds);
     const afterBoundsChurn = compositorProcessEvidence(window.webContents);
     const seekTimeoutRecovery = await exerciseSeekTimeoutRecovery(
       nativeHandle,
@@ -615,6 +773,9 @@ async function run() {
         synthetic,
         afterLoad,
         afterBounds,
+        pictureAdjustments,
+        aspectOverrides,
+        pausedAspectRefresh,
         seekTimeoutRecovery,
         seekRecovery,
         disposedLateCompletion,

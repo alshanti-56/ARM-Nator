@@ -34,6 +34,7 @@ import { PortalDebugEvent } from './portal-debug.interface';
 import { CatalogTitleMatch } from './catalog-title-match.interface';
 import { Settings } from './settings.interface';
 import { PlayerSubtitleSettings } from './player-subtitle-settings.interface';
+import { PlayerPictureSettings } from './video-picture-settings.interface';
 import {
     TmdbCacheEntry,
     TmdbCacheMediaType,
@@ -204,6 +205,14 @@ export interface ElectronBridgeKsPlayerMetalApi {
     setKsPlayerMetalDisplayMode: (
         sessionId: string,
         mode: string
+    ) => Promise<EmbeddedMpvSession | null>;
+    setKsPlayerMetalAspect: (
+        sessionId: string,
+        aspect: string
+    ) => Promise<EmbeddedMpvSession | null>;
+    setKsPlayerMetalPicture: (
+        sessionId: string,
+        picture: PlayerPictureSettings
     ) => Promise<EmbeddedMpvSession | null>;
     getKsPlayerMetalSupportedControls: (
         sessionId?: string

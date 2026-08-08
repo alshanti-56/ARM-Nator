@@ -1,0 +1,128 @@
+diff --git a/Sources/KSPlayer/MEPlayer/MetalPlayView.swift b/Sources/KSPlayer/MEPlayer/MetalPlayView.swift
+index 242c2388..50759303 100644
+--- a/Sources/KSPlayer/MEPlayer/MetalPlayView.swift
++++ b/Sources/KSPlayer/MEPlayer/MetalPlayView.swift
+@@ -158,6 +158,10 @@ public final class MetalPlayView: UIView, VideoOutput {
+         draw(force: true)
+     }
+
++    public func setPictureAdjustments(brightness: Float, contrast: Float, blackLevel: Float, saturation: Float, gamma: Float) {
++        metalView.setPictureAdjustments(brightness: brightness, contrast: contrast, blackLevel: blackLevel, saturation: saturation, gamma: gamma)
++    }
++
+ //    deinit {
+ //        print()
+ //    }
+@@ -241,6 +245,10 @@ extension MetalPlayView {
+
+ class MetalView: UIView {
+     private let render = MetalRender()
++
++    func setPictureAdjustments(brightness: Float, contrast: Float, blackLevel: Float, saturation: Float, gamma: Float) {
++        render.setPictureAdjustments(brightness: brightness, contrast: contrast, blackLevel: blackLevel, saturation: saturation, gamma: gamma)
++    }
+     #if canImport(UIKit)
+     override public class var layerClass: AnyClass { CAMetalLayer.self }
+     #endif
+diff --git a/Sources/KSPlayer/Metal/MetalRender.swift b/Sources/KSPlayer/Metal/MetalRender.swift
+index f86211a4..b112358e 100644
+--- a/Sources/KSPlayer/Metal/MetalRender.swift
++++ b/Sources/KSPlayer/Metal/MetalRender.swift
+@@ -12,6 +12,8 @@ import QuartzCore
+ import simd
+
+ class MetalRender {
++    private var pictureAdjustments = SIMD4<Float>(0, 0, 0, 0)
++    private var pictureGamma: Float = 0
+     static let device = MTLCreateSystemDefaultDevice()!
+     static let library: MTLLibrary = {
+         var library: MTLLibrary!
+@@ -100,6 +102,10 @@ class MetalRender {
+         let state = display.pipeline(planeCount: pixelBuffer.planeCount, bitDepth: pixelBuffer.bitDepth)
+         encoder.setRenderPipelineState(state)
+         encoder.setFragmentSamplerState(samplerState, index: 0)
++        var picture = pictureAdjustments
++        var gamma = pictureGamma
++        encoder.setFragmentBytes(&picture, length: MemoryLayout<SIMD4<Float>>.stride, index: 3)
++        encoder.setFragmentBytes(&gamma, length: MemoryLayout<Float>.stride, index: 4)
+         for (index, texture) in inputTextures.enumerated() {
+             texture.label = "texture\(index)"
+             encoder.setFragmentTexture(texture, index: index)
+@@ -113,6 +119,11 @@ class MetalRender {
+         commandBuffer.waitUntilCompleted()
+     }
+
++    func setPictureAdjustments(brightness: Float, contrast: Float, blackLevel: Float, saturation: Float, gamma: Float) {
++        pictureAdjustments = SIMD4<Float>(brightness, contrast, blackLevel, saturation)
++        pictureGamma = gamma
++    }
++
+     private func setFragmentBuffer(pixelBuffer: PixelBufferProtocol, encoder: MTLRenderCommandEncoder) {
+         if pixelBuffer.planeCount > 1 {
+             let buffer: MTLBuffer?
+diff --git a/Sources/KSPlayer/Metal/Shaders.metal b/Sources/KSPlayer/Metal/Shaders.metal
+index 0d59206a..db16e8bf 100755
+--- a/Sources/KSPlayer/Metal/Shaders.metal
++++ b/Sources/KSPlayer/Metal/Shaders.metal
+@@ -28,11 +28,24 @@ vertex VertexOut mapSphereTexture(VertexIn input [[stage_in]], constant float4x4
+     return outVertex;
+ }
+
++half3 applyPictureAdjustments(half3 rgb, constant float4& picture [[ buffer(3) ]], constant float& gamma [[ buffer(4) ]]) {
++    const half brightness = half(1.0 + picture.x / 100.0);
++    const half contrast = half(1.0 + picture.y / 100.0);
++    const half blackLevel = half(picture.z / 400.0);
++    const half saturation = max(half(0.0), half(1.0 + picture.w / 100.0));
++    const half exponent = max(half(0.1), half(1.0 + gamma / 100.0));
++    rgb = pow(max(rgb * brightness * contrast + blackLevel, half3(0.0)), half3(exponent));
++    const half luma = dot(rgb, half3(0.2126, 0.7152, 0.0722));
++    return clamp(mix(half3(luma), rgb, saturation), half3(0.0), half3(1.0));
++}
++
+ fragment half4 displayTexture(VertexOut mappingVertex [[ stage_in ]],
+-                              texture2d<half, access::sample> texture [[ texture(0) ]]) {
++                              texture2d<half, access::sample> texture [[ texture(0) ]],
++                              constant float4& picture [[ buffer(3) ]],
++                              constant float& gamma [[ buffer(4) ]]) {
+     constexpr sampler s(address::clamp_to_edge, filter::linear);
+
+-    return half4(texture.sample(s, mappingVertex.textureCoordinate));
++    return half4(applyPictureAdjustments(texture.sample(s, mappingVertex.textureCoordinate).rgb, picture, gamma), 1);
+ }
+
+ fragment half4 displayYUVTexture(VertexOut in [[ stage_in ]],
+@@ -42,13 +55,15 @@ fragment half4 displayYUVTexture(VertexOut in [[ stage_in ]],
+                                   sampler textureSampler [[ sampler(0) ]],
+                                   constant float3x3& yuvToBGRMatrix [[ buffer(0) ]],
+                                   constant float3& colorOffset [[ buffer(1) ]],
+-                                  constant uchar3& leftShift [[ buffer(2) ]])
++                                  constant uchar3& leftShift [[ buffer(2) ]],
++                                  constant float4& picture [[ buffer(3) ]],
++                                  constant float& gamma [[ buffer(4) ]])
+ {
+     half3 yuv;
+     yuv.x = yTexture.sample(textureSampler, in.textureCoordinate).r;
+     yuv.y = uTexture.sample(textureSampler, in.textureCoordinate).r;
+     yuv.z = vTexture.sample(textureSampler, in.textureCoordinate).r;
+-    return half4(half3x3(yuvToBGRMatrix)*(yuv*half3(leftShift)+half3(colorOffset)), 1);
++    return half4(applyPictureAdjustments(half3x3(yuvToBGRMatrix)*(yuv*half3(leftShift)+half3(colorOffset)), picture, gamma), 1);
+ }
+
+
+@@ -58,12 +73,14 @@ fragment half4 displayNV12Texture(VertexOut in [[ stage_in ]],
+                                   sampler textureSampler [[ sampler(0) ]],
+                                   constant float3x3& yuvToBGRMatrix [[ buffer(0) ]],
+                                   constant float3& colorOffset [[ buffer(1) ]],
+-                                  constant uchar3& leftShift [[ buffer(2) ]])
++                                  constant uchar3& leftShift [[ buffer(2) ]],
++                                  constant float4& picture [[ buffer(3) ]],
++                                  constant float& gamma [[ buffer(4) ]])
+ {
+     half3 yuv;
+     yuv.x = lumaTexture.sample(textureSampler, in.textureCoordinate).r;
+     yuv.yz = chromaTexture.sample(textureSampler, in.textureCoordinate).rg;
+-    return half4(half3x3(yuvToBGRMatrix)*(yuv*half3(leftShift)+half3(colorOffset)), 1);
++    return half4(applyPictureAdjustments(half3x3(yuvToBGRMatrix)*(yuv*half3(leftShift)+half3(colorOffset)), picture, gamma), 1);
+ }
+
+ half3 shaderLinearize(half3 rgb) {

@@ -30,7 +30,6 @@ import type {
 import { SeriesPlaybackNavigation } from '../portal-inline-player/series-playback-navigation';
 import {
     audioTrackLabel,
-    KS_DISPLAY_PRESETS,
     readStoredVolume,
     subtitleTrackLabel,
 } from './embedded-mpv-format.utils';
@@ -97,11 +96,12 @@ export class EmbeddedMpvControlsAdapter implements PlayerController {
                     : ksControls?.playbackSpeed === true,
             aspectRatio:
                 isKsPlayerMetal
-                    ? ksControls?.displayMode === true
+                    ? ksControls?.aspectOverride === true
                     : (optionalCapabilities?.aspectOverride ?? false),
             pictureAdjustments:
-                !isKsPlayerMetal &&
-                (optionalCapabilities?.pictureAdjustments ?? false),
+                isKsPlayerMetal
+                    ? ksControls?.pictureAdjustments === true
+                    : (optionalCapabilities?.pictureAdjustments ?? false),
             fullscreen: true,
             seriesNavigation: !isLive && context.seriesNavigation() !== null,
             frameStep: !isLive && !isKsPlayerMetal,
@@ -119,8 +119,6 @@ export class EmbeddedMpvControlsAdapter implements PlayerController {
         const session = this.controller.session();
         const playback = context.playback();
         const isLive = this.isLivePlayback(playback);
-        const isKsPlayerMetal =
-            this.controller.activeBackend() === 'ksplayer-metal';
         const capabilities = this.capabilities();
         const durationSeconds = isLive
             ? null
@@ -181,9 +179,7 @@ export class EmbeddedMpvControlsAdapter implements PlayerController {
                 ? (session?.aspectOverride ?? 'no')
                 : 'no',
             aspectPresets: capabilities.aspectRatio
-                ? isKsPlayerMetal
-                    ? KS_DISPLAY_PRESETS
-                    : DEFAULT_ASPECT_PRESETS
+                ? DEFAULT_ASPECT_PRESETS
                 : [],
             picture: capabilities.pictureAdjustments
                 ? (session?.picture ?? this.picture())

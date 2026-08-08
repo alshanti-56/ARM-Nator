@@ -128,6 +128,27 @@ test('dispatches playback speed to KSPlayer Metal when advertised', async () => 
     assert.deepEqual(calls, [1.25]);
 });
 
+test('dispatches MPV-compatible aspect presets to KSPlayer Metal when advertised', async () => {
+    const calls: string[] = [];
+    installBridge({
+        setKsPlayerMetalAspect: (sessionId: string, aspect: string) => {
+            assert.equal(sessionId, 'session-1');
+            calls.push(aspect);
+            return Promise.resolve({ ...session, aspectOverride: aspect });
+        },
+    });
+
+    const runner = new EmbeddedMpvCommandRunner({
+        backend: signal('ksplayer-metal'),
+        sessionId: signal('session-1'),
+        session: signal(session),
+        supportedControls: signal({ aspectOverride: true }),
+    });
+
+    await runner.setAspect('2.35:1');
+    assert.deepEqual(calls, ['2.35:1']);
+});
+
 test('dispatches audio track selection to KSPlayer Metal when advertised', async () => {
     const calls: number[] = [];
     installBridge({
@@ -153,6 +174,32 @@ test('dispatches audio track selection to KSPlayer Metal when advertised', async
     await runner.setAudioTrack(3);
 
     assert.deepEqual(calls, [3]);
+});
+
+test('dispatches picture settings to KSPlayer Metal only when advertised', async () => {
+    const calls: unknown[] = [];
+    installBridge({
+        setKsPlayerMetalPicture: (sessionId: string, picture: unknown) => {
+            assert.equal(sessionId, 'session-1');
+            calls.push(picture);
+            return Promise.resolve({ ...session, picture });
+        },
+    });
+    const runner = new EmbeddedMpvCommandRunner({
+        backend: signal('ksplayer-metal'),
+        sessionId: signal('session-1'),
+        session: signal(session),
+        supportedControls: signal({
+            pause: true,
+            seek: true,
+            volume: true,
+            pictureAdjustments: true,
+        }),
+    });
+    const picture = { brightness: 15, contrast: 0, blackLevel: 0, saturation: 0, gamma: 0 };
+
+    await runner.setPicture(picture);
+    assert.deepEqual(calls, [picture]);
 });
 
 test('embedded backend keeps dispatching to legacy MPV methods', async () => {

@@ -11,8 +11,17 @@ private let abiVersion = "1"
 private let abiVersionCString: UnsafeMutablePointer<CChar> = strdup("1")!
 
 private final class MetalOnlyOptions: KSOptions {
+    /// KSPlayer's direct-Metal path queries this for every decoded frame before
+    /// assigning CAMetalLayer.drawableSize. Keeping it mutable lets a live
+    /// session adopt a new DAR without replacing its decoder or host view.
+    var requestedDisplayAspect: CGSize?
+
     override func isUseDisplayLayer() -> Bool {
         false
+    }
+
+    override func customizeDar(sar _: CGSize, par _: CGSize) -> CGSize? {
+        requestedDisplayAspect
     }
 }
 
@@ -397,6 +406,9 @@ private enum KSPlayerMetalEmbeddingLayout {
         containerView.isHidden = isHidden
         playerView.frame = containerView.bounds
         playerView.isHidden = isHidden
+        // Subtitles remain in the full presentation viewport. KSPlayer's
+        // Metal renderer applies DAR internally, so this preserves the normal
+        // subtitle position/settings coordinate system across aspect changes.
         subtitleView?.frame = containerView.bounds
         if isHidden {
             subtitleView?.isHidden = true
@@ -628,7 +640,7 @@ private enum KSPlayerMetalEmbeddingLayout {
         return ViewSnapshot(view, superview: superview)
     }
 
-    private static func findMetalPlayView(in view: NSView?) -> NSView? {
+    static func findMetalPlayView(in view: NSView?) -> NSView? {
         guard let view else { return nil }
         if view is MetalPlayView {
             return view
@@ -752,6 +764,48 @@ private struct Controls: Encodable {
     let subtitles: Bool
     let playbackSpeed: Bool
     let displayMode: Bool
+    let aspectOverride: Bool
+    let pictureAdjustments: Bool
+}
+
+private struct PictureSettingsPayload: Codable {
+    let brightness: Double
+    let contrast: Double
+    let blackLevel: Double
+    let saturation: Double
+    let gamma: Double
+
+    static let `default` = PictureSettingsPayload(
+        brightness: 0, contrast: 0, blackLevel: 0, saturation: 0, gamma: 0
+    )
+
+    var isValid: Bool {
+        [brightness, contrast, blackLevel, saturation, gamma].allSatisfy {
+            $0.isFinite && (-100 ... 100).contains($0)
+        }
+    }
+}
+
+private enum AspectOverride: String, CaseIterable {
+    case `default` = "no"
+    case widescreen = "16:9"
+    case standard = "4:3"
+    case ultrawide = "21:9"
+    case cinema = "2.35:1"
+
+    var ratio: CGFloat? {
+        switch self {
+        case .default: return nil
+        case .widescreen: return 16.0 / 9.0
+        case .standard: return 4.0 / 3.0
+        case .ultrawide: return 21.0 / 9.0
+        case .cinema: return 2.35
+        }
+    }
+
+    var dar: CGSize? {
+        ratio.map { CGSize(width: $0, height: 1) }
+    }
 }
 
 private struct TrackSnapshot: Encodable {
@@ -784,6 +838,7 @@ private struct Snapshot: Encodable {
     let selectedSubtitleTrackId: Int?
     let playbackSpeed: Double?
     let aspectOverride: String
+    let picture: PictureSettingsPayload
     let resolution: Resolution?
     let videoWidth: Double?
     let videoHeight: Double?
@@ -819,7 +874,8 @@ private struct Snapshot: Encodable {
             subtitleTracks: [],
             selectedSubtitleTrackId: nil,
             playbackSpeed: nil,
-            aspectOverride: "fit",
+            aspectOverride: AspectOverride.default.rawValue,
+            picture: .default,
             resolution: nil,
             videoWidth: nil,
             videoHeight: nil,
@@ -907,6 +963,8 @@ private final class KSPlayerMetalSession: NSObject, MediaPlayerDelegate {
     private var requestedVolume: Float = 1
     private var requestedPlaybackSpeed: Float = 1
     private var requestedDisplayMode = "fit"
+    private var requestedAspectOverride: AspectOverride = .default
+    private var pictureSettings = PictureSettingsPayload.default
     private var streamURL: String?
     private var loadedURL: URL?
     private var loadedHeaders: [String: String] = [:]
@@ -987,6 +1045,12 @@ private final class KSPlayerMetalSession: NSObject, MediaPlayerDelegate {
 
         detachPlayer()
         let options = MetalOnlyOptions()
+        options.requestedDisplayAspect = requestedAspectOverride.dar
+        // The retained-packet backward-seek optimization is unsafe for this
+        // short, fully-buffered local VOD path: it can feed a stale output
+        // queue after a seek. Prefer KSPlayer's authoritative FFmpeg seek,
+        // which resets the decoder and clock as one operation.
+        options.inBufferBackwardSeek = false
         // The direct Metal view is configured globally by KSPlayer. Reassert it
         // for every replacement in case another in-process user changed it.
         KSOptions.videoPlayerType = MetalPlayView.self
@@ -1026,6 +1090,7 @@ private final class KSPlayerMetalSession: NSObject, MediaPlayerDelegate {
         self.containerView = containerView
         self.playerView = playerView
         applyDisplayMode(to: player)
+        applyPictureSettings()
         let subtitleView = KSPlayerMetalSubtitleView(frame: containerView.bounds)
         containerView.addSubview(subtitleView, positioned: .above, relativeTo: nil)
         self.subtitleView = subtitleView
@@ -1248,6 +1313,32 @@ private final class KSPlayerMetalSession: NSObject, MediaPlayerDelegate {
         return .success(sessionId: id, snapshot: snapshot())
     }
 
+    func setAspect(_ rawAspect: String) -> OperationResult {
+        guard let aspect = AspectOverride(rawValue: rawAspect) else {
+            return .failure(
+                "Unsupported aspect override. Use no, 16:9, 4:3, 21:9, or 2.35:1.",
+                sessionId: id
+            )
+        }
+        requestedAspectOverride = aspect
+        options?.requestedDisplayAspect = aspect.dar
+        // A paused frame has no display-link tick; request one safe redraw so
+        // the layer's observable drawable size updates immediately.
+        (KSPlayerMetalEmbeddingLayout.findMetalPlayView(in: playerView) as? MetalPlayView)?.readNextFrame()
+        return .success(sessionId: id, snapshot: snapshot())
+    }
+
+    func setPicture(_ json: String) -> OperationResult {
+        guard let data = json.data(using: .utf8),
+              let picture = try? JSONDecoder().decode(PictureSettingsPayload.self, from: data),
+              picture.isValid else {
+            return .failure("Picture settings must be finite values between -100 and 100.", sessionId: id)
+        }
+        pictureSettings = picture
+        applyPictureSettings()
+        return .success(sessionId: id, snapshot: snapshot())
+    }
+
     func dispose() {
         state = .disposed
         detachPlayer()
@@ -1328,7 +1419,8 @@ private final class KSPlayerMetalSession: NSObject, MediaPlayerDelegate {
             subtitleTracks: subtitleTracks,
             selectedSubtitleTrackId: selectedSubtitleTrackID,
             playbackSpeed: hasPlayer ? Double(player?.playbackRate ?? requestedPlaybackSpeed) : Double(requestedPlaybackSpeed),
-            aspectOverride: requestedDisplayMode,
+            aspectOverride: requestedAspectOverride.rawValue,
+            picture: pictureSettings,
             resolution: resolution,
             videoWidth: resolution?.width,
             videoHeight: resolution?.height,
@@ -1502,8 +1594,11 @@ private final class KSPlayerMetalSession: NSObject, MediaPlayerDelegate {
     }
 
     private func nextExternalSubtitleID() -> Int {
-        var candidate = -1
-        while externalSubtitleInfos[candidate] != nil {
+        // `-1` is the public Off sentinel. Keep externally-added subtitles in
+        // a disjoint negative range and avoid IDs exposed by the decoder.
+        let embeddedIDs = Set(player?.tracks(mediaType: .subtitle).map { Int($0.trackID) } ?? [])
+        var candidate = -2
+        while externalSubtitleInfos[candidate] != nil || embeddedIDs.contains(candidate) {
             candidate -= 1
         }
         return candidate
@@ -1658,6 +1753,19 @@ private final class KSPlayerMetalSession: NSObject, MediaPlayerDelegate {
         player.contentMode = requestedDisplayMode == "fill"
             ? .scaleAspectFill
             : .scaleAspectFit
+    }
+
+    private func applyPictureSettings() {
+        guard let metalPlayView = KSPlayerMetalEmbeddingLayout.findMetalPlayView(in: playerView) as? MetalPlayView else {
+            return
+        }
+        metalPlayView.setPictureAdjustments(
+            brightness: Float(pictureSettings.brightness),
+            contrast: Float(pictureSettings.contrast),
+            blackLevel: Float(pictureSettings.blackLevel),
+            saturation: Float(pictureSettings.saturation),
+            gamma: Float(pictureSettings.gamma)
+        )
     }
 
     private func cancelSeekTimeout() {
@@ -1941,6 +2049,20 @@ private final class KSPlayerMetalRuntime {
         return session.setDisplayMode(mode)
     }
 
+    func setAspect(id: String, aspect: String) -> OperationResult {
+        guard let session = sessions[id] else {
+            return .failure("KSPlayer session was not found.", sessionId: id)
+        }
+        return session.setAspect(aspect)
+    }
+
+    func setPicture(id: String, json: String) -> OperationResult {
+        guard let session = sessions[id] else {
+            return .failure("KSPlayer session was not found.", sessionId: id)
+        }
+        return session.setPicture(json)
+    }
+
     func getSupportedControls(id _: String?) -> Controls {
         Controls(
             pause: true,
@@ -1949,7 +2071,9 @@ private final class KSPlayerMetalRuntime {
             audioTracks: true,
             subtitles: true,
             playbackSpeed: true,
-            displayMode: true
+            displayMode: true,
+            aspectOverride: true,
+            pictureAdjustments: true
         )
     }
 
@@ -2288,6 +2412,34 @@ public func ksplayer_metal_set_display_mode(
     }
     return invokeOnMain {
         encodedJSON(KSPlayerMetalRuntime.shared.setDisplayMode(id: sessionID, mode: mode))
+    }
+}
+
+@_cdecl("ksplayer_metal_set_aspect")
+public func ksplayer_metal_set_aspect(
+    _ sessionID: UnsafePointer<CChar>?,
+    _ aspect: UnsafePointer<CChar>?
+) -> UnsafeMutablePointer<CChar>? {
+    guard let sessionID = stringArgument(sessionID),
+          let aspect = stringArgument(aspect) else {
+        return copiedCString(operationFailure("Session id and aspect override must be valid UTF-8."))
+    }
+    return invokeOnMain {
+        encodedJSON(KSPlayerMetalRuntime.shared.setAspect(id: sessionID, aspect: aspect))
+    }
+}
+
+@_cdecl("ksplayer_metal_set_picture")
+public func ksplayer_metal_set_picture(
+    _ sessionID: UnsafePointer<CChar>?,
+    _ pictureJSON: UnsafePointer<CChar>?
+) -> UnsafeMutablePointer<CChar>? {
+    guard let sessionID = stringArgument(sessionID),
+          let pictureJSON = stringArgument(pictureJSON) else {
+        return copiedCString(operationFailure("Session id and picture settings must be valid UTF-8."))
+    }
+    return invokeOnMain {
+        encodedJSON(KSPlayerMetalRuntime.shared.setPicture(id: sessionID, json: pictureJSON))
     }
 }
 
