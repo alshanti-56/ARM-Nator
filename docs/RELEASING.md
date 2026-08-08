@@ -10,7 +10,9 @@ git push origin v0.25.0
 ```
 
 To rerun a failed release without moving its tag, run the workflow manually
-from GitHub Actions and enter the existing tag in the `release_tag` field.
+from GitHub Actions, select the branch containing the fix, and enter the
+existing tag in the `release_tag` field. Manual runs use that branch's current
+workflow and build scripts; tag-triggered runs build the immutable tag.
 
 The workflow runs on an Apple Silicon `macos-26` runner, verifies the version,
 builds the pinned Embedded MPV and KSPlayer runtimes, packages the arm64 DMG

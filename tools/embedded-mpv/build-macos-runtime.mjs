@@ -18,6 +18,10 @@ const sourcePackages = [
         id: 'freetype',
         version: '2.13.3',
         url: 'https://download.savannah.gnu.org/releases/freetype/freetype-2.13.3.tar.xz',
+        downloadUrls: [
+            'https://download.savannah.gnu.org/releases/freetype/freetype-2.13.3.tar.xz',
+            'https://downloads.sourceforge.net/project/freetype/freetype2/2.13.3/freetype-2.13.3.tar.xz',
+        ],
         license: 'FreeType License or GPL-2.0-or-later',
     },
     {
@@ -323,16 +327,37 @@ function downloadSources() {
 
         const archivePath = archivePathFor(sourcePackage);
         if (!fs.existsSync(archivePath)) {
-            run('curl', [
-                '-fL',
-                '--retry',
-                '3',
-                '--retry-delay',
-                '5',
-                '-o',
-                archivePath,
-                sourcePackage.url,
-            ]);
+            const downloadUrls =
+                sourcePackage.downloadUrls ?? [sourcePackage.url];
+            let lastError;
+
+            for (const downloadUrl of downloadUrls) {
+                fs.rmSync(archivePath, { force: true });
+                try {
+                    run('curl', [
+                        '-fL',
+                        '--retry',
+                        '5',
+                        '--retry-all-errors',
+                        '--retry-delay',
+                        '5',
+                        '-o',
+                        archivePath,
+                        downloadUrl,
+                    ]);
+                    lastError = undefined;
+                    break;
+                } catch (error) {
+                    lastError = error;
+                    log(
+                        `Download failed for ${downloadUrl}; trying the next mirror.`
+                    );
+                }
+            }
+
+            if (lastError) {
+                throw lastError;
+            }
         }
 
         const packageSourcePath = sourcePathFor(sourcePackage.id);

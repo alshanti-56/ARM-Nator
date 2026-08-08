@@ -27,10 +27,13 @@ jobs:
       RELEASE_TAG: ${{ github.event_name == 'workflow_dispatch' && inputs.release_tag || github.ref_name }}
 
     steps:
-      - name: Check out release tag
+      - name: Check out release source
         uses: actions/checkout@v4
         with:
-          ref: ${{ github.event_name == 'workflow_dispatch' && inputs.release_tag || github.ref }}
+          # Tag pushes build the immutable tag. Manual reruns build the
+          # selected branch so workflow fixes can rerun an existing release
+          # without moving or rewriting its tag.
+          ref: ${{ github.ref }}
 
       - name: Set up pnpm
         uses: pnpm/action-setup@v4
@@ -78,5 +81,5 @@ jobs:
         run: |
           gh release create "${RELEASE_TAG}" dist/executables/* \
             --verify-tag \
-            --title "ARM-Nator ${GITHUB_REF_NAME#v}" \
+            --title "ARM-Nator ${RELEASE_TAG#v}" \
             --generate-notes
