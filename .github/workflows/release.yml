@@ -25,6 +25,7 @@ jobs:
     timeout-minutes: 90
     env:
       RELEASE_TAG: ${{ github.event_name == 'workflow_dispatch' && inputs.release_tag || github.ref_name }}
+      ARM_NATOR_EMBEDDED_MPV_BUILD_ROOT: ${{ runner.temp }}/arm-nator-embedded-mpv-runtime/arm64
 
     steps:
       - name: Check out release source
@@ -65,6 +66,20 @@ jobs:
         run: |
           brew untap aws/tap 2>/dev/null || true
           HOMEBREW_NO_AUTO_UPDATE=1 brew install meson ninja pkg-config
+
+      - name: Restore Embedded MPV cache
+        uses: actions/cache@v4
+        with:
+          path: |
+            vendor/embedded-mpv/darwin-arm64
+            ${{ runner.temp }}/arm-nator-embedded-mpv-runtime/arm64/archives
+          key: ${{ runner.os }}-macos-26-arm64-embedded-mpv-${{ hashFiles('tools/embedded-mpv/build-macos-runtime.mjs', 'tools/embedded-mpv/ensure-macos-runtime.mjs', 'tools/embedded-mpv/stage-macos-runtime.mjs') }}
+
+      - name: Restore KSPlayer SwiftPM cache
+        uses: actions/cache@v4
+        with:
+          path: apps/electron-backend/ksplayer-metal/.build
+          key: ${{ runner.os }}-macos-26-arm64-ksplayer-${{ hashFiles('apps/electron-backend/ksplayer-metal/Package.swift', 'apps/electron-backend/ksplayer-metal/Package.resolved', 'apps/electron-backend/ksplayer-metal/Sources/**/*.swift', 'apps/electron-backend/build-ksplayer-metal.js', 'tools/packaging/ksplayer-metal-packaging.cjs', 'apps/electron-backend/native/binding.gyp') }}
 
       - name: Build and package ARM-Nator
         env:

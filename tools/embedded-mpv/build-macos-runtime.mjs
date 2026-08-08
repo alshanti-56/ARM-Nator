@@ -243,6 +243,16 @@ function sha256File(filePath) {
     return hash.digest('hex');
 }
 
+function archiveIsValid(archivePath) {
+    if (!fs.existsSync(archivePath)) {
+        return false;
+    }
+
+    return spawnSync('tar', ['-tf', archivePath], {
+        stdio: 'ignore',
+    }).status === 0;
+}
+
 function runCapture(command, commandArgs, options = {}) {
     const result = spawnSync(command, commandArgs, {
         cwd: options.cwd ?? workspaceRoot,
@@ -326,7 +336,8 @@ function downloadSources() {
         }
 
         const archivePath = archivePathFor(sourcePackage);
-        if (!fs.existsSync(archivePath)) {
+        if (!archiveIsValid(archivePath)) {
+            fs.rmSync(archivePath, { force: true });
             const downloadUrls =
                 sourcePackage.downloadUrls ?? [sourcePackage.url];
             let lastError;

@@ -17,7 +17,9 @@ workflow and build scripts; tag-triggered runs build the immutable tag.
 The workflow runs on an Apple Silicon `macos-26` runner, verifies the version,
 builds the pinned Embedded MPV and KSPlayer runtimes, packages the arm64 DMG
 and ZIP, creates SHA-256 checksums, and publishes a GitHub Release with the
-artifacts.
+artifacts. It caches the pinned Embedded MPV runtime/source archives and the
+KSPlayer SwiftPM build tree; cache keys include the relevant source and build
+files, so changes automatically trigger a clean native build.
 
 The current packaging configuration uses ad-hoc signing and does not notarize
 the application. Distribution signing and notarization can be added later
