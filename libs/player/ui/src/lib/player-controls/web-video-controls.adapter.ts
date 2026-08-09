@@ -74,12 +74,12 @@ export class WebVideoControlsAdapter implements PlayerController {
     private sampledBitrate: number | undefined;
     private readonly aspectRatio = signal('no');
     private readonly picture = signal<PlayerPictureSettings>(
-        DEFAULT_PICTURE_SETTINGS
+        DEFAULT_PICTURE_SETTINGS,
     );
     private pictureAdjustments: WebVideoPictureAdjustments | null = null;
     private subtitleAdjustments: WebVideoSubtitleAdjustments | null = null;
     private readonly subtitle = signal<PlayerSubtitleSettings>(
-        DEFAULT_SUBTITLE_SETTINGS
+        DEFAULT_SUBTITLE_SETTINGS,
     );
 
     /** Bumped whenever DOM or engine-specific state must be re-read. */
@@ -93,7 +93,7 @@ export class WebVideoControlsAdapter implements PlayerController {
         Signal<SeriesPlaybackNavigation | null>
     >(signal(null));
     private readonly seriesNavigation = computed(() =>
-        this.seriesNavigationSource()()
+        this.seriesNavigationSource()(),
     );
 
     readonly capabilities = computed<PlayerControlsCapabilities>(() => {
@@ -119,7 +119,7 @@ export class WebVideoControlsAdapter implements PlayerController {
             subtitles: hasSubtitles,
             aspectRatio: true,
             pictureAdjustments: true,
-            seriesNavigation: !isLive && this.seriesNavigation() !== null,
+            seriesNavigation: this.seriesNavigation() !== null,
         };
     });
 
@@ -133,10 +133,10 @@ export class WebVideoControlsAdapter implements PlayerController {
         const isLive = readVideoIsLive(video, this.opts);
         const duration = normalizeVideoDuration(
             readVideoDuration(video, this.opts),
-            isLive
+            isLive,
         );
         const seriesNav = this.seriesNavigation();
-        const seriesNavCapable = !isLive && seriesNav !== null;
+        const seriesNavCapable = seriesNav !== null;
 
         const audioTracks = this.opts.getAudioTracks?.() ?? [];
         const subtitleTracks = this.opts.getSubtitleTracks?.() ?? [];
@@ -179,7 +179,7 @@ export class WebVideoControlsAdapter implements PlayerController {
                 video as HTMLVideoElement & {
                     webkitVideoDecodedByteCount?: number;
                 }
-            ).webkitVideoDecodedByteCount ?? 0
+            ).webkitVideoDecodedByteCount ?? 0,
         );
         const now = performance.now();
         if (
@@ -212,7 +212,7 @@ export class WebVideoControlsAdapter implements PlayerController {
             for (let index = 0; index < ranges.length; index += 1) {
                 bufferedSeconds += Math.max(
                     0,
-                    ranges.end(index) - ranges.start(index)
+                    ranges.end(index) - ranges.start(index),
                 );
                 if (
                     video.currentTime >= ranges.start(index) &&
@@ -220,7 +220,7 @@ export class WebVideoControlsAdapter implements PlayerController {
                 ) {
                     bufferAheadSeconds = Math.max(
                         0,
-                        ranges.end(index) - video.currentTime
+                        ranges.end(index) - video.currentTime,
                     );
                 }
             }
@@ -247,22 +247,22 @@ export class WebVideoControlsAdapter implements PlayerController {
         togglePlay: () => toggleVideoPlay(this.video),
         seekTo: (seconds) =>
             applyVideoCurrentTime(this.video, seconds, () =>
-                readVideoDuration(this.video, this.opts)
+                readVideoDuration(this.video, this.opts),
             ),
         seekBy: (delta) =>
             applyVideoCurrentTime(
                 this.video,
                 (this.video?.currentTime ?? 0) + delta,
-                () => readVideoDuration(this.video, this.opts)
+                () => readVideoDuration(this.video, this.opts),
             ),
         setVolume: (value) => applyVideoVolume(this.video, value),
         setAudioTrack: (id) =>
             applyTrackSelection(this.opts.setAudioTrack, id, () =>
-                this.refresh()
+                this.refresh(),
             ),
         setSubtitleTrack: (id) =>
             applyTrackSelection(this.opts.setSubtitleTrack, id, () =>
-                this.refresh()
+                this.refresh(),
             ),
         setPlaybackSpeed: (speed) => applyVideoSpeed(this.video, speed),
         setAspectRatio: (value) => {

@@ -99,7 +99,7 @@ export class EmbeddedMpvPlayerComponent implements OnDestroy {
     readonly runtimeSnapshotChange = output<PlayerRuntimeSnapshot>();
 
     private readonly overlayVisibility = inject(
-        EmbeddedMpvOverlayVisibilityService
+        EmbeddedMpvOverlayVisibilityService,
     );
     private readonly translate = inject(TranslateService);
     /**
@@ -113,9 +113,9 @@ export class EmbeddedMpvPlayerComponent implements OnDestroy {
         merge(
             this.translate.onLangChange,
             this.translate.onTranslationChange,
-            this.translate.onDefaultLangChange
+            this.translate.onDefaultLangChange,
         ),
-        { initialValue: null }
+        { initialValue: null },
     );
     readonly controller = inject(EmbeddedMpvSessionController);
     readonly sharedControls = inject(EmbeddedMpvControlsAdapter);
@@ -137,10 +137,10 @@ export class EmbeddedMpvPlayerComponent implements OnDestroy {
     readonly speedPresets = SPEED_PRESETS;
     readonly aspectPresets = computed(() => ASPECT_PRESETS);
     readonly picture = computed(
-        () => this.session()?.picture ?? DEFAULT_PICTURE_SETTINGS
+        () => this.session()?.picture ?? DEFAULT_PICTURE_SETTINGS,
     );
     readonly bufferLabel = computed(() =>
-        formatBufferSeconds(this.session()?.bufferedSeconds)
+        formatBufferSeconds(this.session()?.bufferedSeconds),
     );
 
     readonly isSupported = computed(() => this.support()?.supported ?? false);
@@ -155,13 +155,13 @@ export class EmbeddedMpvPlayerComponent implements OnDestroy {
         () =>
             !this.support() ||
             this.session()?.status === 'loading' ||
-            (!this.session() && this.isSupported())
+            (!this.session() && this.isSupported()),
     );
     readonly isPaused = computed(
         () =>
             this.session()?.status === 'paused' ||
             this.session()?.status === 'idle' ||
-            this.session()?.status === 'ended'
+            this.session()?.status === 'ended',
     );
     readonly isPlaying = computed(() => this.session()?.status === 'playing');
     readonly isErrored = computed(() => this.session()?.status === 'error');
@@ -177,13 +177,13 @@ export class EmbeddedMpvPlayerComponent implements OnDestroy {
         () =>
             this.sharedControls.capabilities().seek &&
             !this.isLivePlayback() &&
-            (this.session()?.durationSeconds ?? 0) > 0
+            (this.session()?.durationSeconds ?? 0) > 0,
     );
     readonly canFullscreen = computed(
         () =>
             typeof document !== 'undefined' &&
             Boolean(this.playerRoot()?.nativeElement.requestFullscreen) &&
-            Boolean(document.exitFullscreen)
+            Boolean(document.exitFullscreen),
     );
     readonly statusLabel = computed(() => {
         this.translationsTick();
@@ -196,7 +196,7 @@ export class EmbeddedMpvPlayerComponent implements OnDestroy {
         }
         if (!this.support()) {
             return this.translate.instant(
-                'EMBEDDED_MPV.PLAYER.CHECKING_SUPPORT'
+                'EMBEDDED_MPV.PLAYER.CHECKING_SUPPORT',
             );
         }
         if (!this.isSupported()) {
@@ -215,14 +215,12 @@ export class EmbeddedMpvPlayerComponent implements OnDestroy {
         return this.translate.instant(
             this.isFullscreen()
                 ? 'EMBEDDED_MPV.PLAYER.EXIT_FULLSCREEN'
-                : 'EMBEDDED_MPV.PLAYER.ENTER_FULLSCREEN'
+                : 'EMBEDDED_MPV.PLAYER.ENTER_FULLSCREEN',
         );
     });
     readonly audioTracks = computed(() => this.session()?.audioTracks ?? []);
     readonly hasAudioTracks = computed(
-        () =>
-            this.capabilities().audioTracks &&
-            this.audioTracks().length > 1
+        () => this.capabilities().audioTracks && this.audioTracks().length > 1,
     );
     readonly hasSettings = computed(() => {
         const capabilities = this.capabilities();
@@ -235,17 +233,17 @@ export class EmbeddedMpvPlayerComponent implements OnDestroy {
         );
     });
     readonly subtitleTracks = computed(
-        () => this.session()?.subtitleTracks ?? []
+        () => this.session()?.subtitleTracks ?? [],
     );
     readonly hasSubtitleTracks = computed(
-        () => this.subtitleTracks().length > 0
+        () => this.subtitleTracks().length > 0,
     );
     readonly selectedSubtitleTrackId = computed(
-        () => this.session()?.selectedSubtitleTrackId ?? null
+        () => this.session()?.selectedSubtitleTrackId ?? null,
     );
     readonly playbackSpeed = computed(() => this.session()?.playbackSpeed ?? 1);
     readonly aspectOverride = computed(
-        () => this.session()?.aspectOverride ?? 'no'
+        () => this.session()?.aspectOverride ?? 'no',
     );
     readonly volumeIcon = computed(() => volumeIcon(this.volume()));
     readonly volumeLabel = computed(() => {
@@ -255,7 +253,7 @@ export class EmbeddedMpvPlayerComponent implements OnDestroy {
         });
     });
     readonly volumePercent = computed(
-        () => `${Math.round(this.volume() * 100)}%`
+        () => `${Math.round(this.volume() * 100)}%`,
     );
     readonly dockPanelBackLabel = computed(() => {
         this.translationsTick();
@@ -270,7 +268,7 @@ export class EmbeddedMpvPlayerComponent implements OnDestroy {
     readonly timelineValue = computed(
         () =>
             this.scrubPosition() ??
-            Math.max(0, this.session()?.positionSeconds ?? 0)
+            Math.max(0, this.session()?.positionSeconds ?? 0),
     );
     readonly controlsAreVisible = computed(
         () =>
@@ -280,26 +278,26 @@ export class EmbeddedMpvPlayerComponent implements OnDestroy {
                 this.isLoading() ||
                 this.isPaused() ||
                 this.menus.anyOpen() ||
-                Boolean(this.statusLabel()))
+                Boolean(this.statusLabel())),
     );
     readonly hideCursor = computed(
         () =>
             this.isFullscreen() &&
             this.isPlaying() &&
-            !this.controlsAreVisible()
+            !this.controlsAreVisible(),
     );
     readonly showSeriesNavigation = computed(
-        () => !this.isLivePlayback() && this.seriesNavigation() !== null
+        () => this.seriesNavigation() !== null,
     );
     readonly canPreviousEpisode = computed(
         () =>
             this.showSeriesNavigation() &&
-            this.seriesNavigation()?.canPrevious === true
+            this.seriesNavigation()?.canPrevious === true,
     );
     readonly canNextEpisode = computed(
         () =>
             this.showSeriesNavigation() &&
-            this.seriesNavigation()?.canNext === true
+            this.seriesNavigation()?.canNext === true,
     );
     private mutedVolume = 0;
     private lastEndedSessionId: string | null = null;
@@ -308,7 +306,7 @@ export class EmbeddedMpvPlayerComponent implements OnDestroy {
     private readonly onFullscreenChange = () => {
         const playerRoot = this.playerRoot()?.nativeElement;
         this.isFullscreen.set(
-            Boolean(playerRoot && document.fullscreenElement === playerRoot)
+            Boolean(playerRoot && document.fullscreenElement === playerRoot),
         );
         this.legacyInteractions.revealControls();
         this.controller.triggerBoundsSync();
@@ -400,7 +398,7 @@ export class EmbeddedMpvPlayerComponent implements OnDestroy {
         if (typeof document !== 'undefined') {
             document.addEventListener(
                 'fullscreenchange',
-                this.onFullscreenChange
+                this.onFullscreenChange,
             );
         }
 
@@ -441,7 +439,7 @@ export class EmbeddedMpvPlayerComponent implements OnDestroy {
             // This signal is written by startSession and its cleanup. Reading
             // it reactively creates a false -> true -> false effect loop.
             const sessionActive = readSessionActiveUntracked(
-                this.controller.sessionActive
+                this.controller.sessionActive,
             );
             this.controller.retryToken();
 
@@ -463,7 +461,7 @@ export class EmbeddedMpvPlayerComponent implements OnDestroy {
                 viewport.nativeElement,
                 playback,
                 untracked(() => this.volume()),
-                backend
+                backend,
             );
             onCleanup(teardown);
         });
@@ -518,7 +516,7 @@ export class EmbeddedMpvPlayerComponent implements OnDestroy {
         if (typeof document !== 'undefined') {
             document.removeEventListener(
                 'fullscreenchange',
-                this.onFullscreenChange
+                this.onFullscreenChange,
             );
         }
         this.legacyInteractions.dispose();
@@ -569,7 +567,7 @@ export class EmbeddedMpvPlayerComponent implements OnDestroy {
         if (ok) {
             this.feedback.flash(
                 deltaSeconds >= 0 ? 'forward_10' : 'replay_10',
-                `${deltaSeconds >= 0 ? '+' : ''}${Math.round(deltaSeconds)}s`
+                `${deltaSeconds >= 0 ? '+' : ''}${Math.round(deltaSeconds)}s`,
             );
         }
     }
@@ -593,7 +591,7 @@ export class EmbeddedMpvPlayerComponent implements OnDestroy {
     onTimelineInput(event: Event): void {
         this.legacyInteractions.revealControls();
         this.scrubPosition.set(
-            Number((event.target as HTMLInputElement).value)
+            Number((event.target as HTMLInputElement).value),
         );
     }
 
@@ -632,14 +630,14 @@ export class EmbeddedMpvPlayerComponent implements OnDestroy {
             this.applyVolume(0);
             this.feedback.flash(
                 'volume_off',
-                this.translate.instant('EMBEDDED_MPV.PLAYER.MUTED')
+                this.translate.instant('EMBEDDED_MPV.PLAYER.MUTED'),
             );
         } else {
             const restored = this.mutedVolume || 0.5;
             this.applyVolume(restored);
             this.feedback.flash(
                 volumeIcon(restored),
-                `${Math.round(restored * 100)}%`
+                `${Math.round(restored * 100)}%`,
             );
         }
         this.legacyInteractions.revealControls();
@@ -719,10 +717,10 @@ export class EmbeddedMpvPlayerComponent implements OnDestroy {
         return audioTrackLabel(track, index, {
             fallback: this.translate.instant(
                 'EMBEDDED_MPV.PLAYER.AUDIO_TRACK_FALLBACK',
-                { index: index + 1 }
+                { index: index + 1 },
             ),
             defaultLabel: this.translate.instant(
-                'EMBEDDED_MPV.PLAYER.TRACK_DEFAULT'
+                'EMBEDDED_MPV.PLAYER.TRACK_DEFAULT',
             ),
         });
     };
@@ -731,10 +729,10 @@ export class EmbeddedMpvPlayerComponent implements OnDestroy {
         return subtitleTrackLabel(track, index, {
             fallback: this.translate.instant(
                 'EMBEDDED_MPV.PLAYER.SUBTITLE_TRACK_FALLBACK',
-                { index: index + 1 }
+                { index: index + 1 },
             ),
             defaultLabel: this.translate.instant(
-                'EMBEDDED_MPV.PLAYER.TRACK_DEFAULT'
+                'EMBEDDED_MPV.PLAYER.TRACK_DEFAULT',
             ),
         });
     };

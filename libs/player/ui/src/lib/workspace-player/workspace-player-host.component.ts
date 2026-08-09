@@ -20,6 +20,7 @@ import {
 import type { BrowserViewBounds } from "@arm-nator/shared/interfaces";
 import { VideoPlayer } from "@arm-nator/shared/interfaces";
 import type { PlaybackFallbackRequest } from "../playback-diagnostics/playback-diagnostics.model";
+import type { SeriesPlaybackNavigation } from "../portal-inline-player/series-playback-navigation";
 import { WebPlayerViewComponent } from "../web-player-view/web-player-view.component";
 import { hasStartedNativeSession } from "./workspace-player-native-session";
 import { WorkspacePlayerStateService } from "./workspace-player-state.service";
@@ -54,7 +55,6 @@ export interface WorkspacePlayerEngineAvailability {
   readonly available: boolean;
   readonly detail: string;
 }
-
 /**
  * Native backends are independent. In particular, a working embedded MPV
  * runtime does not make KS Player selectable (or vice versa).
@@ -75,7 +75,7 @@ export function getWorkspacePlayerEngineAvailability(
     };
   }
 
-    if (engine === VideoPlayer.KsPlayer) {
+  if (engine === VideoPlayer.KsPlayer) {
     const available = ksPlayerMetalSupport?.supported === true;
     return {
       id: engine,
@@ -197,6 +197,19 @@ export class WorkspacePlayerHostComponent {
     return playback?.title || playback?.streamUrl || "";
   });
   readonly snapshot = this.state.runtimeSnapshot;
+  readonly playbackNavigation = computed<SeriesPlaybackNavigation | null>(
+    () => {
+      const context = this.state.context();
+      if (!context || (!context.onPrevious && !context.onNext)) {
+        return null;
+      }
+      return {
+        canPrevious: context.canPrevious === true,
+        canNext: context.canNext === true,
+        autoplayEnabled: context.autoplayNext === true,
+      };
+    },
+  );
   private readonly youtubeSurfaceEffect = effect((onCleanup) => {
     this.state.youtube();
     const surface = this.playerSurface()?.nativeElement;

@@ -134,6 +134,7 @@
           [title]="playback.title"
           [playback]="playback"
           [playerOverride]="state.engine()"
+          [seriesNavigation]="playbackNavigation()"
           [reloadGeneration]="state.reloadGeneration()"
           (timeUpdate)="onTimeUpdate($event)"
           (runtimeSnapshotChange)="onRuntimeSnapshot($event)"

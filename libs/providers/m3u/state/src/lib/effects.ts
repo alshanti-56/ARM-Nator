@@ -202,7 +202,8 @@ export class PlaylistEffects {
     if (!settings || Object.keys(settings).length === 0) {
       return;
     }
-    const player = settings.player as VideoPlayer | undefined;
+    const player = (settings.livePlayer ?? settings.player) as
+      VideoPlayer | undefined;
     if (player === VideoPlayer.MPV) {
       this.dataService.sendIpcEvent(OPEN_MPV_PLAYER, payload);
       return;

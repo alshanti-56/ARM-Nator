@@ -53,18 +53,18 @@ export class EmbeddedMpvControlsAdapter implements PlayerController {
         merge(
             this.translate.onLangChange,
             this.translate.onTranslationChange,
-            this.translate.onDefaultLangChange
+            this.translate.onDefaultLangChange,
         ),
-        { initialValue: null }
+        { initialValue: null },
     );
 
     private readonly configuredContext =
         signal<EmbeddedMpvControlsContext | null>(null);
     private readonly picture = signal<PlayerPictureSettings>(
-        DEFAULT_PICTURE_SETTINGS
+        DEFAULT_PICTURE_SETTINGS,
     );
     private readonly subtitle = signal<PlayerSubtitleSettings>(
-        DEFAULT_SUBTITLE_SETTINGS
+        DEFAULT_SUBTITLE_SETTINGS,
     );
 
     readonly capabilities = computed<PlayerControlsCapabilities>(() => {
@@ -86,24 +86,20 @@ export class EmbeddedMpvControlsAdapter implements PlayerController {
             audioTracks: !isKsPlayerMetal
                 ? true
                 : ksControls?.audioTracks === true,
-            subtitles:
-                isKsPlayerMetal
-                    ? ksControls?.subtitles === true
-                    : (optionalCapabilities?.subtitles ?? false),
-            playbackSpeed:
-                !isKsPlayerMetal
-                    ? (optionalCapabilities?.playbackSpeed ?? false)
-                    : ksControls?.playbackSpeed === true,
-            aspectRatio:
-                isKsPlayerMetal
-                    ? ksControls?.aspectOverride === true
-                    : (optionalCapabilities?.aspectOverride ?? false),
-            pictureAdjustments:
-                isKsPlayerMetal
-                    ? ksControls?.pictureAdjustments === true
-                    : (optionalCapabilities?.pictureAdjustments ?? false),
+            subtitles: isKsPlayerMetal
+                ? ksControls?.subtitles === true
+                : (optionalCapabilities?.subtitles ?? false),
+            playbackSpeed: !isKsPlayerMetal
+                ? (optionalCapabilities?.playbackSpeed ?? false)
+                : ksControls?.playbackSpeed === true,
+            aspectRatio: isKsPlayerMetal
+                ? ksControls?.aspectOverride === true
+                : (optionalCapabilities?.aspectOverride ?? false),
+            pictureAdjustments: isKsPlayerMetal
+                ? ksControls?.pictureAdjustments === true
+                : (optionalCapabilities?.pictureAdjustments ?? false),
             fullscreen: true,
-            seriesNavigation: !isLive && context.seriesNavigation() !== null,
+            seriesNavigation: context.seriesNavigation() !== null,
             frameStep: !isLive && !isKsPlayerMetal,
         };
     });
@@ -124,7 +120,7 @@ export class EmbeddedMpvControlsAdapter implements PlayerController {
             ? null
             : (session?.durationSeconds ?? null);
         const seriesNavigation = context.seriesNavigation();
-        const hasSeriesNavigation = !isLive && seriesNavigation !== null;
+        const hasSeriesNavigation = seriesNavigation !== null;
         const mappedStatus = this.mapStatus(support, session);
         return {
             ...mappedStatus,
@@ -140,10 +136,10 @@ export class EmbeddedMpvControlsAdapter implements PlayerController {
                       label: audioTrackLabel(track, index, {
                           fallback: this.translate.instant(
                               'EMBEDDED_MPV.PLAYER.AUDIO_TRACK_FALLBACK',
-                              { index: index + 1 }
+                              { index: index + 1 },
                           ),
                           defaultLabel: this.translate.instant(
-                              'EMBEDDED_MPV.PLAYER.TRACK_DEFAULT'
+                              'EMBEDDED_MPV.PLAYER.TRACK_DEFAULT',
                           ),
                       }),
                       selected: track.selected,
@@ -155,10 +151,10 @@ export class EmbeddedMpvControlsAdapter implements PlayerController {
                       label: subtitleTrackLabel(track, index, {
                           fallback: this.translate.instant(
                               'EMBEDDED_MPV.PLAYER.SUBTITLE_TRACK_FALLBACK',
-                              { index: index + 1 }
+                              { index: index + 1 },
                           ),
                           defaultLabel: this.translate.instant(
-                              'EMBEDDED_MPV.PLAYER.TRACK_DEFAULT'
+                              'EMBEDDED_MPV.PLAYER.TRACK_DEFAULT',
                           ),
                       }),
                       selected: track.selected,
@@ -227,13 +223,13 @@ export class EmbeddedMpvControlsAdapter implements PlayerController {
 
     private mapStatus(
         support: EmbeddedMpvSupport | null,
-        session: EmbeddedMpvSession | null
+        session: EmbeddedMpvSession | null,
     ): MappedPlayerStatus {
         if (!support) {
             return {
                 status: 'loading',
                 statusMessage: this.translate.instant(
-                    'EMBEDDED_MPV.PLAYER.CHECKING_SUPPORT'
+                    'EMBEDDED_MPV.PLAYER.CHECKING_SUPPORT',
                 ),
             };
         }
@@ -251,7 +247,7 @@ export class EmbeddedMpvControlsAdapter implements PlayerController {
             return {
                 status: 'loading',
                 statusMessage: this.translate.instant(
-                    'EMBEDDED_MPV.PLAYER.LOADING_STREAM'
+                    'EMBEDDED_MPV.PLAYER.LOADING_STREAM',
                 ),
             };
         }
@@ -270,7 +266,7 @@ export class EmbeddedMpvControlsAdapter implements PlayerController {
                     statusMessage:
                         session.error ??
                         this.translate.instant(
-                            'EMBEDDED_MPV.PLAYER.PLAYBACK_FAILED'
+                            'EMBEDDED_MPV.PLAYER.PLAYBACK_FAILED',
                         ),
                 };
         }

@@ -30,6 +30,7 @@ import { SettingsPlayerOption } from "./settings.models";
   styles: [":host { display: contents; }"],
 })
 export class SettingsPlaybackSectionComponent {
+  readonly videoPlayer = VideoPlayer;
   readonly mpvPlayerArgumentsPlaceholder = [
     "--ontop",
     "--autofit=640x360",
@@ -50,12 +51,30 @@ export class SettingsPlaybackSectionComponent {
   readonly supportsExternalPlayerPathSettings = input(false);
 
   isWebPlayerSelected(): boolean {
-    return isWebPlayer(this.form().value.player ?? VideoPlayer.ArtPlayer);
+    return [this.livePlayer(), this.vodPlayer()].some(isWebPlayer);
   }
 
   isExternalPlayerSelected(): boolean {
-    return isManagedExternalPlayer(
-      this.form().value.player ?? VideoPlayer.ArtPlayer,
+    return [this.livePlayer(), this.vodPlayer()].some(isManagedExternalPlayer);
+  }
+
+  isPlayerSelected(player: VideoPlayer): boolean {
+    return this.livePlayer() === player || this.vodPlayer() === player;
+  }
+
+  private livePlayer(): VideoPlayer {
+    return (
+      this.form().value.livePlayer ??
+      this.form().value.player ??
+      VideoPlayer.ArtPlayer
+    );
+  }
+
+  private vodPlayer(): VideoPlayer {
+    return (
+      this.form().value.vodPlayer ??
+      this.form().value.player ??
+      VideoPlayer.ArtPlayer
     );
   }
 }

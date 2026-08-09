@@ -25,7 +25,7 @@ export interface PlayerOpenContext {
  * not import ArtPlayer, HTML5, embedded MPV, external MPV, or VLC internals.
  */
 export interface PlayerFacade {
-  isEmbeddedPlayer(): boolean;
+  isEmbeddedPlayer(isLive?: boolean): boolean;
   openPlayer(
     streamUrl: string,
     title: string,

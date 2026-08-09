@@ -132,7 +132,8 @@ export class VideoPlayerComponent implements OnInit, OnDestroy {
    * ClearKey support) fall back to the HTML5 player.
    */
   readonly dashPlayerOverride = computed<VideoPlayer>(() =>
-    this.settingsStore.player() === VideoPlayer.ArtPlayer
+    (this.settingsStore.livePlayer?.() ?? this.settingsStore.player()) ===
+    VideoPlayer.ArtPlayer
       ? VideoPlayer.ArtPlayer
       : VideoPlayer.Html5Player,
   );
@@ -254,7 +255,8 @@ export class VideoPlayerComponent implements OnInit, OnDestroy {
     // React to settings changes
     effect(() => {
       this.playerSettings = {
-        player: this.settingsStore.player(),
+        player:
+          this.settingsStore.livePlayer?.() ?? this.settingsStore.player(),
       };
     });
 
@@ -272,7 +274,30 @@ export class VideoPlayerComponent implements OnInit, OnDestroy {
       const engine = this.activeChannelIsDash()
         ? this.dashPlayerOverride()
         : (this.playerSettings.player ?? VideoPlayer.ArtPlayer);
-      this.portalPlayer.openInlinePlayback(playback, engine);
+      const channels = this.channels();
+      const index = channels.findIndex(
+        (candidate) => candidate.url === channel.url,
+      );
+      this.portalPlayer.openInlinePlayback(playback, engine, {
+        canPrevious: index > 0,
+        canNext: index >= 0 && index < channels.length - 1,
+        onPrevious: () => {
+          const previous = channels[index - 1];
+          if (previous) {
+            this.store.dispatch(
+              ChannelActions.setActiveChannel({ channel: previous }),
+            );
+          }
+        },
+        onNext: () => {
+          const next = channels[index + 1];
+          if (next) {
+            this.store.dispatch(
+              ChannelActions.setActiveChannel({ channel: next }),
+            );
+          }
+        },
+      });
     });
 
     effect(() => {
@@ -342,7 +367,8 @@ export class VideoPlayerComponent implements OnInit, OnDestroy {
     });
 
     effect(() => {
-      const player = this.settingsStore.player();
+      const player =
+        this.settingsStore.livePlayer?.() ?? this.settingsStore.player();
       const session = this.externalPlayback.activeSession();
       const activeChannel = this.activeChannel();
       const sessionStateKey = this.getExternalSessionStateKey(session);

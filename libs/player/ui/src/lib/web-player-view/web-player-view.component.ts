@@ -22,6 +22,7 @@ import {
   Settings,
   STORE_KEY,
   VideoPlayer,
+  resolveDefaultVideoPlayer,
 } from "@arm-nator/shared/interfaces";
 import type { ExternalPlayerName } from "@arm-nator/shared/interfaces";
 import { RuntimeCapabilitiesService, SettingsStore } from "@arm-nator/services";
@@ -146,10 +147,16 @@ export class WebPlayerViewComponent {
       ? playback.isLive
       : !playback.contentInfo;
   });
-  readonly selectedPlayer = computed(
-    () =>
-      this.playerOverride() ?? this.settings()?.player ?? VideoPlayer.ArtPlayer,
-  );
+  readonly selectedPlayer = computed(() => {
+    const override = this.playerOverride();
+    if (override) {
+      return override;
+    }
+    const settings = this.settings();
+    return settings
+      ? resolveDefaultVideoPlayer(settings, this.resolvedIsLive())
+      : VideoPlayer.ArtPlayer;
+  });
   readonly resolvedMediaTitle = computed<PlayerMediaTitle | null>(() => {
     const explicit = this.mediaTitle();
     if (explicit?.primary?.trim()) {

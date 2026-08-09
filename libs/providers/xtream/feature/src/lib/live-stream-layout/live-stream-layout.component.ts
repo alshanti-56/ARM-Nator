@@ -179,7 +179,7 @@ export class LiveStreamLayoutComponent implements OnInit {
   });
 
   readonly usesEmbeddedPlayer = computed(() =>
-    this.portalPlayer.isEmbeddedPlayer(),
+    this.portalPlayer.isEmbeddedPlayer(true),
   );
   readonly activePlayback = signal<ResolvedPortalPlayback | null>(null);
   readonly activeStreamUrl = computed(
@@ -283,7 +283,22 @@ export class LiveStreamLayoutComponent implements OnInit {
     };
     this.activePlayback.set(playback);
     if (this.usesEmbeddedPlayer()) {
-      void this.portalPlayer.openResolvedPlayback(playback);
+      const channels = this.getAllLiveStreams();
+      const index = channels.findIndex(
+        (channel) => Number(channel.xtream_id) === Number(item.xtream_id),
+      );
+      void this.portalPlayer.openResolvedPlayback(playback, true, {
+        canPrevious: index > 0,
+        canNext: index >= 0 && index < channels.length - 1,
+        onPrevious: () => {
+          const previous = channels[index - 1];
+          if (previous) this.playLive(previous, true);
+        },
+        onNext: () => {
+          const next = channels[index + 1];
+          if (next) this.playLive(next, true);
+        },
+      });
       return;
     }
     if (!startPlayback) {
@@ -378,5 +393,4 @@ export class LiveStreamLayoutComponent implements OnInit {
       this.xtreamStore.setSelectedCategory(categoryId);
     }
   }
-
 }

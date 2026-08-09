@@ -18,7 +18,7 @@ import { TranslateModule } from "@ngx-translate/core";
 import {
   PlayerContentInfo,
   ResolvedPortalPlayback,
-  VideoPlayer,
+  resolveDefaultVideoPlayer,
 } from "@arm-nator/shared/interfaces";
 import { isWebPlayer } from "@arm-nator/player/core";
 import type { PlaybackFallbackRequest } from "../playback-diagnostics/playback-diagnostics.util";
@@ -104,7 +104,9 @@ export class PortalInlinePlayerComponent {
   // and Up Next toggles for HTML5 and ArtPlayer. Embedded MPV
   // composites a native video layer, so extra DOM stays out of the mix.
   private readonly isWebPlayerEngine = computed<boolean>(() => {
-    return isWebPlayer(this.settingsStore.player?.() ?? VideoPlayer.ArtPlayer);
+    return isWebPlayer(
+      resolveDefaultVideoPlayer(this.settingsStore.getSettings(), false),
+    );
   });
   readonly ambientEnabled = computed<boolean>(() => {
     return (

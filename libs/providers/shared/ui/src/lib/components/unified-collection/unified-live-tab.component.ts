@@ -53,7 +53,7 @@ export class UnifiedLiveTabComponent {
     readonly autoOpenItem = input<OpenLiveCollectionItemState | null>(null);
     readonly favoriteUids = input<ReadonlySet<string>>(new Set<string>());
     readonly sortMode = input<FavoritesChannelSortMode>(
-        DEFAULT_FAVORITES_CHANNEL_SORT_MODE
+        DEFAULT_FAVORITES_CHANNEL_SORT_MODE,
     );
     readonly isSidebarCollapsed = input(false);
 
@@ -73,20 +73,20 @@ export class UnifiedLiveTabComponent {
     readonly isSelecting = signal(false);
     readonly progressTick = signal(0);
     readonly isEmbeddedPlayer = computed(() =>
-        this.portalPlayer.isEmbeddedPlayer()
+        this.portalPlayer.isEmbeddedPlayer(true),
     );
     readonly currentStreamUrl = computed(
-        () => this.activeDetail()?.playback.streamUrl ?? ''
+        () => this.activeDetail()?.playback.streamUrl ?? '',
     );
     readonly activeRadioChannel = computed(() => {
         const channel = this.activeDetail()?.channel ?? null;
         return channel?.radio === 'true' ? channel : null;
     });
     readonly isRadioSelection = computed(
-        () => this.activeRadioChannel() !== null
+        () => this.activeRadioChannel() !== null,
     );
     readonly shouldUseInlinePlayer = computed(
-        () => this.isRadioSelection() || this.isEmbeddedPlayer()
+        () => this.isRadioSelection() || this.isEmbeddedPlayer(),
     );
     readonly channelsForList = computed((): UnifiedFavoriteChannel[] =>
         this.items().map((item) => ({
@@ -103,7 +103,7 @@ export class UnifiedLiveTabComponent {
             addedAt: item.addedAt ?? new Date(0).toISOString(),
             position: item.position ?? 0,
             contentId: item.contentId,
-        }))
+        })),
     );
 
     private selectionRequestId = 0;
@@ -115,7 +115,7 @@ export class UnifiedLiveTabComponent {
             if (!target || items.length === 0) return;
 
             const item = items.find((candidate) =>
-                matchesOpenLiveCollectionItem(candidate, target)
+                matchesOpenLiveCollectionItem(candidate, target),
             );
             if (!item) return;
             if (this.activeUid() === item.uid && this.activeDetail()) {
@@ -132,7 +132,7 @@ export class UnifiedLiveTabComponent {
     }
 
     async onChannelPlaybackRequested(
-        channel: UnifiedFavoriteChannel
+        channel: UnifiedFavoriteChannel,
     ): Promise<void> {
         const item = this.findItem(channel.uid);
         if (item) await this.activateItem(item, false, true);
@@ -154,7 +154,7 @@ export class UnifiedLiveTabComponent {
         this.reorderItems.emit(
             channels
                 .map((channel) => this.findItem(channel.uid))
-                .filter((item): item is UnifiedCollectionItem => Boolean(item))
+                .filter((item): item is UnifiedCollectionItem => Boolean(item)),
         );
     }
 
@@ -168,7 +168,7 @@ export class UnifiedLiveTabComponent {
     private async activateItem(
         item: UnifiedCollectionItem,
         isAutoOpen = false,
-        startPlayback = false
+        startPlayback = false,
     ): Promise<void> {
         const requestId = ++this.selectionRequestId;
         this.activeUid.set(item.uid);
@@ -184,7 +184,27 @@ export class UnifiedLiveTabComponent {
                 this.shouldUseInlinePlayer() ||
                 this.shouldOpenExternalPlayback(detail, startPlayback)
             ) {
-                void this.portalPlayer.openResolvedPlayback(detail.playback);
+                const items = this.items();
+                const index = items.findIndex(
+                    (candidate) => candidate.uid === item.uid,
+                );
+                void this.portalPlayer.openResolvedPlayback(
+                    detail.playback,
+                    true,
+                    {
+                        canPrevious: index > 0,
+                        canNext: index >= 0 && index < items.length - 1,
+                        onPrevious: () => {
+                            const previous = items[index - 1];
+                            if (previous)
+                                void this.activateItem(previous, false, true);
+                        },
+                        onNext: () => {
+                            const next = items[index + 1];
+                            if (next) void this.activateItem(next, false, true);
+                        },
+                    },
+                );
             }
 
             try {
@@ -212,11 +232,11 @@ export class UnifiedLiveTabComponent {
 
     private shouldOpenExternalPlayback(
         detail: ResolvedLiveCollectionDetail,
-        startPlayback: boolean
+        startPlayback: boolean,
     ): boolean {
         if (
             detail.channel?.radio === 'true' ||
-            this.portalPlayer.isEmbeddedPlayer()
+            this.portalPlayer.isEmbeddedPlayer(true)
         ) {
             return false;
         }

@@ -65,6 +65,16 @@ export function normalizeVideoPlayer(
         : fallback;
 }
 
+export function resolveDefaultVideoPlayer(
+    settings: Pick<Settings, 'player' | 'livePlayer' | 'vodPlayer'>,
+    isLive: boolean
+): VideoPlayer {
+    return normalizeVideoPlayer(
+        isLive ? settings.livePlayer : settings.vodPlayer,
+        normalizeVideoPlayer(settings.player)
+    );
+}
+
 export enum StartupBehavior {
     FirstView = 'first-view',
     RestoreLastView = 'restore-last-view',
@@ -124,7 +134,12 @@ export function normalizeDashboardRailsSettings(
  * Describes all available settings options of the application
  */
 export interface Settings {
+    /** Legacy default retained for migration and compatibility. */
     player: VideoPlayer;
+    /** Default engine for live TV and M3U channel playback. */
+    livePlayer: VideoPlayer;
+    /** Default engine for movies and series episodes. */
+    vodPlayer: VideoPlayer;
     /** Preferences used by the local Direct Play diagnostics tool. */
     directPlay?: DirectPlayPreferences;
     /**

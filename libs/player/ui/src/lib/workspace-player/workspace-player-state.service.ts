@@ -52,7 +52,6 @@ export class WorkspacePlayerStateService {
         const replacingPlayback = this.playback() !== null;
         if (replacingPlayback) {
             void this.persistPosition(this.lastTimeUpdate, true);
-            this.context()?.onClosed?.();
         }
         this.playback.set(playback);
         this.engine.set(engine);

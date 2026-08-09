@@ -16,6 +16,8 @@ import {
 export function createSettingsForm(formBuilder: FormBuilder) {
   return formBuilder.group({
     player: [VideoPlayer.ArtPlayer],
+    livePlayer: [VideoPlayer.ArtPlayer],
+    vodPlayer: [VideoPlayer.ArtPlayer],
     playerAmbientMode: false,
     playerUpNextRail: true,
     streamFormat: StreamFormat.AutoStreamFormat,
@@ -61,7 +63,9 @@ export function createSettingsFromFormValue(
   const value = settingsForm.getRawValue();
 
   return {
-    player: value.player ?? VideoPlayer.ArtPlayer,
+    player: value.vodPlayer ?? value.player ?? VideoPlayer.ArtPlayer,
+    livePlayer: value.livePlayer ?? value.player ?? VideoPlayer.ArtPlayer,
+    vodPlayer: value.vodPlayer ?? value.player ?? VideoPlayer.ArtPlayer,
     playerAmbientMode: value.playerAmbientMode ?? false,
     playerUpNextRail: value.playerUpNextRail ?? true,
     streamFormat: value.streamFormat ?? StreamFormat.AutoStreamFormat,

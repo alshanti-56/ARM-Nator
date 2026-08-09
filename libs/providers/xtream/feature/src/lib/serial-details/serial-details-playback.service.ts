@@ -342,7 +342,7 @@ export class SerialDetailsPlaybackService {
 
   private startPlayback(playback: ResolvedPortalPlayback): void {
     this.lastSaveTime = 0;
-    if (!this.portalPlayer.isEmbeddedPlayer()) {
+    if (!this.portalPlayer.isEmbeddedPlayer(false)) {
       this.closeInlinePlayer();
       void this.playbackPositionState.recordExternalLaunch(
         playback,

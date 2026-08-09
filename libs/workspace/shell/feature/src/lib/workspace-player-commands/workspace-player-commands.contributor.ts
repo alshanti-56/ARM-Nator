@@ -190,7 +190,9 @@ export class WorkspacePlayerCommandsContributor {
       ],
       priority: def.priority,
       visible: () => this.isVisible(def),
-      enabled: () => this.settingsStore.player() !== def.player,
+      enabled: () =>
+        this.settingsStore.livePlayer?.() !== def.player ||
+        this.settingsStore.vodPlayer?.() !== def.player,
       run: () => this.activate(def),
     };
   }
@@ -205,7 +207,11 @@ export class WorkspacePlayerCommandsContributor {
   }
 
   private activate(def: PlayerCommandDefinition): void {
-    void this.settingsStore.updateSettings({ player: def.player });
+    void this.settingsStore.updateSettings({
+      player: def.player,
+      livePlayer: def.player,
+      vodPlayer: def.player,
+    });
 
     const name = this.translate.instant(def.nameKey);
     this.snackBar.open(

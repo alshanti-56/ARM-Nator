@@ -16,8 +16,8 @@
 
     <div class="setting-item">
         <div class="setting-item__meta">
-            <h4>{{ 'SETTINGS.VIDEO_PLAYER_LABEL' | translate }}</h4>
-            <p>{{ 'SETTINGS.VIDEO_PLAYER_DESCRIPTION' | translate }}</p>
+            <h4>{{ 'SETTINGS.LIVE_VIDEO_PLAYER_LABEL' | translate }}</h4>
+            <p>{{ 'SETTINGS.LIVE_VIDEO_PLAYER_DESCRIPTION' | translate }}</p>
         </div>
         <div class="setting-item__control">
             <mat-form-field appearance="outline" subscriptSizing="dynamic">
@@ -25,13 +25,39 @@
                     'SETTINGS.VIDEO_PLAYER_PLACEHOLDER' | translate
                 }}</mat-label>
                 <mat-select
-                    formControlName="player"
-                    data-test-id="select-video-player"
+                    formControlName="livePlayer"
+                    data-test-id="select-live-video-player"
                 >
                     @for (player of players(); track player.id) {
                         <mat-option
                             [value]="player.id"
                             [attr.data-test-id]="player.id"
+                            >{{ player.labelKey | translate }}
+                        </mat-option>
+                    }
+                </mat-select>
+            </mat-form-field>
+        </div>
+    </div>
+
+    <div class="setting-item">
+        <div class="setting-item__meta">
+            <h4>{{ 'SETTINGS.VOD_VIDEO_PLAYER_LABEL' | translate }}</h4>
+            <p>{{ 'SETTINGS.VOD_VIDEO_PLAYER_DESCRIPTION' | translate }}</p>
+        </div>
+        <div class="setting-item__control">
+            <mat-form-field appearance="outline" subscriptSizing="dynamic">
+                <mat-label>{{
+                    'SETTINGS.VIDEO_PLAYER_PLACEHOLDER' | translate
+                }}</mat-label>
+                <mat-select
+                    formControlName="vodPlayer"
+                    data-test-id="select-vod-video-player"
+                >
+                    @for (player of players(); track player.id) {
+                        <mat-option
+                            [value]="player.id"
+                            [attr.data-test-id]="'vod-' + player.id"
                             >{{ player.labelKey | translate }}
                         </mat-option>
                     }
@@ -151,11 +177,11 @@
                 ></mat-checkbox>
             </div>
         </div>
-
     }
 
     @if (
-        supportsExternalPlayerPathSettings() && form().value.player === 'mpv'
+        supportsExternalPlayerPathSettings() &&
+        isPlayerSelected(videoPlayer.MPV)
     ) {
         <div class="setting-item">
             <div class="setting-item__meta">
@@ -229,7 +255,8 @@
     }
 
     @if (
-        supportsExternalPlayerPathSettings() && form().value.player === 'vlc'
+        supportsExternalPlayerPathSettings() &&
+        isPlayerSelected(videoPlayer.VLC)
     ) {
         <div class="setting-item">
             <div class="setting-item__meta">

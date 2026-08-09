@@ -13,6 +13,8 @@ import { isInlinePlayer } from "@arm-nator/player/core";
 
 const DEFAULT_SETTINGS: Settings = {
   player: VideoPlayer.ArtPlayer,
+  livePlayer: VideoPlayer.ArtPlayer,
+  vodPlayer: VideoPlayer.ArtPlayer,
   directPlay: DEFAULT_DIRECT_PLAY_PREFERENCES,
   playerAmbientMode: false,
   playerUpNextRail: true,
@@ -96,6 +98,14 @@ export const SettingsStore = signalStore(
               ...DEFAULT_SETTINGS,
               ...storedSettings,
               player: normalizeVideoPlayer(storedSettings.player),
+              livePlayer: normalizeVideoPlayer(
+                storedSettings.livePlayer,
+                normalizeVideoPlayer(storedSettings.player),
+              ),
+              vodPlayer: normalizeVideoPlayer(
+                storedSettings.vodPlayer,
+                normalizeVideoPlayer(storedSettings.player),
+              ),
               directPlay: normalizeDirectPlayPreferences(
                 storedSettings.directPlay,
               ),
@@ -141,7 +151,10 @@ export const SettingsStore = signalStore(
           await firstValueFrom(
             storage.set(STORE_KEY.Settings, completeSettings),
           );
-          if (completeSettings.player === VideoPlayer.EmbeddedMpv) {
+          if (
+            completeSettings.livePlayer === VideoPlayer.EmbeddedMpv ||
+            completeSettings.vodPlayer === VideoPlayer.EmbeddedMpv
+          ) {
             scheduleEmbeddedMpvPrepare();
           }
         } catch (error) {
@@ -153,6 +166,8 @@ export const SettingsStore = signalStore(
       getSettings() {
         return {
           player: store.player(),
+          livePlayer: store.livePlayer(),
+          vodPlayer: store.vodPlayer(),
           directPlay: normalizeDirectPlayPreferences(store.directPlay?.()),
           playerAmbientMode:
             store.playerAmbientMode?.() ?? DEFAULT_SETTINGS.playerAmbientMode,
@@ -203,7 +218,11 @@ export const SettingsStore = signalStore(
       },
 
       async sanitizeEmbeddedMpvSelection() {
-        if (store.player() !== VideoPlayer.EmbeddedMpv) {
+        const usesEmbeddedMpv =
+          store.player() === VideoPlayer.EmbeddedMpv ||
+          store.livePlayer() === VideoPlayer.EmbeddedMpv ||
+          store.vodPlayer() === VideoPlayer.EmbeddedMpv;
+        if (!usesEmbeddedMpv) {
           return;
         }
 
@@ -212,7 +231,15 @@ export const SettingsStore = signalStore(
           !window.electron?.getEmbeddedMpvSupport
         ) {
           await this.updateSettings({
-            player: DEFAULT_SETTINGS.player,
+            ...(store.player() === VideoPlayer.EmbeddedMpv
+              ? { player: DEFAULT_SETTINGS.player }
+              : {}),
+            ...(store.livePlayer() === VideoPlayer.EmbeddedMpv
+              ? { livePlayer: DEFAULT_SETTINGS.livePlayer }
+              : {}),
+            ...(store.vodPlayer() === VideoPlayer.EmbeddedMpv
+              ? { vodPlayer: DEFAULT_SETTINGS.vodPlayer }
+              : {}),
           });
           return;
         }
@@ -221,7 +248,15 @@ export const SettingsStore = signalStore(
           const support = await window.electron.getEmbeddedMpvSupport();
           if (!support.supported) {
             await this.updateSettings({
-              player: DEFAULT_SETTINGS.player,
+              ...(store.player() === VideoPlayer.EmbeddedMpv
+                ? { player: DEFAULT_SETTINGS.player }
+                : {}),
+              ...(store.livePlayer() === VideoPlayer.EmbeddedMpv
+                ? { livePlayer: DEFAULT_SETTINGS.livePlayer }
+                : {}),
+              ...(store.vodPlayer() === VideoPlayer.EmbeddedMpv
+                ? { vodPlayer: DEFAULT_SETTINGS.vodPlayer }
+                : {}),
             });
             return;
           }
@@ -233,7 +268,15 @@ export const SettingsStore = signalStore(
             error,
           );
           await this.updateSettings({
-            player: DEFAULT_SETTINGS.player,
+            ...(store.player() === VideoPlayer.EmbeddedMpv
+              ? { player: DEFAULT_SETTINGS.player }
+              : {}),
+            ...(store.livePlayer() === VideoPlayer.EmbeddedMpv
+              ? { livePlayer: DEFAULT_SETTINGS.livePlayer }
+              : {}),
+            ...(store.vodPlayer() === VideoPlayer.EmbeddedMpv
+              ? { vodPlayer: DEFAULT_SETTINGS.vodPlayer }
+              : {}),
           });
         }
       },

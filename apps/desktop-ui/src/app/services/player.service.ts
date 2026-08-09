@@ -9,6 +9,7 @@ import {
   OPEN_VLC_PLAYER,
   PlayerContentInfo,
   ResolvedPortalPlayback,
+  resolveDefaultVideoPlayer,
   VideoPlayer,
 } from "@arm-nator/shared/interfaces";
 import type { ExternalPlayerName } from "@arm-nator/shared/interfaces";
@@ -28,10 +29,8 @@ export class PlayerService implements PlayerFacade {
   private settingsStore = inject(SettingsStore);
   private workspacePlayer = inject(WorkspacePlayerStateService);
 
-  isEmbeddedPlayer(
-    player = this.settingsStore.player() ?? VideoPlayer.ArtPlayer,
-  ): boolean {
-    return isInlinePlayer(player);
+  isEmbeddedPlayer(isLive = false): boolean {
+    return isInlinePlayer(this.getDefaultPlayer(isLive));
   }
 
   openPlayer(
@@ -69,7 +68,7 @@ export class PlayerService implements PlayerFacade {
     hideExternalInfoDialog = true,
     context?: PlayerOpenContext,
   ): Promise<ExternalPlayerSession | void> {
-    const player = this.settingsStore.player() ?? VideoPlayer.ArtPlayer;
+    const player = this.getDefaultPlayer(playback.isLive === true);
 
     if (player === VideoPlayer.MPV) {
       if (!hideExternalInfoDialog) {
@@ -89,7 +88,7 @@ export class PlayerService implements PlayerFacade {
 
   openInlinePlayback(
     playback: ResolvedPortalPlayback,
-    engine = this.settingsStore.player() ?? VideoPlayer.ArtPlayer,
+    engine = this.getDefaultPlayer(playback.isLive === true),
     context?: PlayerOpenContext,
   ): void {
     this.workspacePlayer.open(playback, engine, context);
@@ -116,5 +115,9 @@ export class PlayerService implements PlayerFacade {
         subtitleUrl: playback.subtitleUrl,
       },
     );
+  }
+
+  private getDefaultPlayer(isLive: boolean): VideoPlayer {
+    return resolveDefaultVideoPlayer(this.settingsStore.getSettings(), isLive);
   }
 }
