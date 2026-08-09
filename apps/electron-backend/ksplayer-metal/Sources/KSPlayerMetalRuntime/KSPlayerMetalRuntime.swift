@@ -818,6 +818,7 @@ private struct TrackSnapshot: Encodable {
 private struct SeekTestEvidence: Encodable {
     let timeoutRecoveryCount: Int
     let ignoredCompletionCount: Int
+    let lastRecoveryTarget: Double?
 }
 
 private struct Snapshot: Encodable {
@@ -946,6 +947,7 @@ private final class KSPlayerMetalSession: NSObject, MediaPlayerDelegate {
     /// the in-flight seek is allowed to finish.
     private struct PendingSeek {
         let generation: UInt64
+        let target: Double
         var latestTarget: Double?
     }
 
@@ -983,6 +985,7 @@ private final class KSPlayerMetalSession: NSObject, MediaPlayerDelegate {
     private var testLateCompletionBudget: Int
     private var testTimeoutRecoveryCount = 0
     private var testIgnoredCompletionCount = 0
+    private var testLastRecoveryTarget: Double?
 
     // A seek happens on KSPlayer's decoding thread. This timeout is only a
     // recovery guard: it schedules a fresh source load on the main actor and
@@ -1036,7 +1039,8 @@ private final class KSPlayerMetalSession: NSObject, MediaPlayerDelegate {
     func load(
         url: URL,
         headers: [String: String],
-        subtitleURL: URL? = nil
+        subtitleURL: URL? = nil,
+        startTime: Double = 0
     ) -> OperationResult {
         invalidatePendingSeek()
         guard let hostView else {
@@ -1045,6 +1049,9 @@ private final class KSPlayerMetalSession: NSObject, MediaPlayerDelegate {
 
         detachPlayer()
         let options = MetalOnlyOptions()
+        if startTime.isFinite, startTime > 0 {
+            options.startPlayTime = startTime
+        }
         options.requestedDisplayAspect = requestedAspectOverride.dar
         // The retained-packet backward-seek optimization is unsafe for this
         // short, fully-buffered local VOD path: it can feed a stale output
@@ -1442,7 +1449,8 @@ private final class KSPlayerMetalSession: NSObject, MediaPlayerDelegate {
         guard isHarnessTestSession else { return nil }
         return SeekTestEvidence(
             timeoutRecoveryCount: testTimeoutRecoveryCount,
-            ignoredCompletionCount: testIgnoredCompletionCount
+            ignoredCompletionCount: testIgnoredCompletionCount,
+            lastRecoveryTarget: testLastRecoveryTarget
         )
     }
 
@@ -1618,7 +1626,11 @@ private final class KSPlayerMetalSession: NSObject, MediaPlayerDelegate {
     private func beginSeek(to target: Double, player: KSMEPlayer) {
         seekGeneration &+= 1
         let generation = seekGeneration
-        pendingSeek = PendingSeek(generation: generation, latestTarget: nil)
+        pendingSeek = PendingSeek(
+            generation: generation,
+            target: target,
+            latestTarget: nil
+        )
         lastSeekError = nil
         state = .seeking
         scheduleSeekTimeout(for: generation)
@@ -1700,11 +1712,15 @@ private final class KSPlayerMetalSession: NSObject, MediaPlayerDelegate {
         // A timed-out FFmpeg seek cannot be cancelled through KSPlayer's
         // public API. Recreate the source instead of leaving its read thread
         // wedged in `.seeking`; the generation invalidates any late callback.
+        // A queued scrub supersedes the in-flight target. Recover to the most
+        // recent user intent rather than reopening at an obsolete position.
+        let recoveryTarget = pendingSeek.latestTarget ?? pendingSeek.target
         self.pendingSeek = nil
         cancelSeekTimeout()
         seekGeneration &+= 1
         if isHarnessTestSession {
             testTimeoutRecoveryCount += 1
+            testLastRecoveryTarget = recoveryTarget
         }
         let recoveryMessage = "KSPlayer Metal seek timed out; the source was reloaded to recover playback."
 
@@ -1717,10 +1733,11 @@ private final class KSPlayerMetalSession: NSObject, MediaPlayerDelegate {
         let recovery = load(
             url: loadedURL,
             headers: loadedHeaders,
-            subtitleURL: loadedSubtitleURL
+            subtitleURL: loadedSubtitleURL,
+            startTime: recoveryTarget
         )
         if recovery.ok {
-            lastSeekError = recoveryMessage
+            lastSeekError = "\(recoveryMessage) Playback reopened at \(recoveryTarget) seconds."
         } else {
             lastError = "KSPlayer Metal seek timed out and source recovery failed: \(recovery.reason ?? "unknown error")"
             state = .error

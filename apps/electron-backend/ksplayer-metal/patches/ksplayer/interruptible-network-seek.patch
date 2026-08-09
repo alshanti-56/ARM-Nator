@@ -1,0 +1,49 @@
+diff --git a/Sources/KSPlayer/MEPlayer/MEPlayerItem.swift b/Sources/KSPlayer/MEPlayer/MEPlayerItem.swift
+--- a/Sources/KSPlayer/MEPlayer/MEPlayerItem.swift
++++ b/Sources/KSPlayer/MEPlayer/MEPlayerItem.swift
+@@ -39,6 +39,7 @@ final class MEPlayerItem: NSObject {
+     private var videoAdaptation: VideoAdaptationState?
+     private var videoDisplayCount = UInt8(0)
+     private var seekByBytes = false
++    private var isPerformingSeek = false
+     private var packetHistory = [Packet]()
+     private var packetHistoryEndTime = TimeInterval(-1)
+     private var lastVideoDisplayTime = CACurrentMediaTime()
+@@ -185,6 +186,8 @@ extension MEPlayerItem {
+             }
+             let formatContext = Unmanaged<MEPlayerItem>.fromOpaque(ctx).takeUnretainedValue()
+             switch formatContext.state {
++            case .seeking where !formatContext.isPerformingSeek:
++                return 1
+             case .finished, .closed, .failed:
+                 return 1
+             default:
+@@ -529,5 +532,6 @@ extension MEPlayerItem {
+                 // can not seek to key frame
+                 let seekStartTime = CACurrentMediaTime()
++                isPerformingSeek = true
+                 var result = avformat_seek_file(formatCtx, -1, seekMin, timeStamp, seekMax, seekFlags)
+ //                var result = av_seek_frame(formatCtx, -1, timeStamp, seekFlags)
+                 // When seeking before the beginning of the file, and seeking fails,
+@@ -540,6 +544,7 @@ extension MEPlayerItem {
+                     seekFlags &= ~AVSEEK_FLAG_BACKWARD
+                     result = avformat_seek_file(formatCtx, -1, seekMin, timeStamp, seekMax, seekFlags)
+                 }
++                isPerformingSeek = false
+                 KSLog("seek to \(seekToTime) spend Time: \(CACurrentMediaTime() - seekStartTime)")
+                 if state == .closed {
+                     break
+@@ -628,7 +633,12 @@ extension MEPlayerItem {
+                 }
+             }
+         } else {
+-            if readResult == AVError.eof.code || avio_feof(formatCtx?.pointee.pb) > 0 {
++            if state == .seeking, readResult == AVError.exit.code {
++                // The interrupt callback intentionally aborted a blocked read
++                // so the read loop can service the pending seek. Do not turn
++                // that control-flow signal into EOF or a playback failure.
++                return readResult
++            } else if readResult == AVError.eof.code || avio_feof(formatCtx?.pointee.pb) > 0 {
+                 if options.isLoopPlay, allPlayerItemTracks.allSatisfy({ !$0.isLoopModel }) {
+                     allPlayerItemTracks.forEach { $0.isLoopModel = true }
+                     _ = av_seek_frame(formatCtx, -1, startTime.value, AVSEEK_FLAG_BACKWARD)

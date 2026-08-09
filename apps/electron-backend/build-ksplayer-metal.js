@@ -61,6 +61,22 @@ const ksPlayerPatches = [
       ["Sources/KSPlayer/MEPlayer/MEPlayerItem.swift", "Keep it after the seek state and clocks are committed"],
     ],
   },
+  {
+    path: path.join(
+      packageRoot,
+      "patches",
+      "ksplayer",
+      "interruptible-network-seek.patch",
+    ),
+    files: [
+      "Sources/KSPlayer/MEPlayer/MEPlayerItem.swift",
+    ],
+    markers: [
+      ["Sources/KSPlayer/MEPlayer/MEPlayerItem.swift", "isPerformingSeek"],
+      ["Sources/KSPlayer/MEPlayer/MEPlayerItem.swift", "case .seeking where !formatContext.isPerformingSeek"],
+      ["Sources/KSPlayer/MEPlayer/MEPlayerItem.swift", "readResult == AVError.exit.code"],
+    ],
+  },
 ];
 function log(message) {
   process.stdout.write(`[ksplayer-metal] ${message}\n`);

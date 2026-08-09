@@ -381,17 +381,44 @@ async function exerciseSeekTimeoutRecovery(nativeHandle, duration) {
     probeCreated = true;
     await waitForDirectMetalFrame(timeoutProbeSessionId);
 
+    const supersededTarget = seekTarget(duration, 0.55);
+    const recoveryTarget = seekTarget(duration, 0.7);
     requireAccepted(
-      addon.seek(timeoutProbeSessionId, seekTarget(duration, 0.2)),
+      addon.seek(timeoutProbeSessionId, supersededTarget),
       "timeout recovery seek",
+    );
+    requireAccepted(
+      addon.seek(timeoutProbeSessionId, recoveryTarget),
+      "queued timeout recovery seek",
     );
     const recovered = await waitForSnapshot(
       (snapshot) =>
+        playbackState(snapshot) === "playing" &&
         String(snapshot?.error ?? "").includes("seek timed out") &&
-        snapshot?.seekTestEvidence?.timeoutRecoveryCount === 1,
+        snapshot?.seekTestEvidence?.timeoutRecoveryCount === 1 &&
+        snapshot?.seekTestEvidence?.lastRecoveryTarget === recoveryTarget &&
+        Number.isFinite(snapshot.positionSeconds) &&
+        Math.abs(snapshot.positionSeconds - recoveryTarget) <= seekToleranceSeconds,
       "seek timeout recovery",
       timeoutProbeSessionId,
     );
+    const recoveredAdvanceBefore = addon.getSnapshot(timeoutProbeSessionId);
+    await wait(500);
+    const recoveredAdvanceAfter = addon.getSnapshot(timeoutProbeSessionId);
+    if (
+      playbackState(recoveredAdvanceAfter) !== "playing" ||
+      !Number.isFinite(recoveredAdvanceBefore.positionSeconds) ||
+      !Number.isFinite(recoveredAdvanceAfter.positionSeconds) ||
+      recoveredAdvanceAfter.positionSeconds <=
+        recoveredAdvanceBefore.positionSeconds + 0.05
+    ) {
+      throw new Error(
+        `Timeout recovery did not resume from the requested target: ${JSON.stringify({
+          before: snapshotEvidence(recoveredAdvanceBefore),
+          after: snapshotEvidence(recoveredAdvanceAfter),
+        })}`,
+      );
+    }
 
     // The delayed callback is guaranteed to be delivered after recovery. Its
     // generation is stale, so the recovery message/state must remain intact.
@@ -402,7 +429,10 @@ async function exerciseSeekTimeoutRecovery(nativeHandle, duration) {
       evidence?.timeoutRecoveryCount !== 1 ||
       evidence?.ignoredCompletionCount !== 1 ||
       !String(afterLateCallback?.error ?? "").includes("seek timed out") ||
-      playbackState(afterLateCallback) === "loading"
+      playbackState(afterLateCallback) !== "playing" ||
+      !Number.isFinite(afterLateCallback.positionSeconds) ||
+      afterLateCallback.positionSeconds <
+        recoveryTarget - seekToleranceSeconds
     ) {
       throw new Error(
         `Late timeout callback was not suppressed: ${JSON.stringify({
@@ -417,8 +447,14 @@ async function exerciseSeekTimeoutRecovery(nativeHandle, duration) {
       configuredTimeoutMilliseconds: testSeekTimeoutMilliseconds,
       configuredLateCompletionDelayMilliseconds:
         testLateCompletionDelayMilliseconds,
+      supersededTarget,
+      recoveryTarget,
       timeoutRecoveryObserved: true,
       recovered: snapshotEvidence(recovered),
+      recoveredAdvance: {
+        before: snapshotEvidence(recoveredAdvanceBefore),
+        after: snapshotEvidence(recoveredAdvanceAfter),
+      },
       afterLateCallback: snapshotEvidence(afterLateCallback),
       seekTestEvidence: evidence,
       lateCompletionIgnored: evidence.ignoredCompletionCount === 1,

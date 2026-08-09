@@ -40,11 +40,21 @@
                 "command": "node apps/electron-backend/build-ksplayer-metal.js"
             }
         },
+        "build-native-players": {
+            "executor": "nx:run-commands",
+            "cache": false,
+            "options": {
+                "commands": [
+                    "nx run electron-backend:build-ksplayer-metal",
+                    "nx run electron-backend:build-embedded-mpv"
+                ],
+                "parallel": false
+            }
+        },
         "build": {
             "dependsOn": [
                 "electron-backend:build-worker",
-                "electron-backend:build-embedded-mpv",
-                "electron-backend:build-ksplayer-metal"
+                "electron-backend:build-native-players"
             ],
             "executor": "nx-electron:build",
             "outputs": [
@@ -106,8 +116,7 @@
         "serve-electron": {
             "dependsOn": [
                 "electron-backend:build-worker",
-                "electron-backend:build-embedded-mpv",
-                "electron-backend:build-ksplayer-metal"
+                "electron-backend:build-native-players"
             ],
             "executor": "nx-electron:execute",
             "options": {
