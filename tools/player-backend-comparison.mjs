@@ -17,6 +17,9 @@ const root = resolve(import.meta.dirname, ".."),
   out = join(dir, "results"),
   require = createRequire(import.meta.url);
 const bounds = { x: 40, y: 40, width: 320, height: 180 },
+  ENDURANCE_DURATION_MS = 6_000,
+  READY_TIMEOUT_MS = 4_000,
+  SEEK_TIMEOUT_MS = 9_000,
   wait = (ms) => new Promise((r) => setTimeout(r, ms));
 // Each sample owns a fresh window. Keep Electron alive between samples; final
 // cleanup explicitly calls app.quit().
@@ -33,7 +36,11 @@ function fixtures() {
   mkdirSync(dir, { recursive: true });
   const h264 = join(dir, "h264.mp4"),
     hevc = join(dir, "hevc.mp4"),
-    srt = join(dir, "captions.srt");
+    srt = join(dir, "captions.srt"),
+    hlsDir = join(dir, "hls-ts"),
+    hls = join(hlsDir, "stream.m3u8"),
+    subtitleVideo = join(dir, "subtitle-black.mp4"),
+    enduranceVideo = join(dir, "endurance-10s.mp4");
   writeFileSync(
     srt,
     "1\n00:00:00,000 --> 00:00:05,000\nARM-Nator comparison\n\n",
@@ -66,12 +73,39 @@ function fixtures() {
         "-y",
         file,
       ]);
-  return { h264, hevc, srt };
+  // A black fixture makes white subtitle pixels unambiguous. Using testsrc
+  // here could falsely "find" subtitle-like bright pixels in the video.
+  if (!existsSync(subtitleVideo))
+    ff(["-f", "lavfi", "-i", "color=c=black:size=320x180:rate=30", "-t", "7", "-c:v", "libx264", "-pix_fmt", "yuv420p", "-y", subtitleVideo]);
+  if (!existsSync(enduranceVideo))
+    ff(["-f", "lavfi", "-i", "testsrc2=size=320x180:rate=30", "-f", "lavfi", "-i", "sine=frequency=1000:sample_rate=48000", "-t", "10", "-c:v", "libx264", "-pix_fmt", "yuv420p", "-c:a", "aac", "-y", enduranceVideo]);
+  // This is deliberately a real VOD HLS manifest with MPEG-TS segments, not
+  // an MP4 served under an .m3u8 URL. It exercises the network playlist path.
+  if (!existsSync(hls)) {
+    mkdirSync(hlsDir, { recursive: true });
+    ff([
+      "-i", h264, "-c", "copy", "-f", "hls", "-hls_time", "2",
+      "-hls_playlist_type", "vod", "-hls_segment_type", "mpegts",
+      "-hls_segment_filename", join(hlsDir, "segment-%03d.ts"), "-y", hls,
+    ]);
+  }
+  return { h264, hevc, srt, hlsDir, hls, subtitleVideo, enduranceVideo };
 }
-function server(file) {
+function server(file, hlsDir) {
   const size = statSync(file).size;
   const s = createServer((q, r) => {
-    if (q.url !== "/h264.mp4") return r.writeHead(404).end();
+    const pathname = new URL(q.url, "http://127.0.0.1").pathname;
+    if (pathname === "/stream.m3u8") {
+      r.writeHead(200, { "Content-Type": "application/vnd.apple.mpegurl" });
+      return createReadStream(join(hlsDir, "stream.m3u8")).pipe(r);
+    }
+    if (/^\/segment-\d{3}\.ts$/.test(pathname)) {
+      const segment = join(hlsDir, pathname.slice(1));
+      if (!existsSync(segment)) return r.writeHead(404).end();
+      r.writeHead(200, { "Content-Type": "video/mp2t", "Content-Length": statSync(segment).size });
+      return createReadStream(segment).pipe(r);
+    }
+    if (pathname !== "/h264.mp4") return r.writeHead(404).end();
     let a = 0,
       b = size - 1,
       code = 200;
@@ -100,17 +134,48 @@ function server(file) {
       resolveServer({
         s,
         url: `http://127.0.0.1:${s.address().port}/h264.mp4`,
+        hlsUrl: `http://127.0.0.1:${s.address().port}/stream.m3u8`,
       }),
     ),
   );
 }
+function fixtureName(file) {
+  if (file.endsWith("stream.m3u8")) return "loopback-hls-mpegts";
+  return file.startsWith("http") ? "range-http-h264" : file.split("/").at(-1);
+}
+function renderedSubtitleEvidence() {
+  // capturePage captures Chromium's surface, while both backends draw through
+  // native child NSViews. It is therefore not evidence of composited subtitle
+  // pixels. Keep selection evidence, but make this limitation machine-readable.
+  return {
+    status: "unavailable",
+    method: "unavailable: BrowserWindow.capturePage does not reliably include native child NSView/Metal surfaces",
+  };
+}
 const state = (x) => x?.state ?? x?.status,
   pos = (x) => Number(x?.positionSeconds),
   snap = (a) => a.getSnapshot ?? a.getSessionSnapshot;
+function hasSubtitleSelection(snapshot, trackId) {
+  if (trackId === -1) {
+    return (
+      (snapshot?.selectedSubtitleTrackId == null ||
+        snapshot.selectedSubtitleTrackId === -1) &&
+      !snapshot?.subtitleTracks?.some(
+        (track) => track.id !== -1 && track.selected,
+      )
+    );
+  }
+  return (
+    snapshot?.selectedSubtitleTrackId === trackId ||
+    snapshot?.subtitleTracks?.some(
+      (track) => track.id === trackId && track.selected,
+    )
+  );
+}
 async function until(read, pred) {
   const start = performance.now();
   let x;
-  while (performance.now() - start < 9000) {
+  while (performance.now() - start < READY_TIMEOUT_MS) {
     x = read();
     if (pred(x)) return { x, ms: Math.round(performance.now() - start) };
     await wait(50);
@@ -159,7 +224,7 @@ async function settledSeek(
 ) {
   const start = performance.now();
   let observation;
-  while (performance.now() - start < 9000) {
+  while (performance.now() - start < SEEK_TIMEOUT_MS) {
     const first = read();
     await wait(500);
     const second = read();
@@ -185,7 +250,7 @@ async function settledSeek(
     `seek never settled and advanced near ${target}: ${JSON.stringify(observation)}`,
   );
 }
-async function one(name, addon, file, srt, iteration) {
+async function one(name, addon, file, srt, iteration, options = {}) {
   let id = `cmp-${name}-${Date.now()}-${iteration}`,
     win = new BrowserWindow({ show: false, width: 500, height: 300 }),
     read = snap(addon);
@@ -214,55 +279,44 @@ async function one(name, addon, file, srt, iteration) {
       latencyMs: Math.round(performance.now() - t),
       evidence: await advances(() => read(id)),
     };
-    await wait(700);
-    const preSeekPosition = pos(read(id));
-    const target = 0.25;
-    if (
-      !Number.isFinite(preSeekPosition) ||
-      Math.abs(preSeekPosition - target) < 0.25
-    ) {
-      throw Error(
-        `seek target is not materially separated from pre-command position: ${preSeekPosition}`,
-      );
+    let seek = null, subtitle = { status: "not-run" }, x = read(id);
+    if (options.seek !== false) {
+      await wait(500);
+      const preSeekPosition = pos(read(id)), target = 0.25;
+      if (!Number.isFinite(preSeekPosition) || Math.abs(preSeekPosition - target) < 0.25)
+        throw Error(`seek target is not materially separated from pre-command position: ${preSeekPosition}`);
+      addon.seek(id, target);
+      seek = { preCommandPosition: preSeekPosition, target, requiredDiscontinuitySeconds: 0.25,
+        ...(await settledSeek(() => read(id), target, preSeekPosition, 0.25)) };
     }
-    addon.seek(id, target);
-    const seek = {
-      preCommandPosition: preSeekPosition,
-      target,
-      requiredDiscontinuitySeconds: 0.25,
-      ...(await settledSeek(() => read(id), target, preSeekPosition, 0.25)),
-    };
-    const subtitleIDsBefore = new Set(
-      (read(id)?.subtitleTracks ?? []).map((track) => track.id),
-    );
-    const subResult = addon.setSubtitleFile(id, srt);
-    const external = await until(
-      () => read(id),
-      (snapshot) =>
-        (snapshot?.subtitleTracks ?? []).some(
-          (track) => !subtitleIDsBefore.has(track.id) && track.id !== -1,
-        ),
-    );
-    const externalTrack = external.x.subtitleTracks.find(
-      (track) => !subtitleIDsBefore.has(track.id) && track.id !== -1,
-    );
-    if (!externalTrack) throw Error("external subtitle track was not exposed");
-    const selectedResult = addon.setSubtitleTrack(id, externalTrack.id);
-    const selected = await until(
-      () => read(id),
-      (snapshot) =>
-        snapshot?.selectedSubtitleTrackId === externalTrack.id ||
-        snapshot?.subtitleTracks?.some(
-          (track) => track.id === externalTrack.id && track.selected,
-        ),
-    );
-    const x = selected.x,
-      after = await process.getProcessMemoryInfo();
+    if (options.subtitles) {
+      const subtitleIDsBefore = new Set((read(id)?.subtitleTracks ?? []).map((track) => track.id));
+      const subResult = addon.setSubtitleFile(id, srt);
+      const external = await until(() => read(id), (snapshot) => (snapshot?.subtitleTracks ?? []).some((track) => !subtitleIDsBefore.has(track.id) && track.id !== -1));
+      const externalTrack = external.x.subtitleTracks.find((track) => !subtitleIDsBefore.has(track.id) && track.id !== -1);
+      if (!externalTrack) throw Error("external subtitle track was not exposed");
+      const disabledResult = addon.setSubtitleTrack(id, -1);
+      const disabled = await until(
+        () => read(id),
+        (snapshot) => hasSubtitleSelection(snapshot, -1),
+      );
+      const selectedResult = addon.setSubtitleTrack(id, externalTrack.id);
+      const selected = await until(
+        () => read(id),
+        (snapshot) => hasSubtitleSelection(snapshot, externalTrack.id),
+      );
+      x = selected.x;
+      const rendered = renderedSubtitleEvidence();
+      subtitle = { status: rendered.status, operationAccepted: subResult?.ok !== false,
+        disableAccepted: disabledResult?.ok !== false, disableVerification: hasSubtitleSelection(disabled.x, -1) ? "off" : "failed",
+        selectionAccepted: selectedResult?.ok !== false,
+        trackCount: x?.subtitleTracks?.length ?? null, selectedTrackId: x?.selectedSubtitleTrackId ?? null, externalTrackId: externalTrack.id,
+        selectionVerification: "off-to-external", renderVerification: rendered.status, rendered };
+    }
+    const after = await process.getProcessMemoryInfo();
     return {
       backend: name,
-      fixture: file.startsWith("http")
-        ? "range-http-h264"
-        : file.split("/").at(-1),
+      fixture: fixtureName(file),
       iteration,
       ok: true,
       startup,
@@ -282,24 +336,13 @@ async function one(name, addon, file, srt, iteration) {
                 x?.embedding?.renderPath?.directMetalActive ?? null,
             }
           : { hwdecCurrent: x?.hwdecCurrent ?? null },
-      subtitles: {
-        operationAccepted: subResult?.ok !== false,
-        selectionAccepted: selectedResult?.ok !== false,
-        trackCount: x?.subtitleTracks?.length ?? null,
-        selectedTrackId: x?.selectedSubtitleTrackId ?? null,
-        externalTrackId: externalTrack.id,
-        selectionVerification: "selected",
-        renderVerification:
-          "unavailable: neither snapshot exposes rendered cue state",
-      },
+      subtitles: subtitle,
       finalState: state(x),
     };
   } catch (e) {
     return {
       backend: name,
-      fixture: file.startsWith("http")
-        ? "range-http-h264"
-        : file.split("/").at(-1),
+      fixture: fixtureName(file),
       iteration,
       ok: false,
       error: String(e),
@@ -310,6 +353,49 @@ async function one(name, addon, file, srt, iteration) {
     } catch {}
     win.destroy();
   }
+}
+function hostCpuMetric() {
+  const metric = app.getAppMetrics().find((item) => item.pid === process.pid);
+  const percentCPUUsage = metric?.cpu?.percentCPUUsage;
+  return Number.isFinite(percentCPUUsage) ? percentCPUUsage : null;
+}
+async function enduranceCheck(name, addon, file) {
+  let id = `endurance-${name}-${Date.now()}`,
+    win = new BrowserWindow({ show: false, width: 500, height: 300 }),
+    read = snap(addon);
+  try {
+    const handle = win.getNativeWindowHandle();
+    if (name === "ksplayer-metal") {
+      const created = addon.createSession(id, handle, bounds);
+      if (created.ok === false) throw Error(created.reason);
+      const loaded = addon.load(id, file);
+      if (loaded.ok === false) throw Error(loaded.reason);
+    } else { id = addon.createSession(handle, bounds); addon.loadPlayback(id, { streamUrl: file }); }
+    await until(() => read(id), (x) => state(x) === "playing" && pos(x) > 0.05);
+    // Electron documents percentCPUUsage as the process CPU percentage since
+    // the previous getAppMetrics call. Prime it, then sample over endurance.
+    hostCpuMetric();
+    const start = performance.now();
+    let samples = 0, failures = [], previous = pos(read(id));
+    while (performance.now() - start < ENDURANCE_DURATION_MS) {
+      await wait(500);
+      const x = read(id), current = pos(x); samples++;
+      if (state(x) !== "playing" || !Number.isFinite(current) || current <= previous + 0.02)
+        failures.push({ elapsedMs: Math.round(performance.now() - start), state: state(x), positionSeconds: current });
+      previous = current;
+    }
+    const elapsedMs = Math.round(performance.now() - start), percentCPUUsage = hostCpuMetric();
+    const cpu = percentCPUUsage == null
+      ? { status: "unavailable", reason: "app.getAppMetrics() did not return a finite host-process cpu.percentCPUUsage" }
+      : { status: "measured", scope: "Electron host process", intervalMs: elapsedMs,
+          method: "app.getAppMetrics() host PID cpu.percentCPUUsage sampled after a priming call at endurance start",
+          percentCPUUsage, limitations: "Includes Electron and benchmark-host overhead; it is not decoder-only CPU and is comparable only within this command." };
+    return { backend: name, fixture: fixtureName(file), status: failures.length ? "failed" : "passed",
+      durationMs: elapsedMs, sampleIntervalMs: 500, samples, failures,
+      cpu,
+    };
+  } catch (error) { return { backend: name, fixture: fixtureName(file), status: "failed", durationMs: ENDURANCE_DURATION_MS, error: String(error), cpu: { status: "unavailable", reason: "playback did not remain available long enough to measure" } }; }
+  finally { try { addon.disposeSession(id); } catch {} win.destroy(); }
 }
 function median(v) {
   const a = v.filter(Number.isFinite).sort((a, b) => a - b);
@@ -335,29 +421,64 @@ app.whenReady().then(async () => {
         1,
         0.25,
       );
-      if (noOp.accepted || !backward.accepted)
-        throw Error("backward seek predicate self-test failed");
+      const subtitleOff = hasSubtitleSelection(
+        { selectedSubtitleTrackId: null, subtitleTracks: [{ id: 7, selected: false }] },
+        -1,
+      );
+      const subtitleExternal = hasSubtitleSelection(
+        { subtitleTracks: [{ id: 7, selected: true }] },
+        7,
+      );
+      const subtitleWrong = hasSubtitleSelection(
+        { selectedSubtitleTrackId: -1 },
+        7,
+      );
+      if (noOp.accepted || !backward.accepted || !subtitleOff || !subtitleExternal || subtitleWrong)
+        throw Error("comparison predicate self-test failed");
       console.log(
         JSON.stringify({
           selfTest: "passed",
           noOpRejected: true,
           backwardAccepted: true,
+          subtitleOffAccepted: true,
+          subtitleExternalAccepted: true,
         }),
       );
       return;
     }
+    console.error("comparison: preparing fixtures");
     const f = fixtures();
-    net = await server(f.h264);
+    console.error("comparison: fixtures ready");
+    net = await server(f.h264, f.hlsDir);
     const release = join(root, "apps/electron-backend/native/build/Release"),
       backends = [
         ["ksplayer-metal", require(join(release, "ksplayer_metal.node"))],
         ["embedded-mpv", require(join(release, "embedded_mpv.node"))],
       ],
-      cases = [pathToFileURL(f.h264).href, pathToFileURL(f.hevc).href, net.url],
+      cases = [pathToFileURL(f.h264).href, pathToFileURL(f.hevc).href, net.url, net.hlsUrl],
       runs = [];
-    for (const [n, a] of backends)
-      for (const c of cases)
-        for (let i = 1; i <= 3; i++) runs.push(await one(n, a, c, f.srt, i));
+    console.error("comparison: functional runs starting");
+    async function runCase(label, backend, addon, file, iteration, options) {
+      console.error(`comparison: start ${label}`);
+      const result = await one(backend, addon, file, f.srt, iteration, options);
+      runs.push(result);
+      console.error(`comparison: done ${label} ${result.ok ? "passed" : `failed ${result.error}`}`);
+    }
+    // Three samples are retained only for latency/seek fixtures. Network HLS
+    // and subtitle rendering are explicit functional proofs, once per backend.
+    for (const [n, a] of backends) {
+      for (const c of cases.slice(0, 2))
+        for (let i = 1; i <= 3; i++) await runCase(`${n}:${fixtureName(c)}:${i}/3`, n, a, c, i, { seek: true });
+      await runCase(`${n}:loopback-hls-mpegts:1/1`, n, a, net.hlsUrl, 1, { seek: false });
+      await runCase(`${n}:rendered-subtitle:1/1`, n, a, pathToFileURL(f.subtitleVideo).href, 1, { seek: false, subtitles: true });
+    }
+    const endurance = [];
+    for (const [n, a] of backends) {
+      console.error(`comparison: start ${n}:endurance:${ENDURANCE_DURATION_MS}ms`);
+      const result = await enduranceCheck(n, a, pathToFileURL(f.enduranceVideo).href);
+      endurance.push(result);
+      console.error(`comparison: done ${n}:endurance ${result.status}`);
+    }
     // Test-only seam: proves JSON persistence and nonzero signaling without
     // altering player behavior.
     if (process.env.ARM_NATOR_COMPARISON_FORCE_FAILURE === "1") {
@@ -368,18 +489,26 @@ app.whenReady().then(async () => {
     ).map((rs) => ({
       backend: rs[0].backend,
       fixture: rs[0].fixture,
+      sampleCount: rs.length,
       successfulRuns: rs.filter((r) => r.ok).length,
       medianStartupMs: median(rs.map((r) => r.startup?.latencyMs)),
       medianSeekMs: median(rs.map((r) => r.seek?.latencyMs)),
     }));
     const report = {
-      schemaVersion: 2,
+      schemaVersion: 3,
       generatedAt: new Date().toISOString(),
       method:
-        "isolated hidden window/session per run; three samples; host process memory baseline/delta",
+        "isolated hidden native-window/session per run; three samples per latency fixture; bounded HLS, subtitle-selection, and endurance proofs",
       iptvGap:
-        "No loopback HLS/TS case in this command; Range HTTP MP4 is the local-network case.",
+        "Loopback VOD HLS is covered with an m3u8 manifest and MPEG-TS segments; this is not an authenticated, adaptive, or live IPTV stream.",
+      dimensions: {
+        hls: { status: "covered", fixture: "loopback-hls-mpegts", protocol: "HTTP loopback", playlist: "m3u8", segmentFormat: "MPEG-TS", samplesPerBackend: 1 },
+        subtitles: { status: "unavailable", method: "native-child composited pixel capture is not implemented; track selection remains independently verified" },
+        endurance: { durationMs: ENDURANCE_DURATION_MS, fixture: "endurance-10s.mp4", fixtureDurationSeconds: 10, scope: "one isolated session per backend, 500ms advancement samples" },
+        cpu: { method: "app.getAppMetrics() host PID cpu.percentCPUUsage over the endurance interval", limitations: "host-process measurement, not decoder-only CPU" },
+      },
       runs,
+      endurance,
       summary,
     };
     mkdirSync(out, { recursive: true });
@@ -387,7 +516,8 @@ app.whenReady().then(async () => {
     console.log(JSON.stringify(report));
     if (
       runs.some((run) => !run.ok) ||
-      summary.some((item) => item.successfulRuns !== 3)
+      summary.some((item) => item.successfulRuns !== item.sampleCount) ||
+      endurance.some((item) => item.status !== "passed")
     ) {
       finalExitCode = 1;
     }

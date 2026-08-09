@@ -1,0 +1,25 @@
+diff --git a/Sources/KSPlayer/MEPlayer/MEPlayerItem.swift b/Sources/KSPlayer/MEPlayer/MEPlayerItem.swift
+--- a/Sources/KSPlayer/MEPlayer/MEPlayerItem.swift
++++ b/Sources/KSPlayer/MEPlayer/MEPlayerItem.swift
+@@ -489,7 +489,8 @@ extension MEPlayerItem {
+                     }
+                     continue
+                 }
+-                var increase = Int64(seekTime + startTime.seconds - time.seconds)
++                let targetSeconds = seekTime + startTime.seconds
++                var increase = Int64(targetSeconds - time.seconds)
+                 var seekFlags = options.seekFlags
+                 let timeStamp: Int64
+                 if seekByBytes {
+@@ -510,8 +511,9 @@ extension MEPlayerItem {
+                     }
+                     timeStamp = position + increase
+                 } else {
+-                    increase *= Int64(AV_TIME_BASE)
+-                    timeStamp = Int64(time.seconds) * Int64(AV_TIME_BASE) + increase
++                    let currentTimestamp = Int64(time.seconds * Double(AV_TIME_BASE))
++                    timeStamp = Int64(targetSeconds * Double(AV_TIME_BASE))
++                    increase = timeStamp - currentTimestamp
+                 }
+                 let seekMin = increase > 0 ? timeStamp - increase + 2 : Int64.min
+                 let seekMax = increase < 0 ? timeStamp - increase - 2 : Int64.max

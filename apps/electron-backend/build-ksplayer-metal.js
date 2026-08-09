@@ -77,6 +77,25 @@ const ksPlayerPatches = [
       ["Sources/KSPlayer/MEPlayer/MEPlayerItem.swift", "readResult == AVError.exit.code"],
     ],
   },
+  {
+    path: path.join(
+      packageRoot,
+      "patches",
+      "ksplayer",
+      "precise-seek-timestamp.patch",
+    ),
+    files: ["Sources/KSPlayer/MEPlayer/MEPlayerItem.swift"],
+    markers: [
+      [
+        "Sources/KSPlayer/MEPlayer/MEPlayerItem.swift",
+        "let targetSeconds = seekTime + startTime.seconds",
+      ],
+      [
+        "Sources/KSPlayer/MEPlayer/MEPlayerItem.swift",
+        "time.seconds * Double(AV_TIME_BASE)",
+      ],
+    ],
+  },
 ];
 function log(message) {
   process.stdout.write(`[ksplayer-metal] ${message}\n`);
