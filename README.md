@@ -6,13 +6,15 @@ refinement tools, and plays streams through several local and browser-based
 engines.
 
 This document describes the current repository rather than a historical
-roadmap. The package version in this checkout is `0.26.0`.
+roadmap. The package version in this checkout is `0.27.0`.
 
 ## What is available now
 
 - M3U imports from files, text, and URLs.
 - Xtream Code sources with movies, series, live TV, recently added, favorites,
   recently viewed, and global search views.
+- Stalker portal sources with MAC authentication, live TV, movies, series,
+  episode details, and shared-player playback.
 - SQLite-backed catalog storage, indexed search, pagination, metadata
   enrichment, and case-insensitive refinement values.
 - Per-Xtream-source metadata indexing status on the Sources page, including
@@ -96,11 +98,11 @@ a downloadable media stream and may fail in a generic player engine.
 - Renderer: one Angular desktop application.
 - Main process: Electron services, typed IPC, SQLite access, workers, browser
   views, and native Embedded MPV integration.
-- Active source types: M3U file/text/URL and Xtream.
+- Active source types: M3U file/text/URL, Xtream, and Stalker portal.
 - Active player engines: ArtPlayer, HTML5, Embedded MPV, external MPV, and VLC.
 - Browser and YouTube are Electron-hosted features, not generic browser-only
   routes.
-- PWA/browser-only runtime paths, the old Downloads feature, Stalker, remote
+- PWA/browser-only runtime paths, the old Downloads feature, remote
   control/server surfaces, and Video.js are not active product features.
 
 ## Routes and tools
@@ -109,6 +111,9 @@ a downloadable media stream and may fail in a generic player engine.
 | --- | --- |
 | `/workspace/dashboard` | Configurable dashboard rails |
 | `/workspace/sources` | Source and playlist management, including per-source Xtream metadata indexing |
+| `/workspace/stalker/:id/itv` | Stalker live TV categories and channels |
+| `/workspace/stalker/:id/vod` | Stalker movies and movie details |
+| `/workspace/stalker/:id/series` | Stalker series, seasons, and episodes |
 | `/workspace/search` | Global catalog search |
 | `/workspace/global-favorites` | Favorites across sources |
 | `/workspace/global-recent` | Recently viewed content |
