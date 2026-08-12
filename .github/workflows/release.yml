@@ -21,7 +21,7 @@ concurrency:
 jobs:
   release:
     name: Build and publish macOS release
-    runs-on: macos-26
+    runs-on: macos-15
     timeout-minutes: 90
     env:
       RELEASE_TAG: ${{ github.event_name == 'workflow_dispatch' && inputs.release_tag || github.ref_name }}
