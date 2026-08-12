@@ -1,0 +1,63 @@
+<main class="stalker-content-layout">
+    @if (playbackError(); as message) {
+        <div class="stalker-error" role="alert">
+            <mat-icon>error_outline</mat-icon>
+            <strong>Playback could not start</strong>
+            <span>{{ message }}</span>
+        </div>
+    }
+    <section class="category-content-layout">
+            <header class="category-content-header">
+                <div class="category-meta">
+                    <h1 class="category-title">
+                        {{ selectedCategoryName() }}
+                    </h1>
+                    <span class="category-subtitle">
+                        {{ contentLabel() }} · {{ contentCountLabel() }}
+                    </span>
+                </div>
+            </header>
+
+            @if (loading() && gridItems().length === 0) {
+                <app-grid-list
+                    class="stalker-grid app-scrollbar"
+                    [isLoading]="true"
+                    [items]="[]"
+                    [variant]="contentType() === 'itv' ? 'logo' : 'poster'"
+                    [type]="contentType()"
+                />
+            } @else if (loadError(); as error) {
+                <div class="stalker-error" role="alert">
+                    <mat-icon>error_outline</mat-icon>
+                    <strong>Could not load this portal</strong>
+                    <span>{{ error }}</span>
+                </div>
+            } @else {
+                <app-grid-list
+                    class="stalker-grid app-scrollbar"
+                    [isLoading]="false"
+                    [items]="gridItems()"
+                    [searchTerm]="search()"
+                    [variant]="contentType() === 'itv' ? 'logo' : 'poster'"
+                    [type]="contentType()"
+                    [showPaginator]="false"
+                    (itemClicked)="playGridItem($event)"
+                />
+                @if (hasMoreVisibleChannels()) {
+                    <button
+                        class="load-more"
+                        type="button"
+                        [disabled]="loading()"
+                        (click)="loadMore()"
+                    >
+                        @if (loading()) {
+                            Loading…
+                        } @else {
+                            Load more
+                        }
+                    </button>
+                }
+            }
+
+    </section>
+</main>

@@ -54,6 +54,9 @@
                 @case ('xtream') {
                     <app-xtream-code-import (addClicked)="closeDialog()" />
                 }
+                @case ('stalker') {
+                    <app-stalker-portal-import (addClicked)="closeDialog()" />
+                }
             }
         </div>
     </mat-dialog-content>
@@ -137,6 +140,20 @@
                         (click)="xtreamImport()?.addPlaylist()"
                     >
                         {{ 'HOME.XTREAM_PLAYLIST.ADD' | translate }}
+                    </button>
+                }
+                @case ('stalker') {
+                    <button
+                        mat-flat-button
+                        color="primary"
+                        type="button"
+                        [disabled]="
+                            !stalkerImport()?.form?.valid ||
+                            stalkerImport()?.isLoading()
+                        "
+                        (click)="stalkerImport()?.addPlaylist()"
+                    >
+                        Add Stalker portal
                     </button>
                 }
             }

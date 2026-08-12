@@ -15,6 +15,9 @@ const playbackPositionStorageMethods = [
 
 @Injectable({ providedIn: 'root' })
 export class RuntimeCapabilitiesService {
+    get supportsStalkerPlaylistSqliteSync(): boolean {
+        return false;
+    }
     get isElectron(): boolean {
         return !!this.electronBridge;
     }

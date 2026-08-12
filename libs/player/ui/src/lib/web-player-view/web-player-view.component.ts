@@ -181,6 +181,15 @@ export class WebPlayerViewComponent {
       const playback = this.resolvedPlayback();
       this.playbackDiagnostic.set(null);
       this.setChannel(playback);
+
+      const userAgent =
+        playback.userAgent ?? this.getHeaderValue(playback.headers, "User-Agent");
+      const referer =
+        playback.referer ?? this.getHeaderValue(playback.headers, "Referer");
+      if (userAgent || referer) {
+        void window.electron?.setUserAgent(userAgent, referer, playback.streamUrl)
+          .catch(() => undefined);
+      }
     });
   }
 

@@ -27,6 +27,7 @@ import BrowserEvents, {
 } from './app/events/browser.events';
 import { browserViewService } from './app/services/browser-view.service';
 import XtreamEvents from './app/events/xtream.events';
+import StalkerEvents from './app/events/stalker.events';
 import CredentialTesterEvents, {
     shutdownCredentialTesterBatches,
 } from './app/events/credential-tester.events';
@@ -98,6 +99,7 @@ export default class Main {
         OpenSubtitlesEvents.bootstrapOpenSubtitlesEvents();
         SettingsEvents.bootstrapSettingsEvents();
         XtreamEvents.bootstrapXtreamEvents();
+        StalkerEvents.bootstrapStalkerEvents();
         CredentialTesterEvents.bootstrapCredentialTesterEvents();
         DatabaseEvents.bootstrapDatabaseEvents();
 

@@ -26,12 +26,19 @@
       "@arm-nator/player/ui/embedded-mpv-player": [
         "libs/player/ui/src/lib/embedded-mpv-player/index.ts"
       ],
-      "@arm-nator/player/ui": ["libs/player/ui/src/index.ts"],
+            "@arm-nator/player/ui": ["libs/player/ui/src/index.ts"],
+            "@arm-nator/player/util": ["libs/player/util/src/index.ts"],
       "@arm-nator/providers/catalog/feature": [
         "libs/providers/catalog/feature/src/index.ts"
       ],
       "@arm-nator/providers/import/feature": [
         "libs/providers/import/feature/src/index.ts"
+      ],
+      "@arm-nator/providers/stalker/data-access": [
+        "libs/providers/stalker/data-access/src/index.ts"
+      ],
+      "@arm-nator/providers/stalker/feature": [
+        "libs/providers/stalker/feature/src/index.ts"
       ],
       "@arm-nator/providers/shared/playlist-ui": [
         "libs/providers/shared/playlist-ui/src/index.ts"

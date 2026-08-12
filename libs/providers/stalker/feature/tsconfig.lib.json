@@ -1,0 +1,18 @@
+{
+    "extends": "./tsconfig.json",
+    "compilerOptions": {
+        "outDir": "../../../../../dist/out-tsc",
+        "declaration": true,
+        "declarationMap": true,
+        "inlineSources": true,
+        "types": []
+    },
+    "include": [
+        "src/index.ts",
+        "src/lib/stalker-feature.routes.ts",
+        "src/lib/stalker-workspace-route-session.service.ts",
+        "src/lib/stalker-live-stream-layout/stalker-live-stream-layout.component.ts",
+        "src/lib/stalker-content-detail/stalker-content-detail.component.ts"
+    ],
+    "exclude": ["src/**/*.spec.ts", "src/**/*.test.ts"]
+}

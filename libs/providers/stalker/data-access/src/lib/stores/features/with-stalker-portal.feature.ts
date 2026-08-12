@@ -1,0 +1,108 @@
+import { inject } from '@angular/core';
+import {
+    patchState,
+    signalStoreFeature,
+    withMethods,
+    withState,
+} from '@ngrx/signals';
+import { PlaylistMeta } from '@arm-nator/shared/interfaces';
+import { createLogger } from '@arm-nator/providers/shared/util';
+import { RuntimeCapabilitiesService } from '@arm-nator/services';
+import { StalkerPortalRepairService } from '../../stalker-portal-repair.service';
+import { StalkerSessionService } from '../../stalker-session.service';
+import { toStalkerSessionPlaylist } from '../utils';
+
+type StalkerPortalWindow = Window & {
+    electron: {
+        dbCreatePlaylist: (playlist: {
+            id: string;
+            name: string;
+            macAddress: string;
+            url: string;
+            type: 'stalker';
+        }) => Promise<unknown>;
+        dbGetPlaylist: (playlistId: string) => Promise<unknown>;
+    };
+};
+
+/**
+ * Portal/session state and methods.
+ */
+export interface StalkerPortalState {
+    currentPlaylist: PlaylistMeta | undefined;
+}
+
+const initialPortalState: StalkerPortalState = {
+    currentPlaylist: undefined,
+};
+
+export function withStalkerPortal() {
+    const logger = createLogger('withStalkerPortal');
+    return signalStoreFeature(
+        withState<StalkerPortalState>(initialPortalState),
+        // NOTE: the old `makeStalkerRequest` prop was removed — it was a
+        // production-dead fourth copy of the portal-mode branch. All request
+        // paths go through `executeStalkerRequest` (stores/utils), which
+        // applies the shared predicate and the lazy portal repair.
+        withMethods(
+            (
+                store,
+                stalkerSession = inject(StalkerSessionService),
+                portalRepair = inject(StalkerPortalRepairService),
+                runtime = inject(RuntimeCapabilitiesService)
+            ) => ({
+                async setCurrentPlaylist(playlist: PlaylistMeta | undefined) {
+                    // A lazy repair may have corrected this playlist's
+                    // endpoint/mode while the NgRx meta stayed stale; route
+                    // re-activation must not hand the stale snapshot back to
+                    // the watchdog (it would stop or repoint the repaired
+                    // keepalive) or into the store state.
+                    const effectivePlaylist = playlist
+                        ? portalRepair.applyOverride(playlist)
+                        : playlist;
+                    stalkerSession.setActiveWatchdogPlaylist(
+                        effectivePlaylist
+                            ? toStalkerSessionPlaylist(effectivePlaylist)
+                            : undefined
+                    );
+                    patchState(store, { currentPlaylist: effectivePlaylist });
+
+                    // Ensure Stalker playlist exists in SQLite for playback positions
+                    // Only sync if this is actually a Stalker playlist (has macAddress and portalUrl)
+                    if (
+                        playlist &&
+                        runtime.supportsStalkerPlaylistSqliteSync &&
+                        playlist._id &&
+                        playlist.macAddress &&
+                        playlist.portalUrl
+                    ) {
+                        try {
+                            const electronApi = (window as StalkerPortalWindow)
+                                .electron;
+
+                            const playlistId = String(playlist._id);
+                            // Check if playlist exists in SQLite
+                            const existing =
+                                await electronApi.dbGetPlaylist(playlistId);
+                            if (!existing) {
+                                // Create playlist in SQLite
+                                await electronApi.dbCreatePlaylist({
+                                    id: playlistId,
+                                    name: playlist.title || '',
+                                    macAddress: playlist.macAddress || '',
+                                    url: playlist.portalUrl || '',
+                                    type: 'stalker',
+                                });
+                            }
+                        } catch (error) {
+                            logger.error(
+                                'Error syncing Stalker playlist to SQLite',
+                                error
+                            );
+                        }
+                    }
+                },
+            })
+        )
+    );
+}

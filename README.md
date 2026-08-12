@@ -47,6 +47,25 @@ roadmap. The package version in this checkout is `0.26.0`.
 - Light, dark, and system themes, configurable dashboard rails, favorites,
   recently viewed content, and persisted playback positions.
 
+## Validation and production builds
+
+The repository provides standard validation commands:
+
+```bash
+pnpm lint
+pnpm test
+pnpm build
+```
+
+`pnpm test` runs the repository's Node test suites through the Nx
+`electron-backend:test` target. Production builds prepare the pinned Embedded MPV runtime
+automatically when it is not already staged. Runtime compilation requires
+macOS on Apple Silicon plus `meson`, `ninja`, and `pkg-config`.
+
+For a faster iterative workflow, run `pnpm embedded-mpv:runtime` once and the
+subsequent native builds reuse the staged runtime under
+`vendor/embedded-mpv/darwin-arm64`.
+
 ## Playback and media limitations
 
 The player engine determines which streams can be decoded. H.264/AAC and

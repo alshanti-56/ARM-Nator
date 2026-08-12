@@ -42,6 +42,10 @@ export function isTypeInKind(
 }
 
 export function getPlaylistLink(playlist: PlaylistMeta): string[] {
+    if (playlist.macAddress || playlist.portalUrl || playlist.isFullStalkerPortal) {
+        return ['/workspace', 'stalker', playlist._id, 'itv'];
+    }
+
     if (playlist.serverUrl) {
         return ['/workspace', 'xtreams', playlist._id, 'vod'];
     }

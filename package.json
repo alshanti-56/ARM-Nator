@@ -17,6 +17,8 @@
   "scripts": {
     "dev": "nx serve electron-backend",
     "build": "nx run-many -t build --projects=desktop-ui,electron-backend --configuration=production",
+    "lint": "nx run-many -t lint --all",
+    "test": "nx run electron-backend:test",
     "prepackage": "pnpm embedded-mpv:runtime && pnpm ksplayer-metal:build",
     "package": "ARM_NATOR_ADHOC_SIGN=1 nx run electron-backend:package --configuration=production",
     "embedded-mpv:runtime": "node tools/embedded-mpv/ensure-macos-runtime.mjs",

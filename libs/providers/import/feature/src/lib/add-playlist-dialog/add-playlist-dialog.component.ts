@@ -24,6 +24,7 @@ import { FileUploadComponent } from '../file-upload/file-upload.component';
 import { TextImportComponent } from '../text-import/text-import.component';
 import { UrlUploadComponent } from '../url-upload/url-upload.component';
 import { XtreamCodeImportComponent } from '../xtream-code-import/xtream-code-import.component';
+import { StalkerPortalImportComponent } from '../stalker-portal-import/stalker-portal-import.component';
 
 /**
  * Flat 4-method option model — replaces the prior category × subtype matrix
@@ -31,11 +32,13 @@ import { XtreamCodeImportComponent } from '../xtream-code-import/xtream-code-imp
  * only 4 are real. Now each entry IS a method, no nesting.
  */
 export interface PlaylistMethodOption {
-    value: PlaylistType;
+    value: PlaylistType | 'stalker';
     icon: string;
     labelKey: string;
     subKey: string;
 }
+
+type AddPlaylistMethod = PlaylistType | 'stalker';
 
 @Component({
     imports: [
@@ -47,6 +50,7 @@ export interface PlaylistMethodOption {
         TranslateModule,
         UrlUploadComponent,
         XtreamCodeImportComponent,
+        StalkerPortalImportComponent,
     ],
     selector: 'app-add-playlist',
     templateUrl: './add-playlist-dialog.component.html',
@@ -67,8 +71,9 @@ export class AddPlaylistDialogComponent {
     readonly fileUpload = viewChild(FileUploadComponent);
     readonly textImport = viewChild(TextImportComponent);
     readonly xtreamImport = viewChild(XtreamCodeImportComponent);
+    readonly stalkerImport = viewChild(StalkerPortalImportComponent);
 
-    readonly method = signal<PlaylistType>('url');
+    readonly method = signal<AddPlaylistMethod>('url');
 
     // Order matches the v0.22 mockup left-to-right: URL first (Most common),
     // then File, Xtream credentials, raw text paste. Each
@@ -96,6 +101,12 @@ export class AddPlaylistDialogComponent {
             subKey: 'HOME.ADD_PLAYLIST.METHOD_XTREAM_SUB',
         },
         {
+            value: 'stalker',
+            icon: 'router',
+            labelKey: 'HOME.STALKER_PORTAL.TITLE',
+            subKey: 'HOME.STALKER_PORTAL.URL_HINT',
+        },
+        {
             value: 'text',
             icon: 'subject',
             labelKey: 'HOME.ADD_PLAYLIST.METHOD_TEXT_LABEL',
@@ -107,7 +118,7 @@ export class AddPlaylistDialogComponent {
      * Backwards-compatible alias. The template's @switch and the action
      * buttons key off this; keeping the name avoids churn in 5 case branches.
      */
-    readonly playlistType = computed<PlaylistType>(() => this.method());
+    readonly playlistType = computed<AddPlaylistMethod>(() => this.method());
 
     constructor() {
         if (this.data?.type) {
@@ -184,6 +195,9 @@ export class AddPlaylistDialogComponent {
             case 'xtream':
                 this.xtreamImport()?.clearForm();
                 break;
+            case 'stalker':
+                this.stalkerImport()?.form.reset();
+                break;
         }
     }
 
@@ -196,6 +210,8 @@ export class AddPlaylistDialogComponent {
                 );
             case 'xtream':
                 return !!this.xtreamImport()?.isTestingConnection;
+            case 'stalker':
+                return !!this.stalkerImport()?.isLoading();
             default:
                 return false;
         }

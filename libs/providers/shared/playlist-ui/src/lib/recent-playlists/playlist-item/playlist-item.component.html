@@ -33,7 +33,7 @@
                 }
             </div>
         }
-        @if (!item.url && !item.serverUrl && !item.macAddress) {
+        @if (!item.url && !item.serverUrl && !item.macAddress && sourceType === 'm3u') {
             <div class="icon-container">
                 <mat-icon
                     class="upload-type-icon"
@@ -51,7 +51,16 @@
                 }
             </div>
         }
-        @if (item.serverUrl) {
+        @if (sourceType === 'stalker') {
+            <div class="icon-container">
+                <mat-icon
+                    class="upload-type-icon"
+                    [matTooltip]="'HOME.PLAYLIST_TYPES.STALKER' | translate"
+                    >router</mat-icon
+                >
+            </div>
+        }
+        @if (sourceType === 'xtream') {
             <div class="icon-container">
                 <mat-icon
                     class="upload-type-icon"
@@ -72,7 +81,7 @@
             {{ item.title || item.filename }}
         </div>
         <div class="meta">
-            @if (!item.serverUrl && !item.portalUrl) {
+            @if (sourceType === 'm3u') {
                 {{ 'HOME.PLAYLISTS.CHANNELS' | translate }}: {{ item.count }}
                 @if (item.importDate.length > 3) {
                     | {{ 'HOME.PLAYLISTS.ADDED' | translate }}:
@@ -98,8 +107,24 @@
                         >warning</mat-icon
                     >
                 }
+            } @else if (sourceType === 'stalker') {
+                {{ 'HOME.PLAYLIST_TYPES.STALKER' | translate }}
+                @if (item.importDate.length > 3) {
+                    | {{ 'HOME.PLAYLISTS.ADDED' | translate }}:
+                    {{ item.importDate | date: undefined : undefined : currentLocale() }}
+                }
+                @if (item.updateDate) {
+                    | {{ 'HOME.PLAYLISTS.UPDATED' | translate }}:
+                    {{
+                        item.updateDate
+                            | date
+                                : 'MMMM d, yyyy, HH:mm'
+                                : undefined
+                                : currentLocale()
+                    }}
+                }
             } @else {
-                Xtream
+                {{ 'HOME.PLAYLIST_TYPES.XTREAM' | translate }}
                 @if (item.importDate.length > 3) {
                     | {{ 'HOME.PLAYLISTS.ADDED' | translate }}:
                     {{ item.importDate | date: undefined : undefined : currentLocale() }}
@@ -116,7 +141,7 @@
                 }
             }
         </div>
-        @if (item.serverUrl) {
+        @if (sourceType === 'xtream') {
             @if (metadataIndexStatus(); as index) {
             <div class="metadata-index-state">
                 <span class="metadata-index-state__label">
@@ -183,7 +208,7 @@
 
     @if (showActions()) {
         <div class="action-buttons">
-            @if (item.serverUrl) {
+            @if (sourceType === 'xtream') {
                 @if (metadataIndexStatus(); as index) {
                     @if (
                         index.total > 0 &&
@@ -261,7 +286,7 @@
                     }
                 </button>
             }
-            @if (item.serverUrl && supportsXtreamSqliteDataSource) {
+            @if (sourceType === 'xtream' && supportsXtreamSqliteDataSource) {
                 <button
                     mat-icon-button
                     class="refresh-btn"

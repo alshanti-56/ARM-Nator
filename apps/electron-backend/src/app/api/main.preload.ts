@@ -695,6 +695,14 @@ const electronApi: ElectronBridgeApi = {
         sessionId?: string;
         suppressErrorLog?: boolean;
     }) => ipcRenderer.invoke('XTREAM_REQUEST', payload),
+    stalkerRequest: (payload: {
+        url: string;
+        macAddress: string;
+        params: Record<string, string | number>;
+        token?: string;
+        serialNumber?: string;
+        requestId?: string;
+    }) => ipcRenderer.invoke('STALKER_REQUEST', payload),
     xtreamCancelSession: (sessionId: string) =>
         ipcRenderer.invoke('XTREAM_CANCEL_SESSION', sessionId),
     xtreamProbeUrl: (url: string, method?: 'GET' | 'HEAD') =>

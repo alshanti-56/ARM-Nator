@@ -20,35 +20,15 @@ export interface ResolvedPortalPlayback {
     referer?: string;
     origin?: string;
     drm?: ChannelDrm;
-    /** Optional remote WebVTT subtitle loaded alongside the media source. */
     subtitleUrl?: string;
     subtitleLabel?: string;
     subtitleLanguage?: string;
 }
 
-export interface PlaybackNetworkHop {
-    url: string;
-    status: number;
-    location?: string;
-}
-
+export interface PlaybackNetworkHop { url: string; status: number; location?: string; }
 export interface PlaybackNetworkInspection {
-    requestedUrl: string;
-    finalUrl: string;
-    status: number;
-    statusText: string;
-    contentType?: string;
-    contentLength?: number;
-    headers: Record<string, string>;
-    redirectChain: PlaybackNetworkHop[];
-    detectedLive?: boolean;
-    elapsedMs: number;
-    error?: string;
+    requestedUrl: string; finalUrl: string; status: number; statusText: string;
+    contentType?: string; contentLength?: number; headers: Record<string, string>;
+    redirectChain: PlaybackNetworkHop[]; detectedLive?: boolean; elapsedMs: number; error?: string;
 }
-
-export interface PlayerEngineAvailability {
-    engine: string;
-    available: boolean;
-    path?: string;
-    reason?: string;
-}
+export interface PlayerEngineAvailability { engine: string; available: boolean; path?: string; reason?: string; }

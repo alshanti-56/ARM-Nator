@@ -1,4 +1,4 @@
-export type PortalProvider = 'xtreams' | 'playlists';
+export type PortalProvider = 'xtreams' | 'playlists' | 'stalker';
 export type PortalRailSection =
     | 'all'
     | 'favorites'
@@ -103,6 +103,33 @@ export function buildPortalRailLinks(
 
         return {
             primary,
+            secondary: [],
+        };
+    }
+
+    if (provider === 'stalker') {
+        return {
+            primary: [
+                {
+                    icon: 'movie',
+                    tooltip: 'Movies (this portal)',
+                    path: [...root, 'vod'],
+                    section: 'vod',
+                },
+                {
+                    icon: 'live_tv',
+                    tooltip: 'Live TV (this portal)',
+                    path: [...root, 'itv'],
+                    exact: true,
+                    section: 'itv',
+                },
+                {
+                    icon: 'tv',
+                    tooltip: 'Series (this portal)',
+                    path: [...root, 'series'],
+                    section: 'series',
+                },
+            ],
             secondary: [],
         };
     }

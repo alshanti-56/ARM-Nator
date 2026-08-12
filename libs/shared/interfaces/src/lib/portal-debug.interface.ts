@@ -1,4 +1,4 @@
-export type PortalDebugProvider = 'xtream';
+export type PortalDebugProvider = 'xtream' | 'stalker';
 
 export type PortalDebugTransport =
     | 'electron-main'

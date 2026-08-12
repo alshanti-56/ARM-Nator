@@ -1,0 +1,66 @@
+name: CI
+
+on:
+  push:
+    branches:
+      - main
+      - master
+  pull_request:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  validate:
+    name: Lint, test, and build
+    runs-on: macos-26
+    timeout-minutes: 90
+    env:
+      ARM_NATOR_EMBEDDED_MPV_BUILD_ROOT: ${{ runner.temp }}/arm-nator-embedded-mpv-runtime/arm64
+
+    steps:
+      - name: Check out source
+        uses: actions/checkout@v4
+
+      - name: Set up pnpm
+        uses: pnpm/action-setup@v4
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: pnpm
+
+      - name: Verify Apple Silicon runner
+        run: |
+          test "$(uname -m)" = "arm64"
+          node -p "process.platform + '-' + process.arch"
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Install native runtime build tools
+        run: |
+          brew untap aws/tap 2>/dev/null || true
+          HOMEBREW_NO_AUTO_UPDATE=1 brew install meson ninja pkg-config
+
+      - name: Restore Embedded MPV cache
+        uses: actions/cache@v4
+        with:
+          path: |
+            vendor/embedded-mpv/darwin-arm64
+            ${{ runner.temp }}/arm-nator-embedded-mpv-runtime/arm64/archives
+          key: ${{ runner.os }}-macos-26-arm64-embedded-mpv-${{ hashFiles('tools/embedded-mpv/build-macos-runtime.mjs', 'tools/embedded-mpv/ensure-macos-runtime.mjs', 'tools/embedded-mpv/stage-macos-runtime.mjs') }}
+
+      - name: Lint
+        run: pnpm lint
+
+      - name: Test
+        run: pnpm test
+
+      - name: Production build
+        run: pnpm build

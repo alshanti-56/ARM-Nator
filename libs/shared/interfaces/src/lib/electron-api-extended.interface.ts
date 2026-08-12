@@ -271,6 +271,14 @@ export interface ElectronBridgeApi extends ElectronBridgeKsPlayerMetalApi {
     setMpvPlayerPath: (mpvPlayerPath: string) => Promise<void>;
     setVlcPlayerPath: (vlcPlayerPath: string) => Promise<void>;
     xtreamRequest: (payload: ElectronBridgeXtreamRequestPayload) => Promise<ElectronBridgeXtreamResponse>;
+    stalkerRequest: (payload: {
+        url: string;
+        macAddress: string;
+        params: Record<string, string | number>;
+        token?: string;
+        serialNumber?: string;
+        requestId?: string;
+    }) => Promise<unknown>;
     xtreamCancelSession: (sessionId: string) => Promise<ElectronBridgeXtreamCancelResult>;
     xtreamProbeUrl: (url: string, method?: 'GET' | 'HEAD') => Promise<ElectronBridgeXtreamProbeResult>;
     startCredentialTestBatch: (request: CredentialTestBatchStartRequest) => Promise<string>;

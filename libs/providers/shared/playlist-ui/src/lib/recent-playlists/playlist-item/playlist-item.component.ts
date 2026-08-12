@@ -23,7 +23,11 @@ import {
     PortalStatusService,
     RuntimeCapabilitiesService,
 } from '@arm-nator/services';
-import { PlaylistMeta } from '@arm-nator/shared/interfaces';
+import {
+    getPlaylistSourceType,
+    PlaylistMeta,
+    PlaylistSourceType,
+} from '@arm-nator/shared/interfaces';
 import type { XtreamMetadataIndexView } from '@arm-nator/shared/interfaces';
 
 @Component({
@@ -54,6 +58,10 @@ export class PlaylistItemComponent implements OnInit {
     readonly metadataIndexStatus = input<XtreamMetadataIndexView | null>(null);
     readonly canCancelBusyAction = input(false);
     readonly isBusy = computed(() => this.isRefreshing() || this.isDeleting());
+
+    get sourceType(): PlaylistSourceType {
+        return getPlaylistSourceType(this.item);
+    }
 
     readonly editPlaylistClicked = output<PlaylistMeta>();
     readonly playlistClicked = output<string>();

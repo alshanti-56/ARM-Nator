@@ -25,7 +25,7 @@
                 "{workspaceRoot}/apps/electron-backend/native/build/Release"
             ],
             "options": {
-                "command": "node apps/electron-backend/build-embedded-mpv.js"
+                "command": "node tools/embedded-mpv/ensure-macos-runtime.mjs && node apps/electron-backend/build-embedded-mpv.js"
             }
         },
         "build-ksplayer-metal": {
@@ -163,6 +163,15 @@
         "lint": {
             "inputs": ["default"],
             "command": "eslint apps/electron-backend/**/*.ts"
+        },
+        "test": {
+            "executor": "nx:run-commands",
+            "cache": true,
+            "inputs": ["default", "^default"],
+            "options": {
+                "command": "TSX_TSCONFIG_PATH=tsconfig.base.json node --import tsx --test 'apps/**/*.spec.ts' 'libs/**/*.spec.ts'",
+                "cwd": "{workspaceRoot}"
+            }
         }
     }
 }

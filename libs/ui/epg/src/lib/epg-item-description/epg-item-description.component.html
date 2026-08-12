@@ -1,0 +1,111 @@
+<div class="epg-dialog">
+    <div class="epg-dialog__hero">
+        @if (channelName) {
+            <span class="epg-dialog__chan">
+                <mat-icon>live_tv</mat-icon>
+                <span class="epg-dialog__chan-name">{{ channelName }}</span>
+            </span>
+        }
+        <button
+            type="button"
+            class="epg-dialog__close"
+            mat-dialog-close
+            [attr.aria-label]="'HOME.PLAYLISTS.INFO_DIALOG.CLOSE' | translate"
+        >
+            <mat-icon>close</mat-icon>
+        </button>
+
+        @if (channelLogo && !logoFailed) {
+            <img
+                class="epg-dialog__logo"
+                [src]="channelLogo"
+                [alt]="channelName ?? ''"
+                (error)="logoFailed = true"
+            />
+        } @else {
+            <mat-icon class="epg-dialog__hero-glyph">live_tv</mat-icon>
+        }
+    </div>
+
+    <div class="epg-dialog__body">
+        <div class="epg-dialog__meta">
+            <span>{{ startMs | date: 'EEE d MMM' : '' : currentLocale() }}</span>
+            <span class="epg-dialog__dot"></span>
+            <span
+                >{{ startMs | date: 'HH:mm' }} –
+                {{ stopMs | date: 'HH:mm' }}</span
+            >
+            @if (duration) {
+                <span class="epg-dialog__dot"></span>
+                <span>{{ duration }}</span>
+            }
+            @if (epgProgram.category) {
+                <span class="epg-dialog__dot"></span>
+                <span>{{ epgProgram.category }}</span>
+            }
+        </div>
+
+        <h3 class="epg-dialog__title">{{ epgProgram.title }}</h3>
+
+        @if (epgProgram.desc) {
+            <p class="epg-dialog__desc">{{ epgProgram.desc }}</p>
+        }
+
+        @if (epgProgram.episodeNum || epgProgram.rating) {
+            <div class="epg-dialog__tags">
+                @if (epgProgram.episodeNum) {
+                    <span class="epg-dialog__tag">
+                        <small>{{
+                            'EPG.PROGRAM_DIALOG.EPISODE' | translate
+                        }}</small>
+                        {{ epgProgram.episodeNum }}
+                    </span>
+                }
+                @if (epgProgram.rating) {
+                    <span class="epg-dialog__tag epg-dialog__tag--rating">
+                        <small>{{
+                            'EPG.PROGRAM_DIALOG.PARENTAL_RATING_SYSTEM'
+                                | translate
+                        }}</small>
+                        {{ epgProgram.rating }}
+                    </span>
+                }
+            </div>
+        }
+
+        <div class="epg-dialog__actions">
+            @if (primaryAction === 'live') {
+                <button
+                    type="button"
+                    class="epg-dialog__btn epg-dialog__btn--primary"
+                    [mat-dialog-close]="'live'"
+                >
+                    <mat-icon>play_arrow</mat-icon>
+                    {{ 'EPG.TIMELINE.WATCH_LIVE' | translate }}
+                </button>
+            } @else if (primaryAction === 'timeshift') {
+                <button
+                    type="button"
+                    class="epg-dialog__btn epg-dialog__btn--primary"
+                    [mat-dialog-close]="'timeshift'"
+                >
+                    <mat-icon>replay</mat-icon>
+                    {{ 'EPG.TIMELINE.WATCH_FROM_START' | translate }}
+                </button>
+            }
+            @if (archiveUnavailableNote) {
+                <span class="epg-dialog__note">{{
+                    'EPG.TIMELINE.ARCHIVE_UNAVAILABLE_NOTE' | translate
+                }}</span>
+            }
+            <span class="epg-dialog__spacer"></span>
+            <button
+                type="button"
+                class="epg-dialog__btn epg-dialog__btn--ghost"
+                mat-dialog-close
+            >
+                {{ 'HOME.PLAYLISTS.INFO_DIALOG.CLOSE' | translate }}
+            </button>
+        </div>
+    </div>
+</div>

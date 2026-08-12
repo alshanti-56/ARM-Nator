@@ -1,0 +1,83 @@
+<app-search-layout
+    [searchTerm]="searchTerm()"
+    [resultsCount]="resultsCount"
+    [isLoading]="isInitialSearchLoading()"
+    [showResultsCount]="true"
+    [showSearchInput]="!isWorkspaceLayout"
+    [showBackButton]="isWorkspaceLayout"
+    [showDetails]="showingDetails"
+    [nearEndHasMore]="searchHasMore()"
+    [nearEndAppending]="isAppendingSearchResults()"
+    [nearEndRenderedCount]="resultsCount"
+    [nearEndResetKey]="searchScrollResetKey()"
+    (searchTermChange)="updateSearchTerm($event)"
+    (backClick)="goBack()"
+    (nearEnd)="loadMoreSearchResults()"
+>
+    @if (showingDetails) {
+        <app-stalker-inline-detail
+            details
+            [playbackSessionKey]="playbackSessionKey()"
+            [categoryId]="inlineDetail().categoryId"
+            [seriesItem]="inlineDetail().seriesItem"
+            [isSeries]="inlineDetail().isSeries"
+            [vodDetailsItem]="inlineDetail().vodDetailsItem"
+            [isFavorite]="isSelectedVodFavorite()"
+            [playbackPosition]="selectedVodPlaybackPosition()"
+            [inlinePlayback]="inlinePlayback()"
+            [externalPlayback]="externalPlayback.activeSession()"
+            (playClicked)="onVodPlay($event)"
+            (resumeClicked)="onVodResume($event)"
+            (inlineTimeUpdated)="handleInlineTimeUpdate($event)"
+            (inlinePlaybackClosed)="closeInlinePlayer()"
+            (streamUrlCopied)="showCopyNotification()"
+            (inlineExternalFallbackRequested)="
+                handleExternalFallbackRequest($event)
+            "
+            (favoriteToggled)="onVodFavoriteToggled($event)"
+            (backClicked)="onVodBack()"
+        />
+    }
+
+    <!-- Filters (single selection mode for stalker) -->
+    <ng-container filters>
+        @for (filter of filterConfig; track filter.key) {
+            <mat-checkbox
+                [ngModel]="filters()[filter.key]"
+                (ngModelChange)="updateFilter(filter.key, $event)"
+            >
+                {{ filter.translationKey | translate }}
+            </mat-checkbox>
+        }
+    </ng-container>
+
+    <!-- Results -->
+    <ng-container results>
+        <div class="results-grid">
+            @for (item of searchResults(); track item.id) {
+                <app-content-card
+                    [title]="item.o_name || item.name || ''"
+                    [posterUrl]="item.screenshot_uri"
+                    [type]="selectedFilterType() === 'vod' ? 'movie' : 'series'"
+                    [showPlaceholder]="true"
+                    (cardClick)="selectItem(item)"
+                />
+            }
+        </div>
+        <!-- Explicit retry: repeated append failures exhaust the scroll
+             auto-fill budget while the user sits at the bottom, so recovery
+             must not depend on producing another scroll event. -->
+        @if (searchAppendError()) {
+            <div class="search-append-error" role="alert">
+                <span>{{ 'PORTALS.GRID.LOAD_MORE_FAILED' | translate }}</span>
+                <button
+                    type="button"
+                    mat-stroked-button
+                    (click)="loadMoreSearchResults()"
+                >
+                    {{ 'PORTALS.GRID.RETRY' | translate }}
+                </button>
+            </div>
+        }
+    </ng-container>
+</app-search-layout>

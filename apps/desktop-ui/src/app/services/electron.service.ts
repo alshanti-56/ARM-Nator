@@ -17,6 +17,7 @@ import {
     Playlist,
     PLAYLIST_PARSE_BY_URL,
     PLAYLIST_UPDATE,
+    STALKER_REQUEST,
     XTREAM_REQUEST,
     XTREAM_RESPONSE,
     XtreamCodeActions,
@@ -152,6 +153,19 @@ export class ElectronService extends DataService {
         if (type === XTREAM_REQUEST) {
             return (await this.forwardXtreamRequest(
                 payload as { url: string; params: Record<string, string> }
+            )) as T;
+        }
+
+        if (type === STALKER_REQUEST) {
+            return (await window.electron.stalkerRequest(
+                payload as {
+                    url: string;
+                    macAddress: string;
+                    params: Record<string, string | number>;
+                    token?: string;
+                    serialNumber?: string;
+                    requestId?: string;
+                }
             )) as T;
         }
 

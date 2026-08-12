@@ -11,7 +11,10 @@ import { TranslatePipe, TranslateService } from '@ngx-translate/core';
 import { selectActiveTypeFilters, selectAllPlaylistsMeta } from '@arm-nator/providers/m3u/state';
 import { map, startWith } from 'rxjs';
 import { SortBy, SortOrder, SortService } from '@arm-nator/services';
-import { PlaylistMeta } from '@arm-nator/shared/interfaces';
+import {
+    getPlaylistSourceType,
+    PlaylistMeta,
+} from '@arm-nator/shared/interfaces';
 import {
     WORKSPACE_SHELL_ACTIONS,
     WorkspacePlaylistType,
@@ -115,6 +118,9 @@ export class WorkspaceSourcesComponent {
             if (filters[0] === 'xtream') {
                 return this.translateText('WORKSPACE.SOURCES.XTREAM_PLAYLISTS');
             }
+            if (filters[0] === 'stalker') {
+                return this.translateText('HOME.PLAYLIST_TYPES.STALKER');
+            }
         }
 
         return this.translateText('WORKSPACE.SOURCES.ALL_PLAYLISTS');
@@ -126,21 +132,7 @@ export class WorkspaceSourcesComponent {
         const allPlaylists = this.playlists();
 
         return allPlaylists
-            .filter((item) => {
-                const isXtreamFilter =
-                    !!item.username &&
-                    !!item.password &&
-                    !!item.serverUrl &&
-                    filters.includes('xtream');
-                const isM3uFilter =
-                    !item.username &&
-                    !item.password &&
-                    !item.serverUrl &&
-                    !item.macAddress &&
-                    filters.includes('m3u');
-
-                return isXtreamFilter || isM3uFilter;
-            })
+            .filter((item) => filters.includes(getPlaylistSourceType(item)))
             .filter((item) => (item.title || '').toLowerCase().includes(query))
             .length;
     });

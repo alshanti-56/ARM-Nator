@@ -12,9 +12,13 @@ import {
     selectActiveTypeFilters,
     selectAllPlaylistsMeta,
 } from '@arm-nator/providers/m3u/state';
+import {
+    getPlaylistSourceType,
+    PlaylistSourceType,
+} from '@arm-nator/shared/interfaces';
 import { TranslatePipe } from '@ngx-translate/core';
 
-type PlaylistFilterId = 'all' | 'm3u' | 'xtream';
+type PlaylistFilterId = 'all' | PlaylistSourceType;
 
 interface PlaylistFilterOption {
     id: PlaylistFilterId;
@@ -23,7 +27,7 @@ interface PlaylistFilterOption {
     translationKey?: string;
 }
 
-const ALL_FILTERS = ['m3u', 'xtream'];
+const ALL_FILTERS: PlaylistSourceType[] = ['m3u', 'xtream', 'stalker'];
 
 @Component({
     selector: 'app-workspace-sources-filters-panel',
@@ -56,15 +60,25 @@ export class WorkspaceSourcesFiltersPanelComponent {
             icon: 'cloud',
             translationKey: 'HOME.PLAYLIST_TYPES.XTREAM',
         },
+        {
+            id: 'stalker',
+            icon: 'router',
+            translationKey: 'HOME.PLAYLIST_TYPES.STALKER',
+        },
     ];
 
     readonly typeCounts = computed(() => {
         const items = this.playlists();
         return {
             all: items.length,
-            m3u: items.filter((item) => !item.serverUrl && !item.macAddress)
+            m3u: items.filter((item) => getPlaylistSourceType(item) === 'm3u')
                 .length,
-            xtream: items.filter((item) => !!item.serverUrl).length,
+            xtream: items.filter(
+                (item) => getPlaylistSourceType(item) === 'xtream'
+            ).length,
+            stalker: items.filter(
+                (item) => getPlaylistSourceType(item) === 'stalker'
+            ).length,
         };
     });
 

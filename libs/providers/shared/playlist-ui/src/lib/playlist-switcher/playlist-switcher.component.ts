@@ -34,18 +34,23 @@ import {
     PortalStatus,
     PortalStatusService,
 } from '@arm-nator/services';
-import { PlaylistMeta } from '@arm-nator/shared/interfaces';
+import {
+    getPlaylistSourceType,
+    PlaylistMeta,
+    PlaylistSourceType,
+} from '@arm-nator/shared/interfaces';
 import { startWith } from 'rxjs';
 import { PlaylistRefreshActionService } from '../playlist-refresh-action.service';
 import { PlaylistInfoComponent } from '../recent-playlists/playlist-info/playlist-info.component';
 
-type PlaylistFilterType = 'm3u' | 'xtream';
+type PlaylistFilterType = PlaylistSourceType;
 
 const SEARCH_QUERY_STORAGE_KEY = 'playlist-switcher:search-query';
 const PLAYLIST_TYPE_FILTER_STORAGE_KEY = 'playlist-switcher:type-filters';
 const DEFAULT_PLAYLIST_TYPE_FILTERS: Record<PlaylistFilterType, boolean> = {
     m3u: true,
     xtream: true,
+    stalker: true,
 };
 
 @Component({
@@ -123,9 +128,6 @@ export class PlaylistSwitcherComponent {
         const filters = this.playlistTypeFilters();
         const allPlaylists = this.playlists();
         const filteredByType = allPlaylists.filter((playlist) => {
-            if (playlist.macAddress) {
-                return false;
-            }
             const playlistType = this.getPlaylistFilterType(playlist);
             return filters[playlistType];
         });
@@ -161,9 +163,6 @@ export class PlaylistSwitcherComponent {
     readonly availablePlaylistTypes = computed(() => {
         const types = new Set<PlaylistFilterType>();
         for (const playlist of this.playlists()) {
-            if (playlist.macAddress) {
-                continue;
-            }
             types.add(this.getPlaylistFilterType(playlist));
         }
         return types;
@@ -245,7 +244,7 @@ export class PlaylistSwitcherComponent {
             [type]: !current[type],
         };
 
-        if (!next.m3u && !next.xtream) {
+        if (!next.m3u && !next.xtream && !next.stalker) {
             return;
         }
 
@@ -326,7 +325,11 @@ export class PlaylistSwitcherComponent {
     }
 
     getPlaylistIcon(playlist: PlaylistMeta): string {
-        if (playlist.serverUrl) {
+        const sourceType = this.getPlaylistFilterType(playlist);
+        if (sourceType === 'stalker') {
+            return 'router';
+        }
+        if (sourceType === 'xtream') {
             return 'public';
         }
         if (playlist.url) {
@@ -336,7 +339,11 @@ export class PlaylistSwitcherComponent {
     }
 
     getPlaylistTypeLabel(playlist: PlaylistMeta): string {
-        if (playlist.serverUrl) {
+        const sourceType = this.getPlaylistFilterType(playlist);
+        if (sourceType === 'stalker') {
+            return 'Stalker Portal';
+        }
+        if (sourceType === 'xtream') {
             return 'Xtream Code';
         }
         return `${playlist.count} channels`;
@@ -354,7 +361,11 @@ export class PlaylistSwitcherComponent {
                 ? channelsLabel
                 : fallback;
 
-        if (playlist.serverUrl) {
+        const sourceType = this.getPlaylistFilterType(playlist);
+        if (sourceType === 'stalker') {
+            return 'Stalker Portal';
+        }
+        if (sourceType === 'xtream') {
             return 'Xtream Code';
         }
         return countLabel;
@@ -376,10 +387,7 @@ export class PlaylistSwitcherComponent {
     }
 
     private getPlaylistFilterType(playlist: PlaylistMeta): PlaylistFilterType {
-        if (playlist.serverUrl) {
-            return 'xtream';
-        }
-        return 'm3u';
+        return getPlaylistSourceType(playlist);
     }
 
     private async checkPortalStatuses(playlists: PlaylistMeta[]) {
@@ -535,9 +543,10 @@ export class PlaylistSwitcherComponent {
             const next = {
                 m3u: parsed.m3u !== false,
                 xtream: parsed.xtream !== false,
+                stalker: parsed.stalker !== false,
             };
 
-            if (!next.m3u && !next.xtream) {
+            if (!next.m3u && !next.xtream && !next.stalker) {
                 return { ...DEFAULT_PLAYLIST_TYPE_FILTERS };
             }
 

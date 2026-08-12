@@ -93,6 +93,13 @@ export const routes: Routes = [
           ),
       },
       {
+        path: "stalker",
+        loadChildren: () =>
+          import("@arm-nator/providers/stalker/feature").then((m) =>
+            m.createStalkerRoutes(),
+          ),
+      },
+      {
         path: "global-favorites",
         data: {
           mode: "favorites",

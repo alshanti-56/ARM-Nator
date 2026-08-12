@@ -133,8 +133,12 @@ function getFavoriteChannelMatch(
 
 function inferPlaylistType(playlist: Record<string, unknown>): PlaylistType {
     const explicitType = getStringValue(playlist.type);
+    // Stalker rows use the existing playlist storage envelope while their
+    // portal identity lives in payload/portalUrl/macAddress. Keep the SQL
+    // type backward-compatible until the provider gets dedicated catalog
+    // tables.
     if (explicitType === 'stalker' || getStringValue(playlist.macAddress)) {
-        throw new Error('Stalker playlists are no longer supported');
+        return PLAYLIST_TYPES.XTREAM;
     }
     if (
         explicitType &&
@@ -289,9 +293,9 @@ export async function createPlaylist(
         type: string;
     }
 ): Promise<{ success: boolean }> {
-    if (playlist.type === 'stalker' || playlist.macAddress) {
-        throw new Error('Stalker playlists are no longer supported');
-    }
+    const type = playlist.type === 'stalker'
+        ? PLAYLIST_TYPES.XTREAM
+        : (playlist.type as PlaylistType);
 
     await db.insert(schema.playlists).values({
         id: playlist.id,
@@ -302,7 +306,7 @@ export async function createPlaylist(
         macAddress: playlist.macAddress,
         url: playlist.url,
         portalUrl: undefined,
-        type: playlist.type as PlaylistType,
+        type,
     });
 
     return { success: true };

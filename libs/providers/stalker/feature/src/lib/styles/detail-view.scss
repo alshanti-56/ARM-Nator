@@ -1,0 +1,9 @@
+@use '../../../../../../ui/styles/detail-view' as detail-view;
+
+@include detail-view.base(
+    $season-title-font-size: 1.2rem,
+    $season-title-font-weight: 650,
+    $season-title-letter-spacing: -0.02em,
+    $episode-title-font-size: 1rem,
+    $episode-title-letter-spacing: -0.01em
+);

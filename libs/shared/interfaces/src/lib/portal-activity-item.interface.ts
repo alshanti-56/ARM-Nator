@@ -1,4 +1,7 @@
-export type PortalActivityType = 'live' | 'movie' | 'series';
+import {
+    PortalActivityType,
+    StalkerPortalItem,
+} from './stalker-portal-item.interface';
 
 /**
  * Base interface for cross-provider activity items (recently viewed,
@@ -14,13 +17,23 @@ export interface PortalActivityItem {
     xtream_id: string | number;
     poster_url?: string;
     /**
-     * Wide backdrop URL (typically 16:9), persisted when the user first views
-     * the detail page. Absent for items that have never had their detail page
-     * opened. Dashboards should fall back to a blurred
-     * `poster_url` when undefined.
+     * Preferred XMLTV lookup key for live EPG enrichment. For M3U channels this
+     * follows the app-wide tvg.id -> tvg.name -> display name fallback chain.
+     */
+    epg_lookup_key?: string;
+    /**
+     * Wide backdrop URL (typically 16:9), recorded when the user first views
+     * the detail page — for xtream on the `content` row, for stalker inside
+     * the stored playlist entry (`info.tmdb_backdrop`), since stalker items
+     * never reach the `content` table. Absent for items whose detail page has
+     * never been opened, and for stalker items opened without TMDB
+     * enrichment. Dashboards should fall back to a blurred `poster_url` when
+     * undefined.
      */
     backdrop_url?: string;
-    source?: 'xtream' | 'm3u';
+    source?: 'xtream' | 'stalker' | 'm3u';
+    /** Original stalker item for navigation state; undefined for xtream. */
+    stalker_item?: StalkerPortalItem;
 }
 
 /** A recently-viewed item with a `viewed_at` timestamp. */

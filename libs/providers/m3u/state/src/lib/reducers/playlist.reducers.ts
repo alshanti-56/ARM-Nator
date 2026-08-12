@@ -31,14 +31,14 @@ export const playlistReducers = [
         };
     }),
     on(PlaylistActions.updatePlaylist, (state, action): PlaylistState => {
-        const playlist = action.playlist as any;
+        const playlist = action.playlist;
         const isActivePlaylist =
             state.playlists.selectedId === action.playlistId;
         const currentPlaylist = state.playlists.entities[action.playlistId];
         return {
             ...state,
             channels: isActivePlaylist
-                ? (playlist.playlist.items as Channel[])
+                ? (playlist.playlist?.items as Channel[] | undefined) ?? []
                 : state.channels,
             channelsLoading: isActivePlaylist ? false : state.channelsLoading,
             playlists: playlistsAdapter.updateOne(
@@ -48,7 +48,7 @@ export const playlistReducers = [
                         ...playlist,
                         _id: action.playlistId,
                         updateDate: Date.now(),
-                        count: playlist.playlist.items.length,
+                        count: playlist.playlist?.items?.length ?? 0,
                         userAgent: playlist.userAgent,
                         favorites: currentPlaylist?.favorites ?? [],
                         autoRefresh:
@@ -175,12 +175,12 @@ export const playlistReducers = [
     on(
         PlaylistActions.handleAddingPlaylistByUrl,
         (state, action): PlaylistState => {
-            const playlist = action.playlist as any;
+            const playlist = action.playlist;
             if (action.isTemporary) {
                 return {
                     ...state,
                     channelsLoading: false,
-                    channels: playlist.playlist.items as Channel[],
+                    channels: (playlist.playlist?.items as Channel[] | undefined) ?? [],
                 };
             } else {
                 return {

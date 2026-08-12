@@ -1,0 +1,105 @@
+@if (item(); as selected) {
+    <app-portal-detail-shell
+        [title]="title()"
+        [description]="description()"
+        [posterUrl]="poster()"
+        [isLoading]="detailLoading()"
+        (backClicked)="goBack()"
+    >
+        <ng-template appDetailTags>
+            @if (isSeries()) {
+                <span class="detail-tag">Series</span>
+            } @else {
+                <span class="detail-tag">Movie</span>
+            }
+            @if (year()) {
+                <span class="detail-tag">{{ year() }}</span>
+            }
+            @if (genre()) {
+                <span class="detail-tag">{{ genre() }}</span>
+            }
+            @if (rating()) {
+                <span class="detail-tag detail-tag--rating">★ {{ rating() }}</span>
+            }
+        </ng-template>
+
+        <ng-template appDetailMeta>
+            @if (actors()) {
+                <div class="detail-meta-item">
+                    <span class="detail-meta-label">Actors</span>
+                    <span>{{ actors() }}</span>
+                </div>
+            }
+            @if (director()) {
+                <div class="detail-meta-item">
+                    <span class="detail-meta-label">Director</span>
+                    <span>{{ director() }}</span>
+                </div>
+            }
+        </ng-template>
+
+        <ng-template appDetailActions>
+            @if (!isSeries()) {
+                <button class="detail-play-button" type="button" (click)="playMovie()">
+                    <mat-icon aria-hidden="true">play_arrow</mat-icon>
+                    <span>Play movie</span>
+                </button>
+            }
+        </ng-template>
+
+        @if (playbackError(); as error) {
+            <div detail-extras class="detail-error" role="alert">
+                {{ error }}
+            </div>
+        }
+
+        @if (isSeries()) {
+            <section class="series-details" detail-episodes aria-label="Seasons and episodes">
+                <div class="series-details__heading">
+                    <div>
+                        <span class="series-details__eyebrow">Series</span>
+                        <h2>Seasons and episodes</h2>
+                    </div>
+                    @if (seasonsLoading()) {
+                        <span class="series-details__status">Loading seasons…</span>
+                    }
+                </div>
+
+                @if (!seasonsLoading() && seasons().length === 0) {
+                    <p class="series-details__empty">No seasons were returned for this series.</p>
+                } @else {
+                    <div class="season-tabs">
+                        @for (season of seasons(); track season.id ?? $index) {
+                            <button
+                                type="button"
+                                [class.season-tabs__active]="selectedSeasonId() === (season['season_id'] ?? season.id)"
+                                (click)="selectSeason(season)"
+                            >
+                                {{ seasonLabel(season) }}
+                            </button>
+                        }
+                    </div>
+                }
+
+                @if (episodesLoading()) {
+                    <p class="series-details__status">Loading episodes…</p>
+                } @else if (episodes().length > 0) {
+                    <div class="episode-list">
+                        @for (episode of episodes(); track episode.id ?? $index; let index = $index) {
+                            <button type="button" class="episode-list__item" (click)="playEpisode(episode)">
+                                <mat-icon aria-hidden="true">play_circle</mat-icon>
+                                <span>{{ episodeLabel(episode, index) }}</span>
+                            </button>
+                        }
+                    </div>
+                }
+            </section>
+        }
+    </app-portal-detail-shell>
+} @else {
+    <app-portal-detail-shell
+        [isLoading]="detailLoading()"
+        [errorMessage]="detailError() ?? undefined"
+        (backClicked)="goBack()"
+    />
+}

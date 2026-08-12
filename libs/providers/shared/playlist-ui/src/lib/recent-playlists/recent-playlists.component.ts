@@ -44,6 +44,7 @@ import {
 } from '@arm-nator/services';
 import {
     PLAYLIST_UPDATE,
+    getPlaylistSourceType,
     PlaylistMeta,
     PlaylistRefreshEvent,
 } from '@arm-nator/shared/interfaces';
@@ -149,26 +150,9 @@ export class RecentPlaylistsComponent {
         this.store.select(selectActiveTypeFilters),
         this.sortService.getSortOptions(),
     ]).pipe(
-        map(([playlists, searchQuery, filters, sortOptions]) => {
-            const filteredPlaylists = playlists
-                .filter((item) => {
-                    const isXtreamFilter =
-                        item.username &&
-                        item.password &&
-                        item.serverUrl &&
-                        filters.includes('xtream');
-                    const isM3uFilter =
-                        !item.username &&
-                        !item.password &&
-                        !item.serverUrl &&
-                        !item.macAddress &&
-                        filters.includes('m3u');
-
-                    return (
-                        (isXtreamFilter && filters.includes('xtream')) ||
-                        (isM3uFilter && filters.includes('m3u'))
-                    );
-                })
+            map(([playlists, searchQuery, filters, sortOptions]) => {
+                const filteredPlaylists = playlists
+                .filter((item) => filters.includes(getPlaylistSourceType(item)))
                 .filter((item) =>
                     (item.title || '')
                         .toLowerCase()
@@ -230,8 +214,16 @@ export class RecentPlaylistsComponent {
     }
 
     getPlaylist(playlistMeta: PlaylistMeta): void {
-        if (playlistMeta.serverUrl) {
+        const sourceType = getPlaylistSourceType(playlistMeta);
+        if (sourceType === 'xtream') {
             this.router.navigate(['/workspace', 'xtreams', playlistMeta._id]);
+        } else if (sourceType === 'stalker') {
+            this.router.navigate([
+                '/workspace',
+                'stalker',
+                playlistMeta._id,
+                'itv',
+            ]);
         } else {
             this.router.navigate(['/workspace', 'playlists', playlistMeta._id]);
             this.playlistClicked.emit(playlistMeta._id);

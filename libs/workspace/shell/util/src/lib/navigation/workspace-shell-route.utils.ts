@@ -37,12 +37,13 @@ export interface WorkspaceShellRoute {
   contextPanel: WorkspaceShellContextPanel;
 }
 
-const PORTAL_PROVIDERS: readonly PortalProvider[] = ["xtreams", "playlists"];
+const PORTAL_PROVIDERS: readonly PortalProvider[] = ["xtreams", "playlists", "stalker"];
 
 const PORTAL_SECTIONS: readonly PortalRailSection[] = [
   "all",
   "favorites",
   "groups",
+  "itv",
   "library",
   "live",
   "recent",
@@ -62,6 +63,12 @@ const XTREAM_CATEGORY_CONTEXT_SECTIONS = new Set<PortalRailSection>([
   "vod",
   "series",
   "live",
+]);
+
+const STALKER_CATEGORY_CONTEXT_SECTIONS = new Set<PortalRailSection>([
+  "itv",
+  "vod",
+  "series",
 ]);
 
 function normalizePath(url: string): {
@@ -132,6 +139,13 @@ function resolvePortalSearchMode(
       : "none";
   }
 
+  if (
+    context.provider === "stalker" &&
+    STALKER_CATEGORY_CONTEXT_SECTIONS.has(section)
+  ) {
+    return "local-filter";
+  }
+
   return "none";
 }
 
@@ -183,6 +197,13 @@ function resolveContextPanel(
   if (
     context.provider === "xtreams" &&
     XTREAM_CATEGORY_CONTEXT_SECTIONS.has(section)
+  ) {
+    return "category";
+  }
+
+  if (
+    context.provider === "stalker" &&
+    STALKER_CATEGORY_CONTEXT_SECTIONS.has(section)
   ) {
     return "category";
   }

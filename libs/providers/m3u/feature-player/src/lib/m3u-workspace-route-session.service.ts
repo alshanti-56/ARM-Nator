@@ -16,6 +16,7 @@ import {
 import { filter, firstValueFrom } from 'rxjs';
 import { PlaylistContextFacade } from '@arm-nator/providers/shared/playlist-util';
 import { PlaylistsService } from '@arm-nator/services';
+import { Channel } from '@arm-nator/shared/interfaces';
 
 type M3uLoadedSection = 'all' | 'groups';
 
@@ -120,7 +121,7 @@ export class M3uWorkspaceRouteSession {
                     );
                 });
 
-            const channels = playlist.playlist?.items ?? [];
+            const channels = (playlist.playlist?.items as Channel[] | undefined) ?? [];
             measureRendererPerformancePhase(
                 RENDERER_PERFORMANCE_PHASE.M3U_PUBLISH_CHANNELS,
                 () =>

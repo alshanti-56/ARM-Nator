@@ -703,6 +703,10 @@ export class DashboardDataService {
     getPlaylistProvider(playlist: PlaylistMeta): string {
         this.languageTick();
 
+        if (playlist.macAddress || playlist.portalUrl || playlist.isFullStalkerPortal) {
+            return this.translateText('WORKSPACE.DASHBOARD.STALKER');
+        }
+
         if (playlist.serverUrl) {
             return this.translateText('WORKSPACE.DASHBOARD.XTREAM');
         }

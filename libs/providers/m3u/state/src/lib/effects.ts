@@ -130,7 +130,7 @@ export class PlaylistEffects {
 
           if (
             shouldAutoLaunchExternalPlayer(
-              settings as any,
+              settings,
               action.startPlayback,
               channel,
               VideoPlayer.MPV,
@@ -145,7 +145,7 @@ export class PlaylistEffects {
             });
           } else if (
             shouldAutoLaunchExternalPlayer(
-              settings as any,
+              settings,
               action.startPlayback,
               channel,
               VideoPlayer.VLC,
@@ -361,6 +361,11 @@ export class PlaylistEffects {
   });
 
   private navigateToPlaylist(playlist: Playlist): void {
+    if (playlist.macAddress || playlist.portalUrl || playlist.isFullStalkerPortal) {
+      void this.router.navigate(["/workspace", "stalker", playlist._id, "itv"]);
+      return;
+    }
+
     if (playlist.serverUrl) {
       void this.router.navigate(["/workspace", "xtreams", playlist._id]);
       return;

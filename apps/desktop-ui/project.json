@@ -36,6 +36,7 @@
                 "allowedCommonJsDependencies": [
                     "iptv-playlist-parser",
                     "mpegts.js",
+                    "shaka-player",
                     "global/window",
                     "global/document",
                     "mux.js/lib/tools/parse-sidx",

@@ -381,11 +381,10 @@ export const XtreamStore = signalStore(
         const playlist = store.currentPlaylist();
         if (playlist) {
           store.loadAllPositions(playlist.id);
-          void backfillCatalogMetadata(playlist.id);
         }
       },
 
-      /** Start best-effort metadata hydration for the loaded catalog. */
+      /** Start metadata hydration for the loaded catalog when requested by the user. */
       backfillXtreamCatalogMetadata(playlistId?: string): void {
         const id = playlistId ?? store.currentPlaylist()?.id;
         if (id) {

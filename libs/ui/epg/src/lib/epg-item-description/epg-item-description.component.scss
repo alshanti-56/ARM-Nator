@@ -1,0 +1,272 @@
+// Matches the EPG timeline design system (same tokens + fallbacks).
+$surface-1: var(--surface-1, #0f141c);
+$surface-2: var(--surface-2, #161d28);
+$surface-3: var(--surface-3, #1d2533);
+$text-primary: var(--text-primary, #e7ecf3);
+$text-secondary: var(--text-secondary, #9aa3b2);
+$text-tertiary: var(--text-tertiary, #6b7384);
+$accent-blue: var(--accent-blue, #4f8eff);
+$accent-cyan: var(--accent-cyan, #5cd6ff);
+$line: var(--line, rgba(255, 255, 255, 0.06));
+$line-strong: var(--line-strong, rgba(255, 255, 255, 0.1));
+$font-mono: var(--font-mono, ui-monospace, 'SF Mono', Menlo, monospace);
+
+.epg-dialog {
+    box-sizing: border-box;
+    width: 540px;
+    max-width: 100%;
+    background: $surface-1;
+    color: $text-primary;
+    border: 1px solid $line-strong;
+    border-radius: var(--r-lg, 14px);
+    overflow: hidden;
+    box-shadow: 0 40px 90px rgba(0, 0, 0, 0.6);
+
+    * {
+        box-sizing: border-box;
+    }
+}
+
+/* ── hero ── */
+.epg-dialog__hero {
+    position: relative;
+    height: 132px;
+    display: grid;
+    place-items: center;
+    border-bottom: 1px solid $line;
+    background:
+        radial-gradient(
+            120% 150% at 78% 22%,
+            rgba(110, 60, 180, 0.4),
+            transparent 60%
+        ),
+        radial-gradient(
+            130% 160% at 18% 18%,
+            rgba(30, 40, 70, 0.55),
+            transparent 55%
+        ),
+        #0b0e16;
+
+}
+
+.epg-dialog__hero-glyph {
+    font-size: 40px;
+    width: 40px;
+    height: 40px;
+    color: rgba(255, 255, 255, 0.16);
+}
+
+.epg-dialog__logo {
+    max-width: 56%;
+    max-height: 76px;
+    object-fit: contain;
+    /* a soft plate so logos on transparent/white art stay legible on the
+       dark gradient */
+    padding: 8px 12px;
+    border-radius: 10px;
+    background: rgba(8, 11, 17, 0.42);
+    backdrop-filter: blur(2px);
+}
+
+.epg-dialog__chan {
+    position: absolute;
+    left: 14px;
+    top: 12px;
+    max-width: calc(100% - 64px);
+    display: inline-flex;
+    align-items: center;
+    gap: 7px;
+    padding: 5px 11px;
+    border-radius: 999px;
+    background: rgba(8, 11, 17, 0.72);
+    border: 1px solid $line;
+    font-size: 12px;
+    color: $text-secondary;
+    backdrop-filter: blur(6px);
+
+    mat-icon {
+        font-size: 15px;
+        width: 15px;
+        height: 15px;
+        color: $accent-blue;
+        flex: 0 0 auto;
+    }
+}
+
+.epg-dialog__chan-name {
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+.epg-dialog__close {
+    position: absolute;
+    right: 12px;
+    top: 12px;
+    width: 30px;
+    height: 30px;
+    display: grid;
+    place-items: center;
+    border: none;
+    border-radius: 8px;
+    background: rgba(8, 11, 17, 0.72);
+    color: $text-secondary;
+    cursor: pointer;
+    backdrop-filter: blur(6px);
+    transition:
+        color 120ms,
+        background 120ms;
+
+    mat-icon {
+        font-size: 18px;
+        width: 18px;
+        height: 18px;
+    }
+
+    &:hover {
+        color: $text-primary;
+        background: $surface-3;
+    }
+}
+
+/* ── body ── */
+.epg-dialog__body {
+    padding: 18px 22px 22px;
+}
+
+.epg-dialog__meta {
+    display: flex;
+    align-items: center;
+    flex-wrap: wrap;
+    gap: 8px;
+    font-family: $font-mono;
+    font-size: 11.5px;
+    color: $text-tertiary;
+    margin-bottom: 10px;
+}
+
+.epg-dialog__dot {
+    width: 3px;
+    height: 3px;
+    border-radius: 50%;
+    background: currentColor;
+    opacity: 0.55;
+}
+
+.epg-dialog__title {
+    margin: 0 0 12px;
+    font-size: 21px;
+    font-weight: 600;
+    line-height: 1.25;
+    letter-spacing: -0.01em;
+    color: $text-primary;
+}
+
+.epg-dialog__desc {
+    margin: 0 0 18px;
+    font-size: 14px;
+    line-height: 1.55;
+    color: $text-secondary;
+}
+
+/* ── episode / rating tags ── */
+.epg-dialog__tags {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px;
+    margin: 0 0 20px;
+}
+
+.epg-dialog__tag {
+    display: inline-flex;
+    flex-direction: column;
+    gap: 2px;
+    padding: 7px 11px;
+    border-radius: 8px;
+    background: $surface-2;
+    border: 1px solid $line;
+    font-size: 13px;
+    font-weight: 500;
+    color: $text-primary;
+
+    small {
+        font-family: $font-mono;
+        font-size: 9px;
+        font-weight: 700;
+        letter-spacing: 0.08em;
+        text-transform: uppercase;
+        color: $text-tertiary;
+    }
+
+    &--rating {
+        color: $accent-cyan;
+    }
+}
+
+/* ── actions ── */
+.epg-dialog__actions {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+}
+
+.epg-dialog__spacer {
+    flex: 1;
+}
+
+.epg-dialog__note {
+    font-size: 12.5px;
+    color: $text-tertiary;
+}
+
+.epg-dialog__btn {
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    height: 40px;
+    padding: 0 16px;
+    border-radius: 10px;
+    border: 1px solid transparent;
+    font: inherit;
+    font-size: 13.5px;
+    font-weight: 600;
+    cursor: pointer;
+
+    mat-icon {
+        font-size: 18px;
+        width: 18px;
+        height: 18px;
+    }
+
+    &--primary {
+        background: $accent-blue;
+        color: #fff;
+
+        &:hover {
+            filter: brightness(1.06);
+        }
+    }
+
+    &--ghost {
+        background: transparent;
+        color: $text-primary;
+        border-color: $line-strong;
+
+        &:hover {
+            background: $surface-2;
+        }
+    }
+}
+
+/* Let the dialog provide its own surface, border and shadow. */
+::ng-deep .mat-mdc-dialog-container {
+    --mdc-dialog-container-color: transparent;
+
+    .mat-mdc-dialog-surface,
+    .mdc-dialog__surface {
+        background: transparent !important;
+        box-shadow: none !important;
+        border-radius: var(--r-lg, 14px) !important;
+        overflow: visible;
+    }
+}

@@ -241,6 +241,9 @@ export class PlaylistContextFacade {
     }
 
     getProviderForPlaylist(playlist: PlaylistMeta): PortalProvider {
+        if (playlist.macAddress || playlist.portalUrl || playlist.isFullStalkerPortal) {
+            return 'stalker';
+        }
         if (playlist.serverUrl) {
             return 'xtreams';
         }
@@ -253,7 +256,7 @@ export class PlaylistContextFacade {
 
     private getRouteContext(url: string): PlaylistRouteContext {
         const match = url.match(
-            /^\/(?:workspace\/)?(playlists|xtreams)\/([^/?]+)(?:\/([^/?]+))?/
+            /^\/(?:workspace\/)?(playlists|xtreams|stalker)\/([^/?]+)(?:\/([^/?]+))?/
         );
 
         return {
@@ -370,6 +373,10 @@ export class PlaylistContextFacade {
                 : null;
         }
 
+        if (provider === 'stalker') {
+            return section === 'itv' ? section : null;
+        }
+
         return null;
     }
 
@@ -401,6 +408,9 @@ export class PlaylistContextFacade {
                 if (typeof candidate['xtreams'] === 'string') {
                     providers.xtreams = candidate['xtreams'];
                 }
+                if (typeof candidate['stalker'] === 'string') {
+                    providers.stalker = candidate['stalker'];
+                }
             }
 
             const parsedPlaylists = (parsed as Record<string, unknown>)[
@@ -423,7 +433,8 @@ export class PlaylistContextFacade {
                     const updatedAt = row['updatedAt'];
                     const isProviderValid =
                         provider === 'playlists' ||
-                        provider === 'xtreams';
+                        provider === 'xtreams' ||
+                        provider === 'stalker';
                     if (!isProviderValid || typeof section !== 'string') {
                         return;
                     }

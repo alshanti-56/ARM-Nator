@@ -1,0 +1,171 @@
+:host {
+    display: block;
+    height: 100%;
+    min-height: 0;
+    overflow: hidden;
+}
+
+.stalker-content-layout,
+.category-content-layout {
+    display: flex;
+    flex-direction: column;
+    height: 100%;
+    min-height: 0;
+    overflow: hidden;
+}
+
+.category-content-header {
+    display: flex;
+    align-items: center;
+    min-height: 64px;
+    padding: 12px 20px;
+    border-bottom: 1px solid var(--app-separator);
+    background: var(--app-widget-header-bg, var(--mat-sys-surface-container-low));
+}
+
+.category-meta {
+    display: flex;
+    min-width: 0;
+    flex-direction: column;
+    gap: 3px;
+}
+
+.category-title {
+    margin: 0;
+    overflow: hidden;
+    color: var(--mat-sys-on-surface);
+    font-size: 0.98rem;
+    font-weight: 650;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+.category-subtitle {
+    color: var(--mat-sys-on-surface-variant);
+    font-size: 0.72rem;
+}
+
+app-grid-list.stalker-grid {
+    display: block;
+    flex: 1;
+    min-height: 0;
+    overflow-y: auto;
+    padding: 16px 20px 20px;
+    scrollbar-width: thin;
+}
+
+.load-more {
+    align-self: center;
+    flex: 0 0 auto;
+    margin: 0 0 16px;
+    padding: 8px 16px;
+    border: 1px solid var(--app-separator);
+    border-radius: 999px;
+    color: var(--mat-sys-on-surface);
+    background: var(--mat-sys-surface-container);
+    cursor: pointer;
+}
+
+.load-more:disabled {
+    cursor: wait;
+    opacity: 0.6;
+}
+
+.stalker-error {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    min-height: 220px;
+    flex-direction: column;
+    gap: 8px;
+    padding: 24px;
+    color: var(--mat-sys-on-surface-variant);
+    text-align: center;
+}
+
+.stalker-error mat-icon {
+    color: var(--mat-sys-error);
+}
+
+.stalker-error strong {
+    color: var(--mat-sys-on-surface);
+}
+
+.series-picker {
+    flex: 0 0 auto;
+    margin: 0 20px 16px;
+    padding: 14px 16px;
+    border: 1px solid var(--app-separator);
+    border-radius: 12px;
+    background: var(--mat-sys-surface-container-low);
+}
+
+.series-picker__heading {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 12px;
+}
+
+.series-picker__heading h2 {
+    margin: 0;
+    font-size: 0.92rem;
+}
+
+.series-picker__eyebrow {
+    color: var(--mat-sys-on-surface-variant);
+    font-size: 0.68rem;
+    text-transform: uppercase;
+}
+
+.series-picker__close,
+.season-list button,
+.episode-list button {
+    border: 1px solid var(--app-separator);
+    border-radius: 8px;
+    color: var(--mat-sys-on-surface);
+    background: transparent;
+    cursor: pointer;
+}
+
+.series-picker__close {
+    display: grid;
+    width: 32px;
+    height: 32px;
+    place-items: center;
+}
+
+.season-list,
+.episode-list {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px;
+    margin-top: 12px;
+}
+
+.season-list button,
+.episode-list button {
+    padding: 7px 10px;
+}
+
+.season-list button:hover,
+.episode-list button:hover,
+.series-picker__close:hover,
+.load-more:hover:not(:disabled) {
+    border-color: var(--mat-sys-primary);
+    background: var(--mat-sys-primary-container);
+}
+
+@media (max-width: 640px) {
+    .category-content-header {
+        padding-inline: 12px;
+    }
+
+    app-grid-list.stalker-grid {
+        padding: 12px 16px 16px;
+    }
+
+    .series-picker {
+        margin-inline: 12px;
+    }
+}

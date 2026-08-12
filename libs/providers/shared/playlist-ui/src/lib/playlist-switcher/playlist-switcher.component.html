@@ -116,6 +116,16 @@
                     Xtream
                 </button>
             }
+            @if (hasType('stalker')) {
+                <button
+                    type="button"
+                    class="type-filter-chip"
+                    [class.selected]="isTypeFilterSelected('stalker')"
+                    (click)="togglePlaylistTypeFilter('stalker', $event)"
+                >
+                    Stalker
+                </button>
+            }
         </div>
     }
 

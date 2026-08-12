@@ -24,10 +24,11 @@ import {
     sortPortalCategoryItems,
 } from '@arm-nator/providers/shared/util';
 import { XtreamStore } from '@arm-nator/providers/xtream/data-access';
+import { StalkerStore } from '@arm-nator/providers/stalker/data-access';
 import { WorkspaceContextCategoryViewComponent } from './components/workspace-context-category-view.component';
 import { hasActiveLiveCategoryRoute } from './workspace-context-panel-route.utils';
 
-type WorkspaceProvider = 'xtreams' | 'playlists';
+type WorkspaceProvider = 'xtreams' | 'playlists' | 'stalker';
 
 interface WorkspaceContextRoute {
     provider: WorkspaceProvider;
@@ -62,6 +63,7 @@ interface WorkspaceCategoryLike {
 export class WorkspaceContextPanelComponent {
     private readonly router = inject(Router);
     private readonly xtreamStore = inject(XtreamStore);
+    private readonly stalkerStore = inject(StalkerStore);
     private readonly dialog = inject(MatDialog);
     private readonly destroyRef = inject(DestroyRef);
     private readonly translate = inject(TranslateService);
@@ -75,6 +77,13 @@ export class WorkspaceContextPanelComponent {
             (this.section() === 'vod' ||
                 this.section() === 'series' ||
                 this.section() === 'live')
+    );
+    readonly isStalkerCategories = computed(
+        () =>
+            this.context().provider === 'stalker' &&
+            (this.section() === 'itv' ||
+                this.section() === 'vod' ||
+                this.section() === 'series')
     );
     readonly xtreamCategories = this.xtreamStore.getCategoriesBySelectedType;
     readonly xtreamCategoryItemCounts = this.xtreamStore.getCategoryItemCounts;
@@ -97,6 +106,40 @@ export class WorkspaceContextPanelComponent {
         () =>
             !this.isXtreamCategoryLoading() &&
             this.xtreamSelectedTypeContentReady()
+    );
+    readonly stalkerCategories = computed<WorkspaceCategoryLike[]>(() => {
+        if (!this.isStalkerCategories()) {
+            return [];
+        }
+
+        const label =
+            this.section() === 'vod'
+                ? 'All movies'
+                : this.section() === 'series'
+                  ? 'All series'
+                  : 'All channels';
+
+        return [
+            { category_id: '*', category_name: label },
+            ...this.stalkerStore
+                .getCategoryResource()
+                .filter((category) => String(category.category_id) !== '*'),
+        ];
+    });
+    readonly stalkerSelectedCategoryId = computed(
+        () => this.stalkerStore.selectedCategoryId() ?? '*'
+    );
+    readonly stalkerLoadError = this.stalkerStore.loadError;
+    readonly isStalkerCategoryLoading = computed(
+        () =>
+            this.isStalkerCategories() &&
+            this.stalkerStore.isPaginatedContentLoading() &&
+            this.stalkerCategories().length <= 1
+    );
+    readonly isStalkerCategoryInteractionEnabled = computed(
+        () =>
+            !this.isStalkerCategoryLoading() &&
+            Boolean(this.stalkerStore.currentPlaylist())
     );
     readonly xtreamCountDisplayMode = computed<'loading' | 'ready'>(() =>
         this.isXtreamCategoryInteractionEnabled() ? 'ready' : 'loading'
@@ -169,7 +212,9 @@ export class WorkspaceContextPanelComponent {
     );
 
     readonly canSearchCategories = computed(
-        () => this.isXtreamCategories() && this.xtreamCategories().length > 0
+        () =>
+            (this.isXtreamCategories() && this.xtreamCategories().length > 0) ||
+            (this.isStalkerCategories() && this.stalkerCategories().length > 1)
     );
 
     readonly filteredXtreamCategories = computed(() => {
@@ -180,6 +225,22 @@ export class WorkspaceContextPanelComponent {
                   this.getCategoryLabel(category).toLowerCase().includes(term)
               )
             : cats;
+
+        return sortPortalCategoryItems(
+            filtered,
+            this.categorySortMode(),
+            (category) => this.getCategoryLabel(category),
+            (category) => this.isAllCategory(category)
+        );
+    });
+
+    readonly filteredStalkerCategories = computed(() => {
+        const term = this.categorySearchTerm().trim().toLowerCase();
+        const filtered = term
+            ? this.stalkerCategories().filter((category) =>
+                  this.getCategoryLabel(category).toLowerCase().includes(term)
+              )
+            : this.stalkerCategories();
 
         return sortPortalCategoryItems(
             filtered,
@@ -200,12 +261,25 @@ export class WorkspaceContextPanelComponent {
             return 'WORKSPACE.CONTEXT.LIVE_CATEGORIES';
         }
 
+        if (this.isStalkerCategories()) {
+            if (this.section() === 'vod') {
+                return 'WORKSPACE.CONTEXT.MOVIE_CATEGORIES';
+            }
+            if (this.section() === 'series') {
+                return 'WORKSPACE.CONTEXT.SERIES_CATEGORIES';
+            }
+            return 'WORKSPACE.CONTEXT.LIVE_CATEGORIES';
+        }
+
         return 'WORKSPACE.CONTEXT.CATEGORIES';
     });
 
     readonly subtitle = computed(() => {
         if (this.isXtreamCategories()) {
             return 'WORKSPACE.CONTEXT.XTREAM_SOURCE';
+        }
+        if (this.isStalkerCategories()) {
+            return 'Stalker portal';
         }
         return '';
     });
@@ -330,6 +404,40 @@ export class WorkspaceContextPanelComponent {
         this.router.navigate([
             '/workspace',
             'xtreams',
+            context.playlistId,
+            section,
+            categoryId,
+        ]);
+    }
+
+    onStalkerCategoryClicked(category: WorkspaceCategoryLike): void {
+        if (!this.isStalkerCategoryInteractionEnabled()) {
+            return;
+        }
+
+        const context = this.context();
+        const section = this.section();
+        const rawCategoryId = category.category_id ?? category.id;
+        if (rawCategoryId === undefined || rawCategoryId === null) {
+            return;
+        }
+
+        const categoryId = String(rawCategoryId);
+        if (categoryId === '*') {
+            this.stalkerStore.setSelectedCategory(null);
+            void this.router.navigate([
+                '/workspace',
+                'stalker',
+                context.playlistId,
+                section,
+            ]);
+            return;
+        }
+
+        this.stalkerStore.setSelectedCategory(categoryId);
+        void this.router.navigate([
+            '/workspace',
+            'stalker',
             context.playlistId,
             section,
             categoryId,

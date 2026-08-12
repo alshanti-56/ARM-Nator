@@ -536,7 +536,7 @@ export class PlaylistsService {
     getFavoriteChannels(playlistId: string) {
         return this.getPlaylistById(playlistId).pipe(
             map((data) =>
-                (data.playlist?.items ?? []).filter((channel: Channel) =>
+                ((data.playlist?.items ?? []) as Channel[]).filter((channel) =>
                     data.favorites?.includes(channel.id)
                 )
             )
@@ -675,8 +675,8 @@ export class PlaylistsService {
                 return (
                     `${playlist.playlist?.header?.raw ?? ''}` +
                     '\n' +
-                    (playlist.playlist?.items ?? [])
-                        .map((item: PlaylistRawItem) => item.raw)
+                    ((playlist.playlist?.items ?? []) as PlaylistRawItem[])
+                        .map((item) => item.raw)
                         .join('\n')
                 );
             })
