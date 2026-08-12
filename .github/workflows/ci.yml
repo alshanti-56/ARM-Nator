@@ -19,9 +19,6 @@ jobs:
     name: Lint, test, and build
     runs-on: macos-15
     timeout-minutes: 90
-    env:
-      ARM_NATOR_EMBEDDED_MPV_BUILD_ROOT: ${{ runner.temp }}/arm-nator-embedded-mpv-runtime/arm64
-
     steps:
       - name: Check out source
         uses: actions/checkout@v4
