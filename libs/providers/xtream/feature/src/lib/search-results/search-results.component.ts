@@ -20,8 +20,10 @@ import {
   MatDialogModule,
   MatDialogRef,
 } from "@angular/material/dialog";
+import { MatFormFieldModule } from "@angular/material/form-field";
 import { MatIcon } from "@angular/material/icon";
 import { MatProgressSpinner } from "@angular/material/progress-spinner";
+import { MatSelectModule } from "@angular/material/select";
 import { ActivatedRoute, Router } from "@angular/router";
 import { TranslatePipe } from "@ngx-translate/core";
 import {
@@ -29,10 +31,18 @@ import {
   CatalogTitleMatchService,
   DatabaseService,
   TmdbEnrichmentService,
+  TmdbDetails,
+  TmdbPersonDetails,
+  TmdbTvDetails,
   mapPersonFilmography,
+  normalizePersonSearchText,
+  RankedPersonSearchResult,
 } from "@arm-nator/services";
-import { ContentCardComponent } from "@arm-nator/providers/shared/ui";
-import { SearchLayoutComponent } from "@arm-nator/providers/shared/ui";
+import {
+  ContentCardComponent,
+  SearchFormComponent,
+  SearchLayoutComponent,
+} from "@arm-nator/providers/shared/ui";
 import {
   buildXtreamNavigationTarget,
   isWorkspaceLayoutRoute,
@@ -47,11 +57,20 @@ import {
 } from "@arm-nator/providers/xtream/data-access";
 import {
   CatalogTitleMatch,
+  canonicalCatalogGenre,
   GlobalSearchResult,
   GLOBAL_SEARCH_RESULT_SOURCES,
   normalizeTitleKeys,
   titleYearsCompatible,
 } from "@arm-nator/shared/interfaces";
+import { matchesMixedSearchFilters } from "./mixed-search.util";
+import {
+  buildStructuredSearchFields,
+  filterBroadCatalogResults,
+  rankBroadCatalogResults,
+  STRUCTURED_SEARCH_GENRE_OPTIONS,
+  structuredSearchYearOptions,
+} from "./structured-search.util";
 
 interface SearchResultsData {
   isGlobalSearch: boolean;
@@ -64,11 +83,28 @@ interface GlobalSearchResultGroup {
   items: XtreamSearchResultItem[];
 }
 
+interface TmdbStructuredSearchQuery {
+  titleQuery: string;
+  actorQuery: string;
+  year: number | null;
+  genres: string[];
+}
+
 const GLOBAL_SEARCH_PAGE_SIZE = 100;
 const PLAYLIST_SEARCH_PAGE_SIZE = 50;
+const TMDB_SEARCH_MIN_LENGTH = 2;
 
 function resultIdentity(item: XtreamSearchResultItem): string {
   return `${item.playlist_id ?? ""}:${item.type}:${item.xtream_id}`;
+}
+
+function titleMatchesSearch(title: string, query: string): boolean {
+  const wanted = normalizeTitleKeys(query).base;
+  if (!wanted) {
+    return true;
+  }
+  const candidate = normalizeTitleKeys(title);
+  return candidate.exact.includes(wanted) || candidate.base.includes(wanted);
 }
 
 function mergeSearchResults(
@@ -118,9 +154,12 @@ function groupResultsByPlaylistId(
     MatButtonModule,
     MatCheckboxModule,
     MatDialogModule,
+    MatFormFieldModule,
     MatIcon,
     MatIconButton,
     MatProgressSpinner,
+    MatSelectModule,
+    SearchFormComponent,
     SearchLayoutComponent,
     TranslatePipe,
   ],
@@ -129,6 +168,8 @@ function groupResultsByPlaylistId(
   styleUrls: ["./search-results.component.scss"],
 })
 export class SearchResultsComponent implements AfterViewInit {
+  readonly tmdbGenreOptions = STRUCTURED_SEARCH_GENRE_OPTIONS;
+  readonly tmdbYearOptions = structuredSearchYearOptions();
   readonly searchLayoutComponent = viewChild(SearchLayoutComponent);
   readonly xtreamStore = inject(XtreamStore);
   readonly router = inject(Router);
@@ -149,8 +190,7 @@ export class SearchResultsComponent implements AfterViewInit {
   readonly searchTerm = this.xtreamStore.searchTerm;
 
   /** Coarse-grained provider metadata progress for the persistent search status. */
-  readonly metadataBackfillProgress =
-    this.xtreamStore.metadataBackfillProgress;
+  readonly metadataBackfillProgress = this.xtreamStore.metadataBackfillProgress;
   readonly showMetadataBackfillNotice = computed(() => {
     const progress = this.metadataBackfillProgress();
     return progress.status !== "idle" && !progress.dismissed;
@@ -168,6 +208,16 @@ export class SearchResultsComponent implements AfterViewInit {
   readonly isLoadingMoreGlobalResults = signal(false);
   readonly hasMorePortalResults = signal(false);
   readonly isLoadingMorePortalResults = signal(false);
+  readonly tmdbTitleSearchTerm = signal("");
+  readonly tmdbActorSearchTerm = signal("");
+  readonly tmdbYearSearchTerm = signal("");
+  readonly tmdbGenreSearchTerm = signal("");
+  readonly tmdbActorCandidates = signal<RankedPersonSearchResult[]>([]);
+  readonly tmdbSelectedActorId = signal<number | null>(null);
+  readonly tmdbSelectedActorName = signal("");
+  readonly tmdbSearchResults = signal<GlobalSearchResult[]>([]);
+  readonly isTmdbSearching = signal(false);
+  private tmdbSearchRequestVersion = 0;
 
   private static readonly GROUP_BY_STORAGE_KEY =
     "global-search-group-by-playlist";
@@ -217,6 +267,28 @@ export class SearchResultsComponent implements AfterViewInit {
     return groupResultsByPlaylistId(results);
   });
 
+  readonly groupedTmdbResults = computed(() =>
+    groupResultsByPlaylistId(this.tmdbSearchResults()),
+  );
+
+  readonly hasTmdbSearchTarget = computed(
+    () =>
+      this.tmdbTitleSearchTerm().trim().length >= TMDB_SEARCH_MIN_LENGTH ||
+      this.tmdbActorSearchTerm().trim().length >= TMDB_SEARCH_MIN_LENGTH,
+  );
+
+  /** Keeps the shared layout in its results state while the TMDB box is active. */
+  readonly layoutResultsCount = computed(() => {
+    const localCount = this.xtreamStore.searchResults().length;
+    if (
+      !this.isGlobalSearch ||
+      !this.hasTmdbSearchTarget()
+    ) {
+      return localCount;
+    }
+    return Math.max(1, localCount + this.tmdbSearchResults().length);
+  });
+
   constructor(
     @Optional() @Inject(MAT_DIALOG_DATA) data: SearchResultsData | null,
     @Optional() public dialogRef: MatDialogRef<SearchResultsComponent>,
@@ -256,6 +328,26 @@ export class SearchResultsComponent implements AfterViewInit {
       } else if (term.length < this.minSearchLength) {
         this.clearResultsOnly();
       }
+    });
+
+    effect((onCleanup) => {
+      const types = this.getSelectedTypes();
+      const query = this.getTmdbStructuredSearchQuery();
+      const selectedActorId = this.tmdbSelectedActorId();
+      if (
+        !this.isGlobalSearch ||
+        !this.hasTmdbSearchTarget() ||
+        (!query.titleQuery && !query.actorQuery) ||
+        (!types.includes("movie") && !types.includes("series"))
+      ) {
+        this.clearTmdbResults();
+        return;
+      }
+
+      const timeout = setTimeout(() => {
+        void this.searchTmdbCatalog(query, types, selectedActorId);
+      }, 350);
+      onCleanup(() => clearTimeout(timeout));
     });
 
     effect(() => {
@@ -302,6 +394,42 @@ export class SearchResultsComponent implements AfterViewInit {
     this.xtreamStore.setSearchTerm(term);
   }
 
+  updateTmdbTitleSearchTerm(term: string) {
+    this.tmdbTitleSearchTerm.set(term);
+  }
+
+  updateTmdbActorSearchTerm(term: string) {
+    this.tmdbActorSearchTerm.set(term);
+    this.tmdbSelectedActorId.set(null);
+    this.tmdbSelectedActorName.set("");
+    this.tmdbActorCandidates.set([]);
+  }
+
+  updateTmdbYearSearchTerm(term: string | number | null | undefined) {
+    // <input type="number"> may emit a number (or null while editing), but
+    // the structured-query parser works on text so it can validate partial
+    // input without throwing and can rerun when the year changes.
+    this.tmdbYearSearchTerm.set(term == null ? "" : String(term));
+  }
+
+  updateTmdbGenreSearchTerm(term: string) {
+    this.tmdbGenreSearchTerm.set(term);
+  }
+
+  selectTmdbActor(personId: number) {
+    const candidate = this.tmdbActorCandidates().find(
+      (item) => item.result.id === personId,
+    );
+    this.tmdbSelectedActorName.set(candidate?.result.name ?? "");
+    this.tmdbSelectedActorId.set(personId);
+    this.tmdbActorCandidates.set([]);
+  }
+
+  clearTmdbActorSelection() {
+    this.tmdbSelectedActorId.set(null);
+    this.tmdbSelectedActorName.set("");
+  }
+
   /**
    * Update a single filter in the store
    */
@@ -336,6 +464,12 @@ export class SearchResultsComponent implements AfterViewInit {
     this.lastGlobalSearchTypes = [];
     this.lastGlobalSearchExcludeHidden = undefined;
     this.xtreamStore.setGlobalSearchResults([]);
+  }
+
+  private clearTmdbResults() {
+    this.tmdbSearchRequestVersion++;
+    this.isTmdbSearching.set(false);
+    this.tmdbSearchResults.set([]);
   }
 
   async searchGlobal(
@@ -387,30 +521,25 @@ export class SearchResultsComponent implements AfterViewInit {
     }
 
     try {
-      const [results, personResults] = await Promise.all([
-        this.databaseService.globalSearchContent(
-          trimmedTerm,
-          effectiveTypes,
-          effectiveExcludeHidden,
-          undefined,
-          {
-            limit: GLOBAL_SEARCH_PAGE_SIZE + 1,
-            offset,
-          },
-        ),
-        append
-          ? Promise.resolve([])
-          : this.searchActorCatalog(trimmedTerm, effectiveTypes),
-      ]);
+      const results = await this.databaseService.globalSearchContent(
+        trimmedTerm,
+        effectiveTypes,
+        effectiveExcludeHidden,
+        undefined,
+        {
+          limit: GLOBAL_SEARCH_PAGE_SIZE + 1,
+          offset,
+        },
+      );
 
       if (requestVersion !== this.globalSearchRequestVersion) {
         return;
       }
 
       if (results && Array.isArray(results)) {
-        const visibleResults = mergeSearchResults(
-          results.slice(0, GLOBAL_SEARCH_PAGE_SIZE),
-          personResults,
+        const visibleResults = results.slice(
+          0,
+          GLOBAL_SEARCH_PAGE_SIZE,
         ) as GlobalSearchResult[];
         this.hasMoreGlobalResults.set(results.length > GLOBAL_SEARCH_PAGE_SIZE);
         this.xtreamStore.setGlobalSearchResults(
@@ -575,6 +704,21 @@ export class SearchResultsComponent implements AfterViewInit {
     return item.type;
   }
 
+  private getSelectedTypes(): string[] {
+    return Object.entries(this.filters())
+      .filter(([, enabled]) => enabled)
+      .map(([type]) => type);
+  }
+
+  private getTmdbStructuredSearchQuery(): TmdbStructuredSearchQuery {
+    return buildStructuredSearchFields({
+      title: this.tmdbTitleSearchTerm(),
+      actor: this.tmdbActorSearchTerm(),
+      year: this.tmdbYearSearchTerm(),
+      genre: this.tmdbGenreSearchTerm(),
+    });
+  }
+
   private getCurrentGlobalSearchResults(): GlobalSearchResult[] {
     return this.xtreamStore.searchResults() as GlobalSearchResult[];
   }
@@ -595,11 +739,8 @@ export class SearchResultsComponent implements AfterViewInit {
     }
 
     const requestVersion = ++this.portalSearchRequestVersion;
-    const playlistId = this.xtreamStore.playlistId();
     const offset = append ? this.portalSearchOffset : 0;
-    const previousResults = append
-      ? [...this.xtreamStore.searchResults()]
-      : [];
+    const previousResults = append ? [...this.xtreamStore.searchResults()] : [];
 
     if (append) {
       this.isLoadingMorePortalResults.set(true);
@@ -611,33 +752,26 @@ export class SearchResultsComponent implements AfterViewInit {
     }
 
     try {
-      const [results, personResults] = await Promise.all([
-        this.xtreamStore.searchContent({
-          term,
-          types,
-          excludeHidden,
-          pagination: {
-            limit: PLAYLIST_SEARCH_PAGE_SIZE + 1,
-            offset,
-          },
-        }),
-        append
-          ? Promise.resolve([])
-          : this.searchActorCatalog(term, types, playlistId ?? undefined),
-      ]);
+      const results = await this.xtreamStore.searchContent({
+        term,
+        types,
+        excludeHidden,
+        pagination: {
+          limit: PLAYLIST_SEARCH_PAGE_SIZE + 1,
+          offset,
+        },
+      });
       if (requestVersion !== this.portalSearchRequestVersion) {
         return;
       }
 
       const visibleResults = results.slice(0, PLAYLIST_SEARCH_PAGE_SIZE);
       this.portalSearchOffset = offset + visibleResults.length;
-      this.hasMorePortalResults.set(
-        results.length > PLAYLIST_SEARCH_PAGE_SIZE,
-      );
+      this.hasMorePortalResults.set(results.length > PLAYLIST_SEARCH_PAGE_SIZE);
       this.xtreamStore.setSearchResults(
         append
           ? mergeSearchResults(previousResults, visibleResults)
-          : mergeSearchResults(visibleResults, personResults),
+          : visibleResults,
       );
     } catch (error) {
       if (requestVersion !== this.portalSearchRequestVersion) {
@@ -660,39 +794,174 @@ export class SearchResultsComponent implements AfterViewInit {
     }
   }
 
-  private async searchActorCatalog(
-    term: string,
+  private async searchTmdbCatalog(
+    query: TmdbStructuredSearchQuery,
     types: string[],
-    playlistId?: string,
-  ): Promise<GlobalSearchResult[]> {
+    selectedActorId: number | null,
+  ): Promise<void> {
+    const requestVersion = ++this.tmdbSearchRequestVersion;
     if (
+      (!query.titleQuery && !query.actorQuery) ||
       !this.tmdbEnrichment.isEnabled() ||
-      !this.titleMatch.isAvailable ||
+      (Boolean(query.actorQuery) && !this.titleMatch.isAvailable) ||
       (!types.includes("movie") && !types.includes("series"))
     ) {
-      return [];
+      this.tmdbSearchResults.set([]);
+      return;
     }
 
-    const person = await this.tmdbEnrichment.searchPersonDetails(term);
-    if (!person) {
-      return [];
-    }
+    this.isTmdbSearching.set(true);
+    try {
+      let person: TmdbPersonDetails | null = null;
+      if (query.actorQuery) {
+        if (selectedActorId !== null) {
+          person = await this.tmdbEnrichment.getPersonDetails(selectedActorId);
+        } else {
+          const candidates =
+            await this.tmdbEnrichment.searchPersonCandidates(query.actorQuery);
+          const normalizedActorQuery = normalizePersonSearchText(
+            query.actorQuery,
+          );
+          const exactCandidate = candidates.find(
+            (candidate) =>
+              normalizePersonSearchText(candidate.result.name ?? "") ===
+              normalizedActorQuery,
+          );
 
+          if (!exactCandidate) {
+            if (requestVersion === this.tmdbSearchRequestVersion) {
+              this.tmdbActorCandidates.set(candidates);
+              this.tmdbSearchResults.set([]);
+            }
+            return;
+          }
+
+          person = await this.tmdbEnrichment.getPersonDetails(
+            exactCandidate.result.id,
+          );
+        }
+      }
+
+      const results = query.actorQuery
+        ? person
+          ? await this.searchPersonTitles(person, query, types)
+          : []
+        : await this.searchTmdbTitle(query, types);
+
+      if (requestVersion === this.tmdbSearchRequestVersion) {
+        this.tmdbSearchResults.set(results);
+      }
+    } catch (error) {
+      if (requestVersion === this.tmdbSearchRequestVersion) {
+        this.logger.error("Error in TMDB search", error);
+        this.tmdbSearchResults.set([]);
+      }
+    } finally {
+      if (requestVersion === this.tmdbSearchRequestVersion) {
+        this.isTmdbSearching.set(false);
+      }
+    }
+  }
+
+  private async searchPersonTitles(
+    person: TmdbPersonDetails,
+    query: TmdbStructuredSearchQuery,
+    types: string[],
+  ): Promise<GlobalSearchResult[]> {
     const credits = mapPersonFilmography(person).filter(
       (credit) =>
-        (credit.mediaType === "movie" && types.includes("movie")) ||
-        (credit.mediaType === "tv" && types.includes("series")),
+        ((credit.mediaType === "movie" && types.includes("movie")) ||
+          (credit.mediaType === "tv" && types.includes("series"))) &&
+        (query.year === null || credit.year === query.year) &&
+        (!query.titleQuery || titleMatchesSearch(credit.title, query.titleQuery)),
     );
     const matches = await this.titleMatch.matchTitles(
       credits.map((credit) => credit.title),
     );
-    return this.mapPersonMatches(matches, credits, playlistId);
+    return this.mapPersonMatches(
+      matches,
+      credits,
+      undefined,
+      query,
+      query.genres.length === 0,
+    );
+  }
+
+  private async searchTmdbTitle(
+    query: TmdbStructuredSearchQuery,
+    types: string[],
+  ): Promise<GlobalSearchResult[]> {
+    const details = (
+      await Promise.all([
+        types.includes("movie")
+          ? this.tmdbEnrichment.enrichMovie({
+              title: query.titleQuery,
+              year: query.year,
+            })
+          : Promise.resolve(null),
+        types.includes("series")
+          ? this.tmdbEnrichment.enrichTv({
+              title: query.titleQuery,
+              year: query.year,
+            })
+          : Promise.resolve(null),
+      ])
+    ).filter((detail): detail is TmdbDetails => detail !== null);
+
+    const canonicalTitles = details
+      .map((detail) => {
+        const isMovie = "title" in detail;
+        const tvDetail = detail as TmdbTvDetails;
+        const title = (isMovie ? detail.title : tvDetail.name)?.trim() ?? "";
+        return {
+          title,
+          genres: detail.genres?.map((genre) => genre.name) ?? [],
+        };
+      })
+      .filter(
+        (title) =>
+          title.title &&
+          query.genres.every((genre) =>
+            title.genres.some(
+              (candidate) => canonicalCatalogGenre(candidate) === genre,
+            ),
+          ),
+      );
+
+    const broadResults = (
+      await Promise.all(
+        canonicalTitles.map(({ title }) =>
+          this.databaseService.globalSearchContent(
+            title,
+            types,
+            this.excludeHidden(),
+            undefined,
+            { limit: 500 },
+          ),
+        ),
+      )
+    ).reduce<GlobalSearchResult[]>(
+      (all, results) => all.concat(results),
+      [],
+    );
+
+    const deduplicated = Array.from(
+      new Map<string, GlobalSearchResult>(
+        broadResults.map((result) => [String(result.id), result]),
+      ).values(),
+    );
+    return rankBroadCatalogResults(
+      filterBroadCatalogResults(deduplicated, query),
+      canonicalTitles.map(({ title }) => title),
+    );
   }
 
   private mapPersonMatches(
     matches: CatalogTitleMatch[],
     credits: ActorFilmographyCredit[],
     playlistId?: string,
+    query?: Pick<TmdbStructuredSearchQuery, "year" | "genres">,
+    filtersAlreadyApplied = false,
   ): GlobalSearchResult[] {
     const creditsByTitle = new Map(
       credits.map((credit) => [
@@ -700,6 +969,34 @@ export class SearchResultsComponent implements AfterViewInit {
         credit,
       ]),
     );
+
+    // Filter once at the canonical-title level. If one remote row contains
+    // the metadata needed for the filter, all equivalent quality/language
+    // rows for that same TMDB title remain visible even when their provider
+    // metadata is incomplete.
+    const eligibleTitleKeys = new Set<string>();
+    if (query) {
+      for (const match of matches) {
+        const mediaType = match.type === "movie" ? "movie" : "tv";
+        const credit = creditsByTitle.get(
+          `${mediaType}:${normalizeTitleKeys(match.queryTitle).exact}`,
+        );
+        if (!credit || !titleYearsCompatible(credit.year, match.trailingYear)) {
+          continue;
+        }
+
+        const filterQuery =
+          query.genres.length > 0 ? { ...query, year: null } : query;
+        if (
+          filtersAlreadyApplied ||
+          matchesMixedSearchFilters(match, filterQuery)
+        ) {
+          eligibleTitleKeys.add(
+            `${mediaType}:${normalizeTitleKeys(match.queryTitle).exact}`,
+          );
+        }
+      }
+    }
 
     const results: GlobalSearchResult[] = [];
     for (const match of matches) {
@@ -711,6 +1008,14 @@ export class SearchResultsComponent implements AfterViewInit {
         `${mediaType}:${normalizeTitleKeys(match.queryTitle).exact}`,
       );
       if (!credit || !titleYearsCompatible(credit.year, match.trailingYear)) {
+        continue;
+      }
+      if (
+        query &&
+        !eligibleTitleKeys.has(
+          `${mediaType}:${normalizeTitleKeys(match.queryTitle).exact}`,
+        )
+      ) {
         continue;
       }
 
@@ -731,5 +1036,4 @@ export class SearchResultsComponent implements AfterViewInit {
     }
     return results;
   }
-
 }

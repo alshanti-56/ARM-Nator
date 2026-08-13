@@ -5,9 +5,6 @@
 
     <app-workspace-shell-rail
         [isMacOS]="facade.isMacOS"
-        [brandLink]="facade.brandLink()"
-        [brandTooltipKey]="facade.brandTooltipKey()"
-        [brandAriaLabelKey]="facade.brandAriaLabelKey()"
         [workspaceLinks]="facade.workspaceLinks()"
         [primaryContextLinks]="facade.primaryContextLinks()"
         [secondaryContextLinks]="facade.secondaryContextLinks()"
@@ -30,6 +27,9 @@
         [searchStatusLabel]="facade.searchStatusLabel()"
         [headerShortcut]="facade.headerShortcut()"
         [headerBulkAction]="facade.headerBulkAction()"
+        [brandLink]="facade.brandLink()"
+        [brandTooltipKey]="facade.brandTooltipKey()"
+        [brandAriaLabelKey]="facade.brandAriaLabelKey()"
         [canRefreshPlaylist]="facade.canRefreshPlaylist()"
         [isRefreshingPlaylist]="facade.isRefreshingPlaylist()"
         [isElectron]="facade.isElectron"

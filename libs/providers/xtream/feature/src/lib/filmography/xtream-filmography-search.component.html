@@ -1,0 +1,91 @@
+<main class="filmography-search">
+  <section class="filmography-search__hero">
+    <div class="filmography-search__icon" aria-hidden="true">
+      <mat-icon>movie_filter</mat-icon>
+    </div>
+    <div>
+      <h1>{{ "XTREAM.ACTOR_FILMOGRAPHY" | translate }}</h1>
+      <p>
+        Search for an actor, then open their full filmography and find the
+        titles in your remote source.
+      </p>
+    </div>
+  </section>
+
+  <section class="filmography-search__panel">
+    <label class="filmography-search__label" for="actor-search">
+      {{ "XTREAM.ACTORS" | translate }}
+    </label>
+    <app-search-form
+      id="actor-search"
+      placeholder="e.g. Brad Pitt, Bruce Willis, or Prad"
+      [searchTerm]="searchTerm()"
+      (searchTermChange)="onSearchTermChange($event)"
+    />
+    @if (targetPlaylistName()) {
+      <p class="filmography-search__source">
+        Results will open against {{ targetPlaylistName() }}.
+      </p>
+    } @else {
+      <p class="filmography-search__source filmography-search__source--warning">
+        Add or select an Xtream source before opening a filmography.
+      </p>
+    }
+  </section>
+
+  @if (!tmdbEnabled) {
+    <section class="filmography-search__state">
+      <mat-icon>public_off</mat-icon>
+      <h2>TMDB search is not enabled</h2>
+      <p>Enable TMDB in Settings to search for actors.</p>
+    </section>
+  } @else if (isSearching()) {
+    <section class="filmography-search__state">
+      <mat-spinner diameter="40" />
+      <p>Searching actors...</p>
+    </section>
+  } @else if (
+    searchTerm().trim().length >= 3 &&
+    candidates().length === 0
+  ) {
+    <section class="filmography-search__state">
+      <mat-icon>person_search</mat-icon>
+      <h2>No actor found</h2>
+      <p>Try a shorter name, a partial name, or a small spelling correction.</p>
+    </section>
+  } @else if (candidates().length > 0) {
+    <section class="filmography-search__results">
+      <h2>Select an actor</h2>
+      <div class="filmography-search__candidate-list">
+        @for (candidate of candidates(); track candidate.result.id) {
+          <button
+            type="button"
+            class="filmography-search__candidate"
+            (click)="selectActor(candidate.result.id)"
+          >
+            <span class="filmography-search__candidate-icon" aria-hidden="true">
+              <mat-icon>person</mat-icon>
+            </span>
+            <span class="filmography-search__candidate-copy">
+              <strong>{{ actorName(candidate) }}</strong>
+              <small>{{ candidate.result.known_for_department || "Acting" }}</small>
+            </span>
+            <mat-icon aria-hidden="true">arrow_forward</mat-icon>
+          </button>
+        }
+      </div>
+    </section>
+  } @else {
+    <section class="filmography-search__state filmography-search__state--initial">
+      <mat-icon>person_search</mat-icon>
+      <h2>Find an actor</h2>
+      <p>Start with a name such as Brad, Bruce, or Tom Cruise.</p>
+    </section>
+  }
+
+  @if (selectionError()) {
+    <p class="filmography-search__error">
+      Select an Xtream source first, then choose the actor again.
+    </p>
+  }
+</main>

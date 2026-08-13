@@ -28,6 +28,7 @@ import {
   TmdbTrendingEntry,
   TmdbTvDetails,
 } from "./tmdb.types";
+import { RankedPersonSearchResult } from "./tmdb-person-search.util";
 
 /**
  * Best-effort TMDB enrichment orchestrator. Resolves a provider item to a
@@ -93,6 +94,12 @@ export class TmdbEnrichmentService {
 
   async searchPersonDetails(query: string): Promise<TmdbPersonDetails | null> {
     return this.person.searchPersonDetails(query);
+  }
+
+  async searchPersonCandidates(
+    query: string,
+  ): Promise<RankedPersonSearchResult[]> {
+    return this.person.searchPersonCandidates(query);
   }
 
   private async enrich(

@@ -7,4 +7,5 @@ export * from './tmdb-episode-merge';
 export * from './tmdb-matcher';
 export * from './tmdb-merge';
 export * from './tmdb-person';
+export * from './tmdb-person-search.util';
 export * from './tmdb.types';

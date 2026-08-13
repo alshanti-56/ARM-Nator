@@ -97,6 +97,15 @@ export class WorkspaceShellRouteStateService {
         path: ["/workspace/search"],
         exact: true,
       });
+
+      if (this.playlists().some((playlist) => Boolean(playlist.serverUrl))) {
+        links.push({
+          icon: "movie_filter",
+          tooltip: this.translateText("XTREAM.ACTOR_FILMOGRAPHY"),
+          path: ["/workspace/filmography"],
+          exact: true,
+        });
+      }
     }
 
     links.push({
@@ -161,7 +170,8 @@ export class WorkspaceShellRouteStateService {
       currentRoute.kind !== "youtube" &&
       currentRoute.kind !== "global-favorites" &&
       currentRoute.kind !== "global-recent" &&
-      currentRoute.kind !== "global-search"
+      currentRoute.kind !== "global-search" &&
+      currentRoute.kind !== "filmography"
     ) {
       return null;
     }

@@ -70,10 +70,9 @@ export function buildSearchLookupKey(
     normalizedTitle: string,
     year: number | null
 ): string {
-    // v2: normalizeTitleKeys learned to strip appended language/quality
-    // tags; the version suffix invalidates cached (incl. negative) match
-    // resolutions keyed on the old polluted titles
-    return `title:${normalizedTitle}|year:${year ?? ''}|v2`;
+    // v3: title-only searches now select the most popular exact TMDB result
+    // instead of retaining old negative-cache misses for ambiguous titles.
+    return `title:${normalizedTitle}|year:${year ?? ''}|v3`;
 }
 
 export function buildDetailsLookupKey(tmdbId: number): string {
@@ -252,8 +251,12 @@ export function pickConfidentMatch(
         return pickMostPopular(yearMatches);
     }
 
-    // Without a year the title must be unambiguous
-    return exactTitleMatches.length === 1 ? exactTitleMatches[0] : null;
+    // Without a year, choose the most popular exact-title result. The search
+    // UI is resolving a user's title into a catalog query, not attaching
+    // metadata to an individual provider row; refusing every ambiguous
+    // title makes common searches such as "Lucy" appear broken. A selected
+    // year still takes precedence above and disambiguates deterministically.
+    return pickMostPopular(exactTitleMatches);
 }
 
 function pickMostPopular(results: TmdbSearchResult[]): TmdbSearchResult {

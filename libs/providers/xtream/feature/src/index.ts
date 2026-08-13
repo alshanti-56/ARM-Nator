@@ -11,5 +11,6 @@ export * from './lib/vod-details/vod-details-route.component';
 export * from './lib/content-metadata-dialog/content-metadata-dialog.component';
 export * from './lib/xtream-content-gate.component';
 export * from './lib/xtream-catalog-facade.service';
+export * from './lib/filmography/xtream-filmography-search.component';
 export * from './lib/xtream-feature.routes';
 export * from './lib/xtream-workspace-route-session.service';

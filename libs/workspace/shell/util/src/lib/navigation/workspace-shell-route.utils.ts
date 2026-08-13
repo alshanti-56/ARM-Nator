@@ -6,6 +6,7 @@ import {
 export type WorkspaceShellPageKind =
   | "dashboard"
   | "browser"
+  | "filmography"
   | "global-favorites"
   | "global-recent"
   | "global-search"
@@ -259,6 +260,8 @@ export function parseWorkspaceShellRoute(url: string): WorkspaceShellRoute {
               ? "global-favorites"
               : page === "global-recent"
                 ? "global-recent"
+                : page === "filmography"
+                  ? "filmography"
                 : page === "search"
                   ? "global-search"
                   : "unknown";

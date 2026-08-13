@@ -153,6 +153,7 @@ const CATALOG_GENRE_ALIASES: Readonly<Record<string, string>> = {
   aventure: "adventure",
   comedie: "comedy",
   comidie: "comedy",
+  komodie: "comedy",
 };
 
 const CATALOG_GENRE_LABELS: Readonly<Record<string, string>> = {

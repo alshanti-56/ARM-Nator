@@ -1,266 +1,392 @@
 <app-search-layout
-    [searchTerm]="searchTerm()"
-    [resultsCount]="xtreamStore.searchResults().length"
-    [showCloseButton]="false"
-    [showBackButton]="showBackButton"
-    [showResultsCount]="!isGlobalSearch || !groupByPlaylist()"
-    [showSearchInput]="showInlineSearchInput"
-    [isLoading]="
-        xtreamStore.isSearching() &&
-        !isLoadingMoreGlobalResults() &&
-        !isLoadingMorePortalResults()
-    "
-    [minSearchLength]="minSearchLength"
-    [initialDescriptionKey]="initialDescriptionKey"
-    (searchTermChange)="updateSearchTerm($event)"
-    (closeClick)="onCloseDialog()"
-    (backClick)="goBack()"
-    (nearEnd)="loadMoreGlobalResults()"
+  [searchTerm]="searchTerm()"
+  [resultsCount]="layoutResultsCount()"
+  [showCloseButton]="false"
+  [showBackButton]="showBackButton"
+  [showResultsCount]="!isGlobalSearch || !groupByPlaylist()"
+  [showSearchInput]="showInlineSearchInput"
+  [isLoading]="
+    xtreamStore.isSearching() &&
+    !isLoadingMoreGlobalResults() &&
+    !isLoadingMorePortalResults()
+  "
+  [minSearchLength]="minSearchLength"
+  [initialDescriptionKey]="initialDescriptionKey"
+  (searchTermChange)="updateSearchTerm($event)"
+  (closeClick)="onCloseDialog()"
+  (backClick)="goBack()"
+  (nearEnd)="loadMoreGlobalResults()"
 >
-    <!-- Type filters -->
-    <ng-container filters>
-        @if (!isGlobalSearch) {
-            @for (filter of filterConfig; track filter.key) {
-                <mat-checkbox
-                    [ngModel]="filters()[filter.key]"
-                    (ngModelChange)="updateFilter(filter.key, $event)"
-                >
-                    {{ filter.translationKey | translate }}
-                </mat-checkbox>
+  <!-- Type filters -->
+  <ng-container filters>
+    @if (!isGlobalSearch) {
+      @for (filter of filterConfig; track filter.key) {
+        <mat-checkbox
+          [ngModel]="filters()[filter.key]"
+          (ngModelChange)="updateFilter(filter.key, $event)"
+        >
+          {{ filter.translationKey | translate }}
+        </mat-checkbox>
+      }
+    }
+  </ng-container>
+
+  <ng-container header-actions>
+    @if (!isGlobalSearch) {
+      <mat-checkbox
+        [ngModel]="excludeHidden()"
+        (ngModelChange)="toggleExcludeHidden($event)"
+      >
+        {{ "PORTALS.SEARCH_VIEW.VISIBLE_CATEGORIES_ONLY" | translate }}
+      </mat-checkbox>
+    }
+    @if (showGlobalCloseButton) {
+      <button mat-icon-button (click)="onCloseDialog()">
+        <mat-icon>close</mat-icon>
+      </button>
+    }
+  </ng-container>
+
+  <ng-container subheader>
+    @if (showMetadataBackfillNotice()) {
+      <div
+        class="metadata-search-status"
+        [class.metadata-search-status--complete]="
+          metadataBackfillProgress().status === 'complete'
+        "
+      >
+        <mat-icon aria-hidden="true">
+          {{
+            metadataBackfillProgress().status === "complete"
+              ? "check_circle"
+              : "sync"
+          }}
+        </mat-icon>
+        <div class="metadata-search-status__copy">
+          @if (metadataBackfillProgress().status === "complete") {
+            <strong>
+              {{ "PORTALS.SEARCH_VIEW.METADATA_SEARCH_COMPLETE" | translate }}
+            </strong>
+            @if (metadataBackfillProgress().failed > 0) {
+              <span>
+                {{
+                  "PORTALS.SEARCH_VIEW.METADATA_SEARCH_FAILED"
+                    | translate: { count: metadataBackfillProgress().failed }
+                }}
+              </span>
             }
-        }
-    </ng-container>
-
-    <ng-container header-actions>
-        @if (!isGlobalSearch) {
-            <mat-checkbox
-                [ngModel]="excludeHidden()"
-                (ngModelChange)="toggleExcludeHidden($event)"
+          } @else {
+            <strong>
+              {{
+                "PORTALS.SEARCH_VIEW.METADATA_SEARCH_IN_PROGRESS" | translate
+              }}
+            </strong>
+            <span>
+              {{
+                "PORTALS.SEARCH_VIEW.METADATA_SEARCH_PROGRESS"
+                  | translate
+                    : {
+                        completed: metadataBackfillProgress().completed,
+                        total: metadataBackfillProgress().total,
+                      }
+              }}
+            </span>
+          }
+        </div>
+        <button
+          mat-icon-button
+          type="button"
+          [attr.aria-label]="
+            'PORTALS.SEARCH_VIEW.DISMISS_METADATA_SEARCH_STATUS' | translate
+          "
+          (click)="xtreamStore.dismissMetadataBackfillNotice()"
+        >
+          <mat-icon>close</mat-icon>
+        </button>
+      </div>
+    }
+    @if (isGlobalSearch) {
+      <div class="tmdb-search-box">
+        <div class="tmdb-search-box__heading">
+          <mat-icon aria-hidden="true">public</mat-icon>
+          <div>
+            <strong>Search with TMDB</strong>
+            <span
+              >Fill in any combination, then search your remote sources.</span
             >
-                {{ 'PORTALS.SEARCH_VIEW.VISIBLE_CATEGORIES_ONLY' | translate }}
-            </mat-checkbox>
-        }
-        @if (showGlobalCloseButton) {
-            <button mat-icon-button (click)="onCloseDialog()">
-                <mat-icon>close</mat-icon>
-            </button>
-        }
-    </ng-container>
-
-    <ng-container subheader>
-        @if (showMetadataBackfillNotice()) {
-            <div
-                class="metadata-search-status"
-                [class.metadata-search-status--complete]="
-                    metadataBackfillProgress().status === 'complete'
-                "
-            >
-                <mat-icon aria-hidden="true">
-                    {{
-                        metadataBackfillProgress().status === 'complete'
-                            ? 'check_circle'
-                            : 'sync'
-                    }}
-                </mat-icon>
-                <div class="metadata-search-status__copy">
-                    @if (metadataBackfillProgress().status === 'complete') {
-                        <strong>
-                            {{
-                                'PORTALS.SEARCH_VIEW.METADATA_SEARCH_COMPLETE'
-                                    | translate
-                            }}
-                        </strong>
-                        @if (metadataBackfillProgress().failed > 0) {
-                            <span>
-                                {{
-                                    'PORTALS.SEARCH_VIEW.METADATA_SEARCH_FAILED'
-                                        | translate: { count: metadataBackfillProgress().failed }
-                                }}
-                            </span>
-                        }
-                    } @else {
-                        <strong>
-                            {{
-                                'PORTALS.SEARCH_VIEW.METADATA_SEARCH_IN_PROGRESS'
-                                    | translate
-                            }}
-                        </strong>
-                        <span>
-                            {{
-                                'PORTALS.SEARCH_VIEW.METADATA_SEARCH_PROGRESS'
-                                    | translate: {
-                                        completed: metadataBackfillProgress().completed,
-                                        total: metadataBackfillProgress().total
-                                    }
-                            }}
-                        </span>
-                    }
-                </div>
-                <button
-                    mat-icon-button
+          </div>
+        </div>
+        <div class="tmdb-search-fields">
+          <div class="tmdb-search-field">
+            <span class="tmdb-search-field__label">Title</span>
+            <app-search-form
+              placeholder="e.g. Bullet Train"
+              [searchTerm]="tmdbTitleSearchTerm()"
+              (searchTermChange)="updateTmdbTitleSearchTerm($event)"
+            />
+          </div>
+          <div class="tmdb-search-field">
+            <span class="tmdb-search-field__label">Actor</span>
+            <app-search-form
+              placeholder="e.g. bruce, brad, or prad"
+              [searchTerm]="tmdbActorSearchTerm()"
+              (searchTermChange)="updateTmdbActorSearchTerm($event)"
+            />
+            @if (tmdbActorCandidates().length > 0) {
+              <div class="tmdb-actor-suggestions">
+                <span>Choose the actor:</span>
+                @for (candidate of tmdbActorCandidates(); track candidate.result.id) {
+                  <button
                     type="button"
-                    [attr.aria-label]="
-                        'PORTALS.SEARCH_VIEW.DISMISS_METADATA_SEARCH_STATUS'
-                            | translate
-                    "
-                    (click)="xtreamStore.dismissMetadataBackfillNotice()"
+                    mat-stroked-button
+                    (click)="selectTmdbActor(candidate.result.id)"
+                  >
+                    {{ candidate.result.name ?? "Unknown actor" }}
+                  </button>
+                }
+              </div>
+            }
+            @if (tmdbSelectedActorId() !== null) {
+              <div class="tmdb-selected-actor">
+                <span>Using {{ tmdbSelectedActorName() }}</span>
+                <button
+                  type="button"
+                  mat-button
+                  (click)="clearTmdbActorSelection()"
                 >
-                    <mat-icon>close</mat-icon>
+                  Change
                 </button>
-            </div>
-        }
-        @if (isGlobalSearch) {
-            <div class="global-search-subheader">
-                <div class="global-search-note">
-                    <mat-icon aria-hidden="true">info</mat-icon>
-                    <span>
-                        {{
-                            'PORTALS.SEARCH_VIEW.GLOBAL_SEARCH_SOURCE_NOTE'
-                                | translate
-                        }}
-                    </span>
-                </div>
-                <div class="global-search-controls">
-                    <div class="global-search-filters">
-                        @for (filter of filterConfig; track filter.key) {
-                            <mat-checkbox
-                                [ngModel]="filters()[filter.key]"
-                                (ngModelChange)="
-                                    updateFilter(filter.key, $event)
-                                "
-                            >
-                                {{ filter.translationKey | translate }}
-                            </mat-checkbox>
-                        }
-                    </div>
-                    <div class="global-search-options">
-                        <mat-checkbox
-                            [ngModel]="excludeHidden()"
-                            (ngModelChange)="toggleExcludeHidden($event)"
-                        >
-                            {{
-                                'PORTALS.SEARCH_VIEW.VISIBLE_CATEGORIES_ONLY'
-                                    | translate
-                            }}
-                        </mat-checkbox>
-                        <mat-checkbox
-                            [ngModel]="groupByPlaylist()"
-                            (ngModelChange)="toggleGroupByPlaylist($event)"
-                        >
-                            {{
-                                'PORTALS.SEARCH_VIEW.GROUP_BY_PLAYLIST'
-                                    | translate
-                            }}
-                        </mat-checkbox>
-                    </div>
-                </div>
-            </div>
-        }
-    </ng-container>
+              </div>
+            }
+          </div>
+          <div class="tmdb-search-field tmdb-search-field--year">
+            <mat-form-field appearance="outline" subscriptSizing="dynamic">
+              <mat-label>Year</mat-label>
+              <mat-select
+                [ngModel]="tmdbYearSearchTerm()"
+                (ngModelChange)="updateTmdbYearSearchTerm($event)"
+              >
+                <mat-option value="">Any year</mat-option>
+                @for (year of tmdbYearOptions; track year) {
+                  <mat-option [value]="year">{{ year }}</mat-option>
+                }
+              </mat-select>
+            </mat-form-field>
+          </div>
+          <div class="tmdb-search-field">
+            <mat-form-field appearance="outline" subscriptSizing="dynamic">
+              <mat-label>Genre</mat-label>
+              <mat-select
+                [ngModel]="tmdbGenreSearchTerm()"
+                (ngModelChange)="updateTmdbGenreSearchTerm($event)"
+              >
+                <mat-option value="">Any genre</mat-option>
+                @for (genre of tmdbGenreOptions; track genre.value) {
+                  <mat-option [value]="genre.value">{{ genre.label }}</mat-option>
+                }
+              </mat-select>
+            </mat-form-field>
+          </div>
+        </div>
+      </div>
+      <div class="global-search-subheader">
+        <div class="global-search-note">
+          <mat-icon aria-hidden="true">info</mat-icon>
+          <span>
+            {{ "PORTALS.SEARCH_VIEW.GLOBAL_SEARCH_SOURCE_NOTE" | translate }}
+          </span>
+        </div>
+        <div class="global-search-controls">
+          <div class="global-search-filters">
+            @for (filter of filterConfig; track filter.key) {
+              <mat-checkbox
+                [ngModel]="filters()[filter.key]"
+                (ngModelChange)="updateFilter(filter.key, $event)"
+              >
+                {{ filter.translationKey | translate }}
+              </mat-checkbox>
+            }
+          </div>
+          <div class="global-search-options">
+            <mat-checkbox
+              [ngModel]="excludeHidden()"
+              (ngModelChange)="toggleExcludeHidden($event)"
+            >
+              {{ "PORTALS.SEARCH_VIEW.VISIBLE_CATEGORIES_ONLY" | translate }}
+            </mat-checkbox>
+            <mat-checkbox
+              [ngModel]="groupByPlaylist()"
+              (ngModelChange)="toggleGroupByPlaylist($event)"
+            >
+              {{ "PORTALS.SEARCH_VIEW.GROUP_BY_PLAYLIST" | translate }}
+            </mat-checkbox>
+          </div>
+        </div>
+      </div>
+    }
+  </ng-container>
 
-    <!-- Results -->
-    <ng-container results>
-        @if (isGlobalSearch) {
-            <!-- Global Search Results -->
-            @if (groupByPlaylist()) {
-                <!-- Grouped by playlist -->
-                <div class="playlist-section">
-                    <h2 class="section-title">
-                        Found {{ xtreamStore.searchResults().length }} items
-                        across {{ groupedResults().length }} playlists
-                    </h2>
-                    @for (group of groupedResults(); track group.playlistId) {
-                        <div class="playlist-group">
-                            <h3 class="playlist-title">
-                                <mat-icon>playlist_play</mat-icon>
-                                {{ group.playlistName }}
-                                <span class="item-count"
-                                    >({{ group.items.length }} items)</span
-                                >
-                            </h3>
-                            <div class="results-grid">
-                                @for (item of group.items; track item.id) {
-                                    <app-content-card
-                                        [posterUrl]="
-                                            item.poster_url ?? undefined
-                                        "
-                                        [title]="item.title"
-                                        [type]="getDisplayType(item)"
-                                        [showPlaceholder]="true"
-                                        (cardClick)="selectItem(item)"
-                                    />
-                                }
-                            </div>
-                        </div>
-                    }
-                </div>
+  <!-- Results -->
+  <ng-container results>
+    @if (isGlobalSearch) {
+      <!-- Global Search Results -->
+      @if (hasTmdbSearchTarget()) {
+        <section class="tmdb-results-section">
+          <div class="tmdb-results-heading">
+            <div>
+              <h2>Broad matches in your sources</h2>
+              <p>Exact title versions appear first; related title matches remain visible.</p>
+            </div>
+            @if (isTmdbSearching()) {
+              <mat-spinner diameter="24" />
             } @else {
-                <!-- Flat list -->
-                <div class="results-grid">
-                    @for (item of xtreamStore.searchResults(); track item.id) {
-                        <app-content-card
-                            [posterUrl]="item.poster_url ?? undefined"
-                            [title]="item.title"
-                            [type]="getDisplayType(item)"
-                            [showPlaceholder]="true"
-                            (cardClick)="selectItem(item)"
-                        />
-                    }
-                </div>
+              <span class="tmdb-results-count"
+                >{{ tmdbSearchResults().length }} found</span
+              >
             }
-            @if (isLoadingMoreGlobalResults()) {
-                <div class="global-search-loading-more">
-                    <mat-spinner diameter="18" />
-                    <span>
-                        {{
-                            'PORTALS.SEARCH_VIEW.LOADING_MORE_RESULTS'
-                                | translate
-                        }}
-                    </span>
-                </div>
-            }
-        } @else {
-            <!-- Playlist-level Search Results -->
-            <div class="results-grid">
-                @for (item of xtreamStore.searchResults(); track item.id) {
-                    <app-content-card
+          </div>
+
+          @if (
+            !isTmdbSearching() &&
+            tmdbSearchResults().length === 0 &&
+            tmdbActorCandidates().length === 0
+          ) {
+            <div class="tmdb-empty-state">
+              <mat-icon>search_off</mat-icon>
+              <span>No TMDB matches found in your sources.</span>
+            </div>
+          } @else if (!isTmdbSearching()) {
+            @if (groupByPlaylist()) {
+              @for (group of groupedTmdbResults(); track group.playlistId) {
+                <div class="playlist-group">
+                  <h3 class="playlist-title">
+                    <mat-icon>playlist_play</mat-icon>
+                    {{ group.playlistName }}
+                    <span class="item-count"
+                      >({{ group.items.length }} items)</span
+                    >
+                  </h3>
+                  <div class="results-grid">
+                    @for (item of group.items; track item.id) {
+                      <app-content-card
                         [posterUrl]="item.poster_url ?? undefined"
                         [title]="item.title"
-                        [type]="item.type"
+                        [type]="getDisplayType(item)"
                         [showPlaceholder]="true"
                         (cardClick)="selectItem(item)"
-                    />
-                }
-            </div>
-            @if (hasMorePortalResults()) {
-                <div class="playlist-search-load-more">
-                    <button
-                        type="button"
-                        mat-flat-button
-                        color="primary"
-                        class="playlist-search-load-more__button"
-                        [disabled]="isLoadingMorePortalResults()"
-                        (click)="loadMorePortalResults()"
-                    >
-                        @if (isLoadingMorePortalResults()) {
-                            <mat-spinner diameter="18" />
-                            <span>
-                                {{
-                                    'PORTALS.SEARCH_VIEW.LOADING_MORE_RESULTS'
-                                        | translate
-                                }}
-                            </span>
-                        } @else {
-                            <ng-container>
-                                <mat-icon aria-hidden="true"
-                                    >expand_more</mat-icon
-                                >
-                                <span>{{ 'CHANNELS.LOAD_MORE' | translate }}</span>
-                            </ng-container>
-                        }
-                    </button>
+                      />
+                    }
+                  </div>
                 </div>
+              }
+            } @else {
+              <div class="results-grid">
+                @for (item of tmdbSearchResults(); track item.id) {
+                  <app-content-card
+                    [posterUrl]="item.poster_url ?? undefined"
+                    [title]="item.title"
+                    [type]="getDisplayType(item)"
+                    [showPlaceholder]="true"
+                    (cardClick)="selectItem(item)"
+                  />
+                }
+              </div>
             }
+          }
+        </section>
+      }
+
+      @if (searchTerm().trim().length >= minSearchLength) {
+        @if (groupByPlaylist()) {
+          <!-- Grouped by playlist -->
+          <div class="playlist-section">
+            <h2 class="section-title">
+              Found {{ xtreamStore.searchResults().length }} items across
+              {{ groupedResults().length }} playlists
+            </h2>
+            @for (group of groupedResults(); track group.playlistId) {
+              <div class="playlist-group">
+                <h3 class="playlist-title">
+                  <mat-icon>playlist_play</mat-icon>
+                  {{ group.playlistName }}
+                  <span class="item-count"
+                    >({{ group.items.length }} items)</span
+                  >
+                </h3>
+                <div class="results-grid">
+                  @for (item of group.items; track item.id) {
+                    <app-content-card
+                      [posterUrl]="item.poster_url ?? undefined"
+                      [title]="item.title"
+                      [type]="getDisplayType(item)"
+                      [showPlaceholder]="true"
+                      (cardClick)="selectItem(item)"
+                    />
+                  }
+                </div>
+              </div>
+            }
+          </div>
+        } @else {
+          <!-- Flat list -->
+          <div class="results-grid">
+            @for (item of xtreamStore.searchResults(); track item.id) {
+              <app-content-card
+                [posterUrl]="item.poster_url ?? undefined"
+                [title]="item.title"
+                [type]="getDisplayType(item)"
+                [showPlaceholder]="true"
+                (cardClick)="selectItem(item)"
+              />
+            }
+          </div>
         }
-    </ng-container>
+        @if (isLoadingMoreGlobalResults()) {
+          <div class="global-search-loading-more">
+            <mat-spinner diameter="18" />
+            <span>
+              {{ "PORTALS.SEARCH_VIEW.LOADING_MORE_RESULTS" | translate }}
+            </span>
+          </div>
+        }
+      }
+    } @else {
+      <!-- Playlist-level Search Results -->
+      <div class="results-grid">
+        @for (item of xtreamStore.searchResults(); track item.id) {
+          <app-content-card
+            [posterUrl]="item.poster_url ?? undefined"
+            [title]="item.title"
+            [type]="item.type"
+            [showPlaceholder]="true"
+            (cardClick)="selectItem(item)"
+          />
+        }
+      </div>
+      @if (hasMorePortalResults()) {
+        <div class="playlist-search-load-more">
+          <button
+            type="button"
+            mat-flat-button
+            color="primary"
+            class="playlist-search-load-more__button"
+            [disabled]="isLoadingMorePortalResults()"
+            (click)="loadMorePortalResults()"
+          >
+            @if (isLoadingMorePortalResults()) {
+              <mat-spinner diameter="18" />
+              <span>
+                {{ "PORTALS.SEARCH_VIEW.LOADING_MORE_RESULTS" | translate }}
+              </span>
+            } @else {
+              <ng-container>
+                <mat-icon aria-hidden="true">expand_more</mat-icon>
+                <span>{{ "CHANNELS.LOAD_MORE" | translate }}</span>
+              </ng-container>
+            }
+          </button>
+        </div>
+      }
+    }
+  </ng-container>
 </app-search-layout>

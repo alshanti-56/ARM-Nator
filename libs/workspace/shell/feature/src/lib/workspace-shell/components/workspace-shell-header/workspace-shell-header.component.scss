@@ -169,7 +169,7 @@
     app-region: no-drag;
 
     button,
-    a {
+    a:not(.header-brand) {
         color: var(--mat-sys-on-surface-variant);
         border-radius: 8px;
         transition:
@@ -192,6 +192,34 @@
                 inset 0 0 0 1px var(--app-selection-border),
                 0 10px 20px -16px var(--app-selection-glow);
         }
+    }
+}
+
+.header-brand {
+    align-items: center;
+    border-radius: 8px;
+    display: inline-flex;
+    height: 40px;
+    justify-content: center;
+    margin-left: 4px;
+    padding: 4px;
+    width: 40px;
+
+    img {
+        display: block;
+        height: 30px;
+        object-fit: contain;
+        width: 30px;
+    }
+
+    &:hover,
+    &:focus-visible {
+        background: var(--mat-sys-surface-container);
+        outline: none;
+    }
+
+    &:focus-visible {
+        box-shadow: 0 0 0 2px var(--mat-sys-primary);
     }
 }
 

@@ -32,6 +32,7 @@ test("deduplicates case and known spelling variants in genre options", () => {
       { genre: "ADVENTEUR" },
       { genre: "COMEDIE" },
       { genre: "COMIDIE" },
+      { genre: "Komödie" },
       { genre: "Comedy" },
     ]),
     ["Adventure", "Comedy"],

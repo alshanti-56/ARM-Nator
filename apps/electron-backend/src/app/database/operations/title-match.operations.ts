@@ -16,10 +16,16 @@ import type { AppDatabase } from '../database.types';
  */
 
 const MAX_TITLES_PER_REQUEST = 200;
-const PER_TITLE_CANDIDATE_LIMIT = 24;
+// A canonical title can legitimately have many rows across remote playlists
+// (quality, language, subtitle, and provider variants). Keep the limit high
+// enough to return the complete title family; the exact normalized-title
+// check below still prevents unrelated FTS hits from escaping.
+const PER_TITLE_CANDIDATE_LIMIT = 200;
 
 interface TitleMatchRow {
     title: string;
+    genre: string | null;
+    release_date: string | null;
     xtream_id: number;
     type: 'movie' | 'series';
     category_xtream_id: number;
@@ -63,6 +69,8 @@ export async function matchTitles(
             rows = (await db.all(sql`
                 SELECT
                     c.title AS title,
+                    c.genre AS genre,
+                    c.release_date AS release_date,
                     c.xtream_id AS xtream_id,
                     c.type AS type,
                     cat.xtream_id AS category_xtream_id,
@@ -100,6 +108,8 @@ export async function matchTitles(
                 categoryId: row.category_xtream_id,
                 xtreamId: row.xtream_id,
                 type: row.type,
+                genre: row.genre,
+                releaseDate: row.release_date,
                 trailingYear: exactMatch ? null : rowKeys.trailingYear,
             });
         }

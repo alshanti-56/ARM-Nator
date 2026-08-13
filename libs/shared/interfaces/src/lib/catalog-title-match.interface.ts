@@ -13,6 +13,9 @@ export interface CatalogTitleMatch {
     categoryId: number;
     xtreamId: number;
     type: 'movie' | 'series';
+    /** Catalog fields used to refine mixed person searches without fetching details. */
+    genre?: string | null;
+    releaseDate?: string | null;
     /**
      * Release-year tag stripped from the matched catalog title when the
      * match happened on the year-stripped tier ("The Matrix 1999" matching

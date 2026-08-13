@@ -4,6 +4,11 @@ import { TmdbCacheService } from "./tmdb-cache.service";
 import { TMDB_DETAILS_CACHE_TTL_MS } from "./tmdb-config";
 import { TmdbRuntimeService } from "./tmdb-runtime.service";
 import { TmdbPersonDetails } from "./tmdb.types";
+import {
+  personSearchQueryVariants,
+  rankPersonSearchResults,
+  RankedPersonSearchResult,
+} from "./tmdb-person-search.util";
 
 /**
  * Person details with the full combined filmography, in the app language.
@@ -63,24 +68,35 @@ export class TmdbPersonService {
   }
 
   async searchPersonDetails(query: string): Promise<TmdbPersonDetails | null> {
+    const best = (await this.searchPersonCandidates(query))[0];
+    return best ? this.getPersonDetails(best.result.id) : null;
+  }
+
+  async searchPersonCandidates(
+    query: string,
+  ): Promise<RankedPersonSearchResult[]> {
     const normalizedQuery = query.trim().toLocaleLowerCase();
     if (!this.runtime.isEnabled() || normalizedQuery.length < 3) {
-      return null;
+      return [];
     }
 
     try {
-      const results = await this.api.searchPerson(
-        query.trim(),
-        this.runtime.language(),
-        this.runtime.apiKey(),
-      );
-      const exact = results.find(
-        (result) => result.name?.trim().toLocaleLowerCase() === normalizedQuery,
-      );
-      return exact ? this.getPersonDetails(exact.id) : null;
+      const searchQueries = personSearchQueryVariants(query);
+      for (const searchQuery of searchQueries) {
+        const results = await this.api.searchPerson(
+          searchQuery,
+          this.runtime.language(),
+          this.runtime.apiKey(),
+        );
+        const ranked = rankPersonSearchResults(results, query);
+        if (ranked.length > 0) {
+          return ranked.slice(0, 5);
+        }
+      }
+      return [];
     } catch (error) {
       console.warn("TMDB person search failed:", error);
-      return null;
+      return [];
     }
   }
 }

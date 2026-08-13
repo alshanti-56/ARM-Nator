@@ -9,6 +9,7 @@ import {
 import { MatIconButton } from '@angular/material/button';
 import { MatIcon } from '@angular/material/icon';
 import { MatTooltip } from '@angular/material/tooltip';
+import { RouterLink } from '@angular/router';
 import { TranslatePipe } from '@ngx-translate/core';
 import { PlaylistSwitcherComponent } from '@arm-nator/providers/shared/playlist-ui';
 import { WorkspaceHeaderAction } from '@arm-nator/providers/shared/util';
@@ -20,6 +21,7 @@ import { WorkspaceHeaderBulkAction } from '../../services/helpers/workspace-shel
         MatIcon,
         MatIconButton,
         MatTooltip,
+        RouterLink,
         PlaylistSwitcherComponent,
         TranslatePipe,
     ],
@@ -46,6 +48,9 @@ export class WorkspaceShellHeaderComponent {
     readonly searchStatusLabel = input('');
     readonly headerShortcut = input<WorkspaceHeaderAction | null>(null);
     readonly headerBulkAction = input<WorkspaceHeaderBulkAction | null>(null);
+    readonly brandLink = input('/workspace/dashboard');
+    readonly brandTooltipKey = input('WORKSPACE.SHELL.RAIL_DASHBOARD');
+    readonly brandAriaLabelKey = input('WORKSPACE.SHELL.OPEN_DASHBOARD');
     readonly canRefreshPlaylist = input(false);
     readonly isRefreshingPlaylist = input(false);
     readonly isElectron = input(false);

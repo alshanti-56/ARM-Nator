@@ -125,6 +125,13 @@ export const routes: Routes = [
           ),
       },
       {
+        path: "filmography",
+        loadComponent: () =>
+          import("@arm-nator/providers/xtream/feature").then(
+            (c) => c.XtreamFilmographySearchComponent,
+          ),
+      },
+      {
         path: "",
         loadChildren: () =>
           import("@arm-nator/providers/xtream/feature").then((m) =>
