@@ -32,19 +32,12 @@
                     [isDeleting]="isDeletePending(item._id)"
                     [busyMessage]="getBusyMessage(item)"
                     [busyProgress]="getBusyProgress(item._id)"
-                    [metadataIndexStatus]="getMetadataIndexStatus(item._id)"
                     [canCancelBusyAction]="canCancelBusyOperation(item)"
                     (editPlaylistClicked)="openInfoDialog($event)"
                     (playlistClicked)="getPlaylist(item)"
                     (refreshClicked)="refreshPlaylist($event)"
                     (removeClicked)="removeClicked(item)"
                     (cancelBusyActionClicked)="cancelBusyOperation(item)"
-                    (startMetadataIndexingClicked)="
-                        startMetadataIndexingClicked.emit(item)
-                    "
-                    (stopMetadataIndexingClicked)="
-                        stopMetadataIndexingClicked.emit(item)
-                    "
                 />
             }
         </div>

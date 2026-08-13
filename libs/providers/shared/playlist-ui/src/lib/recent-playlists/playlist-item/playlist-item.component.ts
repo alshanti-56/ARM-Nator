@@ -28,7 +28,6 @@ import {
     PlaylistMeta,
     PlaylistSourceType,
 } from '@arm-nator/shared/interfaces';
-import type { XtreamMetadataIndexView } from '@arm-nator/shared/interfaces';
 
 @Component({
     selector: 'app-playlist-item',
@@ -55,7 +54,6 @@ export class PlaylistItemComponent implements OnInit {
     readonly isDeleting = input(false);
     readonly busyMessage = input('');
     readonly busyProgress = input<number | null>(null);
-    readonly metadataIndexStatus = input<XtreamMetadataIndexView | null>(null);
     readonly canCancelBusyAction = input(false);
     readonly isBusy = computed(() => this.isRefreshing() || this.isDeleting());
 
@@ -68,13 +66,6 @@ export class PlaylistItemComponent implements OnInit {
     readonly refreshClicked = output<PlaylistMeta>();
     readonly removeClicked = output<string>();
     readonly cancelBusyActionClicked = output<void>();
-    readonly startMetadataIndexingClicked = output<void>();
-    readonly stopMetadataIndexingClicked = output<void>();
-    readonly metadataIndexPercent = computed(() => {
-        const status = this.metadataIndexStatus();
-        if (!status || status.total <= 0) return 0;
-        return Math.min(100, Math.round((status.indexed / status.total) * 100));
-    });
 
     portalStatus: PortalStatus = 'unavailable';
     private readonly portalStatusService = inject(PortalStatusService);

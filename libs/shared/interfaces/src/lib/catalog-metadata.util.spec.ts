@@ -3,6 +3,7 @@ import test from "node:test";
 import {
   catalogYear,
   collectCatalogGenres,
+  hasCompleteXtreamSearchMetadata,
 } from "./catalog-metadata.util";
 
 test("prefers release metadata over a year embedded in the title", () => {
@@ -36,5 +37,30 @@ test("deduplicates case and known spelling variants in genre options", () => {
       { genre: "Comedy" },
     ]),
     ["Adventure", "Comedy"],
+  );
+});
+
+test("recognizes complete metadata already supplied by the bulk catalog", () => {
+  assert.equal(
+    hasCompleteXtreamSearchMetadata({
+      genre: "Action, Comedy",
+      releasedate: "2022-08-05",
+      director: "David Leitch",
+      cast: "Brad Pitt",
+      plot: "A story",
+    }),
+    true,
+  );
+});
+
+test("does not require a detail request to search fields already present", () => {
+  assert.equal(
+    hasCompleteXtreamSearchMetadata({
+      genre: "Comedy",
+      releasedate: "2022-08-05",
+      director: "Director",
+      cast: "Actor",
+    }),
+    false,
   );
 });

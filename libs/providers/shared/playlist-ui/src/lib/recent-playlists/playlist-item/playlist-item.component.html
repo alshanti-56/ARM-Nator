@@ -75,48 +75,6 @@
                 }
             }
         </div>
-        @if (sourceType === 'xtream') {
-            @if (metadataIndexStatus(); as index) {
-            <div class="metadata-index-state">
-                <span class="metadata-index-state__label">
-                    <mat-icon inline>{{
-                        index.state === 'running'
-                            ? 'sync'
-                            : index.state === 'stopping'
-                              ? 'stop_circle'
-                            : index.indexed >= index.total && index.total > 0
-                              ? 'check_circle'
-                              : 'search'
-                    }}</mat-icon>
-                    @if (index.total === 0) {
-                        {{ 'WORKSPACE.SOURCES.METADATA_NO_CONTENT' | translate }}
-                    } @else if (index.state === 'queued') {
-                        {{ 'WORKSPACE.SOURCES.METADATA_QUEUED' | translate }}
-                    } @else if (index.state === 'running') {
-                        {{ 'WORKSPACE.SOURCES.METADATA_INDEXING' | translate }}
-                    } @else if (index.state === 'stopping') {
-                        {{ 'WORKSPACE.SOURCES.METADATA_STOPPING' | translate }}
-                    } @else if (index.indexed >= index.total) {
-                        {{ 'WORKSPACE.SOURCES.METADATA_READY' | translate }}
-                    } @else {
-                        {{ 'WORKSPACE.SOURCES.METADATA_NOT_INDEXED' | translate }}
-                    }
-                </span>
-                @if (index.total > 0) {
-                    <span class="metadata-index-state__count">
-                        {{ index.indexed }} / {{ index.total }}
-                    </span>
-                }
-            </div>
-            @if (index.total > 0 && index.state === 'running') {
-                <mat-progress-bar
-                    class="metadata-index-progress"
-                    mode="determinate"
-                    [value]="metadataIndexPercent()"
-                />
-            }
-            }
-        }
         @if (isBusy() && busyMessage()) {
             <div class="busy-state">
                 <span class="busy-state__message">{{ busyMessage() }}</span>
@@ -142,48 +100,6 @@
 
     @if (showActions()) {
         <div class="action-buttons">
-            @if (sourceType === 'xtream') {
-                @if (metadataIndexStatus(); as index) {
-                    @if (
-                        index.total > 0 &&
-                        index.state !== 'running' &&
-                        index.state !== 'queued' &&
-                        index.state !== 'stopping' &&
-                        index.indexed < index.total
-                    ) {
-                        <button
-                            mat-stroked-button
-                            class="metadata-index-btn"
-                            (click)="
-                                $event.stopPropagation();
-                                startMetadataIndexingClicked.emit()
-                            "
-                            [disabled]="isBusy()"
-                        >
-                            <mat-icon>play_arrow</mat-icon>
-                            {{ 'WORKSPACE.SOURCES.START_INDEXING' | translate }}
-                        </button>
-                    }
-                    @if (
-                        index.state === 'running' ||
-                        index.state === 'queued' ||
-                        index.state === 'stopping'
-                    ) {
-                        <button
-                            mat-stroked-button
-                            class="metadata-index-btn metadata-index-stop-btn"
-                            (click)="
-                                $event.stopPropagation();
-                                stopMetadataIndexingClicked.emit()
-                            "
-                            [disabled]="index.state === 'stopping'"
-                        >
-                            <mat-icon>stop</mat-icon>
-                            {{ 'WORKSPACE.SOURCES.STOP_INDEXING' | translate }}
-                        </button>
-                    }
-                }
-            }
             @if (canCancelBusyAction()) {
                 <button
                     mat-icon-button

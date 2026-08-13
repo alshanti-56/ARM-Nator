@@ -43,29 +43,6 @@ import {
   enrichSerialSelectionWithTmdb,
   enrichVodSelectionWithTmdb,
 } from "./xtream-tmdb-enrichment";
-import {
-  backfillXtreamCatalogMetadata,
-  XtreamCatalogMetadataJob,
-  XtreamCatalogMetadataProgress,
-  XtreamCatalogMetadataType,
-} from "./xtream-catalog-metadata-backfill";
-import { XtreamMetadataIndexService } from "../services/xtream-metadata-index.service";
-
-export interface XtreamMetadataBackfillProgress
-  extends XtreamCatalogMetadataProgress {
-  playlistId: string | null;
-  status: "idle" | "running" | "complete";
-  dismissed: boolean;
-}
-
-const initialMetadataBackfillProgress: XtreamMetadataBackfillProgress = {
-  playlistId: null,
-  total: 0,
-  completed: 0,
-  failed: 0,
-  status: "idle",
-  dismissed: false,
-};
 
 /**
  * XtreamStore - Facade composing all feature stores.
@@ -96,9 +73,6 @@ export const XtreamStore = signalStore(
   withFavorites(),
   withRecentItems(),
   withPlaybackPositions(),
-  withState({
-    metadataBackfillProgress: initialMetadataBackfillProgress,
-  }),
 
   // Cross-feature computed properties
   withComputed((store) => ({
@@ -116,35 +90,7 @@ export const XtreamStore = signalStore(
     const dataSource = inject(XTREAM_DATA_SOURCE);
     const databaseService = inject(DatabaseService);
     const tmdbEnrichment = inject(TmdbEnrichmentService);
-    const metadataIndexService = inject(XtreamMetadataIndexService);
     const logger = createLogger("XtreamStore");
-    let metadataBackfillPlaylistId: string | null = null;
-    let metadataBackfillPromise: Promise<void> | null = null;
-    let metadataBackfillGeneration = 0;
-    const pendingVodMetadata = new Map<number, CatalogMetadataRecord>();
-    const pendingSeriesMetadata = new Map<number, CatalogMetadataRecord>();
-
-    const flushPendingCatalogMetadata = (): void => {
-      if (pendingVodMetadata.size > 0) {
-        patchState(store, {
-          vodStreams: store.vodStreams().map((candidate) => {
-            const contentId = Number((candidate as { id?: number }).id);
-            return pendingVodMetadata.get(contentId) ?? candidate;
-          }) as XtreamVodStream[],
-        });
-        pendingVodMetadata.clear();
-      }
-
-      if (pendingSeriesMetadata.size > 0) {
-        patchState(store, {
-          serialStreams: store.serialStreams().map((candidate) => {
-            const contentId = Number((candidate as { id?: number }).id);
-            return pendingSeriesMetadata.get(contentId) ?? candidate;
-          }) as XtreamSerieItem[],
-        });
-        pendingSeriesMetadata.clear();
-      }
-    };
     const findVodCatalogItem = (vodId: string | number) =>
       store.vodStreams().find((item) => {
         const candidateId =
@@ -164,7 +110,7 @@ export const XtreamStore = signalStore(
 
     const mergeCatalogMetadata = async (
       item: CatalogMetadataRecord | undefined,
-      type: XtreamCatalogMetadataType,
+      type: "movie" | "series",
       metadata: XtreamContentMetadata,
       enrichment?: XtreamMetadataEnrichmentState,
       isActive: () => boolean = () => true,
@@ -202,138 +148,22 @@ export const XtreamStore = signalStore(
       };
 
       if (type === "movie") {
-        pendingVodMetadata.set(contentId, merged);
+        patchState(store, {
+          vodStreams: store.vodStreams().map((candidate) =>
+            Number((candidate as { id?: number }).id) === contentId
+              ? merged
+              : candidate,
+          ) as XtreamVodStream[],
+        });
       } else {
-        pendingSeriesMetadata.set(contentId, merged);
+        patchState(store, {
+          serialStreams: store.serialStreams().map((candidate) =>
+            Number((candidate as { id?: number }).id) === contentId
+              ? merged
+              : candidate,
+          ) as XtreamSerieItem[],
+        });
       }
-
-    };
-
-    const jobXtreamId = (job: XtreamCatalogMetadataJob) => {
-      const item = job.item;
-      const xtreamIdValue =
-        job.type === "movie"
-          ? (item["xtream_id"] ?? item["stream_id"])
-          : (item["series_id"] ?? item["xtream_id"]);
-      if (
-        typeof xtreamIdValue !== "string" &&
-        typeof xtreamIdValue !== "number"
-      ) {
-        throw new Error(`Missing Xtream id for ${job.type}`);
-      }
-      return xtreamIdValue;
-    };
-
-    const backfillCatalogMetadata = async (
-      playlistId: string,
-    ): Promise<void> => {
-      if (
-        metadataBackfillPlaylistId === playlistId &&
-        metadataBackfillPromise
-      ) {
-        return metadataBackfillPromise;
-      }
-
-      const playlist = store.currentPlaylist();
-      if (!playlist || playlist.id !== playlistId) {
-        return;
-      }
-
-      const credentials = {
-        serverUrl: playlist.serverUrl,
-        username: playlist.username,
-        password: playlist.password,
-      };
-      const total = store.vodStreams().length + store.serialStreams().length;
-      const sessionId = crypto.randomUUID();
-      if (!(await metadataIndexService.beginExternal(playlistId, total, sessionId))) {
-        return;
-      }
-      const generation = ++metadataBackfillGeneration;
-      const isActive = () =>
-        metadataBackfillGeneration === generation &&
-        store.currentPlaylist()?.id === playlistId;
-      metadataBackfillPlaylistId = playlistId;
-      pendingVodMetadata.clear();
-      pendingSeriesMetadata.clear();
-      patchState(store, {
-        metadataBackfillProgress: {
-          ...initialMetadataBackfillProgress,
-          playlistId,
-          status: "running",
-        },
-      });
-      const request = backfillXtreamCatalogMetadata({
-        movies: store.vodStreams() as unknown as CatalogMetadataRecord[],
-        series: store.serialStreams() as unknown as CatalogMetadataRecord[],
-        isActive: () =>
-          isActive() && metadataIndexService.shouldContinue(playlistId),
-        fetchDetails: async (job) => {
-          const xtreamId = jobXtreamId(job);
-          return (job.type === "movie"
-            ? await xtreamApiService.getVodInfo(credentials, xtreamId, {
-                sessionId,
-              })
-            : await xtreamApiService.getSeriesInfo(
-                credentials,
-                xtreamId,
-                { sessionId },
-              )) as unknown as CatalogMetadataRecord;
-        },
-        persist: (job, metadata, enrichment) =>
-          mergeCatalogMetadata(
-            job.item,
-            job.type,
-            metadata,
-            enrichment,
-            isActive,
-          ),
-        onCatalogBatch: () => {
-          if (isActive()) {
-            flushPendingCatalogMetadata();
-          }
-        },
-        onProgress: (progress: XtreamCatalogMetadataProgress) => {
-          if (!isActive()) return;
-
-          metadataIndexService.updateExternalProgress(playlistId, progress);
-          patchState(store, {
-            metadataBackfillProgress: {
-              ...progress,
-              playlistId,
-              status:
-                progress.completed + progress.failed >= progress.total
-                  ? "complete"
-                  : "running",
-              dismissed: store.metadataBackfillProgress().dismissed,
-            },
-          });
-        },
-        onFailure: (job, error) => {
-          logger.debug("Metadata backfill stopped after failure", {
-            type: job.type,
-            error,
-          });
-          if (metadataIndexService.shouldContinue(playlistId)) {
-            metadataIndexService.stop(playlistId);
-          }
-        },
-      }).then((completed) => {
-        if (isActive()) {
-          logger.info("Catalog metadata backfill complete", {
-            playlistId,
-            completed,
-          });
-        }
-      });
-      metadataBackfillPromise = request.finally(() => {
-        metadataIndexService.finishExternal(playlistId);
-        if (metadataBackfillGeneration === generation) {
-          metadataBackfillPromise = null;
-        }
-      });
-
-      return metadataBackfillPromise;
     };
 
     return {
@@ -357,14 +187,6 @@ export const XtreamStore = signalStore(
         store.resetSelection();
         store.resetSearchResults();
         store.resetPlayer();
-        pendingVodMetadata.clear();
-        pendingSeriesMetadata.clear();
-        patchState(store, {
-          metadataBackfillProgress: initialMetadataBackfillProgress,
-        });
-        metadataBackfillGeneration += 1;
-        metadataBackfillPlaylistId = null;
-        metadataBackfillPromise = null;
 
         if (newPlaylistId) {
           store.setPlaylistId(newPlaylistId);
@@ -386,23 +208,6 @@ export const XtreamStore = signalStore(
         if (playlist) {
           store.loadAllPositions(playlist.id);
         }
-      },
-
-      /** Start metadata hydration for the loaded catalog when requested by the user. */
-      backfillXtreamCatalogMetadata(playlistId?: string): void {
-        const id = playlistId ?? store.currentPlaylist()?.id;
-        if (id) {
-          void backfillCatalogMetadata(id);
-        }
-      },
-
-      dismissMetadataBackfillNotice(): void {
-        patchState(store, {
-          metadataBackfillProgress: {
-            ...store.metadataBackfillProgress(),
-            dismissed: true,
-          },
-        });
       },
 
       /**

@@ -14,7 +14,6 @@ import type {
     XtreamContentMetadata,
     XtreamMetadataEnrichmentState,
 } from './catalog-metadata.util';
-import type { XtreamMetadataIndexStatus } from './xtream-metadata-index.interface';
 import { Settings } from './settings.interface';
 import { TmdbCacheEntry, TmdbCacheMediaType, TmdbCacheStats } from './tmdb.interface';
 import { XtreamCategory } from './xtream-category.interface';
@@ -301,7 +300,6 @@ export interface ElectronBridgeApi extends ElectronBridgeKsPlayerMetalApi {
     dbUpdateCategoryVisibility: (categoryIds: number[], hidden: boolean) => Promise<ElectronBridgeResult>;
     dbHasContent: (playlistId: string, type: string) => Promise<boolean>;
     dbGetContent: (playlistId: string, type: string) => Promise<ElectronBridgeXtreamContent[]>;
-    dbGetXtreamMetadataIndexStatus: (playlistId: string) => Promise<XtreamMetadataIndexStatus>;
     dbSaveContent: (playlistId: string, streams: ElectronBridgeXtreamContentStream[], type: string, operationId?: string) => Promise<ElectronBridgeCountResult>;
     dbClearXtreamImportCache: (playlistId: string, type: ElectronBridgePortalContentType) => Promise<ElectronBridgeResult>;
     dbSearchContent: (playlistId: string, searchTerm: string, types: string[], excludeHidden?: boolean, options?: GlobalSearchPaginationOptions) => Promise<ElectronBridgeXtreamContent[]>;

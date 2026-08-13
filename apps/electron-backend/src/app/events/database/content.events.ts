@@ -32,11 +32,6 @@ handleWorkerRequest(
 );
 
 handleWorkerRequest(
-    'DB_GET_XTREAM_METADATA_INDEX_STATUS',
-    (playlistId: string) => ({ playlistId })
-);
-
-handleWorkerRequest(
     'DB_GET_GLOBAL_RECENTLY_ADDED',
     (
         kind: 'all' | 'vod' | 'series' = 'all',
