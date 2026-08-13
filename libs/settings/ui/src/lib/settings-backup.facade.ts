@@ -1,7 +1,7 @@
 import { inject, Injectable, signal } from "@angular/core";
 import { Store } from "@ngrx/store";
 import { TranslateService } from "@ngx-translate/core";
-import { PlaylistActions } from "@arm-nator/providers/m3u/state";
+import { PlaylistActions } from "@arm-nator/providers/shared/playlist-state";
 import {
   PlaylistBackupImportSummary,
   PlaylistBackupService,

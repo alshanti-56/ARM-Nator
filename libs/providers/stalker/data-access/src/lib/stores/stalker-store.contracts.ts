@@ -76,8 +76,3 @@ export interface StalkerPlayerFeatureStoreContract
             'selectedContentType' | 'selectedItem'
         >,
         StalkerRecentCallbackStoreContract {}
-
-export interface StalkerEpgFeatureStoreContract
-    extends
-        StalkerPortalStoreContract,
-        Pick<StalkerSelectionStoreContract, 'selectedItvId'> {}

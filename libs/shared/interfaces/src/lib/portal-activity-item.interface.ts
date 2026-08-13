@@ -17,11 +17,6 @@ export interface PortalActivityItem {
     xtream_id: string | number;
     poster_url?: string;
     /**
-     * Preferred XMLTV lookup key for live EPG enrichment. For M3U channels this
-     * follows the app-wide tvg.id -> tvg.name -> display name fallback chain.
-     */
-    epg_lookup_key?: string;
-    /**
      * Wide backdrop URL (typically 16:9), recorded when the user first views
      * the detail page — for xtream on the `content` row, for stalker inside
      * the stored playlist entry (`info.tmdb_backdrop`), since stalker items
@@ -31,7 +26,7 @@ export interface PortalActivityItem {
      * undefined.
      */
     backdrop_url?: string;
-    source?: 'xtream' | 'stalker' | 'm3u';
+    source?: 'xtream' | 'stalker';
     /** Original stalker item for navigation state; undefined for xtream. */
     stalker_item?: StalkerPortalItem;
 }

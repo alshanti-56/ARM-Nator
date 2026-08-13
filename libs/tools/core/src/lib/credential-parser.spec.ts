@@ -17,31 +17,9 @@ test('normalizes Xtream hosts and reports duplicates without losing credentials'
     assert.equal(parsed.candidates[0].serverUrl, 'https://example.test');
 });
 
-test('keeps M3U path and query case while normalizing only URL authority', () => {
+test('extracts credentials from an Xtream API URL', () => {
     const parsed = parseIptvCredentials(
-        [
-            'HTTPS://Example.TEST:443/CaseSensitive/Feed.m3u?Token=AbC',
-            'https://example.test/CaseSensitive/Feed.m3u?Token=AbC',
-            'https://example.test/casesensitive/Feed.m3u?Token=AbC',
-            'https://example.test/CaseSensitive/Feed.m3u?token=AbC',
-        ].join('\n')
-    );
-
-    assert.equal(parsed.candidates.length, 3);
-    assert.equal(parsed.duplicates.length, 1);
-    assert.deepEqual(
-        parsed.candidates.map((candidate) => candidate.playlistUrl),
-        [
-            'https://example.test/CaseSensitive/Feed.m3u?Token=AbC',
-            'https://example.test/casesensitive/Feed.m3u?Token=AbC',
-            'https://example.test/CaseSensitive/Feed.m3u?token=AbC',
-        ]
-    );
-});
-
-test('prioritizes Xtream when an advertised M3U URL contains credentials', () => {
-    const parsed = parseIptvCredentials(
-        'https://provider.test/get.php?username=user&password=secret&type=m3u_plus'
+        'https://provider.test/player_api.php?username=user&password=secret'
     );
 
     assert.equal(parsed.invalidEntries.length, 0);
@@ -52,11 +30,11 @@ test('prioritizes Xtream when an advertised M3U URL contains credentials', () =>
     assert.equal(parsed.candidates[0].password, 'secret');
 });
 
-test('prioritizes Xtream URL userinfo and trailing credentials over M3U markers', () => {
+test('extracts Xtream credentials from URL userinfo and trailing credentials', () => {
     const parsed = parseIptvCredentials(
         [
-            'https://alice:hunter2@provider.test/list.m3u',
-            'https://provider-two.test/list.m3u bob password',
+            'https://alice:hunter2@provider.test/player_api.php',
+            'https://provider-two.test/player_api.php bob password',
         ].join('\n')
     );
 
@@ -105,7 +83,7 @@ test('ignores generic HTTPS links while keeping explicit HTTPS IPTV URLs', () =>
     const parsed = parseIptvCredentials(
         [
             'YouTube: https://www.youtube.com/channel/example',
-            'https://provider.example/get.php?username=user&password=pass&type=m3u',
+            'https://provider.example/player_api.php?username=user&password=pass',
             'https://provider.example user2 pass2',
         ].join('\n')
     );
@@ -167,7 +145,8 @@ test('does not treat metadata dates and labels as slash credentials', () => {
 test('reports invalid entries and enforces the first 100 unique candidates', () => {
     const entries = Array.from(
         { length: 101 },
-        (_, index) => `https://provider.test/list-${index}.m3u`
+        (_, index) =>
+            `https://provider.test/player_api.php?username=user${index}&password=pass${index}`
     );
     entries.push('not a source');
 

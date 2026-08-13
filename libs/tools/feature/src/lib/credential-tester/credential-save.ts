@@ -1,8 +1,6 @@
 import type { Playlist } from '@arm-nator/shared/interfaces';
 import type { BulkTestCandidate } from '@arm-nator/tools/core';
 
-export const CREDENTIAL_SAVE_M3U_CONCURRENCY = 3;
-
 export interface CredentialSaveResult {
     readonly imported: readonly Playlist[];
     readonly importFailures: number;
@@ -11,7 +9,6 @@ export interface CredentialSaveResult {
 }
 
 export interface CredentialSaveDependencies {
-    readonly createM3uPlaylist: (candidate: BulkTestCandidate) => Promise<Playlist>;
     readonly createXtreamPlaylist: (candidate: BulkTestCandidate) => Playlist;
     readonly persist: (playlists: Playlist[]) => Promise<unknown>;
     readonly sourceKey: (candidate: BulkTestCandidate) => string;
@@ -40,29 +37,7 @@ export async function resolveCredentialProviderList(
     return [...playlistsById.values()];
 }
 
-async function mapBounded<T, TResult>(
-    values: readonly T[],
-    concurrency: number,
-    mapper: (value: T) => Promise<TResult>
-): Promise<TResult[]> {
-    const results = new Array<TResult>(values.length);
-    let nextIndex = 0;
-    const runNext = async (): Promise<void> => {
-        for (
-            let index = nextIndex++;
-            index < values.length;
-            index = nextIndex++
-        ) {
-            results[index] = await mapper(values[index]);
-        }
-    };
-    await Promise.all(
-        Array.from({ length: Math.min(concurrency, values.length) }, runNext)
-    );
-    return results;
-}
-
-/** Imports M3U sources with a bounded fan-out, then persists the whole batch once. */
+/** Imports Xtream sources, then persists the whole batch once. */
 export async function saveCredentialSources(
     candidates: readonly BulkTestCandidate[],
     existingKeys: ReadonlySet<string>,
@@ -87,30 +62,6 @@ export async function saveCredentialSources(
         try {
             imported[index] = dependencies.createXtreamPlaylist(candidate);
         } catch {
-            importFailures += 1;
-        }
-    }
-
-    const m3uEntries = unique
-        .map((candidate, index) => ({ candidate, index }))
-        .filter((entry) => entry.candidate.type === 'm3u');
-    const m3uResults = await mapBounded(
-        m3uEntries,
-        CREDENTIAL_SAVE_M3U_CONCURRENCY,
-        async (entry) => {
-            try {
-                return {
-                    index: entry.index,
-                    playlist: await dependencies.createM3uPlaylist(entry.candidate),
-                };
-            } catch {
-                return { index: entry.index, playlist: null };
-            }
-        }
-    );
-    for (const result of m3uResults) {
-        imported[result.index] = result.playlist;
-        if (!result.playlist) {
             importFailures += 1;
         }
     }

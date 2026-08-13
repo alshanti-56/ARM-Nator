@@ -116,7 +116,7 @@ function resolveSourceOrVhsKind(
 }
 
 function resolveContainerKind(container: string): PlaybackSourceKind | null {
-    if (container === 'm3u' || container === 'm3u8') {
+    if (container === 'm3u8') {
         return PlaybackSourceKind.Hls;
     }
     return container === 'mpd' ? PlaybackSourceKind.Dash : null;

@@ -815,6 +815,20 @@ private struct TrackSnapshot: Encodable {
     let selected: Bool
 }
 
+private struct TrackSnapshotState {
+    let audioTracks: [TrackSnapshot]
+    let selectedAudioTrackId: Int?
+    let subtitleTracks: [TrackSnapshot]
+    let selectedSubtitleTrackId: Int?
+}
+
+private struct MediaMetadataSnapshot {
+    let videoCodec: String?
+    let audioCodec: String?
+    let fps: Double?
+    let bitrate: Double?
+}
+
 private struct SeekTestEvidence: Encodable {
     let timeoutRecoveryCount: Int
     let ignoredCompletionCount: Int
@@ -974,8 +988,12 @@ private final class KSPlayerMetalSession: NSObject, MediaPlayerDelegate {
     private var externalSubtitleInfos: [Int: any SubtitleInfo] = [:]
     private var selectedSubtitleTrackID: Int?
     private var subtitleUpdateTimer: Timer?
+    private var subtitleUpdateTaskScheduled = false
     private var subtitleDelay: TimeInterval = 0
     private var displayedSubtitlePart: SubtitlePart?
+    private var subtitleInfoCache: (any SubtitleInfo)?
+    private var trackSnapshotCache: TrackSnapshotState?
+    private var mediaMetadataCache: MediaMetadataSnapshot?
     private var state: SessionState = .idle
     private var lastError: String?
     private var lastSeekError: String?
@@ -1082,6 +1100,9 @@ private final class KSPlayerMetalSession: NSObject, MediaPlayerDelegate {
         loadedSubtitleURL = subtitleURL
         externalSubtitleInfos.removeAll()
         selectedSubtitleTrackID = nil
+        subtitleInfoCache = nil
+        trackSnapshotCache = nil
+        mediaMetadataCache = nil
         subtitleUpdateTimer?.invalidate()
         subtitleUpdateTimer = nil
         lastError = nil
@@ -1144,9 +1165,11 @@ private final class KSPlayerMetalSession: NSObject, MediaPlayerDelegate {
         if paused {
             player.pause()
             state = .paused
+            stopSubtitleUpdates()
         } else {
             player.play()
             state = player.loadState == .playable ? .playing : .loading
+            startSubtitleUpdates()
         }
         return .success(sessionId: id, snapshot: snapshot())
     }
@@ -1222,6 +1245,8 @@ private final class KSPlayerMetalSession: NSObject, MediaPlayerDelegate {
             return .failure("Audio track was not found.", sessionId: id)
         }
         player?.select(track: track)
+        trackSnapshotCache = nil
+        mediaMetadataCache = nil
         return .success(sessionId: id, snapshot: snapshot())
     }
 
@@ -1237,8 +1262,12 @@ private final class KSPlayerMetalSession: NSObject, MediaPlayerDelegate {
             player?.tracks(mediaType: .subtitle).forEach { $0.isEnabled = false }
             externalSubtitleInfos.values.forEach { $0.isEnabled = false }
             selectedSubtitleTrackID = nil
+            subtitleInfoCache = nil
+            trackSnapshotCache = nil
+            mediaMetadataCache = nil
             displayedSubtitlePart = nil
             subtitleView?.show(part: nil)
+            stopSubtitleUpdates()
             return .success(sessionId: id, snapshot: snapshot())
         }
 
@@ -1247,7 +1276,11 @@ private final class KSPlayerMetalSession: NSObject, MediaPlayerDelegate {
             externalSubtitleInfos.values.forEach { $0.isEnabled = false }
             external.isEnabled = true
             selectedSubtitleTrackID = targetID
+            subtitleInfoCache = external
+            trackSnapshotCache = nil
+            mediaMetadataCache = nil
             displayedSubtitlePart = nil
+            startSubtitleUpdates()
             return .success(sessionId: id, snapshot: snapshot())
         }
 
@@ -1260,7 +1293,13 @@ private final class KSPlayerMetalSession: NSObject, MediaPlayerDelegate {
         externalSubtitleInfos.values.forEach { $0.isEnabled = false }
         player.select(track: track)
         selectedSubtitleTrackID = targetID
+        subtitleInfoCache = player.subtitleDataSouce?.infos.first {
+            $0.subtitleID == String(targetID)
+        }
+        trackSnapshotCache = nil
+        mediaMetadataCache = nil
         displayedSubtitlePart = nil
+        startSubtitleUpdates()
         return .success(sessionId: id, snapshot: snapshot())
     }
 
@@ -1275,6 +1314,9 @@ private final class KSPlayerMetalSession: NSObject, MediaPlayerDelegate {
         externalSubtitleInfos.values.forEach { $0.isEnabled = false }
         info.isEnabled = true
         selectedSubtitleTrackID = id
+        subtitleInfoCache = info
+        trackSnapshotCache = nil
+        mediaMetadataCache = nil
         displayedSubtitlePart = nil
         startSubtitleUpdates()
         return .success(sessionId: self.id, snapshot: snapshot())
@@ -1369,49 +1411,14 @@ private final class KSPlayerMetalSession: NSObject, MediaPlayerDelegate {
             guard size.width > 0, size.height > 0 else { return nil }
             return Resolution(width: size.width, height: size.height)
         }
-        let videoTrack = player?.tracks(mediaType: .video).first { $0.isEnabled }
-        let audioTrack = player?.tracks(mediaType: .audio).first { $0.isEnabled }
-        let videoCodec = codecName(from: videoTrack)
-        let audioCodec = codecName(from: audioTrack)
-        let nominalFps = player.map { Double($0.nominalFrameRate) }
-        let fps = nominalFps.flatMap { $0.isFinite && $0 > 0 ? $0 : nil }
-        let bitrate = videoTrack.map { Double($0.bitRate) }.flatMap {
-            $0.isFinite && $0 > 0 ? $0 : nil
-        }
+        let mediaMetadata = mediaMetadataSnapshot()
         let dynamicInfo = player?.dynamicInfo
         let bufferedSeconds = player.flatMap { player -> Double? in
             let buffered = player.playableTime - player.currentPlaybackTime
             return buffered.isFinite ? max(buffered, 0) : nil
         }
         let hasPlayer = player != nil
-        let audioTracks = player?.tracks(mediaType: .audio).map { track in
-            TrackSnapshot(
-                id: Int(track.trackID),
-                title: nonEmpty(track.name),
-                language: nonEmpty(track.languageCode),
-                selected: track.isEnabled
-            )
-        } ?? []
-        let selectedAudioTrackId = audioTracks.first(where: { $0.selected })?.id
-        let embeddedSubtitleTracks = player?.tracks(mediaType: .subtitle).map { track in
-            TrackSnapshot(
-                id: Int(track.trackID),
-                title: nonEmpty(track.name),
-                language: nonEmpty(track.languageCode),
-                selected: selectedSubtitleTrackID == Int(track.trackID) && track.isEnabled
-            )
-        } ?? []
-        let externalSubtitleTracks = externalSubtitleInfos.map { id, info in
-            TrackSnapshot(
-                id: id,
-                title: nonEmpty(info.name),
-                language: nil,
-                selected: selectedSubtitleTrackID == id && info.isEnabled
-            )
-        }.sorted { $0.id < $1.id }
-        let subtitleTracks = [
-            TrackSnapshot(id: -1, title: "Off", language: nil, selected: selectedSubtitleTrackID == nil),
-        ] + embeddedSubtitleTracks + externalSubtitleTracks
+        let trackState = trackSnapshotState()
 
         return Snapshot(
             state: externalState,
@@ -1421,10 +1428,10 @@ private final class KSPlayerMetalSession: NSObject, MediaPlayerDelegate {
             durationSeconds: duration,
             paused: requestedPaused,
             volume: hasPlayer ? Double(player?.playbackVolume ?? requestedVolume) : Double(requestedVolume),
-            audioTracks: audioTracks,
-            selectedAudioTrackId: selectedAudioTrackId,
-            subtitleTracks: subtitleTracks,
-            selectedSubtitleTrackId: selectedSubtitleTrackID,
+            audioTracks: trackState.audioTracks,
+            selectedAudioTrackId: trackState.selectedAudioTrackId,
+            subtitleTracks: trackState.subtitleTracks,
+            selectedSubtitleTrackId: trackState.selectedSubtitleTrackId,
             playbackSpeed: hasPlayer ? Double(player?.playbackRate ?? requestedPlaybackSpeed) : Double(requestedPlaybackSpeed),
             aspectOverride: requestedAspectOverride.rawValue,
             picture: pictureSettings,
@@ -1432,15 +1439,18 @@ private final class KSPlayerMetalSession: NSObject, MediaPlayerDelegate {
             videoWidth: resolution?.width,
             videoHeight: resolution?.height,
             container: nonEmpty(options?.formatName),
-            videoCodec: videoCodec,
-            audioCodec: audioCodec,
-            fps: fps,
-            bitrate: bitrate,
+            videoCodec: mediaMetadata.videoCodec,
+            audioCodec: mediaMetadata.audioCodec,
+            fps: mediaMetadata.fps,
+            bitrate: mediaMetadata.bitrate,
             droppedFrames: dynamicInfo?.droppedVideoFrameCount,
             bufferedSeconds: bufferedSeconds,
             error: lastError ?? lastSeekError,
             message: lastError ?? lastSeekError,
-            embedding: embeddingDiagnostic(),
+            // Embedding geometry is diagnostic-only. Fetch it explicitly via
+            // getEmbeddingDiagnostic() instead of rebuilding the full view
+            // tree evidence on every 500 ms playback poll.
+            embedding: nil,
             seekTestEvidence: seekTestEvidence
         )
     }
@@ -1455,6 +1465,8 @@ private final class KSPlayerMetalSession: NSObject, MediaPlayerDelegate {
     }
 
     func readyToPlay(player _: some MediaPlayerProtocol) {
+        trackSnapshotCache = nil
+        mediaMetadataCache = nil
         guard pendingSeek == nil else {
             state = .seeking
             return
@@ -1463,6 +1475,8 @@ private final class KSPlayerMetalSession: NSObject, MediaPlayerDelegate {
     }
 
     func changeLoadState(player _: some MediaPlayerProtocol) {
+        trackSnapshotCache = nil
+        mediaMetadataCache = nil
         guard pendingSeek == nil else {
             state = .seeking
             return
@@ -1543,13 +1557,23 @@ private final class KSPlayerMetalSession: NSObject, MediaPlayerDelegate {
     private func startSubtitleUpdates() {
         subtitleUpdateTimer?.invalidate()
         guard subtitleView != nil else { return }
+        guard selectedSubtitleTrackID != nil, requestedPaused != true else { return }
         subtitleUpdateTimer = Timer.scheduledTimer(withTimeInterval: 0.1, repeats: true) {
             [weak self] _ in
             Task { @MainActor [weak self] in
-                self?.updateSubtitleView()
+                guard let self, !self.subtitleUpdateTaskScheduled else { return }
+                self.subtitleUpdateTaskScheduled = true
+                defer { self.subtitleUpdateTaskScheduled = false }
+                self.updateSubtitleView()
             }
         }
         updateSubtitleView()
+    }
+
+    private func stopSubtitleUpdates() {
+        subtitleUpdateTimer?.invalidate()
+        subtitleUpdateTimer = nil
+        subtitleUpdateTaskScheduled = false
     }
 
     private func updateSubtitleView() {
@@ -1593,12 +1617,81 @@ private final class KSPlayerMetalSession: NSObject, MediaPlayerDelegate {
     }
 
     private func subtitleInfo(for trackID: Int) -> (any SubtitleInfo)? {
+        if selectedSubtitleTrackID == trackID, let subtitleInfoCache {
+            return subtitleInfoCache
+        }
         if let external = externalSubtitleInfos[trackID] {
+            subtitleInfoCache = external
             return external
         }
-        return player?.subtitleDataSouce?.infos.first {
+        let info = player?.subtitleDataSouce?.infos.first {
             $0.subtitleID == String(trackID)
         }
+        subtitleInfoCache = info
+        return info
+    }
+
+    private func trackSnapshotState() -> TrackSnapshotState {
+        if let trackSnapshotCache {
+            return trackSnapshotCache
+        }
+
+        let audioTracks = player?.tracks(mediaType: .audio).map { track in
+            TrackSnapshot(
+                id: Int(track.trackID),
+                title: nonEmpty(track.name),
+                language: nonEmpty(track.languageCode),
+                selected: track.isEnabled
+            )
+        } ?? []
+        let selectedAudioTrackId = audioTracks.first(where: { $0.selected })?.id
+        let embeddedSubtitleTracks = player?.tracks(mediaType: .subtitle).map { track in
+            TrackSnapshot(
+                id: Int(track.trackID),
+                title: nonEmpty(track.name),
+                language: nonEmpty(track.languageCode),
+                selected: selectedSubtitleTrackID == Int(track.trackID) && track.isEnabled
+            )
+        } ?? []
+        let externalSubtitleTracks = externalSubtitleInfos.map { id, info in
+            TrackSnapshot(
+                id: id,
+                title: nonEmpty(info.name),
+                language: nil,
+                selected: selectedSubtitleTrackID == id && info.isEnabled
+            )
+        }.sorted { $0.id < $1.id }
+        let subtitleTracks = [
+            TrackSnapshot(id: -1, title: "Off", language: nil, selected: selectedSubtitleTrackID == nil),
+        ] + embeddedSubtitleTracks + externalSubtitleTracks
+        let value = TrackSnapshotState(
+            audioTracks: audioTracks,
+            selectedAudioTrackId: selectedAudioTrackId,
+            subtitleTracks: subtitleTracks,
+            selectedSubtitleTrackId: selectedSubtitleTrackID
+        )
+        trackSnapshotCache = value
+        return value
+    }
+
+    private func mediaMetadataSnapshot() -> MediaMetadataSnapshot {
+        if let mediaMetadataCache {
+            return mediaMetadataCache
+        }
+
+        let videoTrack = player?.tracks(mediaType: .video).first { $0.isEnabled }
+        let audioTrack = player?.tracks(mediaType: .audio).first { $0.isEnabled }
+        let nominalFps = player.map { Double($0.nominalFrameRate) }
+        let value = MediaMetadataSnapshot(
+            videoCodec: codecName(from: videoTrack),
+            audioCodec: codecName(from: audioTrack),
+            fps: nominalFps.flatMap { $0.isFinite && $0 > 0 ? $0 : nil },
+            bitrate: videoTrack.map { Double($0.bitRate) }.flatMap {
+                $0.isFinite && $0 > 0 ? $0 : nil
+            }
+        )
+        mediaMetadataCache = value
+        return value
     }
 
     private func nextExternalSubtitleID() -> Int {
@@ -1798,9 +1891,11 @@ private final class KSPlayerMetalSession: NSObject, MediaPlayerDelegate {
 
     private func detachPlayer() {
         invalidatePendingSeek()
-        subtitleUpdateTimer?.invalidate()
-        subtitleUpdateTimer = nil
+        stopSubtitleUpdates()
         displayedSubtitlePart = nil
+        subtitleInfoCache = nil
+        trackSnapshotCache = nil
+        mediaMetadataCache = nil
         subtitleView?.removeFromSuperview()
         subtitleView = nil
         externalSubtitleInfos.removeAll()

@@ -1,5 +1,5 @@
 import { Store } from '@ngrx/store';
-import { PlaylistActions } from '@arm-nator/providers/m3u/state';
+import { PlaylistActions } from '@arm-nator/providers/shared/playlist-state';
 import { PlaylistMeta, StalkerPortalItem } from '@arm-nator/shared/interfaces';
 import { normalizeStalkerEntityId } from '../../stalker-vod.utils';
 import {

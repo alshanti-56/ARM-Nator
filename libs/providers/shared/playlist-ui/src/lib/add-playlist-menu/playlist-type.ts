@@ -1,1 +1,1 @@
-export type PlaylistType = 'xtream' | 'url' | 'text' | 'file';
+export type PlaylistType = 'xtream' | 'stalker';

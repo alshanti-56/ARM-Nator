@@ -23,10 +23,8 @@
             "WELCOME_TITLE": "ARM-Nator'a Hoş Geldiniz",
             "WELCOME_DESCRIPTION": "İlk oynatma listenizi ekleyerek yayın yolculuğunuza başlayın. Favori IPTV hizmetinize bağlanın ve canlı TV, film ve dizilerin keyfini çıkarın.",
             "ADD_YOUR_FIRST": "İlk Oynatma Listenizi Ekleyin",
-            "FEATURE_M3U": "M3U/M3U8 Dosyaları",
             "FEATURE_XTREAM": "Xtream Kodları",
             "FEATURE_STALKER": "Stalker Portalı",
-            "FEATURE_M3U_LABEL": "Add an M3U file or URL",
             "FEATURE_XTREAM_LABEL": "Connect via Xtream Codes",
             "FEATURE_STALKER_LABEL": "Connect to a Stalker portal",
             "VALUE_PROPS_LABEL": "What you can do",
@@ -35,7 +33,6 @@
             "VALUE_PROP_MULTISOURCE": "Multi-source library",
             "VALUE_PROP_OFFLINE": "Offline downloads",
             "DASHBOARD_WELCOME_TAGLINE": "Your IPTV library, in one place.",
-            "DASHBOARD_WELCOME_DESCRIPTION": "Connect M3U files, Xtream Codes, or Stalker portals — then enjoy live TV, movies and series on every screen.",
             "FEATURE_LIVE_TITLE": "Live TV",
             "FEATURE_LIVE_DESC": "Stream live channels with full schedule.",
             "FEATURE_VOD_TITLE": "Movies & Series",
@@ -44,8 +41,6 @@
             "FEATURE_OFFLINE_DESC": "Save movies and episodes for later.",
             "SOURCES_WELCOME_TITLE": "Add your first playlist",
             "SOURCES_WELCOME_BODY": "Pick a source type below to get started.",
-            "SOURCE_M3U_NEEDS": "Local file or URL pointing to an M3U/M3U8 playlist.",
-            "SOURCE_M3U_ADD": "Add M3U",
             "SOURCE_XTREAM_NEEDS": "Username, password and server URL from your provider.",
             "SOURCE_XTREAM_ADD": "Add Xtream",
             "SOURCE_STALKER_NEEDS": "Portal URL and MAC address (Ministra-compatible).",
@@ -79,7 +74,6 @@
                 "AUTO_UPDATE": "Otomatik Güncelleme",
                 "AUTO_UPDATE_DESCRIPTION": "Otomatik yenileme işlevi etkinleştirilirse, uygulama her başlatıldığında oynatma listesi otomatik olarak güncellenecektir.",
                 "CUSTOM_USER_AGENT": "Bazı IPTV sağlayıcıları, oynatma listelerini oynatmak için belirli bir kullanıcı aracısına ihtiyaç duyar.",
-                "EXPORT_PLAYLIST": "Oynatma listesini m3u olarak dışa aktar",
                 "SERVER_URL": "Sunucu URL'si",
                 "USERNAME": "Kullanıcı Adı",
                 "PASSWORD": "Parola",
@@ -132,15 +126,11 @@
         },
         "ADD_PLAYLIST": {
             "PICK_METHOD": "Nasıl bağlanmak istediğinizi seçin. Daha sonra yeniden adlandırabilirsiniz.",
-            "METHOD_URL_LABEL": "M3U URL",
-            "METHOD_URL_SUB": "Uzak bir .m3u veya .m3u8 bağlantısını yapıştırın",
-            "METHOD_FILE_LABEL": "M3U dosyası",
             "METHOD_FILE_SUB": "Bilgisayarınızdan bir oynatma listesi yükleyin",
             "METHOD_XTREAM_LABEL": "Xtream kimlik bilgileri",
             "METHOD_XTREAM_SUB": "Sunucu, kullanıcı adı ve parola ile bağlanın",
             "METHOD_STALKER_LABEL": "Stalker portalı",
             "METHOD_STALKER_SUB": "MAC adresi ve portal URL'si",
-            "METHOD_TEXT_LABEL": "Ham m3u metni",
             "METHOD_TEXT_SUB": "Tek seferlik listeler veya yalnızca metniniz olduğunda"
         },
         "FILE_UPLOAD": {
@@ -151,7 +141,6 @@
             "REJECTED": "Dosya reddedildi, desteklenmeyen dosya formatı {{filename}}."
         },
         "URL_UPLOAD": {
-            "PLAYLIST_URL": "Oynatma listesi URL'si (m3u, m3u8)",
             "ADD_PLAYLIST": "Oynatma listesi ekle",
             "CORS_NOTE": "Not: CORS sorunlarını önlemek için bu aşamada uygulama, halka açık bir CORS Proxy hizmeti kullanır. Güvenlik nedeniyle hassas verileri içeren bir oynatma listesini yüklemek istiyorsanız, daha güvenli bir seçenek olarak dosyadan içe aktarmayı deneyin.",
             "ERROR_FETCH_FAILED": "Oynatma listesi alınamadı. Lütfen URL'yi kontrol edip tekrar deneyin.",
@@ -165,7 +154,6 @@
             "TRUST_TLS_HOST_WARNING": "Only continue if you trust this playlist host. ARM-Nator will allow invalid TLS certificates for this host, but other hosts still require valid certificates."
         },
         "TEXT_IMPORT": {
-            "LABEL": "m3u(8) oynatma listesini metin olarak girin",
             "BUTTON_LABEL": "İçe Aktar"
         },
         "XTREAM_PLAYLIST": {
@@ -204,7 +192,6 @@
             "CUSTOM_ORDER": "Özel sıralama (Sürükle ve Bırak)"
         },
         "PLAYLIST_TYPES": {
-            "M3U": "M3U (yerel, url, metin)",
             "XTREAM": "Xtream",
             "STALKER": "Stalker"
         },
@@ -255,7 +242,6 @@
         "DESCRIPTION": "Lütfen aşağıdaki seçenekleri düzenleyin ve değişiklikleri kaydet düğmesiyle onaylayın",
         "VIDEO_PLAYER_LABEL": "Video oynatıcı",
         "LIVE_VIDEO_PLAYER_LABEL": "Live TV player",
-        "LIVE_VIDEO_PLAYER_DESCRIPTION": "Default player for live TV and M3U channels",
         "VOD_VIDEO_PLAYER_LABEL": "Movies and series player",
         "VOD_VIDEO_PLAYER_DESCRIPTION": "Default player for movies and series episodes",
         "PLAYER_HTML5": "HTML5 video oynatıcı",
@@ -305,13 +291,11 @@
         "EMBEDDED_MPV_NOTICE_TITLE": "Gömülü MPV çalışma zamanı",
         "EMBEDDED_MPV_NOTICE_DESCRIPTION": "Masaüstü sürümleri, deneysel Gömülü MPV oynatıcı için paketlenmiş libmpv ve FFmpeg kitaplıklarını içerebilir. Kullanıcıların MPV uygulamasını ayrıca kurmasına gerek yoktur; harici MPV ve VLC, yedek oynatıcı olarak kullanılabilir kalır.",
         "IMPORT_EXPORT_DATA": "Oynatma listelerini içe/dışa aktar",
-        "IMPORT_EXPORT_DATA_DESCRIPTION": "Export or restore playlist backups including M3U snapshots, Xtream/Stalker connection metadata, and user state.",
         "IMPORT_DATA": "İçe Aktar",
         "EXPORT_DATA": "Dışa Aktar",
         "EXPORTING_DATA": "Dışa aktarılıyor…",
         "REMOVE_ALL": "Delete all playlists and playlist data",
         "REMOVE_ALL_BUTTON": "Delete all",
-        "REMOVE_ALL_DESCRIPTION": "Delete every M3U, Xtream, and Stalker playlist stored in the app.",
         "REMOVE_DIALOG": {
             "TITLE": "Delete all playlists?",
             "MESSAGE": "Delete all {{count}} playlists from the app. This also removes stored playlist data on this device.",
@@ -599,7 +583,6 @@
     },
     "ABOUT": {
         "TITLE": "ARM-Nator Hakkında",
-        "DESCRIPTION": "Çoklu özellikler sunan, m3u ve m3u8 oynatma listeleri, favoriler, TV rehberi, TV arşivi/geri dönük izleme ve daha fazlasını destekleyen çok platformlu IPTV oynatıcı uygulaması.",
         "VERSION": "Sürüm",
         "BUY_ME_A_COFFEE_TOOLTIP": "Bana bir kahve alın"
     },
@@ -785,8 +768,6 @@
             "NO_RESULTS_FOR": "\"{{term}}\" için sonuç bulunamadı",
             "GROUP_BY_PLAYLIST": "Sonuçları oynatma listesine göre grupla",
             "VISIBLE_CATEGORIES_ONLY": "Sadece görünür kategoriler",
-            "GLOBAL_SEARCH_SOURCE_NOTE": "Global search includes results from Xtream and M3U playlists.",
-            "GLOBAL_INITIAL_DESCRIPTION": "Enter at least 2 characters to search across Xtream and M3U playlists.",
             "LOADING_MORE_RESULTS": "Loading more results..."
         },
         "STREAM_URL_COPIED": "Yayın URL'si panoya kopyalandı",
@@ -904,7 +885,6 @@
             "NO_HISTORY_HINT": "Oynatma listelerinizden içerik oynatmaya başladığınızda izleme geçmişiniz burada görünecektir.",
             "XTREAM": "Xtream",
             "STALKER": "Stalker",
-            "M3U": "M3U",
             "STALKER_PORTAL": "Stalker Portalı",
             "PROVIDER": "Sağlayıcı",
             "TYPE_LIVE": "Canlı",
@@ -979,8 +959,6 @@
             "GO_TO_DASHBOARD": "Back to dashboard",
             "GO_TO_SOURCES": "Go to Sources",
             "DROP_OVERLAY_TITLE": "Drop to add playlist",
-            "DROP_OVERLAY_BODY": "Release an .m3u or .m3u8 file anywhere in the workspace to import it.",
-            "DROP_OVERLAY_REJECTED_BODY": "Please drop an .m3u or .m3u8 file. Press Esc to dismiss.",
             "DROP_OVERLAY_REJECTED_UNSUPPORTED": "Unsupported file type",
             "DROP_OVERLAY_REJECTED_EMPTY": "That file is empty",
             "DROP_OVERLAY_REJECTED_READ_ERROR": "Could not read that file",
@@ -1017,8 +995,6 @@
                 "OPEN_DASHBOARD_DESCRIPTION": "Panoya git",
                 "ADD_PLAYLIST_LABEL": "Yeni kaynak ekle",
                 "ADD_PLAYLIST_DESCRIPTION": "Oynatma listesi ekle iletişim kutusunu aç",
-                "ADD_PLAYLIST_M3U_LABEL": "Add M3U playlist",
-                "ADD_PLAYLIST_M3U_DESCRIPTION": "Open add dialog on the M3U file or URL tab",
                 "ADD_PLAYLIST_XTREAM_LABEL": "Add Xtream Codes playlist",
                 "ADD_PLAYLIST_XTREAM_DESCRIPTION": "Open add dialog on the Xtream Codes tab",
                 "ADD_PLAYLIST_STALKER_LABEL": "Add Stalker portal",
@@ -1054,7 +1030,6 @@
             "SUBTITLE": "Oynatma listelerini filtrele ve sırala",
             "TYPE": "Tür",
             "ALL": "Tümü",
-            "M3U_PLAYLISTS": "M3U Oynatma Listeleri",
             "XTREAM_PLAYLISTS": "Xtream Oynatma Listeleri",
             "STALKER_PLAYLISTS": "Stalker Oynatma Listeleri",
             "ALL_PLAYLISTS": "Tüm Oynatma Listeleri",
@@ -1115,7 +1090,6 @@
                 "OPEN_RECENTLY_VIEWED": "Open recently viewed",
                 "SUBMIT_SHELL_SEARCH": "Submit workspace search",
                 "TOGGLE_SIDEBAR": "Toggle sidebar",
-                "M3U_CHANNEL_NUMBER": "Select M3U channel by number",
                 "PLAY_PAUSE": "Play or pause embedded MPV playback",
                 "TOGGLE_FULLSCREEN": "Toggle embedded MPV fullscreen",
                 "SEEK": "Seek embedded MPV playback by 5 seconds",
@@ -1135,7 +1109,6 @@
             "NO_RESULTS": "Sonuç bulunamadı",
             "NO_RESULTS_HINT": "Farklı bir arama terimi deneyin",
             "EMPTY_TITLE": "Henüz canlı TV favorisi yok",
-            "EMPTY_HINT": "M3U, Xtream veya Stalker oynatma listelerinden canlı kanalları yıldızlayarak burada görüntüleyin.",
             "EMPTY_PLAYER": "İzlemeye başlamak için bir kanal seçin",
             "NO_PLAYLISTS_TITLE": "No favorites to show",
             "NO_PLAYLISTS_BODY": "Add a playlist to start collecting favorites from live channels, movies, and series.",

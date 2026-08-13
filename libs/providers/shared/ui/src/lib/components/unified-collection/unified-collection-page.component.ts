@@ -61,7 +61,7 @@ import {
 import {
   selectAllPlaylistsMeta,
   selectPlaylistsLoadingFlag,
-} from "@arm-nator/providers/m3u/state";
+} from "@arm-nator/providers/shared/playlist-state";
 import { EmptyStateComponent } from "@arm-nator/providers/shared/playlist-ui";
 import { UnifiedLiveTabComponent } from "./unified-live-tab.component";
 import { UnifiedGridTabComponent } from "./unified-grid-tab.component";
@@ -317,7 +317,7 @@ export class UnifiedCollectionPageComponent implements AfterContentInit {
       .map((playlist) =>
         [
           playlist._id,
-          playlist.serverUrl ? "xtream" : "m3u",
+          playlist.serverUrl ? "xtream" : "stalker",
           JSON.stringify(playlist.favorites ?? []),
         ].join("::"),
       )

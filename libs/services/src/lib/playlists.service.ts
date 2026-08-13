@@ -1,8 +1,5 @@
 /* eslint-disable max-lines */
 import { inject, Injectable } from '@angular/core';
-import { MatSnackBar } from '@angular/material/snack-bar';
-import { TranslateService } from '@ngx-translate/core';import { aggregateFavoriteChannels, createFavoritesPlaylist, createPlaylistObject } from '@arm-nator/providers/m3u/utils';
-
 import { NgxIndexedDBService } from 'ngx-indexed-db';
 import {
     combineLatest,
@@ -17,21 +14,22 @@ import {
 import {
     Channel,
     DbStores,
-    M3uFavoriteChannel,
-    M3uRecentlyViewedItem,
     Playlist,
     PlaylistMeta,
+    PlaylistMetaUpdate,
     PlaylistRecentlyViewedItem,
     PlaylistUpdateState,
+    StalkerPortalItem,
     normalizeDate,
 } from '@arm-nator/shared/interfaces';
 import { PLAYLIST_DELETE_CLEANUP } from './playlist-delete-cleanup.token';
 import { RuntimeCapabilitiesService } from './runtime-capabilities.service';
 
-const SQLITE_PLAYLIST_MIGRATION_FLAG = 'm3u-playlists-indexeddb-to-sqlite-v1';
 type PlaylistRawItem = {
     raw?: string;
 };
+
+const SQLITE_PLAYLIST_MIGRATION_FLAG = 'playlist-storage-indexeddb-to-sqlite-v1';
 
 type PlaylistStorageElectronApi = {
     dbDeleteAllPlaylists: () => Promise<unknown>;
@@ -40,9 +38,6 @@ type PlaylistStorageElectronApi = {
         playlistId: string,
         operationId?: string
     ) => Promise<Playlist | null>;
-    dbGetAppPlaylistFavoriteChannels?: (
-        playlistId: string
-    ) => Promise<M3uFavoriteChannel[]>;
     dbGetAppPlaylistMetas?: () => Promise<Playlist[]>;
     dbGetAppPlaylists: () => Promise<Playlist[]>;
     dbGetAppState: (key: string) => Promise<string | null>;
@@ -60,18 +55,13 @@ type PlaylistStorageWindow = Window & {
 
 type AddManyPlaylistsResult = Playlist[] | IDBValidKey[];
 
-type PlaylistParserModule = Partial<typeof import('iptv-playlist-parser')> & {
-    default?: Partial<typeof import('iptv-playlist-parser')>;
-};
-
-export function resolvePlaylistParser(parserModule: PlaylistParserModule) {
-    const parse = parserModule.parse ?? parserModule.default?.parse;
-
-    if (!parse) {
-        throw new Error('iptv-playlist-parser parse export was not found');
+function portalFavoriteId(value: string | StalkerPortalItem): string {
+    if (typeof value === 'string') {
+        return value;
     }
-
-    return parse;
+    return String(
+        value.id ?? value.movie_id ?? value.stream_id ?? value.series_id ?? ''
+    );
 }
 
 @Injectable({
@@ -79,8 +69,6 @@ export function resolvePlaylistParser(parserModule: PlaylistParserModule) {
 })
 export class PlaylistsService {
     private readonly dbService = inject(NgxIndexedDBService);
-    private readonly snackBar = inject(MatSnackBar);
-    private readonly translateService = inject(TranslateService);
     private readonly runtime = inject(RuntimeCapabilitiesService);
     private readonly playlistDeleteCleanups =
         inject(PLAYLIST_DELETE_CLEANUP, { optional: true }) ?? [];
@@ -153,7 +141,14 @@ export class PlaylistsService {
 
             if (indexedDbPlaylists.length > 0) {
                 await electron.dbUpsertAppPlaylists(
-                    indexedDbPlaylists.filter((playlist) => !playlist.macAddress)
+                    indexedDbPlaylists.filter(
+                        (playlist) =>
+                            Boolean(
+                                playlist.serverUrl ||
+                                    playlist.portalUrl ||
+                                    playlist.macAddress
+                            )
+                    )
                 );
                 await firstValueFrom(this.dbService.clear(DbStores.Playlists));
             }
@@ -278,9 +273,6 @@ export class PlaylistsService {
     }
 
     getPlaylist(id: string) {
-        if (id === 'global-favorites') {
-            return this.getPlaylistWithGlobalFavorites();
-        }
         return this.getPlaylistById(id);
     }
 
@@ -402,56 +394,73 @@ export class PlaylistsService {
             const playlist = await firstValueFrom(
                 this.getPlaylistById(updatedPlaylist._id)
             );
-            const nextPlaylist: Playlist = {
-                ...playlist,
-                ...(updatedPlaylist.title != null
-                    ? { title: updatedPlaylist.title }
-                    : {}),
-                ...(updatedPlaylist.autoRefresh != null
-                    ? { autoRefresh: updatedPlaylist.autoRefresh }
-                    : {}),
-                ...(updatedPlaylist.userAgent != null
-                    ? { userAgent: updatedPlaylist.userAgent }
-                    : {}),
-                ...(updatedPlaylist.referrer !== undefined
-                    ? { referrer: updatedPlaylist.referrer }
-                    : {}),
-                ...(updatedPlaylist.origin !== undefined
-                    ? { origin: updatedPlaylist.origin }
-                    : {}),
-                ...(updatedPlaylist.serverUrl != null
-                    ? { serverUrl: updatedPlaylist.serverUrl }
-                    : {}),
-                ...(updatedPlaylist.portalUrl != null
-                    ? { portalUrl: updatedPlaylist.portalUrl }
-                    : {}),
-                ...(updatedPlaylist.macAddress != null
-                    ? { macAddress: updatedPlaylist.macAddress }
-                    : {}),
-                ...(updatedPlaylist.username != null
-                    ? { username: updatedPlaylist.username }
-                    : {}),
-                ...(updatedPlaylist.password != null
-                    ? { password: updatedPlaylist.password }
-                    : {}),
-                ...(updatedPlaylist.favorites != null
-                    ? { favorites: updatedPlaylist.favorites }
-                    : {}),
-                ...(updatedPlaylist.recentlyViewed != null
-                    ? { recentlyViewed: updatedPlaylist.recentlyViewed }
-                    : {}),
-                ...(updatedPlaylist.hiddenGroupTitles != null
-                    ? {
-                          hiddenGroupTitles: updatedPlaylist.hiddenGroupTitles,
-                      }
-                    : {}),
-                ...(updatedPlaylist.updateDate !== undefined
-                    ? { updateDate: updatedPlaylist.updateDate }
-                    : {}),
-            };
+            const nextPlaylist = this.applyPlaylistMetaUpdate(
+                playlist,
+                updatedPlaylist
+            );
 
             return this.persistPlaylistMutation(nextPlaylist);
         });
+    }
+
+    /** Applies a metadata patch while keeping session-only fields explicit. */
+    private applyPlaylistMetaUpdate(
+        playlist: Playlist,
+        update: PlaylistMetaUpdate
+    ): Playlist {
+        const { stalkerSessionPatch, ...metadata } = update;
+        const nextPlaylist: Playlist = { ...playlist, ...metadata };
+        if (stalkerSessionPatch !== undefined) {
+            if (stalkerSessionPatch === null) {
+                nextPlaylist.stalkerToken = undefined;
+                nextPlaylist.stalkerSessionIdentity = undefined;
+                nextPlaylist.stalkerWatchdogTimeout = undefined;
+                nextPlaylist.stalkerTimeslot = undefined;
+                nextPlaylist.stalkerAccountInfo = undefined;
+            } else {
+                Object.assign(nextPlaylist, stalkerSessionPatch);
+            }
+        }
+        return nextPlaylist;
+    }
+
+    transformPlaylistMeta(
+        playlistId: string,
+        transform: (current: Playlist) => Playlist | null
+    ): Observable<Playlist | null> {
+        return this.serializePlaylistWrite(playlistId, async () => {
+            const current = await firstValueFrom(
+                this.getPlaylistById(playlistId)
+            );
+            if (!current) {
+                return null;
+            }
+            const next = transform(current);
+            return next ? this.persistPlaylistMutation(next) : null;
+        });
+    }
+
+    updatePlaylistMetaIfCurrent(
+        update: PlaylistMetaUpdate,
+        isCurrent: (current: Playlist) => boolean
+    ): Observable<Playlist | null> {
+        return this.transformPlaylistMeta(update._id, (current) =>
+            isCurrent(current)
+                ? this.applyPlaylistMetaUpdate(current, update)
+                : null
+        );
+    }
+
+    updateStalkerSession(
+        playlistId: string,
+        patch: NonNullable<PlaylistMetaUpdate['stalkerSessionPatch']>
+    ): Observable<Playlist | null> {
+        return this.transformPlaylistMeta(playlistId, (current) =>
+            this.applyPlaylistMetaUpdate(current, {
+                _id: playlistId,
+                stalkerSessionPatch: patch,
+            })
+        );
     }
 
     updateFavorites(id: string, favorites: string[]) {
@@ -537,37 +546,105 @@ export class PlaylistsService {
         return this.getPlaylistById(playlistId).pipe(
             map((data) =>
                 ((data.playlist?.items ?? []) as Channel[]).filter((channel) =>
-                    data.favorites?.includes(channel.id)
+                    data.favorites?.some(
+                        (favorite) =>
+                            typeof favorite === 'string' &&
+                            favorite === channel.id
+                    )
                 )
             )
         );
     }
 
-    getM3uFavoriteChannels(
-        playlistId: string
-    ): Observable<M3uFavoriteChannel[] | null> {
-        const electron = this.electronApi;
-        const getFavoriteChannels = electron?.dbGetAppPlaylistFavoriteChannels;
-        if (
-            !electron ||
-            !this.isElectronStorageAvailable ||
-            typeof getFavoriteChannels !== 'function'
-        ) {
-            return of(null);
-        }
-
-        return from(
-            (async () => {
-                const alreadyMigrated = await electron.dbGetAppState(
-                    SQLITE_PLAYLIST_MIGRATION_FLAG
-                );
-                if (alreadyMigrated !== '1') {
-                    return null;
-                }
-
-                return getFavoriteChannels(playlistId);
-            })()
+    getPortalFavorites(playlistId: string): Observable<StalkerPortalItem[]> {
+        return this.getPlaylistById(playlistId).pipe(
+            map((playlist) =>
+                (playlist?.favorites ?? []).filter(
+                    (favorite): favorite is StalkerPortalItem =>
+                        typeof favorite === 'object' && favorite !== null
+                )
+            )
         );
+    }
+
+    addPortalFavorite(playlistId: string, favorite: StalkerPortalItem) {
+        return this.transformPlaylistMeta(playlistId, (playlist) => {
+            const favorites = [...(playlist.favorites ?? [])];
+            const favoriteId = portalFavoriteId(favorite);
+            const remaining = favorites.filter(
+                (entry) => portalFavoriteId(entry) !== favoriteId
+            );
+            return {
+                ...playlist,
+                favorites: [favorite, ...remaining],
+            };
+        });
+    }
+
+    removeFromPortalFavorites(playlistId: string, favoriteId: string) {
+        return this.transformPlaylistMeta(playlistId, (playlist) => ({
+            ...playlist,
+            favorites: (playlist.favorites ?? []).filter(
+                (favorite) => portalFavoriteId(favorite) !== favoriteId
+            ),
+        }));
+    }
+
+    addPortalRecentlyViewed(
+        playlistId: string,
+        item: PlaylistRecentlyViewedItem
+    ) {
+        return this.addRecentlyViewed(playlistId, item);
+    }
+
+    removeFromPortalRecentlyViewed(
+        playlistId: string,
+        identity: string | number
+    ) {
+        return this.removeRecentlyViewed(playlistId, identity);
+    }
+
+    clearPortalRecentlyViewed(playlistId: string) {
+        return this.clearRecentlyViewed(playlistId);
+    }
+
+    private addRecentlyViewed(playlistId: string, item: PlaylistRecentlyViewedItem) {
+        return this.serializePlaylistWrite(playlistId, async () => {
+            const playlist = await firstValueFrom(this.getPlaylistById(playlistId));
+            const recentItems = Array.isArray(playlist.recentlyViewed)
+                ? playlist.recentlyViewed
+                : [];
+            const existingIndex = recentItems.findIndex(
+                (recentItem) => String(recentItem.id) === String(item.id)
+            );
+            const remainingItems = recentItems.filter((_, index) => index !== existingIndex);
+            return this.persistPlaylistMutation({
+                ...playlist,
+                recentlyViewed: [
+                    { ...item, added_at: new Date().toISOString() },
+                    ...remainingItems,
+                ],
+            });
+        });
+    }
+
+    private removeRecentlyViewed(playlistId: string, identity: string | number) {
+        return this.serializePlaylistWrite(playlistId, async () => {
+            const playlist = await firstValueFrom(this.getPlaylistById(playlistId));
+            return this.persistPlaylistMutation({
+                ...playlist,
+                recentlyViewed: (playlist.recentlyViewed ?? []).filter(
+                    (item) => String(item.id) !== String(identity)
+                ),
+            });
+        });
+    }
+
+    private clearRecentlyViewed(playlistId: string) {
+        return this.serializePlaylistWrite(playlistId, async () => {
+            const playlist = await firstValueFrom(this.getPlaylistById(playlistId));
+            return this.persistPlaylistMutation({ ...playlist, recentlyViewed: [] });
+        });
     }
 
     updatePlaylistPositions(
@@ -599,44 +676,6 @@ export class PlaylistsService {
                     return nextPlaylist;
                 })
             )
-        );
-    }
-
-    async handlePlaylistParsing(
-        uploadType: 'FILE' | 'URL' | 'TEXT',
-        playlist: string,
-        title: string,
-        path?: string
-    ) {
-        try {
-            // Dynamic import keeps the parser out of the eager bundle;
-            // parse() only runs on user-triggered imports.
-            const parserModule = await import('iptv-playlist-parser');
-            const parse = resolvePlaylistParser(parserModule);
-            const parsedPlaylist = parse(playlist);
-            return createPlaylistObject(
-                title,
-                parsedPlaylist,
-                path,
-                uploadType
-            );
-        } catch (error) {
-            this.snackBar.open(
-                this.translateService.instant('HOME.PARSING_ERROR'),
-                undefined,
-                { duration: 2000 }
-            );
-            throw new Error(`Parsing failed, not a valid playlist: ${error}`);
-        }
-    }
-
-    getPlaylistWithGlobalFavorites() {
-        return this.getAllData().pipe(
-            map((playlists: Playlist[]) => {
-                const favoriteChannels = aggregateFavoriteChannels(playlists);
-                const favPlaylist = createFavoritesPlaylist(favoriteChannels);
-                return favPlaylist;
-            })
         );
     }
 
@@ -702,172 +741,4 @@ export class PlaylistsService {
         }).pipe(map(() => undefined));
     }
 
-    private getPlaylistRecentIdentity(
-        item: PlaylistRecentlyViewedItem
-    ): string {
-        return String(item.url ?? item.id ?? '').trim();
-    }
-
-    private matchesPlaylistRecentIdentity(
-        item: PlaylistRecentlyViewedItem,
-        expectedIdentity: string | number
-    ): boolean {
-        const expectedRaw = String(expectedIdentity ?? '').trim();
-        if (!expectedRaw) {
-            return false;
-        }
-
-        return this.getPlaylistRecentIdentity(item) === expectedRaw;
-    }
-
-    private sortPlaylistRecentItems(
-        items: PlaylistRecentlyViewedItem[]
-    ): PlaylistRecentlyViewedItem[] {
-        return [...items].sort(
-            (a, b) =>
-                new Date(normalizeDate(b.added_at ?? '')).getTime() -
-                new Date(normalizeDate(a.added_at ?? '')).getTime()
-        );
-    }
-
-    getPlaylistRecentlyViewed(playlistId: string) {
-        if (!playlistId) {
-            throw new Error('Playlist ID is required');
-        }
-
-        return this.getPlaylistById(playlistId).pipe(
-            map((item) => {
-                if (!item || !Array.isArray(item.recentlyViewed)) {
-                    return [];
-                }
-                return item.recentlyViewed as PlaylistRecentlyViewedItem[];
-            }),
-            map((items) => this.sortPlaylistRecentItems(items))
-        );
-    }
-
-    addPlaylistRecentlyViewed(
-        playlistId: string,
-        item: PlaylistRecentlyViewedItem
-    ) {
-        if (!playlistId) {
-            throw new Error('Playlist ID is required');
-        }
-
-        return this.serializePlaylistWrite(playlistId, async () => {
-            const playlist = await firstValueFrom(
-                this.getPlaylistById(playlistId)
-            );
-            const nowIso = new Date().toISOString();
-            const recentItems = Array.isArray(playlist.recentlyViewed)
-                ? (playlist.recentlyViewed as PlaylistRecentlyViewedItem[])
-                : [];
-            const existingIndex = recentItems.findIndex((recentItem) =>
-                this.matchesPlaylistRecentIdentity(
-                    recentItem,
-                    this.getPlaylistRecentIdentity(item)
-                )
-            );
-            const existingItem =
-                existingIndex >= 0 ? recentItems[existingIndex] : null;
-            const nextItem: PlaylistRecentlyViewedItem = {
-                ...(existingItem ?? {}),
-                ...item,
-                added_at: nowIso,
-            };
-            const remainingItems = recentItems.filter(
-                (_, index) => index !== existingIndex
-            );
-
-            return this.persistPlaylistMutation({
-                ...playlist,
-                recentlyViewed: [nextItem, ...remainingItems],
-            });
-        });
-    }
-
-    removeFromPlaylistRecentlyViewed(
-        playlistId: string,
-        identity: string | number
-    ) {
-        if (!playlistId) {
-            throw new Error('Playlist ID is required');
-        }
-
-        return this.serializePlaylistWrite(playlistId, async () => {
-            const playlist = await firstValueFrom(
-                this.getPlaylistById(playlistId)
-            );
-
-            return this.persistPlaylistMutation({
-                ...playlist,
-                recentlyViewed: (
-                    playlist.recentlyViewed as PlaylistRecentlyViewedItem[]
-                )?.filter(
-                    (item) =>
-                        !this.matchesPlaylistRecentIdentity(item, identity)
-                ),
-            });
-        });
-    }
-
-    removeFromPlaylistRecentlyViewedBatch(
-        playlistId: string,
-        identities: ReadonlyArray<string | number>
-    ) {
-        if (!playlistId) {
-            throw new Error('Playlist ID is required');
-        }
-
-        if (identities.length === 0) {
-            return this.getPlaylistById(playlistId);
-        }
-
-        return this.serializePlaylistWrite(playlistId, async () => {
-            const playlist = await firstValueFrom(
-                this.getPlaylistById(playlistId)
-            );
-
-            return this.persistPlaylistMutation({
-                ...playlist,
-                recentlyViewed: (
-                    playlist.recentlyViewed as PlaylistRecentlyViewedItem[]
-                )?.filter(
-                    (item) =>
-                        !identities.some((identity) =>
-                            this.matchesPlaylistRecentIdentity(item, identity)
-                        )
-                ),
-            });
-        });
-    }
-
-    clearPlaylistRecentlyViewed(playlistId: string) {
-        if (!playlistId) {
-            throw new Error('Playlist ID is required');
-        }
-
-        return this.serializePlaylistWrite(playlistId, async () => {
-            const playlist = await firstValueFrom(
-                this.getPlaylistById(playlistId)
-            );
-
-            return this.persistPlaylistMutation({
-                ...playlist,
-                recentlyViewed: [],
-            });
-        });
-    }
-
-    addM3uRecentlyViewed(playlistId: string, item: M3uRecentlyViewedItem) {
-        return this.addPlaylistRecentlyViewed(playlistId, item);
-    }
-
-    removeFromM3uRecentlyViewed(playlistId: string, channelUrl: string) {
-        return this.removeFromPlaylistRecentlyViewed(playlistId, channelUrl);
-    }
-
-    clearM3uRecentlyViewed(playlistId: string) {
-        return this.clearPlaylistRecentlyViewed(playlistId);
-    }
 }

@@ -29,7 +29,7 @@ import {
     StalkerPortalActions,
     VodDetailsItem,
 } from '@arm-nator/shared/interfaces';
-import type { PlaybackFallbackRequest } from '@arm-nator/ui/components';
+import type { PlaybackFallbackRequest } from '@arm-nator/player/ui';
 import { ContentCardComponent } from '@arm-nator/providers/shared/ui';
 import { SearchLayoutComponent } from '@arm-nator/providers/shared/ui';
 import { StalkerInlineDetailComponent } from '../stalker-inline-detail/stalker-inline-detail.component';

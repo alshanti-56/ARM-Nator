@@ -11,9 +11,11 @@ const inputs = [
         password: 'secret',
     },
     {
-        id: 'm3u',
-        provider: 'm3u' as const,
-        playlistUrl: 'https://provider.test/list.m3u?token=secret',
+        id: 'xtream-two',
+        provider: 'xtream' as const,
+        serverUrl: 'https://provider-two.test',
+        username: 'user-two',
+        password: 'secret-two',
     },
 ];
 
@@ -35,29 +37,7 @@ test('lifecycle uses the submitted source and maps detailed outcomes', () => {
     assert.equal(progress?.current[0].message, 'Source is valid.');
     assert.equal(progress?.current[0].sourceUrl, 'https://provider.test');
     assert.doesNotMatch(JSON.stringify(progress), /attacker/);
-    assert.match(JSON.stringify(progress), /token=secret/);
-});
-
-test('lifecycle preserves the full submitted M3U source URL', () => {
-    const lifecycle = new CredentialTesterBatchLifecycle('batch', [
-        {
-            id: 'm3u-aliases',
-            provider: 'm3u',
-            playlistUrl:
-                'https://provider.test/list.m3u?user=alice&pwd=hunter2&token=dropme&quality=hd',
-        },
-    ]);
-
-    const progress = lifecycle.recordResult({
-        id: 'm3u-aliases',
-        provider: 'm3u',
-        status: 'valid',
-        outcome: 'working',
-    });
-    assert.equal(
-        progress?.current[0].sourceUrl,
-        'https://provider.test/list.m3u?user=alice&pwd=hunter2&token=dropme&quality=hd'
-    );
+    assert.doesNotMatch(JSON.stringify(progress), /secret/);
 });
 
 test('exactly one terminal snapshot wins completion, cancellation, error, and teardown races', () => {
@@ -101,6 +81,6 @@ test('normal completion retains worker outcomes and fills no missing terminal st
     assert.equal(terminal?.completed, 2);
     assert.deepEqual(
         terminal?.current.map((result) => result.outcome),
-        ['expired', 'invalid-url']
+        ['expired', 'expired']
     );
 });

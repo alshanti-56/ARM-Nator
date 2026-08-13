@@ -405,6 +405,32 @@ function testSessionAndServiceShutdownReleaseResources() {
   }
 }
 
+function testPausedSessionPollingStops() {
+  const fixture = createFixture();
+  try {
+    fixture.addon.getSnapshot = () => ({
+      positionSeconds: 4,
+      status: "paused",
+      streamUrl: "https://stream.test/vod.mp4",
+      volume: 1,
+    });
+    const window = new FakeBrowserWindow("paused");
+    play(fixture.service, window);
+    const pollTimer = [...fixture.timers][0];
+    const snapshotsAfterCreate = fixture.calls.getSnapshot;
+
+    pollTimer.callback();
+
+    assert.equal(
+      fixture.calls.getSnapshot,
+      snapshotsAfterCreate,
+      "paused KSPlayer sessions are not refreshed by the hot polling timer",
+    );
+  } finally {
+    fixture.cleanup();
+  }
+}
+
 function testSeekFailureAndDisposeRace() {
   const fixture = createFixture();
   try {
@@ -475,6 +501,7 @@ const tests = [
     "session dispose and service shutdown",
     testSessionAndServiceShutdownReleaseResources,
   ],
+  ["paused sessions stop hot polling", testPausedSessionPollingStops],
   [
     "rapid seek dispatch, unsupported failure, and dispose race",
     testSeekFailureAndDisposeRace,

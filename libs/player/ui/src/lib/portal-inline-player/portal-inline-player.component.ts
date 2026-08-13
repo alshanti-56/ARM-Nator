@@ -23,7 +23,7 @@ import {
 import { isWebPlayer } from "@arm-nator/player/core";
 import type { PlaybackFallbackRequest } from "../playback-diagnostics/playback-diagnostics.util";
 import { SettingsStore } from "@arm-nator/services";
-import { applyChannelNameStrip } from "@arm-nator/providers/m3u/utils";
+import { applyChannelNameStrip } from "@arm-nator/providers/shared/util";
 import type { PlayerMediaTitle } from "../player-controls";
 import { WebPlayerViewComponent } from "../web-player-view/web-player-view.component";
 import type {

@@ -31,7 +31,7 @@ import {
 import {
     PlaylistActions,
     selectAllPlaylistsMeta,
-} from '@arm-nator/providers/m3u/state';
+} from '@arm-nator/providers/shared/playlist-state';
 import { PlaylistsService } from '@arm-nator/services';
 import {
     createRandomId,
@@ -269,7 +269,6 @@ export class CredentialTesterComponent implements OnDestroy {
                 this.savedSourceKeys(),
                 {
                     sourceKey: (candidate) => this.sourceKey(candidate),
-                    createM3uPlaylist: (candidate) => this.createM3uPlaylist(candidate),
                     createXtreamPlaylist: (candidate) =>
                         this.createXtreamPlaylist(candidate),
                     persist: (playlists) =>
@@ -349,9 +348,7 @@ export class CredentialTesterComponent implements OnDestroy {
     }
 
     sourceUrl(candidate: BulkTestCandidate): string {
-        return candidate.type === 'm3u'
-            ? candidate.playlistUrl
-            : candidate.serverUrl;
+        return candidate.serverUrl;
     }
 
     updateCandidateField(
@@ -371,30 +368,21 @@ export class CredentialTesterComponent implements OnDestroy {
                 }
 
                 const candidate = result.candidate;
-                const editedCandidate: BulkTestCandidate =
-                    candidate.type === 'm3u'
-                        ? {
-                              ...candidate,
-                              playlistUrl:
-                                  field === 'source'
-                                      ? trimmedValue
-                                      : candidate.playlistUrl,
-                          }
-                        : {
-                              ...candidate,
-                              serverUrl:
-                                  field === 'source'
-                                      ? trimmedValue
-                                      : candidate.serverUrl,
-                              username:
-                                  field === 'username'
-                                      ? trimmedValue
-                                      : candidate.username,
-                              password:
-                                  field === 'password'
-                                      ? trimmedValue
-                                      : candidate.password,
-                          };
+                const editedCandidate: BulkTestCandidate = {
+                    ...candidate,
+                    serverUrl:
+                        field === 'source'
+                            ? trimmedValue
+                            : candidate.serverUrl,
+                    username:
+                        field === 'username'
+                            ? trimmedValue
+                            : candidate.username,
+                    password:
+                        field === 'password'
+                            ? trimmedValue
+                            : candidate.password,
+                };
 
                 return {
                     ...result,
@@ -555,19 +543,13 @@ export class CredentialTesterComponent implements OnDestroy {
     }
 
     private toCredentialInput(candidate: BulkTestCandidate): CredentialTestInput {
-        return candidate.type === 'm3u'
-            ? {
-                  id: candidate.id,
-                  provider: 'm3u',
-                  playlistUrl: candidate.playlistUrl,
-              }
-            : {
-                  id: candidate.id,
-                  provider: 'xtream',
-                  serverUrl: candidate.serverUrl,
-                  username: candidate.username,
-                  password: candidate.password,
-              };
+        return {
+            id: candidate.id,
+            provider: 'xtream',
+            serverUrl: candidate.serverUrl,
+            username: candidate.username,
+            password: candidate.password,
+        };
     }
 
     private patchResult(id: string, patch: Partial<BulkTestResult>): void {
@@ -581,9 +563,7 @@ export class CredentialTesterComponent implements OnDestroy {
     private savedSourceKeys(): Set<string> {
         return new Set(
             this.existingPlaylists().map((playlist) =>
-                playlist.serverUrl
-                    ? `xtream|${this.normalizeServerKey(playlist.serverUrl)}|${playlist.username ?? ''}|${playlist.password ?? ''}`
-                    : this.normalizeM3uKey(playlist.url ?? '')
+                `xtream|${this.normalizeServerKey(playlist.serverUrl ?? '')}|${playlist.username ?? ''}|${playlist.password ?? ''}`
             )
         );
     }
@@ -593,9 +573,7 @@ export class CredentialTesterComponent implements OnDestroy {
     }
 
     private editedCandidateKey(candidate: BulkTestCandidate): string {
-        return candidate.type === 'm3u'
-            ? this.normalizeM3uKey(candidate.playlistUrl)
-            : `xtream|${this.normalizeServerKey(candidate.serverUrl)}|${candidate.username}|${candidate.password}`;
+        return `xtream|${this.normalizeServerKey(candidate.serverUrl)}|${candidate.username}|${candidate.password}`;
     }
 
     private normalizeServerKey(serverUrl: string): string {
@@ -605,24 +583,6 @@ export class CredentialTesterComponent implements OnDestroy {
         } catch {
             return serverUrl.replace(/\/+$/, '').toLowerCase();
         }
-    }
-
-    private normalizeM3uKey(playlistUrl: string): string {
-        try {
-            const parsed = new URL(playlistUrl);
-            parsed.protocol = parsed.protocol.toLowerCase();
-            parsed.hostname = parsed.hostname.toLowerCase();
-            parsed.hash = '';
-            return `m3u|${parsed.toString()}`;
-        } catch {
-            return `m3u|${playlistUrl}`;
-        }
-    }
-
-    private async createM3uPlaylist(
-        candidate: BulkTestCandidate
-    ): Promise<Playlist> {
-        return window.electron.fetchPlaylistByUrl(candidate.playlistUrl);
     }
 
     private createXtreamPlaylist(candidate: BulkTestCandidate): Playlist {

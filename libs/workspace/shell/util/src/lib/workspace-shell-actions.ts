@@ -3,11 +3,7 @@ import type { XtreamAccountInfoDialogData } from '@arm-nator/shared/interfaces';
 
 export type WorkspacePlaylistType =
     | 'xtream'
-    | 'url'
-    | 'text'
-    | 'file';
-export type PlaylistCategory = 'm3u' | 'xtream';
-export type M3uSubType = 'url' | 'file' | 'text';
+    | 'stalker';
 
 export type WorkspaceAccountInfoData = XtreamAccountInfoDialogData;
 

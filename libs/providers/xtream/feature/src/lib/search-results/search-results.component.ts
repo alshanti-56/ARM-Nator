@@ -49,7 +49,6 @@ import {
   CatalogTitleMatch,
   GlobalSearchResult,
   GLOBAL_SEARCH_RESULT_SOURCES,
-  isM3uGlobalSearchResult,
   normalizeTitleKeys,
   titleYearsCompatible,
 } from "@arm-nator/shared/interfaces";
@@ -481,11 +480,6 @@ export class SearchResultsComponent implements AfterViewInit {
   }
 
   selectItem(item: XtreamSearchResultItem) {
-    if (isM3uGlobalSearchResult(item as GlobalSearchResult)) {
-      this.selectM3uItem(item as GlobalSearchResult);
-      return;
-    }
-
     const playlistId = item.playlist_id ?? this.xtreamStore.playlistId();
     if (!playlistId) {
       return;
@@ -578,11 +572,6 @@ export class SearchResultsComponent implements AfterViewInit {
   }
 
   getDisplayType(item: XtreamSearchResultItem): string {
-    const result = item as GlobalSearchResult;
-    if (isM3uGlobalSearchResult(result) && result.radio === "true") {
-      return "radio";
-    }
-
     return item.type;
   }
 
@@ -743,22 +732,4 @@ export class SearchResultsComponent implements AfterViewInit {
     return results;
   }
 
-  private selectM3uItem(item: GlobalSearchResult): void {
-    if (!isM3uGlobalSearchResult(item)) {
-      return;
-    }
-
-    if (this.isGlobalSearch) {
-      this.dialogRef?.close();
-    }
-
-    void this.router.navigate(
-      ["/workspace", "playlists", item.playlist_id, "all"],
-      {
-        state: {
-          openM3uChannelUrl: item.stream_url,
-        },
-      },
-    );
-  }
 }

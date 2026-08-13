@@ -6,18 +6,6 @@ export const PERFORMANCE_PHASE_BOUNDARY = {
 export type PerformancePhaseBoundary =
     (typeof PERFORMANCE_PHASE_BOUNDARY)[keyof typeof PERFORMANCE_PHASE_BOUNDARY];
 
-export const M3U_IMPORT_PERFORMANCE_PHASE_EVENT_CHANNEL =
-    'ARM_NATOR_M3U_IMPORT_PERFORMANCE_PHASE_EVENT';
-
-export const M3U_IMPORT_PERFORMANCE_PHASE = {
-    DATA_ACQUIRE: 'data.acquire',
-    NORMALIZE: 'normalize',
-    PARSE_M3U: 'parse.m3u',
-} as const;
-
-export type M3uImportPerformancePhase =
-    (typeof M3U_IMPORT_PERFORMANCE_PHASE)[keyof typeof M3U_IMPORT_PERFORMANCE_PHASE];
-
 export const APP_PLAYLIST_UPSERT_PERFORMANCE_PHASE = {
     SERIALIZE_PLAYLIST: 'serialize.playlist',
     SQLITE_WRITE: 'sqlite.write',

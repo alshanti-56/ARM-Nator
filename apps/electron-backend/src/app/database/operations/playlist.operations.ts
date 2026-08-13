@@ -1,6 +1,5 @@
 import { eq, inArray } from 'drizzle-orm';
 import * as schema from '@arm-nator/database/schema';
-import type { Channel, M3uFavoriteChannel } from '@arm-nator/shared/interfaces';
 import {
     APP_PLAYLIST_GET_PERFORMANCE_PHASE,
     APP_PLAYLIST_UPSERT_PERFORMANCE_PHASE,
@@ -18,9 +17,6 @@ import {
 
 const PLAYLIST_TYPES = {
     XTREAM: 'xtream',
-    M3U_FILE: 'm3u-file',
-    M3U_TEXT: 'm3u-text',
-    M3U_URL: 'm3u-url',
 } as const;
 
 const DEFAULT_BATCH_SIZE = 100;
@@ -52,9 +48,6 @@ export interface AppPlaylistGetPhaseCapture {
 }
 
 type PlaylistType = (typeof PLAYLIST_TYPES)[keyof typeof PLAYLIST_TYPES];
-const PLAYLIST_TYPE_VALUES = new Set<PlaylistType>(
-    Object.values(PLAYLIST_TYPES)
-);
 
 function getStringValue(value: unknown): string | undefined {
     if (typeof value !== 'string') {
@@ -91,75 +84,11 @@ function parseJsonValue<T>(value: string | null | undefined, fallback: T): T {
     }
 }
 
-function getStringArrayValue(value: unknown): string[] {
-    if (!Array.isArray(value)) {
-        return [];
-    }
-
-    return value
-        .map((item) => (typeof item === 'string' ? item.trim() : ''))
-        .filter((item) => item.length > 0);
-}
-
-function getFavoriteChannelMatch(
-    channel: Channel,
-    favoritePositions: ReadonlyMap<string, number>
-): { favoriteId: string; favoriteIndex: number } | null {
-    const channelId = String(channel.id ?? '').trim();
-    const channelUrl = String(channel.url ?? '').trim();
-    const channelIdFavoritePosition = favoritePositions.get(channelId);
-    const channelUrlFavoritePosition = favoritePositions.get(channelUrl);
-
-    if (
-        channelIdFavoritePosition !== undefined &&
-        (channelUrlFavoritePosition === undefined ||
-            channelIdFavoritePosition <= channelUrlFavoritePosition)
-    ) {
-        return {
-            favoriteId: channelId,
-            favoriteIndex: channelIdFavoritePosition,
-        };
-    }
-
-    if (channelUrlFavoritePosition !== undefined) {
-        return {
-            favoriteId: channelUrl,
-            favoriteIndex: channelUrlFavoritePosition,
-        };
-    }
-
-    return null;
-}
-
 function inferPlaylistType(playlist: Record<string, unknown>): PlaylistType {
-    const explicitType = getStringValue(playlist.type);
-    // Stalker rows use the existing playlist storage envelope while their
-    // portal identity lives in payload/portalUrl/macAddress. Keep the SQL
-    // type backward-compatible until the provider gets dedicated catalog
-    // tables.
-    if (explicitType === 'stalker' || getStringValue(playlist.macAddress)) {
-        return PLAYLIST_TYPES.XTREAM;
-    }
-    if (
-        explicitType &&
-        PLAYLIST_TYPE_VALUES.has(explicitType as PlaylistType)
-    ) {
-        return explicitType as PlaylistType;
-    }
-
-    if (getStringValue(playlist.serverUrl)) {
-        return PLAYLIST_TYPES.XTREAM;
-    }
-
-    if (getStringValue(playlist.filePath)) {
-        return PLAYLIST_TYPES.M3U_FILE;
-    }
-
-    if (getStringValue(playlist.url)) {
-        return PLAYLIST_TYPES.M3U_URL;
-    }
-
-    return PLAYLIST_TYPES.M3U_TEXT;
+    // The legacy playlist table is now a connection-storage table. Xtream
+    // and Stalker rows both use it, while their provider identity lives in
+    // the connection fields and serialized payload.
+    return PLAYLIST_TYPES.XTREAM;
 }
 
 function buildPlaylistRow(
@@ -170,6 +99,13 @@ function buildPlaylistRow(
         return null;
     }
 
+    if (
+        !getStringValue(playlist.serverUrl) &&
+        !getStringValue(playlist.portalUrl) &&
+        !getStringValue(playlist.macAddress)
+    ) {
+        return null;
+    }
     const type = inferPlaylistType(playlist);
     const portalUrl = getStringValue(playlist.portalUrl);
     const url = getStringValue(playlist.url);
@@ -262,11 +198,8 @@ export function parseAppPlaylist(
         favorites,
         recentlyViewed,
         autoRefresh: row.autoRefresh ?? Boolean(base.autoRefresh),
-        url:
-            row.type === PLAYLIST_TYPES.M3U_URL
-                ? (row.url ?? getStringValue(base.url))
-                : getStringValue(base.url),
-        filePath: row.filePath ?? getStringValue(base.filePath),
+        url: undefined,
+        filePath: undefined,
         userAgent: row.userAgent ?? getStringValue(base.userAgent),
         referrer: row.referrer ?? getStringValue(base.referrer),
         origin: row.origin ?? getStringValue(base.origin),
@@ -388,7 +321,7 @@ export async function upsertAppPlaylists(
 export async function getAppPlaylists(db: AppDatabase) {
     const rows = await db.select().from(schema.playlists);
     return rows
-        .filter((row) => String(row.type) !== 'stalker')
+        .filter((row) => Boolean(row.serverUrl || row.portalUrl || row.macAddress))
         .map((row) => parseAppPlaylist(row));
 }
 
@@ -422,7 +355,7 @@ export async function getAppPlaylistMetas(db: AppDatabase) {
         .from(schema.playlists);
 
     return rows
-        .filter((row) => String(row.type) !== 'stalker')
+        .filter((row) => Boolean(row.serverUrl || row.portalUrl || row.macAddress))
         .map((row) =>
             parseAppPlaylist({
                 ...row,
@@ -450,7 +383,7 @@ export async function getAppPlaylist(
           )
         : await read();
     const deserialize = () =>
-        rows[0] && String(rows[0].type) !== 'stalker'
+        rows[0] && Boolean(rows[0].serverUrl || rows[0].portalUrl || rows[0].macAddress)
             ? parseAppPlaylist(rows[0])
             : null;
 
@@ -465,70 +398,6 @@ export async function getAppPlaylist(
               })
           )
         : deserialize();
-}
-
-export async function getAppPlaylistFavoriteChannels(
-    db: AppDatabase,
-    playlistId: string
-): Promise<M3uFavoriteChannel[]> {
-    const rows = await db
-        .select({
-            id: schema.playlists.id,
-            favorites: schema.playlists.favorites,
-            payload: schema.playlists.payload,
-        })
-        .from(schema.playlists)
-        .where(eq(schema.playlists.id, playlistId))
-        .limit(1);
-    const row = rows[0];
-    if (!row) {
-        return [];
-    }
-
-    const favorites = parseJsonValue<unknown[]>(row.favorites, []).filter(
-        (favorite): favorite is string =>
-            typeof favorite === 'string' && favorite.trim().length > 0
-    );
-    if (favorites.length === 0) {
-        return [];
-    }
-
-    const payload = parseJsonValue<{
-        playlist?: { items?: Channel[] };
-    } | null>(row.payload, null);
-    const channels = Array.isArray(payload?.playlist?.items)
-        ? payload.playlist.items
-        : [];
-    if (channels.length === 0) {
-        return [];
-    }
-
-    const favoritePositions = new Map<string, number>();
-    favorites.forEach((favorite, index) => {
-        if (!favoritePositions.has(favorite)) {
-            favoritePositions.set(favorite, index);
-        }
-    });
-
-    const resolved: M3uFavoriteChannel[] = [];
-    for (const channel of channels) {
-        const match = getFavoriteChannelMatch(channel, favoritePositions);
-        if (!match) {
-            continue;
-        }
-
-        resolved.push({
-            favoriteId: match.favoriteId,
-            favoriteIndex: match.favoriteIndex,
-            channel,
-        });
-
-        if (resolved.length === favoritePositions.size) {
-            break;
-        }
-    }
-
-    return resolved.sort((a, b) => a.favoriteIndex - b.favoriteIndex);
 }
 
 export async function getPlaylist(db: AppDatabase, playlistId: string) {

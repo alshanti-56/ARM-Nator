@@ -12,7 +12,7 @@ import { MatIcon } from "@angular/material/icon";
 import { MatPaginatorModule, PageEvent } from "@angular/material/paginator";
 import { MatTooltip } from "@angular/material/tooltip";
 import { TranslatePipe } from "@ngx-translate/core";
-import { applyChannelNameStrip } from "@arm-nator/providers/m3u/utils";
+import { applyChannelNameStrip } from "@arm-nator/providers/shared/util";
 import {
   catalogGenre,
   catalogYear,

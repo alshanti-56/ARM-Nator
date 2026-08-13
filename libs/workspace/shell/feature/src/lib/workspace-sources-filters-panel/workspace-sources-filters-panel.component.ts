@@ -11,7 +11,7 @@ import {
     FilterActions,
     selectActiveTypeFilters,
     selectAllPlaylistsMeta,
-} from '@arm-nator/providers/m3u/state';
+} from '@arm-nator/providers/shared/playlist-state';
 import {
     getPlaylistSourceType,
     PlaylistSourceType,
@@ -27,7 +27,7 @@ interface PlaylistFilterOption {
     translationKey?: string;
 }
 
-const ALL_FILTERS: PlaylistSourceType[] = ['m3u', 'xtream', 'stalker'];
+const ALL_FILTERS: PlaylistSourceType[] = ['xtream', 'stalker'];
 
 @Component({
     selector: 'app-workspace-sources-filters-panel',
@@ -51,11 +51,6 @@ export class WorkspaceSourcesFiltersPanelComponent {
             translationKey: 'WORKSPACE.SOURCES.ALL',
         },
         {
-            id: 'm3u',
-            icon: 'playlist_play',
-            translationKey: 'HOME.PLAYLIST_TYPES.M3U',
-        },
-        {
             id: 'xtream',
             icon: 'cloud',
             translationKey: 'HOME.PLAYLIST_TYPES.XTREAM',
@@ -71,8 +66,6 @@ export class WorkspaceSourcesFiltersPanelComponent {
         const items = this.playlists();
         return {
             all: items.length,
-            m3u: items.filter((item) => getPlaylistSourceType(item) === 'm3u')
-                .length,
             xtream: items.filter(
                 (item) => getPlaylistSourceType(item) === 'xtream'
             ).length,

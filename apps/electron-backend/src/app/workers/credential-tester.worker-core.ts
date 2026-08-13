@@ -1,14 +1,12 @@
 /* eslint-disable max-lines */
 import type {
     CredentialAccountSummary,
-    CredentialM3uTestInput,
     CredentialTestBatchOptions,
     CredentialTestInput,
     CredentialTestOutcome,
     CredentialTestResult,
     CredentialXtreamTestInput,
 } from '@arm-nator/shared/interfaces';
-export const M3U_PROBE_BYTES = 512 * 1024;
 const CLIENT_USER_AGENT = 'VLC/3.0.18 LibVLC/3.0.18';
 
 const OUTCOME_STATUS: Readonly<Record<CredentialTestOutcome, CredentialTestResult['status']>> = {
@@ -114,7 +112,7 @@ function staticMessage(outcome: CredentialTestOutcome): string {
 }
 
 function sourceUrl(input: CredentialTestInput): string {
-    return input.provider === 'm3u' ? input.playlistUrl : input.serverUrl;
+    return input.serverUrl;
 }
 
 function resultFor(
@@ -348,136 +346,6 @@ async function testXtream(
     });
 }
 
-function asReadable(value: unknown): CredentialReadable | null {
-    return value &&
-        typeof value === 'object' &&
-        Symbol.asyncIterator in value
-        ? (value as CredentialReadable)
-        : null;
-}
-
-export async function readBoundedM3uSample(
-    value: unknown,
-    signal: AbortSignal,
-    maxBytes = M3U_PROBE_BYTES
-): Promise<string> {
-    if (typeof value === 'string') {
-        return value.slice(0, maxBytes);
-    }
-
-    const stream = asReadable(value);
-    if (!stream) {
-        return '';
-    }
-
-    const chunks: Buffer[] = [];
-    let byteLength = 0;
-    const abort = () => stream.destroy?.(createAbortError());
-    signal.addEventListener('abort', abort, { once: true });
-    try {
-        for await (const chunk of stream) {
-            if (signal.aborted) {
-                throw createAbortError();
-            }
-            const buffer = Buffer.isBuffer(chunk)
-                ? chunk
-                : Buffer.from(chunk);
-            const remaining = maxBytes - byteLength;
-            if (remaining <= 0) {
-                stream.destroy?.();
-                break;
-            }
-            const bounded = buffer.subarray(0, remaining);
-            chunks.push(bounded);
-            byteLength += bounded.length;
-            if (byteLength >= maxBytes) {
-                stream.destroy?.();
-                break;
-            }
-        }
-    } finally {
-        signal.removeEventListener('abort', abort);
-        if (byteLength >= maxBytes) {
-            stream.destroy?.();
-        }
-    }
-    return Buffer.concat(chunks, byteLength).toString('utf8');
-}
-
-export function isMeaningfulM3u(value: string): boolean {
-    const lines = value.replace(/\r/g, '').split('\n').map((line) => line.trim());
-    const hasHeader = lines.some((line) => /^#EXTM3U(?:\s|$)/i.test(line));
-    if (!hasHeader) {
-        return false;
-    }
-
-    for (let index = 0; index < lines.length; index += 1) {
-        if (!/^#EXTINF(?::|\s|$)/i.test(lines[index])) {
-            continue;
-        }
-        for (let next = index + 1; next < lines.length; next += 1) {
-            const candidate = lines[next];
-            if (/^#EXTINF(?::|\s|$)/i.test(candidate)) {
-                break;
-            }
-            if (!candidate || candidate.startsWith('#')) {
-                continue;
-            }
-            try {
-                const url = new URL(candidate);
-                if (
-                    (url.protocol === 'http:' || url.protocol === 'https:') &&
-                    !url.username &&
-                    !url.password
-                ) {
-                    return true;
-                }
-            } catch {
-                // Keep looking for the entry paired with this EXTINF tag.
-            }
-        }
-    }
-    return false;
-}
-
-function countM3uEntries(value: string): number {
-    return value
-        .replace(/\r/g, '')
-        .split('\n')
-        .filter((line) => /^#EXTINF(?::|\s|$)/i.test(line.trim())).length;
-}
-
-async function testM3u(
-    input: CredentialM3uTestInput,
-    options: CredentialTestBatchOptions,
-    signal: AbortSignal,
-    startedAt: number,
-    dependencies: CredentialTesterWorkerDependencies
-): Promise<CredentialTestResult> {
-    const response = await dependencies.request<unknown>(
-        input.playlistUrl,
-        requestConfig(options.timeoutMs, signal, 'stream')
-    );
-    if (signal.aborted) {
-        throw createAbortError();
-    }
-    if (response.status >= 400) {
-        return statusResult(input, response.status, startedAt, dependencies);
-    }
-
-    const sample = await readBoundedM3uSample(response.data, signal);
-    if (!isMeaningfulM3u(sample)) {
-        return resultFor(input, 'invalid-url', startedAt, dependencies, {
-            httpStatus: response.status,
-        });
-    }
-
-    return resultFor(input, 'working', startedAt, dependencies, {
-        httpStatus: response.status,
-        account: { playlistChannelCount: countM3uEntries(sample) },
-    });
-}
-
 export async function probeCredentialTest(
     input: CredentialTestInput,
     options: CredentialTestBatchOptions,
@@ -486,9 +354,7 @@ export async function probeCredentialTest(
     dependencies: CredentialTesterWorkerDependencies
 ): Promise<CredentialTestResult> {
     try {
-        return input.provider === 'xtream'
-            ? await testXtream(input, options, signal, startedAt, dependencies)
-            : await testM3u(input, options, signal, startedAt, dependencies);
+        return await testXtream(input, options, signal, startedAt, dependencies);
     } catch (error) {
         return classifyError(input, error, startedAt, signal, dependencies);
     }

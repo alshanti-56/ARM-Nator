@@ -1,7 +1,7 @@
 import {
     TmdbEnrichmentService,
     extractYear,
-    mergeSerieInfoWithTmdb,
+    mergeStalkerInfoWithTmdb,
 } from '@arm-nator/services';
 import { StalkerVodInfo, TmdbMediaType } from '@arm-nator/shared/interfaces';
 import { StalkerVodSource } from '../models';
@@ -87,7 +87,7 @@ export async function enrichStalkerSelectionWithTmdb(
     try {
         applyEnrichedItem({
             ...current,
-            info: mergeSerieInfoWithTmdb(currentInfo, details),
+            info: mergeStalkerInfoWithTmdb(currentInfo, details),
         });
     } catch (error) {
         // Never degrade provider data over a malformed payload shape

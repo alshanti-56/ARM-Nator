@@ -23,10 +23,8 @@
             "WELCOME_TITLE": "Bienvenue sur ARM-Nator",
             "WELCOME_DESCRIPTION": "Commencez votre voyage de streaming en ajoutant votre première liste de lecture. Connectez-vous à votre service IPTV préféré et profitez de la télévision en direct, des films et des séries.",
             "ADD_YOUR_FIRST": "Ajouter votre première liste",
-            "FEATURE_M3U": "Fichiers M3U/M3U8",
             "FEATURE_XTREAM": "Xtream Codes",
             "FEATURE_STALKER": "Portail Stalker",
-            "FEATURE_M3U_LABEL": "Add an M3U file or URL",
             "FEATURE_XTREAM_LABEL": "Connect via Xtream Codes",
             "FEATURE_STALKER_LABEL": "Connect to a Stalker portal",
             "VALUE_PROPS_LABEL": "What you can do",
@@ -35,7 +33,6 @@
             "VALUE_PROP_MULTISOURCE": "Multi-source library",
             "VALUE_PROP_OFFLINE": "Offline downloads",
             "DASHBOARD_WELCOME_TAGLINE": "Your IPTV library, in one place.",
-            "DASHBOARD_WELCOME_DESCRIPTION": "Connect M3U files, Xtream Codes, or Stalker portals — then enjoy live TV, movies and series on every screen.",
             "FEATURE_LIVE_TITLE": "Live TV",
             "FEATURE_LIVE_DESC": "Stream live channels with full schedule.",
             "FEATURE_VOD_TITLE": "Movies & Series",
@@ -44,8 +41,6 @@
             "FEATURE_OFFLINE_DESC": "Save movies and episodes for later.",
             "SOURCES_WELCOME_TITLE": "Add your first playlist",
             "SOURCES_WELCOME_BODY": "Pick a source type below to get started.",
-            "SOURCE_M3U_NEEDS": "Local file or URL pointing to an M3U/M3U8 playlist.",
-            "SOURCE_M3U_ADD": "Add M3U",
             "SOURCE_XTREAM_NEEDS": "Username, password and server URL from your provider.",
             "SOURCE_XTREAM_ADD": "Add Xtream",
             "SOURCE_STALKER_NEEDS": "Portal URL and MAC address (Ministra-compatible).",
@@ -79,7 +74,6 @@
                 "AUTO_UPDATE": "Mise à jour automatique",
                 "AUTO_UPDATE_DESCRIPTION": "Si la fonction de mise à jour automatique est activée, la liste de lecture sera mise à jour automatiquement à chaque fois que l'app est lancée.",
                 "CUSTOM_USER_AGENT": "Certains fournisseurs d'IPTV requièrent un agent utilisateur spécifique afin de lire leur liste de lecture.",
-                "EXPORT_PLAYLIST": "Exporter la liste de lecture en m3u",
                 "SERVER_URL": "URL du serveur",
                 "USERNAME": "Nom d'utilisateur",
                 "PASSWORD": "Mot de passe",
@@ -132,15 +126,11 @@
         },
         "ADD_PLAYLIST": {
             "PICK_METHOD": "Choisissez comment vous souhaitez vous connecter. Vous pourrez renommer la liste plus tard.",
-            "METHOD_URL_LABEL": "URL M3U",
-            "METHOD_URL_SUB": "Collez un lien vers un fichier .m3u ou .m3u8 distant",
-            "METHOD_FILE_LABEL": "Fichier M3U",
             "METHOD_FILE_SUB": "Téléversez une liste de lecture depuis votre ordinateur",
             "METHOD_XTREAM_LABEL": "Identifiants Xtream",
             "METHOD_XTREAM_SUB": "Connectez-vous avec hôte, nom d'utilisateur et mot de passe",
             "METHOD_STALKER_LABEL": "Portail Stalker",
             "METHOD_STALKER_SUB": "Adresse MAC et URL du portail",
-            "METHOD_TEXT_LABEL": "Texte m3u brut",
             "METHOD_TEXT_SUB": "Pour les listes ponctuelles ou quand vous n'avez que du texte"
         },
         "FILE_UPLOAD": {
@@ -151,7 +141,6 @@
             "REJECTED": "Le fichier a été rejeté, format de fichier non pris en charge {{filename}}."
         },
         "URL_UPLOAD": {
-            "PLAYLIST_URL": "URL de la liste de lecture (m3u, m3u8)",
             "ADD_PLAYLIST": "Ajouter la liste de lecture",
             "CORS_NOTE": "Remarque : Pour éviter les problèmes CORS, l'application utilise un service proxy CORS public. Si vous souhaitez télécharger une liste avec des données sensibles, il est plus sûr de l'importer depuis un fichier.",
             "ERROR_FETCH_FAILED": "Échec de la récupération de la liste de lecture. Veuillez vérifier l'URL et réessayer.",
@@ -165,7 +154,6 @@
             "TRUST_TLS_HOST_WARNING": "Only continue if you trust this playlist host. ARM-Nator will allow invalid TLS certificates for this host, but other hosts still require valid certificates."
         },
         "TEXT_IMPORT": {
-            "LABEL": "Insérer la liste m3u(8) sous forme de texte",
             "BUTTON_LABEL": "Importer"
         },
         "XTREAM_PLAYLIST": {
@@ -204,7 +192,6 @@
             "CUSTOM_ORDER": "Ordre personnalisé (Drag & Drop)"
         },
         "PLAYLIST_TYPES": {
-            "M3U": "M3U (local, URL, texte)",
             "XTREAM": "Xtream",
             "STALKER": "Stalker"
         },
@@ -255,7 +242,6 @@
         "DESCRIPTION": "Changez les options de la liste ci-dessous et enregistrez vos modifications.",
         "VIDEO_PLAYER_LABEL": "Lecteur vidéo",
         "LIVE_VIDEO_PLAYER_LABEL": "Live TV player",
-        "LIVE_VIDEO_PLAYER_DESCRIPTION": "Default player for live TV and M3U channels",
         "VOD_VIDEO_PLAYER_LABEL": "Movies and series player",
         "VOD_VIDEO_PLAYER_DESCRIPTION": "Default player for movies and series episodes",
         "PLAYER_HTML5": "Lecteur vidéo HTML5",
@@ -305,13 +291,11 @@
         "EMBEDDED_MPV_NOTICE_TITLE": "Runtime MPV intégré",
         "EMBEDDED_MPV_NOTICE_DESCRIPTION": "Les versions desktop peuvent inclure les bibliothèques libmpv et FFmpeg empaquetées pour le lecteur MPV intégré expérimental. Les utilisateurs n'ont pas besoin d'installer l'application MPV séparément ; les lecteurs externes MPV et VLC restent disponibles comme lecteurs de secours.",
         "IMPORT_EXPORT_DATA": "Importer/exporter des listes de lecture",
-        "IMPORT_EXPORT_DATA_DESCRIPTION": "Export or restore playlist backups including M3U snapshots, Xtream/Stalker connection metadata, and user state.",
         "IMPORT_DATA": "Importer",
         "EXPORT_DATA": "Exporter",
         "EXPORTING_DATA": "Exportation…",
         "REMOVE_ALL": "Delete all playlists and playlist data",
         "REMOVE_ALL_BUTTON": "Delete all",
-        "REMOVE_ALL_DESCRIPTION": "Delete every M3U, Xtream, and Stalker playlist stored in the app.",
         "REMOVE_DIALOG": {
             "TITLE": "Delete all playlists?",
             "MESSAGE": "Delete all {{count}} playlists from the app. This also removes stored playlist data on this device.",
@@ -599,7 +583,6 @@
     },
     "ABOUT": {
         "TITLE": "À propos d'ARM-Nator",
-        "DESCRIPTION": "Application lecteur IPTV multiplateforme avec de nombreuses fonctionnalités, comme la prise en charge des listes m3u et m3u8, les favoris, le guide TV, les archives TV/rattrapage et plus encore.",
         "VERSION": "Version",
         "BUY_ME_A_COFFEE_TOOLTIP": "Offrez-moi un café"
     },
@@ -785,8 +768,6 @@
             "NO_RESULTS_FOR": "Aucun résultat trouvé pour \"{{term}}\"",
             "GROUP_BY_PLAYLIST": "Grouper les résultats par liste de lecture",
             "VISIBLE_CATEGORIES_ONLY": "Catégories visibles uniquement",
-            "GLOBAL_SEARCH_SOURCE_NOTE": "Global search includes results from Xtream and M3U playlists.",
-            "GLOBAL_INITIAL_DESCRIPTION": "Enter at least 2 characters to search across Xtream and M3U playlists.",
             "LOADING_MORE_RESULTS": "Loading more results..."
         },
         "STREAM_URL_COPIED": "URL du flux copiée dans le presse-papiers",
@@ -904,7 +885,6 @@
             "NO_HISTORY_HINT": "Votre historique de visionnage apparaîtra ici une fois que vous aurez commencé à lire du contenu depuis vos listes de lecture.",
             "XTREAM": "Xtream",
             "STALKER": "Stalker",
-            "M3U": "M3U",
             "STALKER_PORTAL": "Portail Stalker",
             "PROVIDER": "Fournisseur",
             "TYPE_LIVE": "Direct",
@@ -979,8 +959,6 @@
             "GO_TO_DASHBOARD": "Back to dashboard",
             "GO_TO_SOURCES": "Go to Sources",
             "DROP_OVERLAY_TITLE": "Drop to add playlist",
-            "DROP_OVERLAY_BODY": "Release an .m3u or .m3u8 file anywhere in the workspace to import it.",
-            "DROP_OVERLAY_REJECTED_BODY": "Please drop an .m3u or .m3u8 file. Press Esc to dismiss.",
             "DROP_OVERLAY_REJECTED_UNSUPPORTED": "Unsupported file type",
             "DROP_OVERLAY_REJECTED_EMPTY": "That file is empty",
             "DROP_OVERLAY_REJECTED_READ_ERROR": "Could not read that file",
@@ -1017,8 +995,6 @@
                 "OPEN_DASHBOARD_DESCRIPTION": "Naviguer vers le tableau de bord",
                 "ADD_PLAYLIST_LABEL": "Ajouter une nouvelle source",
                 "ADD_PLAYLIST_DESCRIPTION": "Ouvrir la fenêtre d'ajout de liste de lecture",
-                "ADD_PLAYLIST_M3U_LABEL": "Add M3U playlist",
-                "ADD_PLAYLIST_M3U_DESCRIPTION": "Open add dialog on the M3U file or URL tab",
                 "ADD_PLAYLIST_XTREAM_LABEL": "Add Xtream Codes playlist",
                 "ADD_PLAYLIST_XTREAM_DESCRIPTION": "Open add dialog on the Xtream Codes tab",
                 "ADD_PLAYLIST_STALKER_LABEL": "Add Stalker portal",
@@ -1054,7 +1030,6 @@
             "SUBTITLE": "Filtrer et trier les listes de lecture",
             "TYPE": "Type",
             "ALL": "Toutes",
-            "M3U_PLAYLISTS": "Listes de lecture M3U",
             "XTREAM_PLAYLISTS": "Listes de lecture Xtream",
             "STALKER_PLAYLISTS": "Listes de lecture Stalker",
             "ALL_PLAYLISTS": "Toutes les listes de lecture",
@@ -1115,7 +1090,6 @@
                 "OPEN_RECENTLY_VIEWED": "Open recently viewed",
                 "SUBMIT_SHELL_SEARCH": "Submit workspace search",
                 "TOGGLE_SIDEBAR": "Toggle sidebar",
-                "M3U_CHANNEL_NUMBER": "Select M3U channel by number",
                 "PLAY_PAUSE": "Play or pause embedded MPV playback",
                 "TOGGLE_FULLSCREEN": "Toggle embedded MPV fullscreen",
                 "SEEK": "Seek embedded MPV playback by 5 seconds",
@@ -1135,7 +1109,6 @@
             "NO_RESULTS": "Aucun résultat",
             "NO_RESULTS_HINT": "Essayez un autre terme de recherche",
             "EMPTY_TITLE": "Aucun favori TV en direct pour le moment",
-            "EMPTY_HINT": "Mettez en favori des chaînes en direct depuis vos listes M3U, Xtream ou Stalker pour les voir ici.",
             "EMPTY_PLAYER": "Sélectionnez une chaîne pour commencer à regarder",
             "NO_PLAYLISTS_TITLE": "No favorites to show",
             "NO_PLAYLISTS_BODY": "Add a playlist to start collecting favorites from live channels, movies, and series.",

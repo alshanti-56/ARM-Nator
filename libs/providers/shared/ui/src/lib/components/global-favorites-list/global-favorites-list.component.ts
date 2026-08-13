@@ -13,13 +13,9 @@ import {
   signal,
   viewChild,
 } from "@angular/core";
-import { MatDialog } from "@angular/material/dialog";
 import { MatIconModule } from "@angular/material/icon";
 import { MatMenuModule, MatMenuTrigger } from "@angular/material/menu";
-import {
-  ChannelDetailsDialogComponent,
-  ChannelListItemComponent,
-} from "@arm-nator/ui/components";
+import { ChannelListItemComponent } from "@arm-nator/ui/components";
 import { SettingsStore } from "@arm-nator/services";
 import {
   DEFAULT_FAVORITES_CHANNEL_SORT_MODE,
@@ -47,7 +43,6 @@ export type GlobalFavoritesListMode = "favorites" | "recent";
   ],
 })
 export class GlobalFavoritesListComponent {
-  private readonly dialog = inject(MatDialog);
   private readonly settingsStore = inject(SettingsStore);
 
   readonly contextMenuTrigger =
@@ -147,25 +142,7 @@ export class GlobalFavoritesListComponent {
   }
 
   hasChannelContextMenu(channel: UnifiedFavoriteChannel): boolean {
-    return (
-      Boolean(channel.m3uChannel) ||
-      this.mode() === "recent" ||
-      false
-    );
-  }
-
-  openChannelDetails(): void {
-    const channel = this.contextMenuChannel()?.m3uChannel;
-    if (!channel) {
-      return;
-    }
-
-    this.contextMenuTrigger().closeMenu();
-    this.dialog.open(ChannelDetailsDialogComponent, {
-      data: channel,
-      maxWidth: "720px",
-      width: "calc(100vw - 32px)",
-    });
+    return this.mode() === "recent";
   }
 
   removeContextMenuChannel(): void {

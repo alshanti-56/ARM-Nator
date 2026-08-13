@@ -6,7 +6,7 @@ import { take } from "rxjs";
 import {
   PlaylistActions,
   selectAllPlaylistsMeta,
-} from "@arm-nator/providers/m3u/state";
+} from "@arm-nator/providers/shared/playlist-state";
 import {
   DatabaseService,
   DbOperationEvent,

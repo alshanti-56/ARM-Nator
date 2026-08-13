@@ -23,10 +23,8 @@
             "WELCOME_TITLE": "欢迎使用 ARM-Nator",
             "WELCOME_DESCRIPTION": "添加您的第一个播放列表，开启流媒体之旅。连接到您喜爱的 IPTV 服务，享受直播、电影和剧集。",
             "ADD_YOUR_FIRST": "添加您的第一个播放列表",
-            "FEATURE_M3U": "M3U/M3U8 文件",
             "FEATURE_XTREAM": "Xtream Codes",
             "FEATURE_STALKER": "Stalker 门户",
-            "FEATURE_M3U_LABEL": "Add an M3U file or URL",
             "FEATURE_XTREAM_LABEL": "Connect via Xtream Codes",
             "FEATURE_STALKER_LABEL": "Connect to a Stalker portal",
             "VALUE_PROPS_LABEL": "What you can do",
@@ -35,7 +33,6 @@
             "VALUE_PROP_MULTISOURCE": "Multi-source library",
             "VALUE_PROP_OFFLINE": "Offline downloads",
             "DASHBOARD_WELCOME_TAGLINE": "Your IPTV library, in one place.",
-            "DASHBOARD_WELCOME_DESCRIPTION": "Connect M3U files, Xtream Codes, or Stalker portals — then enjoy live TV, movies and series on every screen.",
             "FEATURE_LIVE_TITLE": "Live TV",
             "FEATURE_LIVE_DESC": "Stream live channels with full schedule.",
             "FEATURE_VOD_TITLE": "Movies & Series",
@@ -44,8 +41,6 @@
             "FEATURE_OFFLINE_DESC": "Save movies and episodes for later.",
             "SOURCES_WELCOME_TITLE": "Add your first playlist",
             "SOURCES_WELCOME_BODY": "Pick a source type below to get started.",
-            "SOURCE_M3U_NEEDS": "Local file or URL pointing to an M3U/M3U8 playlist.",
-            "SOURCE_M3U_ADD": "Add M3U",
             "SOURCE_XTREAM_NEEDS": "Username, password and server URL from your provider.",
             "SOURCE_XTREAM_ADD": "Add Xtream",
             "SOURCE_STALKER_NEEDS": "Portal URL and MAC address (Ministra-compatible).",
@@ -79,7 +74,6 @@
                 "AUTO_UPDATE": "自动更新",
                 "AUTO_UPDATE_DESCRIPTION": "如果启用了自动刷新功能，则每次启动应用程序时都会自动更新播放列表。",
                 "CUSTOM_USER_AGENT": "一些 IPTV 提供商需要特定的用户代理才能播放他们的播放列表。",
-                "EXPORT_PLAYLIST": "导出为 m3u 播放列表",
                 "SERVER_URL": "服务器地址",
                 "USERNAME": "用户名",
                 "PASSWORD": "密码",
@@ -132,15 +126,11 @@
         },
         "ADD_PLAYLIST": {
             "PICK_METHOD": "选择您想要的连接方式。稍后可以重命名。",
-            "METHOD_URL_LABEL": "M3U URL",
-            "METHOD_URL_SUB": "粘贴远程 .m3u 或 .m3u8 的链接",
-            "METHOD_FILE_LABEL": "M3U 文件",
             "METHOD_FILE_SUB": "从您的电脑上传播放列表",
             "METHOD_XTREAM_LABEL": "Xtream 凭据",
             "METHOD_XTREAM_SUB": "使用主机、用户名和密码连接",
             "METHOD_STALKER_LABEL": "Stalker 门户",
             "METHOD_STALKER_SUB": "MAC 地址和门户 URL",
-            "METHOD_TEXT_LABEL": "原始 m3u 文本",
             "METHOD_TEXT_SUB": "用于一次性列表，或仅有文本时"
         },
         "FILE_UPLOAD": {
@@ -151,7 +141,6 @@
             "REJECTED": "文件已被拒绝，不支持的文件格式 {{filename}}。"
         },
         "URL_UPLOAD": {
-            "PLAYLIST_URL": "播放一个播放列表(m3u, m3u8)",
             "ADD_PLAYLIST": "添加播放列表",
             "CORS_NOTE": "注意：为避免 CORS 问题，应用程序目前使用了一个公共 CORS 代理服务。如果您要上传包含敏感数据的播放列表，从文件导入会更加安全。",
             "ERROR_FETCH_FAILED": "获取播放列表失败。请检查 URL 后重试。",
@@ -165,7 +154,6 @@
             "TRUST_TLS_HOST_WARNING": "Only continue if you trust this playlist host. ARM-Nator will allow invalid TLS certificates for this host, but other hosts still require valid certificates."
         },
         "TEXT_IMPORT": {
-            "LABEL": "从文本导入播放列表(m3u, m3u8)",
             "BUTTON_LABEL": "导入"
         },
         "XTREAM_PLAYLIST": {
@@ -204,7 +192,6 @@
             "CUSTOM_ORDER": "自定义顺序（Drag & Drop）"
         },
         "PLAYLIST_TYPES": {
-            "M3U": "M3U（本地、URL、文本）",
             "XTREAM": "Xtream",
             "STALKER": "Stalker"
         },
@@ -255,7 +242,6 @@
         "DESCRIPTION": "请调整以下列表中的选项并使用保存按钮确认",
         "VIDEO_PLAYER_LABEL": "视频播放器",
         "LIVE_VIDEO_PLAYER_LABEL": "Live TV player",
-        "LIVE_VIDEO_PLAYER_DESCRIPTION": "Default player for live TV and M3U channels",
         "VOD_VIDEO_PLAYER_LABEL": "Movies and series player",
         "VOD_VIDEO_PLAYER_DESCRIPTION": "Default player for movies and series episodes",
         "PLAYER_HTML5": "HTML5 视频播放器",
@@ -305,13 +291,11 @@
         "EMBEDDED_MPV_NOTICE_TITLE": "嵌入式 MPV 运行时",
         "EMBEDDED_MPV_NOTICE_DESCRIPTION": "桌面构建版本可包含捆绑的 libmpv 和 FFmpeg 库，用于实验性的嵌入式 MPV 播放器。用户无需单独安装 MPV 应用；外部 MPV 和 VLC 仍可作为备用播放器使用。",
         "IMPORT_EXPORT_DATA": "导入/导出播放列表",
-        "IMPORT_EXPORT_DATA_DESCRIPTION": "Export or restore playlist backups including M3U snapshots, Xtream/Stalker connection metadata, and user state.",
         "IMPORT_DATA": "进口",
         "EXPORT_DATA": "出口",
         "EXPORTING_DATA": "导出中…",
         "REMOVE_ALL": "Delete all playlists and playlist data",
         "REMOVE_ALL_BUTTON": "Delete all",
-        "REMOVE_ALL_DESCRIPTION": "Delete every M3U, Xtream, and Stalker playlist stored in the app.",
         "REMOVE_DIALOG": {
             "TITLE": "Delete all playlists?",
             "MESSAGE": "Delete all {{count}} playlists from the app. This also removes stored playlist data on this device.",
@@ -599,7 +583,6 @@
     },
     "ABOUT": {
         "TITLE": "关于 ARM-Nator",
-        "DESCRIPTION": "跨平台 IPTV 播放器应用，支持多种功能，例如 m3u 和 m3u8 播放列表、收藏、电视节目指南、电视归档/Catchup 等。",
         "VERSION": "版本",
         "BUY_ME_A_COFFEE_TOOLTIP": "Buy me a coffee"
     },
@@ -785,8 +768,6 @@
             "NO_RESULTS_FOR": "未找到与“{{term}}”匹配的结果",
             "GROUP_BY_PLAYLIST": "按播放列表分组结果",
             "VISIBLE_CATEGORIES_ONLY": "仅可见分类",
-            "GLOBAL_SEARCH_SOURCE_NOTE": "Global search includes results from Xtream and M3U playlists.",
-            "GLOBAL_INITIAL_DESCRIPTION": "Enter at least 2 characters to search across Xtream and M3U playlists.",
             "LOADING_MORE_RESULTS": "Loading more results..."
         },
         "STREAM_URL_COPIED": "流 URL 已复制到剪贴板",
@@ -904,7 +885,6 @@
             "NO_HISTORY_HINT": "开始播放播放列表中的内容后，您的观看历史将显示在此处。",
             "XTREAM": "Xtream",
             "STALKER": "Stalker",
-            "M3U": "M3U",
             "STALKER_PORTAL": "Stalker 门户",
             "PROVIDER": "提供商",
             "TYPE_LIVE": "直播",
@@ -979,8 +959,6 @@
             "GO_TO_DASHBOARD": "Back to dashboard",
             "GO_TO_SOURCES": "Go to Sources",
             "DROP_OVERLAY_TITLE": "Drop to add playlist",
-            "DROP_OVERLAY_BODY": "Release an .m3u or .m3u8 file anywhere in the workspace to import it.",
-            "DROP_OVERLAY_REJECTED_BODY": "Please drop an .m3u or .m3u8 file. Press Esc to dismiss.",
             "DROP_OVERLAY_REJECTED_UNSUPPORTED": "Unsupported file type",
             "DROP_OVERLAY_REJECTED_EMPTY": "That file is empty",
             "DROP_OVERLAY_REJECTED_READ_ERROR": "Could not read that file",
@@ -1017,8 +995,6 @@
                 "OPEN_DASHBOARD_DESCRIPTION": "跳转到仪表盘",
                 "ADD_PLAYLIST_LABEL": "添加新源",
                 "ADD_PLAYLIST_DESCRIPTION": "打开添加播放列表对话框",
-                "ADD_PLAYLIST_M3U_LABEL": "Add M3U playlist",
-                "ADD_PLAYLIST_M3U_DESCRIPTION": "Open add dialog on the M3U file or URL tab",
                 "ADD_PLAYLIST_XTREAM_LABEL": "Add Xtream Codes playlist",
                 "ADD_PLAYLIST_XTREAM_DESCRIPTION": "Open add dialog on the Xtream Codes tab",
                 "ADD_PLAYLIST_STALKER_LABEL": "Add Stalker portal",
@@ -1054,7 +1030,6 @@
             "SUBTITLE": "筛选和排序播放列表",
             "TYPE": "类型",
             "ALL": "全部",
-            "M3U_PLAYLISTS": "M3U 播放列表",
             "XTREAM_PLAYLISTS": "Xtream 播放列表",
             "STALKER_PLAYLISTS": "Stalker 播放列表",
             "ALL_PLAYLISTS": "所有播放列表",
@@ -1115,7 +1090,6 @@
                 "OPEN_RECENTLY_VIEWED": "Open recently viewed",
                 "SUBMIT_SHELL_SEARCH": "Submit workspace search",
                 "TOGGLE_SIDEBAR": "Toggle sidebar",
-                "M3U_CHANNEL_NUMBER": "Select M3U channel by number",
                 "PLAY_PAUSE": "Play or pause embedded MPV playback",
                 "TOGGLE_FULLSCREEN": "Toggle embedded MPV fullscreen",
                 "SEEK": "Seek embedded MPV playback by 5 seconds",
@@ -1135,7 +1109,6 @@
             "NO_RESULTS": "无结果",
             "NO_RESULTS_HINT": "尝试其他搜索词",
             "EMPTY_TITLE": "暂无直播电视收藏",
-            "EMPTY_HINT": "为来自 M3U、Xtream 或 Stalker 播放列表的直播频道点星，即可在此查看。",
             "EMPTY_PLAYER": "选择一个频道开始观看",
             "NO_PLAYLISTS_TITLE": "No favorites to show",
             "NO_PLAYLISTS_BODY": "Add a playlist to start collecting favorites from live channels, movies, and series.",

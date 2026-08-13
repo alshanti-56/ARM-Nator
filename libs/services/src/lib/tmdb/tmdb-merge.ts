@@ -1,5 +1,6 @@
 import {
     normalizeSeriesStatus,
+    StalkerVodInfo,
     TmdbRecommendation,
     XtreamSerieInfo,
     XtreamVodInfo,
@@ -176,5 +177,58 @@ export function mergeSerieInfoWithTmdb(
         ...(recommendations.length > 0
             ? { tmdb_recommendations: recommendations }
             : {}),
+    };
+}
+
+export function mergeStalkerInfoWithTmdb(
+    info: StalkerVodInfo,
+    details: TmdbTvDetails
+): StalkerVodInfo {
+    const merged = mergeSerieInfoWithTmdb(
+        {
+            name: info.name,
+            cover: info.movie_image,
+            plot: info.description,
+            cast: info.actors,
+            actors: info.actors,
+            director: info.director,
+            genre: info.genre,
+            releaseDate: info.releasedate,
+            last_modified: '',
+            rating: info.rating_imdb,
+            rating_5based: 0,
+            backdrop_path: info.tmdb_backdrop ? [info.tmdb_backdrop] : [],
+            youtube_trailer: info.tmdb_trailer ?? '',
+            episode_run_time: '',
+            category_id: '',
+            tmdb_id: info.tmdb_id,
+            tmdb_cast: info.tmdb_cast,
+            tmdb_directors: info.tmdb_directors,
+            tmdb_status: info.tmdb_status,
+        },
+        details
+    );
+
+    return {
+        ...info,
+        description: merged.plot,
+        actors: merged.cast,
+        director: merged.director,
+        genre: merged.genre,
+        releasedate: merged.releaseDate,
+        rating_imdb: merged.rating,
+        movie_image: merged.cover,
+        tmdb_id: merged.tmdb_id,
+        ...(merged.backdrop_path[0]
+            ? { tmdb_backdrop: merged.backdrop_path[0] }
+            : {}),
+        ...(merged.youtube_trailer
+            ? { tmdb_trailer: merged.youtube_trailer }
+            : {}),
+        ...(merged.tmdb_cast ? { tmdb_cast: merged.tmdb_cast } : {}),
+        ...(merged.tmdb_directors
+            ? { tmdb_directors: merged.tmdb_directors }
+            : {}),
+        ...(merged.tmdb_status ? { tmdb_status: merged.tmdb_status } : {}),
     };
 }

@@ -1,6 +1,6 @@
 /**
  * DRM configuration extracted from `#KODIPROP:inputstream.adaptive.*` lines of
- * an M3U playlist entry. ClearKey, Widevine, and PlayReady can be passed to
+ * a playlist entry. ClearKey, Widevine, and PlayReady can be passed to
  * the browser DRM engine when the provider supplies a usable license server.
  * Other license types are preserved so playback can surface a meaningful DRM
  * diagnostic instead of failing silently.

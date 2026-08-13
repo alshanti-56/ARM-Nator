@@ -842,6 +842,15 @@ export class KsPlayerMetalNativeService {
 
     this.pollingTimer = setInterval(() => {
       [...this.sessions.keys()].forEach((sessionId) => {
+        const session = this.sessions.get(sessionId);
+        if (
+          session?.lastStatus === "paused" ||
+          session?.lastStatus === "ended" ||
+          session?.lastStatus === "error" ||
+          session?.lastStatus === "idle"
+        ) {
+          return;
+        }
         try {
           this.refreshSession(sessionId);
           this.pollFailuresLogged.delete(sessionId);

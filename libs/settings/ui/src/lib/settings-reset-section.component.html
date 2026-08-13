@@ -50,23 +50,21 @@
         </div>
         <div class="danger-zone__summary" aria-live="polite">
             <span class="danger-zone__summary-pill">
-                <mat-icon class="danger-zone__summary-icon"
-                    >folder_open</mat-icon
-                >
-                <span class="danger-zone__summary-label">{{
-                    'HOME.PLAYLIST_TYPES.M3U' | translate
-                }}</span>
-                <span class="danger-zone__summary-count">{{
-                    playlistDeleteSummary().m3u
-                }}</span>
-            </span>
-            <span class="danger-zone__summary-pill">
                 <mat-icon class="danger-zone__summary-icon">cloud</mat-icon>
                 <span class="danger-zone__summary-label">{{
                     'HOME.PLAYLIST_TYPES.XTREAM' | translate
                 }}</span>
                 <span class="danger-zone__summary-count">{{
                     playlistDeleteSummary().xtream
+                }}</span>
+            </span>
+            <span class="danger-zone__summary-pill">
+                <mat-icon class="danger-zone__summary-icon">router</mat-icon>
+                <span class="danger-zone__summary-label">{{
+                    'HOME.PLAYLIST_TYPES.STALKER' | translate
+                }}</span>
+                <span class="danger-zone__summary-count">{{
+                    playlistDeleteSummary().stalker
                 }}</span>
             </span>
         </div>

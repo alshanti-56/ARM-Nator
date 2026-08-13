@@ -15,12 +15,13 @@ import {
 } from "@arm-nator/providers/shared/util";
 import { XtreamStore } from "@arm-nator/providers/xtream/data-access";
 import { PlaylistsService } from "@arm-nator/services";
-import { PlaylistActions } from "@arm-nator/providers/m3u/state";
+import { PlaylistActions } from "@arm-nator/providers/shared/playlist-state";
 import { PlaylistMeta } from "@arm-nator/shared/interfaces";
 import {
   WorkspaceAccountInfoData,
   WorkspacePortalContext,
   WORKSPACE_SHELL_ACTIONS,
+  WorkspacePlaylistType,
 } from "@arm-nator/workspace/shell/util";
 import {
   CLEAR_RECENTLY_VIEWED_ARIA,
@@ -69,7 +70,7 @@ export class WorkspaceShellHeaderService {
     const context = this.routeState.currentContext();
     const action = this.headerContext.action();
 
-    if (!action || context?.provider !== "playlists") {
+    if (!action || context?.provider !== "xtreams") {
       return null;
     }
 
@@ -99,7 +100,7 @@ export class WorkspaceShellHeaderService {
       return null;
     }
 
-    if (context.provider !== "xtreams" && context.provider !== "playlists") {
+    if (context.provider !== "xtreams") {
       return null;
     }
 
@@ -145,7 +146,7 @@ export class WorkspaceShellHeaderService {
     return this.routeState.currentUrl().includes("/tools/credentials");
   }
 
-  openAddPlaylistDialog(kind?: "url" | "xtream"): void {
+  openAddPlaylistDialog(kind?: WorkspacePlaylistType): void {
     if (kind) {
       this.workspaceActions.openAddPlaylistDialog(kind);
       return;
@@ -175,20 +176,6 @@ export class WorkspaceShellHeaderService {
       return;
     }
 
-    if (context.provider === "playlists") {
-      const updatedPlaylist = await firstValueFrom(
-        this.playlistsService.clearM3uRecentlyViewed(context.playlistId),
-      );
-      this.store.dispatch(
-        PlaylistActions.updatePlaylistMeta({
-          playlist: {
-            _id: context.playlistId,
-            recentlyViewed: updatedPlaylist?.recentlyViewed ?? [],
-          } as PlaylistMeta,
-        }),
-      );
-      bumpRefreshQueryParam(this.router, this.routeState.currentUrl());
-    }
   }
 
   navigateToGlobalFavorites(): void {
@@ -238,12 +225,6 @@ export class WorkspaceShellHeaderService {
   ): boolean {
     if (provider === "xtreams") {
       return this.xtreamStore.recentItems().length === 0;
-    }
-
-    if (provider === "playlists") {
-      return (
-        (this.routeState.activePlaylist()?.recentlyViewed?.length ?? 0) === 0
-      );
     }
 
     return false;

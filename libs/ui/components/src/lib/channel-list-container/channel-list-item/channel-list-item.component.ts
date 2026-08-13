@@ -11,7 +11,7 @@ import {
 } from "@angular/core";
 import { MatIcon } from "@angular/material/icon";
 import { SettingsStore } from "@arm-nator/services";
-import { applyChannelNameStrip } from "@arm-nator/providers/m3u/utils";
+import { applyChannelNameStrip } from "@arm-nator/providers/shared/util";
 
 @Component({
   selector: "app-channel-list-item",

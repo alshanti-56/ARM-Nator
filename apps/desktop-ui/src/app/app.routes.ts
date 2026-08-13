@@ -86,13 +86,6 @@ export const routes: Routes = [
           ),
       },
       {
-        path: "playlists/:id",
-        loadChildren: () =>
-          import("@arm-nator/providers/m3u/feature-player").then((m) =>
-            m.createM3uWorkspaceRoutes(),
-          ),
-      },
-      {
         path: "stalker",
         loadChildren: () =>
           import("@arm-nator/providers/stalker/feature").then((m) =>

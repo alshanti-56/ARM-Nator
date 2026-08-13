@@ -39,6 +39,7 @@ export class StalkerStore {
     private requestVersion = 0;
     private page = 1;
     private readonly totalItems = signal(0);
+    private readonly searchPhraseState = signal('');
     private loadingPromise: Promise<void> | null = null;
     private seriesRequestVersion = 0;
 
@@ -59,6 +60,7 @@ export class StalkerStore {
     );
 
     readonly totalContentItems = this.totalItems.asReadonly();
+    readonly searchPhrase = this.searchPhraseState.asReadonly();
 
     constructor(private readonly data: DataService) {}
 
@@ -128,7 +130,21 @@ export class StalkerStore {
         this.isSeriesEpisodesLoading.set(false);
     }
 
-    setSearchPhrase(_phrase: string): void {}
+    setSearchPhrase(phrase: string): void {
+        const normalizedPhrase = phrase.trim();
+        if (this.searchPhraseState() === normalizedPhrase) {
+            return;
+        }
+
+        this.searchPhraseState.set(normalizedPhrase);
+        this.page = 1;
+        this.getPaginatedContent.set([]);
+        this.totalItems.set(0);
+
+        if (this.selectedContentType() !== 'itv') {
+            void this.loadContent();
+        }
+    }
 
     resetCategories(): void {
         this.getCategoryResource.set([]);
@@ -489,6 +505,9 @@ export class StalkerStore {
                     type,
                     p: this.page,
                     category: this.selectedCategoryId() ?? '*',
+                    ...(this.searchPhrase()
+                        ? { search: this.searchPhrase() }
+                        : {}),
                 }
             );
         }
@@ -847,6 +866,7 @@ export class StalkerStore {
     private resetContent(): void {
         this.seriesRequestVersion += 1;
         this.page = 1;
+        this.searchPhraseState.set('');
         this.totalItems.set(0);
         this.getPaginatedContent.set([]);
         this.seriesSeasons.set([]);

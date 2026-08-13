@@ -23,10 +23,8 @@
             "WELCOME_TITLE": "مرحبا بيك في ARM-Nator",
             "WELCOME_DESCRIPTION": "بدا رحلة البث ديالك بزيادة قائمة التشغيل الأولى ديالك. ربط مع خدمة IPTV المفضلة عندك وتمتع ببث مباشر، أفلام، وسلاسل.",
             "ADD_YOUR_FIRST": "زيد قائمة التشغيل الأولى ديالك",
-            "FEATURE_M3U": "ملفات M3U/M3U8",
             "FEATURE_XTREAM": "Xtream Codes",
             "FEATURE_STALKER": "Stalker Portal",
-            "FEATURE_M3U_LABEL": "Add an M3U file or URL",
             "FEATURE_XTREAM_LABEL": "Connect via Xtream Codes",
             "FEATURE_STALKER_LABEL": "Connect to a Stalker portal",
             "VALUE_PROPS_LABEL": "What you can do",
@@ -35,7 +33,6 @@
             "VALUE_PROP_MULTISOURCE": "Multi-source library",
             "VALUE_PROP_OFFLINE": "Offline downloads",
             "DASHBOARD_WELCOME_TAGLINE": "Your IPTV library, in one place.",
-            "DASHBOARD_WELCOME_DESCRIPTION": "Connect M3U files, Xtream Codes, or Stalker portals — then enjoy live TV, movies and series on every screen.",
             "FEATURE_LIVE_TITLE": "Live TV",
             "FEATURE_LIVE_DESC": "Stream live channels with full schedule.",
             "FEATURE_VOD_TITLE": "Movies & Series",
@@ -44,8 +41,6 @@
             "FEATURE_OFFLINE_DESC": "Save movies and episodes for later.",
             "SOURCES_WELCOME_TITLE": "Add your first playlist",
             "SOURCES_WELCOME_BODY": "Pick a source type below to get started.",
-            "SOURCE_M3U_NEEDS": "Local file or URL pointing to an M3U/M3U8 playlist.",
-            "SOURCE_M3U_ADD": "Add M3U",
             "SOURCE_XTREAM_NEEDS": "Username, password and server URL from your provider.",
             "SOURCE_XTREAM_ADD": "Add Xtream",
             "SOURCE_STALKER_NEEDS": "Portal URL and MAC address (Ministra-compatible).",
@@ -79,7 +74,6 @@
                 "AUTO_UPDATE": "تحديث تلقائي",
                 "AUTO_UPDATE_DESCRIPTION": "إلى كانت خاصية التحديث التلقائي مفعّلة، قائمة التشغيل غادي تتحدث أوتوماتيكياً كل مرة كيتحل التطبيق.",
                 "CUSTOM_USER_AGENT": "بعض مزودي IPTV كيحتاجو وكيل مستخدم محدد باش يخدمو قائمة التشغيل ديالهم.",
-                "EXPORT_PLAYLIST": "صدّر قائمة التشغيل على شكل m3u",
                 "SERVER_URL": "رابط الخادم",
                 "USERNAME": "اسم المستخدم",
                 "PASSWORD": "كلمة المرور",
@@ -132,15 +126,11 @@
         },
         "ADD_PLAYLIST": {
             "PICK_METHOD": "اختار كيفاش بغيتي تربط. تقدر تبدل الاسم من بعد.",
-            "METHOD_URL_LABEL": "رابط M3U",
-            "METHOD_URL_SUB": "لصق رابط ل ملف .m3u ولا .m3u8 بعيد",
-            "METHOD_FILE_LABEL": "ملف M3U",
             "METHOD_FILE_SUB": "زيد قائمة تشغيل من الجهاز ديالك",
             "METHOD_XTREAM_LABEL": "بيانات Xtream",
             "METHOD_XTREAM_SUB": "ربط بالخادم، اسم المستخدم وكلمة المرور",
             "METHOD_STALKER_LABEL": "بوابة Stalker",
             "METHOD_STALKER_SUB": "عنوان MAC ورابط البوابة",
-            "METHOD_TEXT_LABEL": "نص m3u خام",
             "METHOD_TEXT_SUB": "للقوائم المؤقتة ولا إلى عندك غير النص"
         },
         "FILE_UPLOAD": {
@@ -151,7 +141,6 @@
             "REJECTED": "الملف ترفض، صيغة الملف غير مدعومة {{filename}}."
         },
         "URL_UPLOAD": {
-            "PLAYLIST_URL": "رابط قائمة التشغيل (m3u, m3u8)",
             "ADD_PLAYLIST": "زيد قائمة التشغيل",
             "CORS_NOTE": "ملاحظة: باش نتفاداو مشاكل CORS فهاد المرحلة، التطبيق كيستعمل خدمة وكيل CORS عامة. إلى بغيتي ترفع قائمة تشغيل فيها بيانات حساسة، من الأحسن تستوردها من ملف.",
             "ERROR_FETCH_FAILED": "فشل جلب قائمة التشغيل. عفاك تحقق من الرابط وحاول مرة أخرى.",
@@ -165,7 +154,6 @@
             "TRUST_TLS_HOST_WARNING": "Only continue if you trust this playlist host. ARM-Nator will allow invalid TLS certificates for this host, but other hosts still require valid certificates."
         },
         "TEXT_IMPORT": {
-            "LABEL": "دخل قائمة تشغيل m3u(8) على شكل نص",
             "BUTTON_LABEL": "استورد"
         },
         "XTREAM_PLAYLIST": {
@@ -204,7 +192,6 @@
             "CUSTOM_ORDER": "ترتيب مخصص (Drag & Drop)"
         },
         "PLAYLIST_TYPES": {
-            "M3U": "M3U (محلي، رابط، نص)",
             "XTREAM": "Xtream",
             "STALKER": "Stalker"
         },
@@ -255,7 +242,6 @@
         "DESCRIPTION": "عفاك بدل الخيارات من الليستا لتحت وأكد بضغط على زر حفظ التغييرات",
         "VIDEO_PLAYER_LABEL": "مشغل الفيديو",
         "LIVE_VIDEO_PLAYER_LABEL": "Live TV player",
-        "LIVE_VIDEO_PLAYER_DESCRIPTION": "Default player for live TV and M3U channels",
         "VOD_VIDEO_PLAYER_LABEL": "Movies and series player",
         "VOD_VIDEO_PLAYER_DESCRIPTION": "Default player for movies and series episodes",
         "PLAYER_HTML5": "مشغل فيديو HTML5",
@@ -305,13 +291,11 @@
         "EMBEDDED_MPV_NOTICE_TITLE": "وقت تشغيل MPV المدمج",
         "EMBEDDED_MPV_NOTICE_DESCRIPTION": "إصدارات سطح المكتب تقدر تتضمن مكتبات libmpv و FFmpeg المدمجة لمشغل MPV المدمج التجريبي. المستخدمين ما محتاجينش يثبتو تطبيق MPV بشكل منفصل؛ MPV الخارجي و VLC مازالو متوفرين كمشغلات احتياطية.",
         "IMPORT_EXPORT_DATA": "استورد/صدّر قوائم التشغيل",
-        "IMPORT_EXPORT_DATA_DESCRIPTION": "Export or restore playlist backups including M3U snapshots, Xtream/Stalker connection metadata, and user state.",
         "IMPORT_DATA": "استورد",
         "EXPORT_DATA": "صدّر",
         "EXPORTING_DATA": "جاري التصدير…",
         "REMOVE_ALL": "Delete all playlists and playlist data",
         "REMOVE_ALL_BUTTON": "Delete all",
-        "REMOVE_ALL_DESCRIPTION": "Delete every M3U, Xtream, and Stalker playlist stored in the app.",
         "REMOVE_DIALOG": {
             "TITLE": "Delete all playlists?",
             "MESSAGE": "Delete all {{count}} playlists from the app. This also removes stored playlist data on this device.",
@@ -599,7 +583,6 @@
     },
     "ABOUT": {
         "TITLE": "حول ARM-Nator",
-        "DESCRIPTION": "تطبيق مشغل IPTV متعدد المنصات فيه بزاف ديال الميزات، بحال دعم قوائم تشغيل m3u و m3u8، المفضلة، دليل التلفزيون، الأرشيف التلفزيوني/الإعادة والمزيد.",
         "VERSION": "الإصدار",
         "BUY_ME_A_COFFEE_TOOLTIP": "شري ليا قهوة"
     },
@@ -785,8 +768,6 @@
             "NO_RESULTS_FOR": "ما تلقاو حتى نتيجة لـ \"{{term}}\"",
             "GROUP_BY_PLAYLIST": "جمع النتائج حسب قائمة التشغيل",
             "VISIBLE_CATEGORIES_ONLY": "غير الفئات الظاهرة",
-            "GLOBAL_SEARCH_SOURCE_NOTE": "Global search includes results from Xtream and M3U playlists.",
-            "GLOBAL_INITIAL_DESCRIPTION": "Enter at least 2 characters to search across Xtream and M3U playlists.",
             "LOADING_MORE_RESULTS": "Loading more results..."
         },
         "STREAM_URL_COPIED": "رابط البث تنقل للحافظة",
@@ -904,7 +885,6 @@
             "NO_HISTORY_HINT": "سجل المشاهدات ديالك غادي يبان هنا منين تبدا تشغل محتوى من قوائم التشغيل ديالك.",
             "XTREAM": "Xtream",
             "STALKER": "Stalker",
-            "M3U": "M3U",
             "STALKER_PORTAL": "Stalker Portal",
             "PROVIDER": "المزود",
             "TYPE_LIVE": "مباشر",
@@ -979,8 +959,6 @@
             "GO_TO_DASHBOARD": "Back to dashboard",
             "GO_TO_SOURCES": "Go to Sources",
             "DROP_OVERLAY_TITLE": "Drop to add playlist",
-            "DROP_OVERLAY_BODY": "Release an .m3u or .m3u8 file anywhere in the workspace to import it.",
-            "DROP_OVERLAY_REJECTED_BODY": "Please drop an .m3u or .m3u8 file. Press Esc to dismiss.",
             "DROP_OVERLAY_REJECTED_UNSUPPORTED": "Unsupported file type",
             "DROP_OVERLAY_REJECTED_EMPTY": "That file is empty",
             "DROP_OVERLAY_REJECTED_READ_ERROR": "Could not read that file",
@@ -1017,8 +995,6 @@
                 "OPEN_DASHBOARD_DESCRIPTION": "وجه للوحة التحكم",
                 "ADD_PLAYLIST_LABEL": "زيد مصدر جديد",
                 "ADD_PLAYLIST_DESCRIPTION": "حل واجهة زيادة قائمة تشغيل",
-                "ADD_PLAYLIST_M3U_LABEL": "Add M3U playlist",
-                "ADD_PLAYLIST_M3U_DESCRIPTION": "Open add dialog on the M3U file or URL tab",
                 "ADD_PLAYLIST_XTREAM_LABEL": "Add Xtream Codes playlist",
                 "ADD_PLAYLIST_XTREAM_DESCRIPTION": "Open add dialog on the Xtream Codes tab",
                 "ADD_PLAYLIST_STALKER_LABEL": "Add Stalker portal",
@@ -1054,7 +1030,6 @@
             "SUBTITLE": "فلتر ورتب قوائم التشغيل",
             "TYPE": "النوع",
             "ALL": "الكل",
-            "M3U_PLAYLISTS": "قوائم تشغيل M3U",
             "XTREAM_PLAYLISTS": "قوائم تشغيل Xtream",
             "STALKER_PLAYLISTS": "قوائم تشغيل Stalker",
             "ALL_PLAYLISTS": "جميع قوائم التشغيل",
@@ -1115,7 +1090,6 @@
                 "OPEN_RECENTLY_VIEWED": "Open recently viewed",
                 "SUBMIT_SHELL_SEARCH": "Submit workspace search",
                 "TOGGLE_SIDEBAR": "Toggle sidebar",
-                "M3U_CHANNEL_NUMBER": "Select M3U channel by number",
                 "PLAY_PAUSE": "Play or pause embedded MPV playback",
                 "TOGGLE_FULLSCREEN": "Toggle embedded MPV fullscreen",
                 "SEEK": "Seek embedded MPV playback by 5 seconds",
@@ -1135,7 +1109,6 @@
             "NO_RESULTS": "ما كاين حتى نتيجة",
             "NO_RESULTS_HINT": "جرب كلمة بحث أخرى",
             "EMPTY_TITLE": "مازال ما كاينش مفضلة بث مباشر",
-            "EMPTY_HINT": "حط نجمة على القنوات المباشرة من قوائم تشغيل M3U، Xtream، ولا Stalker باش تشوفها هنا.",
             "EMPTY_PLAYER": "اختار قناة باش تبدا المشاهدة",
             "NO_PLAYLISTS_TITLE": "No favorites to show",
             "NO_PLAYLISTS_BODY": "Add a playlist to start collecting favorites from live channels, movies, and series.",

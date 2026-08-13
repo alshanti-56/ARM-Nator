@@ -23,10 +23,8 @@
             "WELCOME_TITLE": "Üdvözli Önt az ARM-Nator!",
             "WELCOME_DESCRIPTION": "Első lépésként adja hozzá lejátszási listáját. Kapcsolódjon kedvenc IPTV-szolgáltatásához, és élvezze az élő tévéadásokat, filmeket és sorozatokat.",
             "ADD_YOUR_FIRST": "Első lejátszási lista hozzáadása",
-            "FEATURE_M3U": "M3U/M3U8-fájlok",
             "FEATURE_XTREAM": "Xtream Codes",
             "FEATURE_STALKER": "Stalker-portál",
-            "FEATURE_M3U_LABEL": "M3U-fájl vagy URL-cím hozzáadása",
             "FEATURE_XTREAM_LABEL": "Kapcsolódás Xtream Codes használatával",
             "FEATURE_STALKER_LABEL": "Kapcsolódás Stalker-portálhoz",
             "VALUE_PROPS_LABEL": "Mire használható?",
@@ -35,7 +33,6 @@
             "VALUE_PROP_MULTISOURCE": "Több forrásból összeállított médiatár",
             "VALUE_PROP_OFFLINE": "Offline letöltések",
             "DASHBOARD_WELCOME_TAGLINE": "IPTV-médiatára egy helyen.",
-            "DASHBOARD_WELCOME_DESCRIPTION": "Adjon hozzá M3U-fájlokat, Xtream Codes-fiókokat vagy Stalker-portálokat, majd élvezze az élő tévéadásokat, filmeket és sorozatokat bármely képernyőn.",
             "FEATURE_LIVE_TITLE": "Élő tévéadás",
             "FEATURE_LIVE_DESC": "Nézzen élő csatornákat teljes műsorrenddel.",
             "FEATURE_VOD_TITLE": "Filmek és sorozatok",
@@ -44,8 +41,6 @@
             "FEATURE_OFFLINE_DESC": "Filmek és epizódok mentése későbbi megtekintéshez.",
             "SOURCES_WELCOME_TITLE": "Adja hozzá első lejátszási listáját",
             "SOURCES_WELCOME_BODY": "A kezdéshez válasszon az alábbi forrástípusok közül.",
-            "SOURCE_M3U_NEEDS": "Helyi fájl vagy M3U/M3U8-lejátszási listára mutató URL-cím.",
-            "SOURCE_M3U_ADD": "M3U hozzáadása",
             "SOURCE_XTREAM_NEEDS": "A szolgáltatótól kapott felhasználónév, jelszó és kiszolgálócím.",
             "SOURCE_XTREAM_ADD": "Xtream hozzáadása",
             "SOURCE_STALKER_NEEDS": "A portál URL-címe és egy MAC-cím (Ministra-kompatibilis).",
@@ -79,7 +74,6 @@
                 "AUTO_UPDATE": "Automatikus frissítés",
                 "AUTO_UPDATE_DESCRIPTION": "Az automatikus frissítés bekapcsolásakor a lejátszási lista az alkalmazás minden indításakor automatikusan frissül.",
                 "CUSTOM_USER_AGENT": "Egyes IPTV-szolgáltatók egyedi User-Agent fejlécet igényelnek a lejátszási lista használatához.",
-                "EXPORT_PLAYLIST": "Lejátszási lista exportálása M3U-fájlként",
                 "SERVER_URL": "Kiszolgáló URL-címe",
                 "USERNAME": "Felhasználónév",
                 "PASSWORD": "Jelszó",
@@ -132,26 +126,20 @@
         },
         "ADD_PLAYLIST": {
             "PICK_METHOD": "Válassza ki, hogyan szeretne csatlakozni. A megnevezést később módosíthatja.",
-            "METHOD_URL_LABEL": "M3U URL-címe",
-            "METHOD_URL_SUB": "Illesszen be egy távoli .m3u- vagy .m3u8-fájlra mutató hivatkozást",
-            "METHOD_FILE_LABEL": "M3U-fájl",
             "METHOD_FILE_SUB": "Töltsön fel egy lejátszási listát a számítógépéről",
             "METHOD_XTREAM_LABEL": "Xtream hitelesítési adatok",
             "METHOD_XTREAM_SUB": "Kapcsolódás kiszolgálócím, felhasználónév és jelszó használatával",
             "METHOD_STALKER_LABEL": "Stalker-portál",
             "METHOD_STALKER_SUB": "MAC-cím és a portál URL-címe",
-            "METHOD_TEXT_LABEL": "Nyers M3U-szöveg",
             "METHOD_TEXT_SUB": "Egyszeri listákhoz, vagy ha csak szöveg áll rendelkezésére"
         },
         "FILE_UPLOAD": {
-            "DRAG_DROP": "Húzzon ide egy .m3u- vagy .m3u8-fájlt",
             "OR": "vagy",
             "CHOOSE_PLAYLIST": "kattintson a tallózáshoz",
             "BROWSE": "Fájlok tallózása",
             "REJECTED": "Elutasított fájl: {{filename}} – nem támogatott fájlformátum."
         },
         "URL_UPLOAD": {
-            "PLAYLIST_URL": "Lejátszási lista URL-címe (m3u, m3u8)",
             "ADD_PLAYLIST": "Lejátszási lista hozzáadása",
             "CORS_NOTE": "Megjegyzés: a CORS-problémák elkerülésére az alkalmazás jelenleg nyilvános CORS-proxyszolgáltatást használ. Ha a lejátszási lista bizalmas adatokat tartalmaz, biztonságosabb fájlból importálni.",
             "ERROR_FETCH_FAILED": "Nem sikerült lekérni a lejátszási listát. Ellenőrizze az URL-címet, majd próbálja újra.",
@@ -165,7 +153,6 @@
             "TRUST_TLS_HOST_WARNING": "Csak akkor folytassa, ha megbízik a lejátszási lista kiszolgálójában. Az ARM-Nator ennél a kiszolgálónál engedélyezi az érvénytelen TLS-tanúsítványokat, más kiszolgálóknál azonban továbbra is érvényes tanúsítványt követel meg."
         },
         "TEXT_IMPORT": {
-            "LABEL": "M3U/M3U8-lejátszási lista beillesztése szövegként",
             "BUTTON_LABEL": "Importálás"
         },
         "XTREAM_PLAYLIST": {
@@ -204,7 +191,6 @@
             "CUSTOM_ORDER": "Egyéni sorrend (húzással)"
         },
         "PLAYLIST_TYPES": {
-            "M3U": "M3U (helyi fájl, URL vagy szöveg)",
             "XTREAM": "Xtream",
             "STALKER": "Stalker"
         },
@@ -255,7 +241,6 @@
         "DESCRIPTION": "Módosítsa az alábbi beállításokat, majd erősítse meg a változtatásokat a Változtatások mentése gombbal.",
         "VIDEO_PLAYER_LABEL": "Videólejátszó",
         "LIVE_VIDEO_PLAYER_LABEL": "Live TV player",
-        "LIVE_VIDEO_PLAYER_DESCRIPTION": "Default player for live TV and M3U channels",
         "VOD_VIDEO_PLAYER_LABEL": "Movies and series player",
         "VOD_VIDEO_PLAYER_DESCRIPTION": "Default player for movies and series episodes",
         "PLAYER_HTML5": "HTML5-videólejátszó",
@@ -305,13 +290,11 @@
         "EMBEDDED_MPV_NOTICE_TITLE": "Beágyazott MPV-futtatókörnyezet",
         "EMBEDDED_MPV_NOTICE_DESCRIPTION": "Az asztali kiadások tartalmazhatják a kísérleti beágyazott MPV-lejátszóhoz szükséges libmpv- és FFmpeg-könyvtárakat. A felhasználóknak nem kell külön telepíteniük az MPV alkalmazást; szükség esetén továbbra is használható külső MPV- vagy VLC-lejátszó.",
         "IMPORT_EXPORT_DATA": "Lejátszási listák biztonsági mentéseinek importálása és exportálása",
-        "IMPORT_EXPORT_DATA_DESCRIPTION": "Export or restore playlist backups including M3U snapshots, Xtream/Stalker connection metadata, and user state.",
         "IMPORT_DATA": "Importálás",
         "EXPORT_DATA": "Exportálás",
         "EXPORTING_DATA": "Exportálás…",
         "REMOVE_ALL": "Az összes lejátszási lista és kapcsolódó adat törlése",
         "REMOVE_ALL_BUTTON": "Összes törlése",
-        "REMOVE_ALL_DESCRIPTION": "Az alkalmazásban tárolt összes M3U-, Xtream- és Stalker-lejátszási lista törlése.",
         "REMOVE_DIALOG": {
             "TITLE": "Törli az összes lejátszási listát?",
             "MESSAGE": "A művelet {{count}} lejátszási listát töröl az alkalmazásból, az eszközön tárolt kapcsolódó adatokkal együtt.",
@@ -599,7 +582,6 @@
     },
     "ABOUT": {
         "TITLE": "Az ARM-Nator névjegye",
-        "DESCRIPTION": "Többplatformos IPTV-lejátszó számos funkcióval, többek között M3U- és M3U8-lejátszási listák, kedvencek, műsorújság, tévéarchívum és visszanézés támogatásával.",
         "VERSION": "Verzió",
         "BUY_ME_A_COFFEE_TOOLTIP": "Hívjon meg egy kávéra"
     },
@@ -785,8 +767,6 @@
             "NO_RESULTS_FOR": "Nincs találat a következőre: „{{term}}”",
             "GROUP_BY_PLAYLIST": "Találatok lejátszási listánkénti csoportosítása",
             "VISIBLE_CATEGORIES_ONLY": "Csak látható kategóriák",
-            "GLOBAL_SEARCH_SOURCE_NOTE": "A globális keresés az Xtream- és M3U-lejátszási listák találatait is tartalmazza.",
-            "GLOBAL_INITIAL_DESCRIPTION": "Az Xtream- és M3U-lejátszási listák közötti kereséshez adjon meg legalább 2 karaktert.",
             "LOADING_MORE_RESULTS": "További találatok betöltése…"
         },
         "STREAM_URL_COPIED": "Az adatfolyam URL-címe a vágólapra került",
@@ -904,7 +884,6 @@
             "NO_HISTORY_HINT": "Megtekintési előzményei itt jelennek meg, amint lejátszik valamit valamelyik lejátszási listáról.",
             "XTREAM": "Xtream",
             "STALKER": "Stalker",
-            "M3U": "M3U",
             "STALKER_PORTAL": "Stalker-portál",
             "PROVIDER": "Szolgáltató",
             "TYPE_LIVE": "Élő adás",
@@ -979,8 +958,6 @@
             "GO_TO_DASHBOARD": "Vissza a vezérlőpultra",
             "GO_TO_SOURCES": "Ugrás a Források nézetre",
             "DROP_OVERLAY_TITLE": "Engedje el a lejátszási lista hozzáadásához",
-            "DROP_OVERLAY_BODY": "Húzzon egy .m3u- vagy .m3u8-fájlt a munkaterület bármely pontjára, majd engedje el az importáláshoz.",
-            "DROP_OVERLAY_REJECTED_BODY": ".m3u- vagy .m3u8-fájlt húzzon ide. A bezáráshoz nyomja meg az Esc billentyűt.",
             "DROP_OVERLAY_REJECTED_UNSUPPORTED": "Nem támogatott fájltípus",
             "DROP_OVERLAY_REJECTED_EMPTY": "A fájl üres",
             "DROP_OVERLAY_REJECTED_READ_ERROR": "Nem sikerült beolvasni a fájlt",
@@ -1017,8 +994,6 @@
                 "OPEN_DASHBOARD_DESCRIPTION": "Ugrás a vezérlőpultra",
                 "ADD_PLAYLIST_LABEL": "Új forrás hozzáadása",
                 "ADD_PLAYLIST_DESCRIPTION": "A lejátszási lista hozzáadására szolgáló párbeszédpanel megnyitása",
-                "ADD_PLAYLIST_M3U_LABEL": "M3U-lejátszási lista hozzáadása",
-                "ADD_PLAYLIST_M3U_DESCRIPTION": "A hozzáadási párbeszédpanel megnyitása az M3U-fájl vagy URL-cím lapján",
                 "ADD_PLAYLIST_XTREAM_LABEL": "Xtream Codes-lejátszási lista hozzáadása",
                 "ADD_PLAYLIST_XTREAM_DESCRIPTION": "A hozzáadási párbeszédpanel megnyitása az Xtream Codes lapon",
                 "ADD_PLAYLIST_STALKER_LABEL": "Stalker-portál hozzáadása",
@@ -1054,7 +1029,6 @@
             "SUBTITLE": "Lejátszási listák szűrése és rendezése",
             "TYPE": "Típus",
             "ALL": "Összes",
-            "M3U_PLAYLISTS": "M3U-lejátszási listák",
             "XTREAM_PLAYLISTS": "Xtream-lejátszási listák",
             "STALKER_PLAYLISTS": "Stalker-lejátszási listák",
             "ALL_PLAYLISTS": "Összes lejátszási lista",
@@ -1115,7 +1089,6 @@
                 "OPEN_RECENTLY_VIEWED": "Megtekintési előzmények megnyitása",
                 "SUBMIT_SHELL_SEARCH": "Munkaterületi keresés indítása",
                 "TOGGLE_SIDEBAR": "Oldalsáv megjelenítése vagy elrejtése",
-                "M3U_CHANNEL_NUMBER": "M3U-csatorna kiválasztása a számának beírásával",
                 "PLAY_PAUSE": "A beágyazott MPV lejátszásának indítása vagy szüneteltetése",
                 "TOGGLE_FULLSCREEN": "A beágyazott MPV teljes képernyős módjának be- vagy kikapcsolása",
                 "SEEK": "Ugrás 5 másodperccel előre vagy vissza a beágyazott MPV-ben",
@@ -1135,7 +1108,6 @@
             "NO_RESULTS": "Nincs találat",
             "NO_RESULTS_HINT": "Próbálkozzon másik keresési kifejezéssel",
             "EMPTY_TITLE": "Még nincs kedvenc élő csatorna",
-            "EMPTY_HINT": "Jelölje csillaggal az M3U-, Xtream- vagy Stalker-lejátszási listák élő csatornáit, hogy itt jelenjenek meg.",
             "EMPTY_PLAYER": "A megtekintés megkezdéséhez válasszon egy csatornát",
             "NO_PLAYLISTS_TITLE": "Nincs megjeleníthető kedvenc",
             "NO_PLAYLISTS_BODY": "Adjon hozzá egy lejátszási listát, hogy kedvencként menthessen élő csatornákat, filmeket és sorozatokat.",

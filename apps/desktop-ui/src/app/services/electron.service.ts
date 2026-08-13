@@ -1,33 +1,17 @@
 /* eslint-disable max-lines */
 import { inject, Injectable } from '@angular/core';
 import { MatSnackBar } from '@angular/material/snack-bar';
-import { Store } from '@ngrx/store';
-import { TranslateService } from '@ngx-translate/core';
-import { PlaylistActions } from '@arm-nator/providers/m3u/state';
-import { DialogService } from '@arm-nator/ui/components';
-import { DataService, SettingsStore } from '@arm-nator/services';
+import { DataService } from '@arm-nator/services';
 import {
-    AUTO_UPDATE_PLAYLISTS,
-    AutoUpdatePlaylistsResult,
-    ELECTRON_BRIDGE_SECURITY_ERROR_CODES,
     ERROR,
     normalizeHost,
-    parseSecurityPolicyError,
     PlayerContentInfo,
-    Playlist,
-    PLAYLIST_PARSE_BY_URL,
-    PLAYLIST_UPDATE,
     STALKER_REQUEST,
     XTREAM_REQUEST,
     XTREAM_RESPONSE,
     XtreamCodeActions,
 } from '@arm-nator/shared/interfaces';
-import {
-    measureRendererPerformancePhase,
-    RENDERER_PERFORMANCE_PHASE,
-} from '@arm-nator/shared/logging';
 import { AppConfig } from '../../environments/environment';
-import { buildAutoUpdatePlaylistsFeedback } from './auto-update-playlists-feedback';
 import {
     createLogger,
     createPortalDebugRequestContext,
@@ -59,10 +43,6 @@ export class ElectronService extends DataService {
     private eventListeners: { [key: string]: () => void } = {};
     private messageListeners = new Map<string, EventListener>();
     private readonly snackBar = inject(MatSnackBar);
-    private readonly dialogService = inject(DialogService);
-    private readonly store = inject(Store);
-    private readonly settingsStore = inject(SettingsStore);
-    private readonly translateService = inject(TranslateService);
     private readonly logger = createLogger('ElectronService');
     private readonly silentXtreamActions = new Set<string>([
         XtreamCodeActions.GetAccountInfo,
@@ -133,23 +113,6 @@ export class ElectronService extends DataService {
         type: string,
         payload?: unknown
     ): Promise<T> {
-        if (type === PLAYLIST_PARSE_BY_URL) {
-            this.fetchM3uPlaylistFromUrl(payload as Partial<Playlist>);
-            return undefined as T;
-        }
-
-        if (type === PLAYLIST_UPDATE) {
-            this.updateM3uPlaylistFromFile(
-                payload as {
-                    id: string;
-                    filePath?: string;
-                    url?: string;
-                    title: string;
-                }
-            );
-            return undefined as T;
-        }
-
         if (type === XTREAM_REQUEST) {
             return (await this.forwardXtreamRequest(
                 payload as { url: string; params: Record<string, string> }
@@ -229,312 +192,8 @@ export class ElectronService extends DataService {
             }
         }
 
-        if (type === AUTO_UPDATE_PLAYLISTS) {
-            const data = payload as Playlist[];
-            const result = await window.electron.autoUpdatePlaylists(
-                data,
-                this.settingsStore.getTrustOptions()
-            );
-            this.store.dispatch(
-                PlaylistActions.updateManyPlaylists({
-                    playlists: result.playlists,
-                })
-            );
-            this.reportAutoUpdatePlaylistsResult(result);
-            return result as T;
-        }
-
         this.logger.debug('Unknown IPC event type:', type);
         return undefined as T;
-    }
-
-    private reportAutoUpdatePlaylistsResult(
-        result: AutoUpdatePlaylistsResult
-    ): void {
-        const unresolved = result.outcomes.filter(
-            (outcome) => outcome.status !== 'updated'
-        );
-        if (unresolved.length > 0) {
-            this.logger.warn(
-                'Playlist auto-refresh did not update every playlist:',
-                unresolved
-                    .map((outcome) => `${outcome.title} (${outcome.status})`)
-                    .join(', ')
-            );
-        }
-
-        const feedback = buildAutoUpdatePlaylistsFeedback(result);
-        this.snackBar.open(
-            this.translateService.instant(feedback.messageKey, feedback.params),
-            feedback.isError
-                ? this.translateService.instant('CLOSE')
-                : undefined,
-            feedback.isError
-                ? { duration: 6000, panelClass: ['error-snackbar'] }
-                : { duration: 2000 }
-        );
-    }
-
-    private async fetchM3uPlaylistFromUrl(payload?: Partial<Playlist>) {
-        if (!payload?.url) {
-            return;
-        }
-
-        const title = payload.title?.trim() || undefined;
-
-        window.electron
-            .fetchPlaylistByUrl(
-                payload.url,
-                title,
-                this.settingsStore.getTrustOptions()
-            )
-            .then((result) => {
-                measureRendererPerformancePhase(
-                    RENDERER_PERFORMANCE_PHASE.M3U_IMPORT_DISPATCH,
-                    () =>
-                        this.store.dispatch(
-                            PlaylistActions.handleAddingPlaylistByUrl({
-                                isTemporary: !!payload?.isTemporary,
-                                playlist: result,
-                            })
-                        )
-                );
-            })
-            .catch((error: unknown) => {
-                if (
-                    this.handlePlaylistSecurityError(error, () =>
-                        this.fetchM3uPlaylistFromUrl(payload)
-                    )
-                ) {
-                    return;
-                }
-
-                const statusCode = this.extractHttpStatusCode(error);
-                let messageKey = 'HOME.URL_UPLOAD.ERROR_FETCH_FAILED';
-                if (statusCode === 403) {
-                    messageKey = 'HOME.URL_UPLOAD.ERROR_403';
-                } else if (statusCode === 404) {
-                    messageKey = 'HOME.URL_UPLOAD.ERROR_404';
-                } else if (statusCode === 401) {
-                    messageKey = 'HOME.URL_UPLOAD.ERROR_401';
-                }
-                this.snackBar.open(
-                    this.translateService.instant(messageKey),
-                    this.translateService.instant('CLOSE'),
-                    { duration: 5000 }
-                );
-            });
-    }
-
-    private extractHttpStatusCode(error: unknown): number | null {
-        if (
-            error &&
-            typeof error === 'object' &&
-            'response' in error &&
-            error.response &&
-            typeof error.response === 'object' &&
-            'status' in error.response
-        ) {
-            return error.response.status as number;
-        }
-        // Parse status from error message string (IPC serialization)
-        const msg = String((error as { message?: string })?.message ?? error);
-        const match = msg.match(/status code (\d{3})/);
-        return match ? parseInt(match[1], 10) : null;
-    }
-
-    private async updateM3uPlaylistFromFile(data: {
-        id: string;
-        url?: string;
-        filePath?: string;
-        title: string;
-    }) {
-        try {
-            let playlistObject: Playlist;
-            if (data.url && !data.filePath) {
-                playlistObject = await window.electron.fetchPlaylistByUrl(
-                    data.url,
-                    data.title,
-                    this.settingsStore.getTrustOptions()
-                );
-            } else if (data.filePath && !data.url) {
-                playlistObject =
-                    await window.electron.updatePlaylistFromFilePath(
-                        data.filePath,
-                        data.title
-                    );
-            } else {
-                this.logger.error(
-                    'Either url or filePath must be provided, but not both.'
-                );
-                return;
-            }
-
-            this.store.dispatch(
-                PlaylistActions.updatePlaylist({
-                    playlist: {
-                        ...playlistObject,
-                        _id: data.id,
-                    },
-                    playlistId: data.id,
-                })
-            );
-
-            this.snackBar.open(
-                this.translateService.instant(
-                    'HOME.PLAYLISTS.PLAYLIST_UPDATE_SUCCESS'
-                ),
-                undefined,
-                { duration: 2000 }
-            );
-        } catch (error: unknown) {
-            this.logger.error('Playlist refresh error:', error);
-            if (
-                data.url &&
-                this.handlePlaylistSecurityError(error, () => {
-                    void this.updateM3uPlaylistFromFile(data);
-                })
-            ) {
-                return;
-            }
-            this.snackBar.open(
-                this.getPlaylistRefreshErrorMessage(error, data),
-                this.translateService.instant('CLOSE'),
-                { duration: 5000 }
-            );
-        }
-    }
-
-    private getPlaylistRefreshErrorMessage(
-        error: unknown,
-        data: { url?: string; filePath?: string }
-    ): string {
-        if (data.filePath) {
-            const errorMessage = String(
-                this.getErrorDetails(error)?.message ?? error ?? ''
-            );
-
-            if (
-                /(ENOENT|no such file or directory|not found)/i.test(
-                    errorMessage
-                )
-            ) {
-                return this.translateWithFallback(
-                    'HOME.PLAYLISTS.PLAYLIST_UPDATE_FILE_NOT_FOUND',
-                    'Playlist refresh failed. The local file is no longer available. Check the file path or re-import the playlist.'
-                );
-            }
-
-            if (/(EACCES|EPERM|permission denied)/i.test(errorMessage)) {
-                return this.translateWithFallback(
-                    'HOME.PLAYLISTS.PLAYLIST_UPDATE_FILE_ACCESS_ERROR',
-                    'Playlist refresh failed. The app can no longer access the local file.'
-                );
-            }
-
-            return this.translateService.instant(
-                'HOME.PLAYLISTS.PLAYLIST_UPDATE_ERROR'
-            );
-        }
-
-        const statusCode = this.extractHttpStatusCode(error);
-        if (statusCode === 404) {
-            return this.translateService.instant('HOME.URL_UPLOAD.ERROR_404');
-        }
-        if (statusCode === 403) {
-            return this.translateService.instant('HOME.URL_UPLOAD.ERROR_403');
-        }
-        if (statusCode === 401) {
-            return this.translateService.instant('HOME.URL_UPLOAD.ERROR_401');
-        }
-        return this.translateService.instant(
-            'HOME.URL_UPLOAD.ERROR_FETCH_FAILED'
-        );
-    }
-
-    private translateWithFallback(key: string, fallback: string): string {
-        const translated = this.translateService.instant(key);
-        return translated === key ? fallback : translated;
-    }
-
-    private handlePlaylistSecurityError(
-        error: unknown,
-        retry: () => void
-    ): boolean {
-        const securityError = parseSecurityPolicyError(error);
-        if (
-            securityError?.code !==
-            ELECTRON_BRIDGE_SECURITY_ERROR_CODES.InvalidTlsCertificate
-        ) {
-            return false;
-        }
-
-        const ref = this.snackBar.open(
-            this.translateWithFallback(
-                'HOME.URL_UPLOAD.ERROR_INVALID_TLS',
-                'Certificate for this playlist host is invalid.'
-            ),
-            this.translateWithFallback(
-                'HOME.URL_UPLOAD.TRUST_TLS_HOST',
-                'Trust host'
-            ),
-            { duration: 10000 }
-        );
-
-        ref.onAction().subscribe(() => {
-            this.confirmTrustPlaylistHost(securityError.host, retry);
-        });
-        return true;
-    }
-
-    private confirmTrustPlaylistHost(
-        host: string | undefined,
-        retry: () => void
-    ): void {
-        if (!host) {
-            this.snackBar.open(
-                this.translateWithFallback(
-                    'HOME.URL_UPLOAD.ERROR_TLS_HOST_UNKNOWN',
-                    'Could not determine the playlist host. Please retry manually.'
-                ),
-                this.translateService.instant('CLOSE'),
-                { duration: 5000 }
-            );
-            return;
-        }
-
-        this.dialogService.openConfirmDialog({
-            title: this.translateWithFallback(
-                'HOME.URL_UPLOAD.TRUST_TLS_HOST_TITLE',
-                'Trust invalid certificate?'
-            ),
-            message: this.translateWithFallback(
-                'HOME.URL_UPLOAD.TRUST_TLS_HOST_WARNING',
-                'Only continue if you trust this playlist host. ARM-Nator will allow invalid TLS certificates for this host, but other hosts still require valid certificates.'
-            ),
-            confirmLabel: this.translateWithFallback(
-                'HOME.URL_UPLOAD.TRUST_TLS_HOST',
-                'Trust host'
-            ),
-            width: '420px',
-            onConfirm: () => {
-                void this.trustPlaylistHost(host).then(retry);
-            },
-        });
-    }
-
-    private async trustPlaylistHost(host: string): Promise<void> {
-        const settings = this.settingsStore.getSettings();
-        const trustedHosts = new Set(
-            (settings.trustedInsecureTlsHosts ?? []).map((item) =>
-                normalizeHost(item)
-            )
-        );
-        trustedHosts.add(normalizeHost(host));
-
-        await this.settingsStore.updateSettings({
-            trustedInsecureTlsHosts: Array.from(trustedHosts),
-        });
     }
 
     /* private getErrorMessageByStatusCode(status: number) {

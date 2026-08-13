@@ -8,11 +8,7 @@ import {
 import { rxMethod } from '@ngrx/signals/rxjs-interop';
 import { firstValueFrom, pipe, switchMap, tap } from 'rxjs';
 import { DatabaseService, PlaylistsService } from '@arm-nator/services';
-import {
-    buildPlaylistRecentItems,
-    Playlist,
-    PortalRecentItem,
-} from '@arm-nator/shared/interfaces';
+import { Playlist, PortalRecentItem } from '@arm-nator/shared/interfaces';
 import { createLogger } from '@arm-nator/providers/shared/util';
 import { XTREAM_DATA_SOURCE } from './data-sources/xtream-data-source.interface';
 
@@ -214,19 +210,6 @@ export const withRecentItems = function () {
                     try {
                         const xtreamItems =
                             await dbService.getGlobalRecentlyViewed();
-                        const playlists = (await firstValueFrom(
-                            playlistsService.getAllPlaylists()
-                        )) as Playlist[];
-                        const playlistBackedItems = buildPlaylistRecentItems(
-                            playlists,
-                            {
-                                m3u: 'M3U',
-                            }
-                        ).map((item) => ({
-                            ...item,
-                            content_id: item.id,
-                        })) as RecentlyViewedItem[];
-
                         const normalizedXtream: RecentlyViewedItem[] = (
                             xtreamItems || []
                         ).map((item) => ({
@@ -244,10 +227,7 @@ export const withRecentItems = function () {
                             source: 'xtream',
                         }));
 
-                        const items = [
-                            ...normalizedXtream,
-                            ...playlistBackedItems,
-                        ].sort(
+                        const items = normalizedXtream.sort(
                             (a, b) =>
                                 new Date(b.viewed_at).getTime() -
                                 new Date(a.viewed_at).getTime()
@@ -283,14 +263,9 @@ export const withRecentItems = function () {
                                     );
                                 }
 
-                                if (
-                                    Boolean(playlist.macAddress) ||
-                                    !playlist.serverUrl
-                                ) {
+                                if (Boolean(playlist.macAddress) || playlist.portalUrl) {
                                     await firstValueFrom(
-                                        playlistsService.clearPlaylistRecentlyViewed(
-                                            playlist._id
-                                        )
+                                        playlistsService.clearPortalRecentlyViewed(playlist._id)
                                     );
                                 }
                             })

@@ -41,12 +41,16 @@ const FEATURE_CARDS: readonly FeatureCard[] = [
 
 const SOURCE_CARDS: readonly SourceCard[] = [
     {
-        type: 'url',
-        icon: 'folder_open',
-        nameKey: 'HOME.PLAYLISTS.FEATURE_M3U',
-        needsKey: 'HOME.PLAYLISTS.SOURCE_M3U_NEEDS',
-        addLabelKey: 'HOME.PLAYLISTS.SOURCE_M3U_ADD',
-        contentKeys: ['HOME.PLAYLISTS.CONTENT_LIVE'],
+        type: 'stalker',
+        icon: 'router',
+        nameKey: 'HOME.PLAYLISTS.FEATURE_STALKER',
+        needsKey: 'HOME.PLAYLISTS.SOURCE_STALKER_NEEDS',
+        addLabelKey: 'HOME.PLAYLISTS.SOURCE_STALKER_ADD',
+        contentKeys: [
+            'HOME.PLAYLISTS.CONTENT_LIVE',
+            'HOME.PLAYLISTS.CONTENT_VOD',
+            'HOME.PLAYLISTS.CONTENT_SERIES',
+        ],
     },
     {
         type: 'xtream',

@@ -40,17 +40,6 @@ async function buildWorker() {
                 ),
             },
             {
-                label: 'playlist refresh worker',
-                entry: path.join(
-                    __dirname,
-                    'src/app/workers/playlist-refresh.worker.ts'
-                ),
-                outfile: path.join(
-                    __dirname,
-                    '../../dist/apps/electron-backend/workers/playlist-refresh.worker.js'
-                ),
-            },
-            {
                 label: 'credential tester worker',
                 entry: path.join(
                     __dirname,
@@ -86,10 +75,6 @@ async function buildWorker() {
                     '@arm-nator/shared/interfaces': path.join(
                         __dirname,
                         '../../libs/shared/interfaces/src/index.ts'
-                    ),
-                    '@arm-nator/providers/m3u/utils': path.join(
-                        __dirname,
-                        '../../libs/providers/m3u/utils/src/index.ts'
                     ),
                     '@arm-nator/database': path.join(
                         __dirname,

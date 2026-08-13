@@ -11,7 +11,7 @@ import { StalkerWorkspaceRouteSession } from './stalker-workspace-route-session.
 const PLAYLIST_ID = 'stalker-1';
 const ACTIVE_PLAYLIST: PlaylistMeta = {
     _id: PLAYLIST_ID,
-    filename: 'stalker.m3u',
+    filename: 'stalker-portal',
     macAddress: '00:1A:79:12:34:56',
     portalUrl: 'http://localhost/stalker_portal/server/load.php',
     title: 'Test Stalker',

@@ -90,7 +90,7 @@ export function validateStalkerMacAddressControl(control: {
  * store an arbitrary string as the MAC, and on a panel that ignores the MAC
  * entirely such a playlist works today. Attaching the plain validator there
  * would mark the form invalid on open and disable Save — locking the user out
- * of editing the title, the URL or the EPG sources of a working source,
+ * of editing the title or URL of a working source,
  * forever, over a field the portal may not even read.
  *
  * So the value that was already stored stays acceptable, while anything newly

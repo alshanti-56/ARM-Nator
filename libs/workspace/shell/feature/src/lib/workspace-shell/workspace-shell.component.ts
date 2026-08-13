@@ -2,10 +2,6 @@ import { Component, HostListener, inject, viewChild } from '@angular/core';
 import { RouterOutlet } from '@angular/router';
 import { ExternalPlaybackDockComponent } from '@arm-nator/ui/components';
 import { WorkspacePlayerHostComponent } from '@arm-nator/player/ui';
-import {
-    PlaylistDropOverlayComponent,
-    PlaylistDropZoneDirective,
-} from '../playlist-drop-overlay';
 import { WorkspaceShellContextSidebarComponent } from './components/workspace-shell-context-sidebar/workspace-shell-context-sidebar.component';
 import { WorkspaceShellHeaderComponent } from './components/workspace-shell-header/workspace-shell-header.component';
 import { WorkspaceShellImportOverlayComponent } from './components/workspace-shell-import-overlay/workspace-shell-import-overlay.component';
@@ -25,8 +21,6 @@ import { WorkspaceKeyboardNavigationService } from '../workspace-keyboard-naviga
     imports: [
         ExternalPlaybackDockComponent,
         WorkspacePlayerHostComponent,
-        PlaylistDropOverlayComponent,
-        PlaylistDropZoneDirective,
         RouterOutlet,
         WorkspaceShellContextSidebarComponent,
         WorkspaceShellHeaderComponent,

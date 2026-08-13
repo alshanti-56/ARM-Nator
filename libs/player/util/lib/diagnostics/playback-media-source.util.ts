@@ -1,14 +1,14 @@
 import {
     UNSUPPORTED_CONTAINER_EXTENSIONS,
     getPlaybackMediaExtensionFromUrl,
-} from '@arm-nator/providers/m3u/utils';
+} from '@arm-nator/providers/shared/util';
 
 import type {
     PlaybackSourceMetadata,
     PlaybackSourceMetadataInput,
 } from './playback-diagnostics.model';
 
-// Media-extension normalization lives in @arm-nator/providers/m3u/utils so M3U
+// Media-extension normalization lives in @arm-nator/providers/shared/util so
 // routing (isDashChannel) and engine selection always agree; re-exported here
 // to keep the playback-lib import surface stable.
 export { getPlaybackMediaExtensionFromUrl };

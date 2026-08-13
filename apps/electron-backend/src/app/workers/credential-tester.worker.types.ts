@@ -31,7 +31,7 @@ function isInput(value: unknown): value is CredentialTestBatchStartRequest['inpu
             isNonEmptyString(input['password'], 1_024)
         );
     }
-    return input['provider'] === 'm3u' && isNonEmptyString(input['playlistUrl']);
+    return false;
 }
 
 /** Revalidates main-to-worker payloads before a worker can start network I/O. */

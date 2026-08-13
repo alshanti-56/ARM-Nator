@@ -38,7 +38,7 @@ import {
   GroupManagementDialogGroup,
 } from "./group-management-dialog/group-management-dialog.component";
 
-const GROUP_CHANNEL_SORT_STORAGE_KEY = "m3u-groups-channel-sort-mode";
+const GROUP_CHANNEL_SORT_STORAGE_KEY = "groups-channel-sort-mode";
 
 interface GroupView {
   readonly channels: Channel[];

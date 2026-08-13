@@ -54,7 +54,7 @@ export function getRecentItemNavigation(
     if (item.type === 'live') {
         return buildLiveCollectionNavigationTarget({
             mode: 'recent',
-            sourceType: normalizeCollectionSourceType(item.source) ?? 'm3u',
+            sourceType: normalizeCollectionSourceType(item.source) ?? 'xtream',
             playlistId: item.playlist_id,
             itemId: item.xtream_id ?? item.id,
             title: item.title,
@@ -101,7 +101,7 @@ export function getGlobalFavoriteNavigation(
     if (item.type === 'live') {
         return buildLiveCollectionNavigationTarget({
             mode: 'favorites',
-            sourceType: normalizeCollectionSourceType(item.source) ?? 'm3u',
+            sourceType: normalizeCollectionSourceType(item.source) ?? 'xtream',
             playlistId: item.playlist_id,
             itemId: item.xtream_id ?? item.id,
             title: item.title,
@@ -298,7 +298,7 @@ export function getOpenLiveCollectionItemState(
     if (
         !playlistId ||
         !itemId ||
-        (sourceType !== 'm3u' && sourceType !== 'xtream')
+        sourceType !== 'xtream'
     ) {
         return null;
     }
@@ -412,8 +412,6 @@ export function matchesOpenLiveCollectionItem(
     const sourceItemId = getLastSegment(item.uid, '::') ?? '';
     const candidates = [
         sourceItemId,
-        item.streamUrl,
-        item.channelId,
         item.xtreamId,
         item.contentId,
     ]
@@ -453,9 +451,7 @@ function normalizeCollectionScope(
 function normalizeCollectionSourceType(
     value: unknown
 ): CollectionSourceType | null {
-    return value === 'm3u' || value === 'xtream'
-        ? value
-        : null;
+    return value === 'xtream' ? value : null;
 }
 
 function buildDashboardCollectionDetailItem(
@@ -607,7 +603,7 @@ function buildCollectionRoute(
         return ['/workspace', 'xtreams', playlistId, mode];
     }
 
-    return ['/workspace', 'playlists', playlistId, mode];
+    return ['/workspace', 'xtreams', playlistId, mode];
 }
 
 function toStateRecord(state: unknown): Record<string, unknown> | null {

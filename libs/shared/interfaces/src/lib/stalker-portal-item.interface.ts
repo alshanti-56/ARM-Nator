@@ -3,7 +3,7 @@
  * `Playlist.recentlyViewed` arrays.
  *
  * Stalker portals store favourites / recently-viewed as full objects
- * (unlike M3U playlists, which use a simple `string[]` of channel URLs).
+ * with provider-owned catalog records.
  */
 export interface StalkerPortalItem {
     id?: string | number;

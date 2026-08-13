@@ -2,11 +2,8 @@ import { EmbeddedMpvBounds, EmbeddedMpvSession, EmbeddedMpvSupport } from './emb
 import type { ElectronBridgeKsPlayerMetalApi } from './electron-api.interface';
 import { ExternalPlayerControlAction, ExternalPlayerSession } from './external-player-session.interface';
 import { GlobalSearchPaginationOptions, GlobalSearchResult, GlobalSearchResultSource } from './global-search-result.interface';
-import { M3uFavoriteChannel } from './m3u-favorite-channel.interface';
 import { PlaybackPositionData } from './playback-position.interface';
-import { AutoUpdatePlaylistsResult } from './playlist-auto-update.interface';
 import { XtreamBackupFavoriteItem, XtreamBackupHiddenCategory, XtreamBackupRecentlyViewedItem } from './playlist-backup.interface';
-import { PlaylistRefreshCancelledResult, PlaylistRefreshEvent, PlaylistRefreshPayload } from './playlist-refresh.interface';
 import { Playlist } from './playlist.interface';
 import { PlaybackNetworkInspection, PlayerContentInfo, PlayerEngineAvailability, ResolvedPortalPlayback } from './portal-playback.interface';
 import { PortalDebugEvent } from './portal-debug.interface';
@@ -49,9 +46,6 @@ export type ElectronBridgeContentType = (typeof ELECTRON_BRIDGE_CONTENT_TYPES)[k
 export type ElectronBridgePortalContentType = typeof ELECTRON_BRIDGE_CONTENT_TYPES.Live | typeof ELECTRON_BRIDGE_CONTENT_TYPES.Movie | typeof ELECTRON_BRIDGE_CONTENT_TYPES.Series;
 export type ElectronBridgePlaybackContentType = typeof ELECTRON_BRIDGE_CONTENT_TYPES.Vod | typeof ELECTRON_BRIDGE_CONTENT_TYPES.Episode;
 export const ELECTRON_BRIDGE_PLAYLIST_TYPES = {
-    M3uFile: "m3u-file",
-    M3uText: "m3u-text",
-    M3uUrl: "m3u-url",
     Xtream: "xtream",
 } as const;
 export type ElectronBridgePlaylistType = (typeof ELECTRON_BRIDGE_PLAYLIST_TYPES)[keyof typeof ELECTRON_BRIDGE_PLAYLIST_TYPES];
@@ -239,7 +233,6 @@ export interface ElectronBridgePlaybackPositionInput extends Omit<PlaybackPositi
 }
 export interface ElectronBridgeApi extends ElectronBridgeKsPlayerMetalApi {
     onPortalDebugEvent?: (callback: (data: PortalDebugEvent) => void) => () => void;
-    onPlaylistRefreshEvent?: (callback: (data: PlaylistRefreshEvent) => void) => () => void;
     getAppVersion: () => Promise<string>;
     platform: string;
     minimizeWindow: () => Promise<void>;
@@ -247,10 +240,6 @@ export interface ElectronBridgeApi extends ElectronBridgeKsPlayerMetalApi {
     closeWindow: () => Promise<void>;
     getWindowState: () => Promise<ElectronBridgeWindowState>;
     onWindowStateChange: (callback: (state: ElectronBridgeWindowState) => void) => () => void;
-    fetchPlaylistByUrl: (url: string, title?: string, options?: ElectronBridgeTrustOptions) => Promise<Playlist>;
-    updatePlaylistFromFilePath: (filePath: string, title: string) => Promise<Playlist>;
-    openPlaylistFromFile: () => Promise<Playlist | null>;
-    getPathForFile: (file: File) => string;
     saveFileDialog: (defaultPath: string, filters?: ElectronBridgeDialogFilter[]) => Promise<string | null>;
     writeFile: (filePath: string, content: string) => Promise<ElectronBridgeResult>;
     setUserAgent: (userAgent?: string | null, referer?: string | null, scopeUrl?: string | null) => Promise<boolean>;
@@ -258,7 +247,6 @@ export interface ElectronBridgeApi extends ElectronBridgeKsPlayerMetalApi {
     openInVlc: (url: string, title: string, thumbnail: string, userAgent: string | undefined, referer?: string, origin?: string, contentInfo?: PlayerContentInfo, startTime?: number, headers?: Record<string, string>, subtitleUrl?: string) => Promise<ExternalPlayerSession>;
     inspectPlaybackUrl: (url: string, headers?: Record<string, string>) => Promise<PlaybackNetworkInspection>;
     getPlayerEngineAvailability: () => Promise<PlayerEngineAvailability[]>;
-    autoUpdatePlaylists: (playlists: Playlist[], options?: ElectronBridgeTrustOptions) => Promise<AutoUpdatePlaylistsResult>;
     updateSettings: (settings: Partial<Settings>) => Promise<void>;
     getAiSettings: () => Promise<ElectronBridgeAiSettings>;
     searchOpenSubtitles: (
@@ -284,8 +272,6 @@ export interface ElectronBridgeApi extends ElectronBridgeKsPlayerMetalApi {
     startCredentialTestBatch: (request: CredentialTestBatchStartRequest) => Promise<string>;
     cancelCredentialTestBatch: (batchId: string) => Promise<void>;
     onCredentialTestProgress: (callback: (progress: CredentialTestProgress) => void) => () => void;
-    refreshPlaylist: (payload: PlaylistRefreshPayload) => Promise<Playlist | PlaylistRefreshCancelledResult>;
-    cancelPlaylistRefresh: (operationId: string) => Promise<ElectronBridgeResult>;
     dbCreatePlaylist: (playlist: ElectronBridgePlaylistUpsertInput) => Promise<ElectronBridgeResult>;
     dbGetPlaylist: (playlistId: string) => Promise<ElectronBridgePlaylistRow | null>;
     dbUpsertAppPlaylist: (playlist: Playlist, 
@@ -303,7 +289,6 @@ export interface ElectronBridgeApi extends ElectronBridgeKsPlayerMetalApi {
      * Never enters the DB worker payload or persisted playlist data.
      */
     operationId?: string) => Promise<Playlist | null>;
-    dbGetAppPlaylistFavoriteChannels: (playlistId: string) => Promise<M3uFavoriteChannel[]>;
     dbUpdatePlaylist: (playlistId: string, updates: Partial<Playlist> | ElectronBridgePlaylistInput) => Promise<ElectronBridgeResult>;
     dbDeletePlaylist: (playlistId: string, operationId?: string) => Promise<ElectronBridgeResult>;
     dbDeleteXtreamContent: (playlistId: string, operationId?: string) => Promise<{

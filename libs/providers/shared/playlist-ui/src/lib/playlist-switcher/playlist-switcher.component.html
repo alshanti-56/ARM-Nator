@@ -96,16 +96,6 @@
 
     @if (showTypeFilters()) {
         <div class="type-filters" (click)="$event.stopPropagation()">
-            @if (hasType('m3u')) {
-                <button
-                    type="button"
-                    class="type-filter-chip"
-                    [class.selected]="isTypeFilterSelected('m3u')"
-                    (click)="togglePlaylistTypeFilter('m3u', $event)"
-                >
-                    M3U
-                </button>
-            }
             @if (hasType('xtream')) {
                 <button
                     type="button"

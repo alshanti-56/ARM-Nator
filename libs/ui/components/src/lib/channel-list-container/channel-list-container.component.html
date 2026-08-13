@@ -5,16 +5,6 @@
         <header class="context-header">
             <div class="context-header__top">
                 <h2>{{ viewTitle() | translate }}</h2>
-                @if (
-                    activeView() === 'recent' && recentChannelItems().length > 0
-                ) {
-                    <button mat-button (click)="clearRecentChannels()">
-                        {{
-                            'WORKSPACE.SHELL.CLEAR_RECENTLY_VIEWED_SECTION'
-                                | translate
-                        }}
-                    </button>
-                }
             </div>
         </header>
         <div class="context-divider"></div>
@@ -75,19 +65,6 @@
                     (favoritesReordered)="onFavoritesReordered($event)"
                 />
             }
-        }
-        @case ('recent') {
-            <app-recent-view
-                [recentItems]="recentChannelItems()"
-                [searchTerm]="workspaceSearchTerm()"
-                [channelIconMap]="channelIconMap()"
-                [progressTick]="progressTick()"
-                [openOnDoubleClick]="openStreamOnDoubleClick()"
-                [activeChannelUrl]="activeChannelUrl()"
-                (channelSelected)="onChannelSelected($event)"
-                (channelPlaybackRequested)="onChannelPlaybackRequested($event)"
-                (removeRecent)="removeRecentChannel($event)"
-            />
         }
     }
 } @else {

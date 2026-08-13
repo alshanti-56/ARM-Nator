@@ -2,7 +2,7 @@ import { deriveStalkerDeviceIdsFromMac } from './stalker-identity.utils';
 
 describe('deriveStalkerDeviceIdsFromMac', () => {
     // Uppercase hex SHA-256 of the canonical MAC, and of that MAC plus the
-    // `stalker` salt — the values StbEmu and stalker-to-m3u pin server-side.
+    // `stalker` salt — the values StbEmu and compatible clients pin server-side.
     // Asserted literally: matching those clients byte for byte is the entire
     // point of the option, so recomputing them with the implementation's own
     // algorithm would assert nothing.

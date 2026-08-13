@@ -1,6 +1,6 @@
 /**
  * Pure text helpers for the content search pipeline (global search,
- * per-playlist search and M3U payload search). Everything here is
+ * per-playlist search). Everything here is
  * side-effect free and independent of drizzle so it can be unit tested
  * without database mocks; the SQL condition builders that consume these
  * helpers live in `content.operations.ts`.
@@ -274,31 +274,6 @@ export function buildCompoundFtsMatchQuery(searchTerm: string): string {
         })
         .filter(Boolean)
         .join(' AND ');
-}
-
-export function buildM3uPayloadTextFieldPatterns(
-    token: string,
-    mode: 'contains' | 'prefix'
-): string[] {
-    return buildLikePatterns(token, mode).flatMap((pattern) =>
-        wrapM3uPayloadTextFieldPattern(pattern)
-    );
-}
-
-/** Compound-word contains patterns scoped to M3U payload name/title fields. */
-export function buildM3uPayloadCompoundPatterns(word: string): string[] {
-    return buildCompoundLikePatterns(word).flatMap((pattern) =>
-        wrapM3uPayloadTextFieldPattern(pattern)
-    );
-}
-
-function wrapM3uPayloadTextFieldPattern(pattern: string): string[] {
-    return [
-        `%"name":"${pattern}"%`,
-        `%"name": "${pattern}"%`,
-        `%"title":"${pattern}"%`,
-        `%"title": "${pattern}"%`,
-    ];
 }
 
 export function scoreSearchTextMatch(

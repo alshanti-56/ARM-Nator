@@ -38,3 +38,14 @@ export type PlaylistMeta = Pick<
     | 'stalkerAccountInfo'
     | 'recentlyViewed'
 >;
+
+export interface PlaylistMetaUpdate extends Partial<PlaylistMeta> {
+    _id: string;
+    stalkerSessionPatch?: {
+        stalkerToken?: string;
+        stalkerSessionIdentity?: string;
+        stalkerWatchdogTimeout?: number;
+        stalkerTimeslot?: number;
+        stalkerAccountInfo?: PlaylistMeta['stalkerAccountInfo'];
+    } | null;
+}

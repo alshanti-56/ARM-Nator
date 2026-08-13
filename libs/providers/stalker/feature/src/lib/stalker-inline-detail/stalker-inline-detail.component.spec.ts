@@ -2,7 +2,7 @@ import { Component, input, output } from '@angular/core';
 import { ComponentFixture, TestBed } from '@angular/core/testing';
 import { By } from '@angular/platform-browser';
 import { createStalkerVodItem } from '@arm-nator/shared/interfaces';
-import { VodDetailsComponent } from '@arm-nator/ui/components';
+import { VodDetailsComponent } from '@arm-nator/player/ui';
 import { StalkerSeriesViewComponent } from '../stalker-series-view/stalker-series-view.component';
 import { StalkerInlineDetailComponent } from './stalker-inline-detail.component';
 
@@ -69,6 +69,7 @@ describe('StalkerInlineDetailComponent provider presentation', () => {
     it('passes provider-only mode to regular VOD details', async () => {
         fixture.componentRef.setInput('categoryId', 'vod');
         fixture.componentRef.setInput('vodDetailsItem', VOD_ITEM);
+        fixture.detectChanges();
         await fixture.whenStable();
 
         const child = fixture.debugElement.query(
@@ -88,6 +89,7 @@ describe('StalkerInlineDetailComponent provider presentation', () => {
             fixture.componentRef.setInput('categoryId', categoryId);
             fixture.componentRef.setInput('seriesItem', seriesItem);
             fixture.componentRef.setInput('isSeries', isSeries);
+            fixture.detectChanges();
             await fixture.whenStable();
 
             const child = fixture.debugElement.query(

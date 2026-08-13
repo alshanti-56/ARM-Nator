@@ -502,7 +502,7 @@ describe('StalkerPortalImportComponent identity handling', () => {
 
     describe('device ID derivation', () => {
         // Uppercase hex SHA-256 of the canonical MAC, and of that MAC plus
-        // the `stalker` salt — the values StbEmu and stalker-to-m3u pin
+        // the `stalker` salt — the values StbEmu and compatible clients pin
         // server-side. Asserted literally: matching those clients byte for
         // byte is the entire point of the option.
         const DERIVED_FOR_AABBCC = {

@@ -48,7 +48,7 @@ export function translateRailSection(
     section: PortalRailSection,
     translate: TranslateFn
 ): string {
-    return translate(getRailTooltipKey('playlists', section));
+    return translate(getRailTooltipKey('xtreams', section));
 }
 
 export function translateRailLinks(

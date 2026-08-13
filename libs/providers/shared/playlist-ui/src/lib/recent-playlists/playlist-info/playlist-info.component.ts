@@ -1,4 +1,3 @@
-import { Clipboard, ClipboardModule } from '@angular/cdk/clipboard';
 import { DatePipe } from '@angular/common';
 import { Component, inject } from '@angular/core';
 import {
@@ -8,36 +7,24 @@ import {
     UntypedFormGroup,
     Validators,
 } from '@angular/forms';
-import { MatButton, MatIconButton } from '@angular/material/button';
+import { MatButton } from '@angular/material/button';
 import { MatCheckboxModule } from '@angular/material/checkbox';
 import {
     MAT_DIALOG_DATA,
     MatDialogModule,
     MatDialogRef,
 } from '@angular/material/dialog';
-import { MatIcon } from '@angular/material/icon';
 import { MatInputModule } from '@angular/material/input';
 import { MatSnackBar } from '@angular/material/snack-bar';
-import { MatTooltip } from '@angular/material/tooltip';
 import { Store } from '@ngrx/store';
 import { TranslatePipe, TranslateService } from '@ngx-translate/core';
-import { PlaylistActions } from '@arm-nator/providers/m3u/state';
-import { firstValueFrom } from 'rxjs';
-import {
-    DatabaseService,
-    PlaylistsService,
-    RuntimeCapabilitiesService,
-} from '@arm-nator/services';
+import { PlaylistActions } from '@arm-nator/providers/shared/playlist-state';
+import { DatabaseService, RuntimeCapabilitiesService } from '@arm-nator/services';
 import {
     normalizeXtreamServerUrl,
     Playlist,
     PlaylistMeta,
 } from '@arm-nator/shared/interfaces';
-
-type DesktopFileSaveBridge = Pick<
-    typeof window.electron,
-    'saveFileDialog' | 'writeFile'
->;
 
 @Component({
     selector: 'app-playlist-info',
@@ -77,23 +64,17 @@ type DesktopFileSaveBridge = Pick<
     ],
     providers: [DatePipe],
     imports: [
-        ClipboardModule,
         MatButton,
         MatCheckboxModule,
         MatDialogModule,
-        MatIcon,
-        MatIconButton,
         MatInputModule,
-        MatTooltip,
         ReactiveFormsModule,
         TranslatePipe,
     ],
 })
 export class PlaylistInfoComponent {
-    private clipboard = inject(Clipboard);
     private datePipe = inject(DatePipe);
     private formBuilder = inject(UntypedFormBuilder);
-    private playlistsService = inject(PlaylistsService);
     private store = inject(Store);
     private databaseService = inject(DatabaseService);
     private snackBar = inject(MatSnackBar);
@@ -230,88 +211,4 @@ export class PlaylistInfoComponent {
         }); */
     }
 
-    async exportPlaylist(): Promise<void> {
-        const playlistAsString = await firstValueFrom(
-            this.playlistsService.getRawPlaylistById(this.playlist._id)
-        );
-
-        if (this.runtime.supportsDesktopFileSave) {
-            const desktopFileBridge = window.electron as DesktopFileSaveBridge;
-
-            try {
-                const savePath = await desktopFileBridge.saveFileDialog(
-                    `${this.playlist.title || 'exported'}.m3u8`,
-                    [
-                        {
-                            name: 'Playlist',
-                            extensions: ['m3u8', 'm3u'],
-                        },
-                    ]
-                );
-
-                if (savePath) {
-                    await desktopFileBridge.writeFile(
-                        savePath,
-                        playlistAsString
-                    );
-                    this.snackBar.open(
-                        this.translate.instant(
-                            'HOME.PLAYLISTS.INFO_DIALOG.PLAYLIST_EXPORT_SUCCESS'
-                        ),
-                        this.translate.instant('CLOSE'),
-                        { duration: 3000 }
-                    );
-                }
-
-                return;
-            } catch (error) {
-                console.error('Failed to export playlist:', error);
-                this.snackBar.open(
-                    this.translate.instant(
-                        'HOME.PLAYLISTS.INFO_DIALOG.EXPORT_PLAYLIST_FAILED'
-                    ),
-                    this.translate.instant('CLOSE'),
-                    {
-                        duration: 3000,
-                    }
-                );
-                return;
-            }
-        }
-
-        this.downloadPlaylistFile(playlistAsString);
-    }
-
-    private downloadPlaylistFile(playlistAsString: string): void {
-        const element = document.createElement('a');
-        element.setAttribute(
-            'href',
-            'data:text/plain;charset=utf-8,' +
-                encodeURIComponent(playlistAsString)
-        );
-        element.setAttribute('download', this.playlist.title || 'exported.m3u');
-        element.style.display = 'none';
-        document.body.appendChild(element);
-        element.click();
-        document.body.removeChild(element);
-    }
-
-    /**
-     * Copy URL to clipboard
-     */
-    copyUrl(): void {
-        const url = this.playlistDetails.get('url')?.value;
-        if (url) {
-            const success = this.clipboard.copy(url);
-            if (success) {
-                this.snackBar.open(
-                    this.translate.instant(
-                        'HOME.PLAYLISTS.INFO_DIALOG.URL_COPIED'
-                    ),
-                    this.translate.instant('CLOSE'),
-                    { duration: 2000 }
-                );
-            }
-        }
-    }
 }

@@ -42,6 +42,17 @@ const ksPlayerPatches = [
     markers: [["Sources/KSPlayer/MEPlayer/MetalPlayView.swift", "setPictureAdjustments"], ["Sources/KSPlayer/Metal/Shaders.metal", "applyPictureAdjustments"]],
   },
   {
+    path: path.join(packageRoot, "patches", "ksplayer", "subtitle-performance.patch"),
+    files: [
+      "Sources/KSPlayer/Subtitle/SubtitleDataSouce.swift",
+      "Sources/KSPlayer/Subtitle/KSSubtitle.swift",
+    ],
+    markers: [
+      ["Sources/KSPlayer/Subtitle/SubtitleDataSouce.swift", "private var isParsing"],
+      ["Sources/KSPlayer/Subtitle/KSSubtitle.swift", "var lowerBound = 0"],
+    ],
+  },
+  {
     path: path.join(
       packageRoot,
       "patches",

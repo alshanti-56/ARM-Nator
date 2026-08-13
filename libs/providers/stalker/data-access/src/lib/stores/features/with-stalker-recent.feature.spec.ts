@@ -2,7 +2,7 @@ import { TestBed } from '@angular/core/testing';
 import { patchState, signalStore, withMethods, withState } from '@ngrx/signals';
 import { Store } from '@ngrx/store';
 import { of, throwError } from 'rxjs';
-import { PlaylistActions } from '@arm-nator/providers/m3u/state';
+import { PlaylistActions } from '@arm-nator/providers/shared/playlist-state';
 import { PlaylistsService } from '@arm-nator/services';
 import { PlaylistMeta } from '@arm-nator/shared/interfaces';
 import { StalkerContentType } from '../stalker-store.contracts';

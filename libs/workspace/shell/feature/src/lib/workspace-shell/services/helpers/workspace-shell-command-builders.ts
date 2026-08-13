@@ -8,6 +8,7 @@ import {
 import {
     WorkspacePortalContext,
     WorkspaceShellRoute,
+    WorkspacePlaylistType,
 } from '@arm-nator/workspace/shell/util';
 import { TranslateFn } from './workspace-shell-search-labels';
 
@@ -19,7 +20,7 @@ export interface CommandBuilderActions {
     openGlobalSearch: (query: string) => void;
     navigateToGlobalFavorites: () => void;
     openGlobalRecent: () => void;
-    openAddPlaylistDialog: (kind?: 'url' | 'xtream') => void;
+    openAddPlaylistDialog: (kind?: WorkspacePlaylistType) => void;
 }
 
 export interface CommandBuilderContext {
@@ -59,10 +60,6 @@ export function getViewCommandDefinitions(
         return [];
     }
 
-    if (context.provider === 'playlists') {
-        return getM3uNavigationCommands(ctx, context, section);
-    }
-
     if (context.provider === 'xtreams') {
         return getPortalNavigationCommands(ctx, context, section);
     }
@@ -77,8 +74,7 @@ export function getPlaylistCommandDefinitions(
 
     if (
         !context ||
-        context.provider !== 'xtreams' &&
-        context.provider !== 'playlists'
+        context.provider !== 'xtreams'
     ) {
         return [];
     }
@@ -153,7 +149,7 @@ export function getGlobalCommandDefinitions(
                 'WORKSPACE.SHELL.COMMANDS.GLOBAL_SEARCH_DESCRIPTION',
             priority: 10,
             visible: hasSearchablePlaylists && route.kind !== 'global-search',
-            keywords: ['xtream', 'm3u', 'live'],
+            keywords: ['xtream', 'live'],
             run: ({ query }) => actions.openGlobalSearch(query),
         },
         {
@@ -228,17 +224,6 @@ export function getGlobalCommandDefinitions(
             run: () => actions.openAddPlaylistDialog(),
         },
         {
-            id: 'add-playlist-m3u',
-            group: 'global',
-            icon: 'folder_open',
-            labelKey: 'WORKSPACE.SHELL.COMMANDS.ADD_PLAYLIST_M3U_LABEL',
-            descriptionKey:
-                'WORKSPACE.SHELL.COMMANDS.ADD_PLAYLIST_M3U_DESCRIPTION',
-            keywords: ['m3u', 'm3u8', 'file', 'url', 'add', 'import'],
-            priority: 79,
-            run: () => actions.openAddPlaylistDialog('url'),
-        },
-        {
             id: 'add-playlist-xtream',
             group: 'global',
             icon: 'cloud',
@@ -248,6 +233,17 @@ export function getGlobalCommandDefinitions(
             keywords: ['xtream', 'codes', 'iptv', 'add', 'import'],
             priority: 78,
             run: () => actions.openAddPlaylistDialog('xtream'),
+        },
+        {
+            id: 'add-playlist-stalker',
+            group: 'global',
+            icon: 'router',
+            labelKey: 'WORKSPACE.SHELL.COMMANDS.ADD_PLAYLIST_STALKER_LABEL',
+            descriptionKey:
+                'WORKSPACE.SHELL.COMMANDS.ADD_PLAYLIST_STALKER_DESCRIPTION',
+            keywords: ['stalker', 'portal', 'mac', 'add', 'import'],
+            priority: 77,
+            run: () => actions.openAddPlaylistDialog('stalker'),
         },
     ];
 }
@@ -284,53 +280,6 @@ function getPortalNavigationCommands(
             icon: 'video_library',
             labelKey: 'WORKSPACE.SHELL.RAIL_SERIES',
             priority: 120,
-        }),
-    ].filter(
-        (command): command is WorkspaceCommandContribution => command !== null
-    );
-}
-
-function getM3uNavigationCommands(
-    ctx: CommandBuilderContext,
-    context: WorkspacePortalContext,
-    section: PortalRailSection
-): WorkspaceCommandContribution[] {
-    return [
-        createNavigationCommand(ctx, {
-            id: 'go-to-all',
-            context,
-            targetSection: 'all',
-            currentSection: section,
-            icon: 'format_list_bulleted',
-            labelKey: 'WORKSPACE.SHELL.RAIL_ALL_CHANNELS',
-            priority: 100,
-        }),
-        createNavigationCommand(ctx, {
-            id: 'go-to-groups',
-            context,
-            targetSection: 'groups',
-            currentSection: section,
-            icon: 'folder_open',
-            labelKey: 'WORKSPACE.SHELL.RAIL_GROUPS',
-            priority: 110,
-        }),
-        createNavigationCommand(ctx, {
-            id: 'go-to-favorites',
-            context,
-            targetSection: 'favorites',
-            currentSection: section,
-            icon: 'star',
-            labelKey: 'WORKSPACE.SHELL.RAIL_FAVORITES',
-            priority: 120,
-        }),
-        createNavigationCommand(ctx, {
-            id: 'go-to-recent',
-            context,
-            targetSection: 'recent',
-            currentSection: section,
-            icon: 'history',
-            labelKey: 'WORKSPACE.SHELL.RAIL_RECENT',
-            priority: 130,
         }),
     ].filter(
         (command): command is WorkspaceCommandContribution => command !== null

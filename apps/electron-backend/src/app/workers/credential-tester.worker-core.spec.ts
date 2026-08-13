@@ -1,54 +1,25 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
-import { Readable } from 'node:stream';
-import type {
-    CredentialM3uTestInput,
-    CredentialTestInput,
-} from '@arm-nator/shared/interfaces';
+import type { CredentialTestInput } from '@arm-nator/shared/interfaces';
 import {
-    isMeaningfulM3u,
     probeCredentialTest,
-    readBoundedM3uSample,
     runCredentialTestBatch,
     type CredentialTestRequest,
 } from './credential-tester.worker-core';
 
 const options = { concurrency: 6, timeoutMs: 12_000 } as const;
 
-function m3uInput(id: string): CredentialM3uTestInput {
+function xtreamInput(id: string): CredentialTestInput {
     return {
         id,
-        provider: 'm3u',
-        playlistUrl: `https://provider.test/${id}.m3u`,
+        provider: 'xtream',
+        serverUrl: `https://${id}.provider.test`,
+        username: 'user',
+        password: 'password',
     };
 }
 
-const validPlaylist = '#EXTM3U\n#EXTINF:-1,One\nhttps://stream.test/one.ts\n';
-
-test('M3U probe reads a bounded stream when a server ignores Range', async () => {
-    const stream = Readable.from([
-        Buffer.from(`${validPlaylist}${'x'.repeat(1024 * 1024)}`),
-    ]);
-    let destroyed = false;
-    const destroy = stream.destroy.bind(stream);
-    stream.destroy = ((error?: Error) => {
-        destroyed = true;
-        return destroy(error);
-    }) as typeof stream.destroy;
-
-    const sample = await readBoundedM3uSample(stream, new AbortController().signal, 64);
-
-    assert.equal(sample.length, 64);
-    assert.equal(destroyed, true);
-});
-
-test('requires a header, EXTINF, and a following playable HTTP(S) entry', () => {
-    assert.equal(isMeaningfulM3u('#EXTM3U\n#EXTINF:-1,Only metadata\n'), false);
-    assert.equal(isMeaningfulM3u('#EXTM3U\n#EXTINF:-1,File\nfile:///tmp/a.ts'), false);
-    assert.equal(isMeaningfulM3u(validPlaylist), true);
-});
-
-test('batch scheduler never runs more than six source tests concurrently', async () => {
+test('batch scheduler keeps Xtream request concurrency bounded', async () => {
     let active = 0;
     let maxActive = 0;
     const request: CredentialTestRequest = async () => {
@@ -56,12 +27,15 @@ test('batch scheduler never runs more than six source tests concurrently', async
         maxActive = Math.max(maxActive, active);
         await new Promise<void>((resolve) => setTimeout(resolve, 1));
         active -= 1;
-        return { status: 200, data: validPlaylist };
+        return {
+            status: 200,
+            data: { user_info: { auth: 1, status: 'Active' } },
+        };
     };
 
     const results: string[] = [];
     await runCredentialTestBatch(
-        Array.from({ length: 14 }, (_, index) => m3uInput(String(index))),
+        Array.from({ length: 14 }, (_, index) => xtreamInput(String(index))),
         options,
         new AbortController().signal,
         {
@@ -71,7 +45,9 @@ test('batch scheduler never runs more than six source tests concurrently', async
         { request }
     );
 
-    assert.equal(maxActive, 6);
+    // Each Xtream probe requests account info and three category counts in
+    // parallel, so six source probes produce at most eighteen requests.
+    assert.equal(maxActive, options.concurrency * 3);
     assert.equal(results.length, 14);
 });
 
@@ -96,7 +72,7 @@ test('cancellation aborts the active request and prevents queued work', async ()
     };
     const outcomes: string[] = [];
     const batch = runCredentialTestBatch(
-        [m3uInput('one'), m3uInput('two')],
+        [xtreamInput('one'), xtreamInput('two')],
         { concurrency: 1, timeoutMs: 12_000 },
         controller.signal,
         {
@@ -116,7 +92,7 @@ test('cancellation aborts the active request and prevents queued work', async ()
 });
 
 test('classifies timeout, offline, and rejected responses through injected requests', async () => {
-    const input = m3uInput('classification');
+    const input = xtreamInput('classification');
     const signal = new AbortController().signal;
     const timeout = await probeCredentialTest(
         input,

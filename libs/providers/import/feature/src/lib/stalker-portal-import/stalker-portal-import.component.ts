@@ -1,12 +1,19 @@
-import { Component, inject, output } from '@angular/core';
+import { Component, inject, output, signal } from '@angular/core';
 import { FormControl, FormGroup, FormsModule, ReactiveFormsModule, Validators } from '@angular/forms';
 import { MatCheckboxModule } from '@angular/material/checkbox';
 import { MatFormFieldModule } from '@angular/material/form-field';
 import { MatInputModule } from '@angular/material/input';
 import { Store } from '@ngrx/store';
 import { TranslatePipe } from '@ngx-translate/core';
-import { PlaylistActions } from '@arm-nator/providers/m3u/state';
-import { createRandomId, Playlist } from '@arm-nator/shared/interfaces';
+import { PlaylistActions } from '@arm-nator/providers/shared/playlist-state';
+import {
+    createRandomId,
+    deriveStalkerDeviceIdsFromMac,
+    hasInfomirMacOui,
+    normalizeStalkerMacAddress,
+    Playlist,
+    validateStalkerMacAddressControl,
+} from '@arm-nator/shared/interfaces';
 
 @Component({
     selector: 'app-stalker-portal-import',
@@ -20,7 +27,10 @@ export class StalkerPortalImportComponent {
         _id: new FormControl(createRandomId(), { nonNullable: true }),
         title: new FormControl('Stalker Portal', { nonNullable: true, validators: Validators.required }),
         portalUrl: new FormControl('', { nonNullable: true, validators: [Validators.required, Validators.pattern(/^https?:\/\/[^\s]+$/i)] }),
-        macAddress: new FormControl('', { nonNullable: true, validators: [Validators.required, Validators.pattern(/^([0-9a-f]{2}:){5}[0-9a-f]{2}$/i)] }),
+        macAddress: new FormControl('', {
+            nonNullable: true,
+            validators: [Validators.required, validateStalkerMacAddressControl],
+        }),
         serialNumber: new FormControl('', { nonNullable: true }),
         deviceId1: new FormControl('', { nonNullable: true }),
         deviceId2: new FormControl('', { nonNullable: true }),
@@ -32,14 +42,85 @@ export class StalkerPortalImportComponent {
         userAgent: new FormControl('', { nonNullable: true }),
     });
     private readonly store = inject(Store);
-    derivesDeviceIds = () => false;
-    hasManualDeviceIds = false;
+    derivesDeviceIds = signal(false);
     showsForeignOuiHint = false;
-    onMacAddressBlur(): void {}
-    toggleDeriveDeviceIds(_value: boolean): void {}
+    private derivationRequest = 0;
+
+    get hasManualDeviceIds(): boolean {
+        if (this.derivesDeviceIds()) {
+            return false;
+        }
+
+        return Boolean(
+            this.form.controls.deviceId1.value.trim() ||
+                this.form.controls.deviceId2.value.trim()
+        );
+    }
+
+    async onMacAddressBlur(): Promise<void> {
+        const normalized = normalizeStalkerMacAddress(
+            this.form.controls.macAddress.value
+        );
+        if (!normalized) {
+            this.showsForeignOuiHint = false;
+            return;
+        }
+
+        this.form.controls.macAddress.setValue(normalized);
+        this.showsForeignOuiHint = !hasInfomirMacOui(normalized);
+
+        if (this.derivesDeviceIds()) {
+            await this.updateDerivedDeviceIds(normalized);
+        }
+    }
+
+    async toggleDeriveDeviceIds(value: boolean): Promise<void> {
+        this.derivesDeviceIds.set(value);
+        this.derivationRequest += 1;
+
+        if (!value) {
+            this.form.controls.deviceId1.enable();
+            this.form.controls.deviceId2.enable();
+            this.form.patchValue({ deviceId1: '', deviceId2: '' });
+            return;
+        }
+
+        await this.updateDerivedDeviceIds(
+            normalizeStalkerMacAddress(this.form.controls.macAddress.value)
+        );
+    }
+
+    private async updateDerivedDeviceIds(
+        macAddress: string | null
+    ): Promise<void> {
+        const request = ++this.derivationRequest;
+        const derived = await deriveStalkerDeviceIdsFromMac(macAddress);
+        if (!this.derivesDeviceIds() || request !== this.derivationRequest) {
+            return;
+        }
+
+        if (!derived) {
+            this.form.controls.deviceId1.enable();
+            this.form.controls.deviceId2.enable();
+            this.form.patchValue({ deviceId1: '', deviceId2: '' });
+            return;
+        }
+
+        this.form.patchValue(derived);
+        this.form.controls.deviceId1.disable();
+        this.form.controls.deviceId2.disable();
+    }
     isLoading(): boolean { return false; }
 
     addPlaylist(): void {
+        const normalizedMac = normalizeStalkerMacAddress(
+            this.form.controls.macAddress.value
+        );
+        if (normalizedMac) {
+            this.form.controls.macAddress.setValue(normalizedMac);
+            this.showsForeignOuiHint = !hasInfomirMacOui(normalizedMac);
+        }
+
         if (this.form.invalid) {
             this.form.markAllAsTouched();
             return;

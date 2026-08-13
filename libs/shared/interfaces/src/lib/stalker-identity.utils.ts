@@ -53,7 +53,7 @@ export function normalizeStalkerPortalIdentity(
 
 /**
  * Salt that separates `device_id2` from `device_id`, matching the
- * `stalker-to-m3u` reference client.
+ * reference client.
  */
 const STALKER_DEVICE_ID2_SALT = 'stalker';
 
@@ -75,7 +75,7 @@ async function sha256Upper(value: string): Promise<string> {
 }
 
 /**
- * Derives the MAC-based device ID pair that StbEmu and the `stalker-to-m3u`
+ * Derives the MAC-based device ID pair that StbEmu clients
  * reference client generate: uppercase hex `SHA256` of the canonical
  * `00:1A:79:…` MAC for `device_id`, and of that MAC plus a `stalker` salt for
  * `device_id2`. A user who already reached the portal from one of those

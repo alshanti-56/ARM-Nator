@@ -37,7 +37,7 @@ export interface WorkspaceShellRoute {
   contextPanel: WorkspaceShellContextPanel;
 }
 
-const PORTAL_PROVIDERS: readonly PortalProvider[] = ["xtreams", "playlists", "stalker"];
+const PORTAL_PROVIDERS: readonly PortalProvider[] = ["xtreams", "stalker"];
 
 const PORTAL_SECTIONS: readonly PortalRailSection[] = [
   "all",
@@ -115,15 +115,6 @@ function resolvePortalSearchMode(
 ): Exclude<WorkspaceShellSearchMode, "advanced-only"> {
   if (!context || !section) {
     return "none";
-  }
-
-  if (context.provider === "playlists") {
-    return section === "all" ||
-      section === "groups" ||
-      section === "favorites" ||
-      section === "recent"
-      ? "local-filter"
-      : "none";
   }
 
   if (context.provider === "xtreams") {

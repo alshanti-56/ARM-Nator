@@ -60,7 +60,6 @@ import {
     deleteAllPlaylists,
     deletePlaylist,
     getAppPlaylist,
-    getAppPlaylistFavoriteChannels,
     getAppPlaylistMetas,
     getAppPlaylists,
     getAppState,
@@ -444,8 +443,7 @@ async function executeRequest(
             const payload = message.payload as {
                 kind?: 'all' | 'vod' | 'series';
                 limit?: number;
-                playlistType?:
-                    'xtream' | 'm3u-file' | 'm3u-text' | 'm3u-url';
+                playlistType?: 'xtream';
             };
             return getGlobalRecentlyAdded(
                 db,
@@ -569,7 +567,7 @@ async function executeRequest(
                 searchTerm: string;
                 types: string[];
                 excludeHidden?: boolean;
-                sources?: Array<'xtream' | 'm3u'>;
+                sources?: Array<'xtream'>;
                 options?: {
                     limit?: number;
                     offset?: number;
@@ -663,11 +661,6 @@ async function executeRequest(
                       }
                     : undefined;
             return getAppPlaylist(db, payload.playlistId, capturePhase);
-        }
-
-        case 'DB_GET_APP_PLAYLIST_FAVORITE_CHANNELS': {
-            const payload = message.payload as { playlistId: string };
-            return getAppPlaylistFavoriteChannels(db, payload.playlistId);
         }
 
         case 'DB_GET_PLAYLIST': {
@@ -984,10 +977,7 @@ async function executeRequest(
                     positionSeconds: number;
                     durationSeconds?: number;
                     playlistType?:
-                        | 'xtream'
-                        | 'm3u-file'
-                        | 'm3u-text'
-                        | 'm3u-url';
+                        | 'xtream';
                 };
             };
             return savePlaybackPosition(db, payload.playlistId, payload.data);

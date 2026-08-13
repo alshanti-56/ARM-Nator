@@ -76,5 +76,5 @@ export function getProviderFromPlaylist(playlist: {
     if (playlist.serverUrl) {
         return 'xtreams';
     }
-    return 'playlists';
+    return playlist.macAddress ? 'stalker' : 'xtreams';
 }

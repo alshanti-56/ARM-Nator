@@ -13,7 +13,7 @@ import { MatIcon } from '@angular/material/icon';
 import { MatInputModule } from '@angular/material/input';
 import { Store } from '@ngrx/store';
 import { TranslatePipe } from '@ngx-translate/core';
-import { PlaylistActions } from '@arm-nator/providers/m3u/state';
+import { PlaylistActions } from '@arm-nator/providers/shared/playlist-state';
 import { PortalStatus, PortalStatusService } from '@arm-nator/services';
 import {
     createRandomId,

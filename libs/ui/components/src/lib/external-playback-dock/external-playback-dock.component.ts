@@ -14,7 +14,7 @@ import { MatProgressSpinnerModule } from '@angular/material/progress-spinner';
 import { TranslatePipe } from '@ngx-translate/core';
 import { ExternalPlayerSession } from '@arm-nator/shared/interfaces';
 import { SettingsStore } from '@arm-nator/services';
-import { applyChannelNameStrip } from '@arm-nator/providers/m3u/utils';
+import { applyChannelNameStrip } from '@arm-nator/providers/shared/util';
 
 @Component({
     selector: 'app-external-playback-dock',

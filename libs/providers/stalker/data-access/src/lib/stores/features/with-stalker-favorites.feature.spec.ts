@@ -4,7 +4,7 @@ import { patchState, signalStore, withMethods, withState } from '@ngrx/signals';
 import { Store } from '@ngrx/store';
 import { TranslateService } from '@ngx-translate/core';
 import { of } from 'rxjs';
-import { PlaylistActions } from '@arm-nator/providers/m3u/state';
+import { PlaylistActions } from '@arm-nator/providers/shared/playlist-state';
 import { PlaylistsService } from '@arm-nator/services';
 import { PlaylistMeta } from '@arm-nator/shared/interfaces';
 import { StalkerContentType } from '../stalker-store.contracts';

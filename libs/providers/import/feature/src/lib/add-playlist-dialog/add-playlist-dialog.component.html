@@ -38,19 +38,6 @@
 
         <div class="apd-form-area">
             @switch (playlistType()) {
-                @case ('file') {
-                    <app-file-upload
-                        (fileRejected)="rejectFile($event)"
-                        (imported)="onFileImported()"
-                        (closeDialog)="closeDialog()"
-                    />
-                }
-                @case ('url') {
-                    <app-url-upload />
-                }
-                @case ('text') {
-                    <app-text-import (textAdded)="uploadAsText($event)" />
-                }
                 @case ('xtream') {
                     <app-xtream-code-import (addClicked)="closeDialog()" />
                 }
@@ -79,43 +66,6 @@
             </button>
 
             @switch (playlistType()) {
-                @case ('url') {
-                    <button
-                        mat-flat-button
-                        color="primary"
-                        type="button"
-                        [disabled]="!urlUpload()?.form?.valid"
-                        (click)="submitUrlPlaylist()"
-                    >
-                        {{ 'HOME.URL_UPLOAD.ADD_PLAYLIST' | translate }}
-                    </button>
-                }
-                @case ('file') {
-                    <button
-                        mat-flat-button
-                        color="primary"
-                        type="button"
-                        [disabled]="!fileUpload()?.selectedFile()"
-                        (click)="fileUpload()?.confirm()"
-                    >
-                        {{ 'HOME.URL_UPLOAD.ADD_PLAYLIST' | translate }}
-                    </button>
-                }
-                @case ('text') {
-                    <button
-                        mat-flat-button
-                        color="primary"
-                        type="button"
-                        [disabled]="!textImport()?.textForm?.valid"
-                        (click)="
-                            textImport()?.textAdded?.emit(
-                                textImport()?.textForm?.value?.text ?? undefined
-                            )
-                        "
-                    >
-                        {{ 'HOME.TEXT_IMPORT.BUTTON_LABEL' | translate }}
-                    </button>
-                }
                 @case ('xtream') {
                     <button
                         mat-stroked-button

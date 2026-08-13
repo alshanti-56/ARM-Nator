@@ -36,7 +36,7 @@ import {
     StalkerStore,
     toggleStalkerVodFavorite,
 } from '@arm-nator/providers/stalker/data-access';
-import type { PlaybackFallbackRequest } from '@arm-nator/ui/components';
+import type { PlaybackFallbackRequest } from '@arm-nator/player/ui';
 import { PlaylistsService } from '@arm-nator/services';
 import {
     PlaybackPositionData,

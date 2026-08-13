@@ -93,7 +93,7 @@ describe('createStalkerMacAddressValidator', () => {
         // A playlist saved before this validation existed may hold anything,
         // and on a panel that ignores the MAC it works. Marking the form
         // invalid on open would disable Save and strand the user's title, URL
-        // and EPG edits over a field the portal may not even read.
+        // and metadata edits over a field the portal may not even read.
         const validate = createStalkerMacAddressValidator('legacy-device-42');
 
         expect(validate({ value: 'legacy-device-42' })).toBeNull();

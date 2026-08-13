@@ -17,7 +17,7 @@ import { provideStore } from '@ngrx/store';
 import { provideStoreDevtools } from '@ngrx/store-devtools';
 import { TranslateLoader, TranslateModule } from '@ngx-translate/core';
 import { TranslateHttpLoader } from '@ngx-translate/http-loader';
-import { PlaylistEffects, playlistReducer } from '@arm-nator/providers/m3u/state';
+import { PlaylistEffects, playlistReducer } from '@arm-nator/providers/shared/playlist-state';
 import { NgxIndexedDBModule } from 'ngx-indexed-db';
 import { NgxSkeletonLoaderModule } from 'ngx-skeleton-loader';
 import {

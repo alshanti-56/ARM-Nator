@@ -137,10 +137,7 @@ export function isDbAbortError(error: unknown): boolean {
 export type GlobalRecentlyAddedKind = 'all' | 'vod' | 'series';
 
 export type GlobalRecentlyAddedPlaylistType =
-    | 'xtream'
-    | 'm3u-file'
-    | 'm3u-text'
-    | 'm3u-url';
+    | 'xtream';
 
 export interface GlobalRecentlyAddedItem extends XtreamContent {
     playlist_id: string;
@@ -632,7 +629,7 @@ export class DatabaseService {
      * Get recently added VOD and series items across all Xtream playlists.
      * When `playlistType` is supplied, the LIMIT window is applied only to
      * rows from playlists of that type, so Xtream items cannot be squeezed
-     * out by newer M3U content.
+     * out by newer catalog content.
      */
     async getGlobalRecentlyAdded(
         kind: GlobalRecentlyAddedKind,

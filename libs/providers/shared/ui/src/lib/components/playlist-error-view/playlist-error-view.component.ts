@@ -8,7 +8,7 @@ import { TranslateModule, TranslateService } from "@ngx-translate/core";
 import { PlaylistInfoComponent } from "@arm-nator/providers/shared/playlist-ui";
 import { PlaylistContextFacade } from "@arm-nator/providers/shared/playlist-util";
 import { DialogService } from "@arm-nator/ui/components";
-import { PlaylistActions } from "@arm-nator/providers/m3u/state";
+import { PlaylistActions } from "@arm-nator/providers/shared/playlist-state";
 
 @Component({
   selector: "app-playlist-error-view",

@@ -1,5 +1,3 @@
-import { buildPlaylistRecentItems } from './playlist-recently-viewed.utils';
-import type { PlaylistMeta } from './playlist-meta.type';
 import { extractStalkerItemTmdbHints } from './stalker-item-tmdb-hints';
 import { extractStalkerItemType } from './stalker-item.normalizer';
 
@@ -116,39 +114,5 @@ describe('extractStalkerItemTmdbHints', () => {
     it('tolerates a missing item', () => {
         expect(extractStalkerItemTmdbHints(undefined).mediaType).toBe('movie');
         expect(extractStalkerItemTmdbHints(null).year).toBeNull();
-    });
-});
-
-describe('buildPlaylistRecentItems (stalker backdrops)', () => {
-    const labels = { stalker: 'Stalker', m3u: 'M3U' };
-
-    function recentItemsOf(rawItem: unknown) {
-        return buildPlaylistRecentItems(
-            [
-                {
-                    _id: 'portal-1',
-                    title: 'RUcolor.tv',
-                    macAddress: '00:1A:79:00:00:01',
-                    recentlyViewed: [rawItem],
-                } as unknown as PlaylistMeta,
-            ],
-            labels
-        );
-    }
-
-    it('surfaces the enriched backdrop so the hero does not need a lookup', () => {
-        expect(recentItemsOf(enrichedEntry)[0].backdrop_url).toBe(
-            'https://image.tmdb.org/t/p/w1280/backdrop.jpg'
-        );
-    });
-
-    it('leaves the backdrop undefined for an entry saved without enrichment', () => {
-        expect(
-            recentItemsOf({
-                id: '17573',
-                title: 'Холод (10 серий)',
-                cover: 'https://image.tmdb.org/t/p/w500/poster.jpg',
-            })[0].backdrop_url
-        ).toBeUndefined();
     });
 });

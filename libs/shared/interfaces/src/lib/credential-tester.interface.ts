@@ -11,7 +11,7 @@ export const CREDENTIAL_TESTER_DEFAULT_TIMEOUT_MS = 12_000;
 export const CREDENTIAL_TESTER_MAX_TIMEOUT_MS = 30_000;
 export const CREDENTIAL_TESTER_MIN_TIMEOUT_MS = 1_000;
 
-export type CredentialTestProvider = 'xtream' | 'm3u';
+export type CredentialTestProvider = 'xtream';
 
 export interface CredentialXtreamTestInput {
     readonly id: string;
@@ -21,15 +21,7 @@ export interface CredentialXtreamTestInput {
     readonly password: string;
 }
 
-export interface CredentialM3uTestInput {
-    readonly id: string;
-    readonly provider: 'm3u';
-    readonly playlistUrl: string;
-}
-
-export type CredentialTestInput =
-    | CredentialXtreamTestInput
-    | CredentialM3uTestInput;
+export type CredentialTestInput = CredentialXtreamTestInput;
 
 export type CredentialTestStatus =
     | 'queued'
@@ -146,7 +138,7 @@ function isCredentialTestInput(value: unknown): value is CredentialTestInput {
         );
     }
 
-    return input['provider'] === 'm3u' && isNonEmptyString(input['playlistUrl']);
+    return false;
 }
 
 export function isCredentialTestBatchStartRequest(

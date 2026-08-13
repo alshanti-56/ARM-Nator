@@ -8,15 +8,15 @@ import { TranslateModule } from "@ngx-translate/core";
 export interface SettingsDeleteAllPlaylistsDialogData {
   summary: {
     total: number;
-    m3u: number;
     xtream: number;
+    stalker: number;
   };
 }
 
 type SettingsDeleteSummaryItem = {
   count: number;
   icon: string;
-  id: "m3u" | "xtream";
+  id: "xtream" | "stalker";
   labelKey: string;
 };
 
@@ -38,16 +38,16 @@ export class SettingsDeleteAllPlaylistsDialogComponent {
 
   readonly summaryItems = computed<SettingsDeleteSummaryItem[]>(() => [
     {
-      id: "m3u",
-      count: this.dialogData.summary.m3u,
-      icon: "playlist_play",
-      labelKey: "HOME.PLAYLIST_TYPES.M3U",
-    },
-    {
       id: "xtream",
       count: this.dialogData.summary.xtream,
       icon: "cloud",
       labelKey: "HOME.PLAYLIST_TYPES.XTREAM",
+    },
+    {
+      id: "stalker",
+      count: this.dialogData.summary.stalker,
+      icon: "router",
+      labelKey: "HOME.PLAYLIST_TYPES.STALKER",
     },
   ]);
 

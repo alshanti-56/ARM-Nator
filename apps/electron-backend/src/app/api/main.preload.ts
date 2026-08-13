@@ -1,5 +1,5 @@
 /* eslint-disable max-lines */
-import { contextBridge, ipcRenderer, webUtils } from 'electron';
+import { contextBridge, ipcRenderer } from 'electron';
 import {
     createPreloadPerformanceCapture,
     toPreloadPerformanceTargetMethod,
@@ -23,7 +23,6 @@ import type {
     ElectronBridgePlaybackPositionInput,
     ElectronBridgePlaylistInput,
     ElectronBridgePlaylistUpsertInput,
-    ElectronBridgeTrustOptions,
     ElectronBridgeWindowState,
     ElectronBridgeXtreamContentStream,
     ExternalPlayerSession,
@@ -35,8 +34,6 @@ import type {
     PlaybackNetworkInspection,
     PlayerEngineAvailability,
     Playlist,
-    PlaylistRefreshEvent,
-    PlaylistRefreshPayload,
     PortalDebugEvent,
     ResolvedPortalPlayback,
     Settings,
@@ -87,7 +84,6 @@ const PORTAL_DEBUG_EVENT = 'PORTAL_DEBUG_EVENT';
 const EXTERNAL_PLAYER_SESSION_UPDATE = 'EXTERNAL_PLAYER_SESSION_UPDATE';
 const EMBEDDED_MPV_SESSION_UPDATE = 'EMBEDDED_MPV_SESSION_UPDATE';
 const DB_OPERATION_EVENT = 'DB_OPERATION_EVENT';
-const PLAYLIST_REFRESH_EVENT = 'PLAYLIST:REFRESH_EVENT';
 const WINDOW_MINIMIZE = 'WINDOW:MINIMIZE';
 const WINDOW_TOGGLE_MAXIMIZE = 'WINDOW:TOGGLE_MAXIMIZE';
 const WINDOW_CLOSE = 'WINDOW:CLOSE';
@@ -342,16 +338,6 @@ const electronApi: ElectronBridgeApi = {
         ipcRenderer.on(DB_OPERATION_EVENT, handler);
         return () => ipcRenderer.off(DB_OPERATION_EVENT, handler);
     },
-    onPlaylistRefreshEvent: (
-        callback: (data: PlaylistRefreshEvent) => void
-    ) => {
-        const handler = (
-            _event: Electron.IpcRendererEvent,
-            data: PlaylistRefreshEvent
-        ) => callback(data);
-        ipcRenderer.on(PLAYLIST_REFRESH_EVENT, handler);
-        return () => ipcRenderer.off(PLAYLIST_REFRESH_EVENT, handler);
-    },
     // DB save content progress listener
     onDbSaveContentProgress: (callback: (count: number) => void) => {
         const handler = (
@@ -394,15 +380,6 @@ const electronApi: ElectronBridgeApi = {
         ipcRenderer.on(WINDOW_STATE_CHANGED, handler);
         return () => ipcRenderer.off(WINDOW_STATE_CHANGED, handler);
     },
-    fetchPlaylistByUrl: (
-        url: string,
-        title?: string,
-        options?: ElectronBridgeTrustOptions
-    ) => ipcRenderer.invoke('fetch-playlist-by-url', url, title, options),
-    updatePlaylistFromFilePath: (filePath: string, title: string) =>
-        ipcRenderer.invoke('update-playlist-from-file-path', filePath, title),
-    openPlaylistFromFile: () => ipcRenderer.invoke('open-playlist-from-file'),
-    getPathForFile: (file: File) => webUtils.getPathForFile(file),
     saveFileDialog: (
         defaultPath: string,
         filters?: { name: string; extensions: string[] }[]
@@ -667,10 +644,6 @@ const electronApi: ElectronBridgeApi = {
         ipcRenderer.invoke(KSPLAYER_METAL_DISPOSE_SESSION, sessionId),
     disposeAllKsPlayerMetal: (): Promise<void> =>
         ipcRenderer.invoke(KSPLAYER_METAL_DISPOSE_ALL),
-    autoUpdatePlaylists: (
-        playlists: Playlist[],
-        options?: ElectronBridgeTrustOptions
-    ) => ipcRenderer.invoke('AUTO_UPDATE', playlists, options),
     setMpvPlayerPath: (mpvPlayerPath: string) =>
         ipcRenderer.invoke('SET_MPV_PLAYER_PATH', mpvPlayerPath),
     setVlcPlayerPath: (vlcPlayerPath: string) =>
@@ -721,10 +694,6 @@ const electronApi: ElectronBridgeApi = {
         ipcRenderer.on(CREDENTIAL_TESTER_IPC.progress, handler);
         return () => ipcRenderer.off(CREDENTIAL_TESTER_IPC.progress, handler);
     },
-    refreshPlaylist: (payload: PlaylistRefreshPayload) =>
-        ipcRenderer.invoke('PLAYLIST:REFRESH', payload),
-    cancelPlaylistRefresh: (operationId: string) =>
-        ipcRenderer.invoke('PLAYLIST:CANCEL_REFRESH', operationId),
     // Database operations
     dbCreatePlaylist: (playlist: ElectronBridgePlaylistUpsertInput) =>
         ipcRenderer.invoke('DB_CREATE_PLAYLIST', playlist),
@@ -739,8 +708,6 @@ const electronApi: ElectronBridgeApi = {
         ipcRenderer.invoke('DB_GET_APP_PLAYLIST_METAS'),
     dbGetAppPlaylist: (playlistId: string, _operationId?: string) =>
         ipcRenderer.invoke('DB_GET_APP_PLAYLIST', playlistId),
-    dbGetAppPlaylistFavoriteChannels: (playlistId: string) =>
-        ipcRenderer.invoke('DB_GET_APP_PLAYLIST_FAVORITE_CHANNELS', playlistId),
     dbUpdatePlaylist: (
         playlistId: string,
         updates: Partial<Playlist> | ElectronBridgePlaylistInput
@@ -853,8 +820,7 @@ const electronApi: ElectronBridgeApi = {
     dbGetGlobalRecentlyAdded: (
         kind: 'all' | 'vod' | 'series',
         limit?: number,
-        playlistType?:
-            'xtream' | 'm3u-file' | 'm3u-text' | 'm3u-url'
+        playlistType?: 'xtream'
     ) =>
         ipcRenderer.invoke(
             'DB_GET_GLOBAL_RECENTLY_ADDED',

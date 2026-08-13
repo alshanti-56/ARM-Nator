@@ -85,7 +85,6 @@ export class PlaylistItemComponent implements OnInit {
         { initialValue: null }
     );
 
-    readonly supportsPlaylistRefresh = this.runtime.supportsPlaylistRefresh;
     readonly supportsXtreamSqliteDataSource =
         this.runtime.supportsXtreamSqliteDataSource;
     readonly currentLocale = computed(() => {

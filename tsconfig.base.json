@@ -55,14 +55,8 @@
       "@arm-nator/providers/shared/util": [
         "libs/providers/shared/util/src/index.ts"
       ],
-      "@arm-nator/providers/m3u/feature-player": [
-        "libs/providers/m3u/feature-player/src/index.ts"
-      ],
-      "@arm-nator/providers/m3u/state": [
-        "libs/providers/m3u/state/src/index.ts"
-      ],
-      "@arm-nator/providers/m3u/utils": [
-        "libs/providers/m3u/utils/src/index.ts"
+      "@arm-nator/providers/shared/playlist-state": [
+        "libs/providers/shared/playlist-state/src/index.ts"
       ],
       "@arm-nator/providers/xtream/feature": [
         "libs/providers/xtream/feature/src/index.ts"

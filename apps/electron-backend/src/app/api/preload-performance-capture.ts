@@ -1,5 +1,4 @@
 import {
-    isPlaylistRefreshCancelledResult,
     PRELOAD_PERFORMANCE_MARKER_CHANNEL,
     PRELOAD_PERFORMANCE_METHOD,
     type PreloadPerformanceMarker,
@@ -183,15 +182,7 @@ export function createPreloadPerformanceCapture(
                 return;
             }
 
-            let refreshCancelled = false;
-            if (call.method === PRELOAD_PERFORMANCE_METHOD.REFRESH_PLAYLIST) {
-                try {
-                    refreshCancelled = isPlaylistRefreshCancelledResult(result);
-                } catch {
-                    refreshCancelled = false;
-                }
-            }
-            emit(call, 'success', refreshCancelled);
+            emit(call, 'success');
         },
     };
 }

@@ -29,9 +29,7 @@ function csvCell(value: string | number | undefined): string {
 }
 
 function sourceUrl(result: BulkTestResult): string {
-    return result.candidate.type === 'm3u'
-        ? result.candidate.playlistUrl
-        : result.candidate.serverUrl;
+    return result.candidate.serverUrl;
 }
 
 function rowValue(

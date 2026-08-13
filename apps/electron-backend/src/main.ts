@@ -15,7 +15,6 @@ import { shutdownMpvSession } from './app/events/mpv-session.service';
 import PlayerEvents from './app/events/player.events';
 import OpenSubtitlesEvents from './app/events/open-subtitles.events';
 import { shutdownVlcSession } from './app/events/vlc-session.service';
-import PlaylistEvents from './app/events/playlist.events';
 import SettingsEvents from './app/events/settings.events';
 import SharedEvents from './app/events/shared.events';
 import { isStartupTraceEnabled, trace } from './app/services/debug-trace';
@@ -93,7 +92,6 @@ export default class Main {
         BrowserEvents.bootstrapBrowserEvents();
         EmbeddedMpvEvents.bootstrapEmbeddedMpvEvents();
         KsPlayerMetalEvents.bootstrapKsPlayerMetalEvents();
-        PlaylistEvents.bootstrapPlaylistEvents();
         SharedEvents.bootstrapSharedEvents();
         PlayerEvents.bootstrapPlayerEvents();
         OpenSubtitlesEvents.bootstrapOpenSubtitlesEvents();

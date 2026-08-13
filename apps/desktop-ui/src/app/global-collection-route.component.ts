@@ -14,7 +14,7 @@ import {
 } from '@angular/core';
 import { Router } from '@angular/router';
 import { Store } from '@ngrx/store';
-import { selectAllPlaylistsMeta } from '@arm-nator/providers/m3u/state';
+import { selectAllPlaylistsMeta } from '@arm-nator/providers/shared/playlist-state';
 import { EmptyStateComponent } from '@arm-nator/providers/shared/playlist-ui';
 import { PlaylistContextFacade } from '@arm-nator/providers/shared/playlist-util';
 import {
@@ -29,7 +29,7 @@ import {
 } from '@arm-nator/providers/shared/util';
 import { WORKSPACE_SHELL_ACTIONS } from '@arm-nator/workspace/shell/util';
 
-type UnifiedPortalType = 'm3u' | 'xtream';
+type UnifiedPortalType = 'xtream';
 type CollectionMode = 'favorites' | 'recent';
 
 interface ComponentOutputRef {
@@ -59,7 +59,6 @@ const EMPTY_STATE_BY_MODE: Record<
 function providerToPortalType(
     provider: PortalProvider
 ): UnifiedPortalType | null {
-    if (provider === 'playlists') return 'm3u';
     if (provider === 'xtreams') return 'xtream';
     return null;
 }

@@ -8,8 +8,6 @@ import {
     output,
     signal,
 } from '@angular/core';
-import { MatButtonModule } from '@angular/material/button';
-import { MatIconModule } from '@angular/material/icon';
 import { TranslatePipe } from '@ngx-translate/core';
 import {
     ResolvedLiveCollectionDetail,
@@ -25,7 +23,6 @@ import {
     UnifiedCollectionItem,
     UnifiedFavoriteChannel,
 } from '@arm-nator/providers/shared/util';
-import { AudioPlayerComponent } from '@arm-nator/player/ui';
 import { ResizableDirective } from '@arm-nator/ui/components';
 import { SettingsStore } from '@arm-nator/services';
 import { GlobalFavoritesListComponent } from '../global-favorites-list/global-favorites-list.component';
@@ -37,10 +34,7 @@ import { PortalEmptyStateComponent } from '../portal-empty-state/portal-empty-st
     styleUrl: './unified-live-tab.component.scss',
     changeDetection: ChangeDetectionStrategy.OnPush,
     imports: [
-        AudioPlayerComponent,
         GlobalFavoritesListComponent,
-        MatButtonModule,
-        MatIconModule,
         PortalEmptyStateComponent,
         ResizableDirective,
         TranslatePipe,
@@ -75,18 +69,8 @@ export class UnifiedLiveTabComponent {
     readonly isEmbeddedPlayer = computed(() =>
         this.portalPlayer.isEmbeddedPlayer(true),
     );
-    readonly currentStreamUrl = computed(
-        () => this.activeDetail()?.playback.streamUrl ?? '',
-    );
-    readonly activeRadioChannel = computed(() => {
-        const channel = this.activeDetail()?.channel ?? null;
-        return channel?.radio === 'true' ? channel : null;
-    });
-    readonly isRadioSelection = computed(
-        () => this.activeRadioChannel() !== null,
-    );
     readonly shouldUseInlinePlayer = computed(
-        () => this.isRadioSelection() || this.isEmbeddedPlayer(),
+        () => this.isEmbeddedPlayer(),
     );
     readonly channelsForList = computed((): UnifiedFavoriteChannel[] =>
         this.items().map((item) => ({
@@ -96,8 +80,6 @@ export class UnifiedLiveTabComponent {
             sourceType: item.sourceType,
             playlistId: item.playlistId,
             playlistName: item.playlistName,
-            streamUrl: item.streamUrl,
-            m3uChannel: item.m3uChannel,
             xtreamId: item.xtreamId,
             tvgId: item.tvgId,
             addedAt: item.addedAt ?? new Date(0).toISOString(),
@@ -234,10 +216,7 @@ export class UnifiedLiveTabComponent {
         detail: ResolvedLiveCollectionDetail,
         startPlayback: boolean,
     ): boolean {
-        if (
-            detail.channel?.radio === 'true' ||
-            this.portalPlayer.isEmbeddedPlayer(true)
-        ) {
+        if (this.portalPlayer.isEmbeddedPlayer(true)) {
             return false;
         }
         return !this.settingsStore.openStreamOnDoubleClick() || startPlayback;

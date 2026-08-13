@@ -23,10 +23,8 @@
             "WELCOME_TITLE": "Добро пожаловать в ARM-Nator",
             "WELCOME_DESCRIPTION": "Начните свое путешествие в мир стриминга, добавив свой первый плейлист. Подключитесь к вашему любимому IPTV-сервису и наслаждайтесь прямыми трансляциями, фильмами и сериалами.",
             "ADD_YOUR_FIRST": "Добавить первый плейлист",
-            "FEATURE_M3U": "Файлы M3U/M3U8",
             "FEATURE_XTREAM": "Xtream Codes",
             "FEATURE_STALKER": "Stalker портал",
-            "FEATURE_M3U_LABEL": "Add an M3U file or URL",
             "FEATURE_XTREAM_LABEL": "Connect via Xtream Codes",
             "FEATURE_STALKER_LABEL": "Connect to a Stalker portal",
             "VALUE_PROPS_LABEL": "What you can do",
@@ -35,7 +33,6 @@
             "VALUE_PROP_MULTISOURCE": "Multi-source library",
             "VALUE_PROP_OFFLINE": "Offline downloads",
             "DASHBOARD_WELCOME_TAGLINE": "Your IPTV library, in one place.",
-            "DASHBOARD_WELCOME_DESCRIPTION": "Connect M3U files, Xtream Codes, or Stalker portals — then enjoy live TV, movies and series on every screen.",
             "FEATURE_LIVE_TITLE": "Live TV",
             "FEATURE_LIVE_DESC": "Stream live channels with full schedule.",
             "FEATURE_VOD_TITLE": "Movies & Series",
@@ -44,8 +41,6 @@
             "FEATURE_OFFLINE_DESC": "Save movies and episodes for later.",
             "SOURCES_WELCOME_TITLE": "Add your first playlist",
             "SOURCES_WELCOME_BODY": "Pick a source type below to get started.",
-            "SOURCE_M3U_NEEDS": "Local file or URL pointing to an M3U/M3U8 playlist.",
-            "SOURCE_M3U_ADD": "Add M3U",
             "SOURCE_XTREAM_NEEDS": "Username, password and server URL from your provider.",
             "SOURCE_XTREAM_ADD": "Add Xtream",
             "SOURCE_STALKER_NEEDS": "Portal URL and MAC address (Ministra-compatible).",
@@ -79,7 +74,6 @@
                 "AUTO_UPDATE": "Автообновление",
                 "AUTO_UPDATE_DESCRIPTION": "Если активирована функция автообновления, список воспроизведения будет обновляться автоматически при каждом запуске приложения.",
                 "CUSTOM_USER_AGENT": "Некоторые IPTV провайдеры требуют указание определенного пользовательского агента (User Agent) для воспроизведения своего плейлиста.",
-                "EXPORT_PLAYLIST": "Экспортировать плейлист (m3u)",
                 "SERVER_URL": "URL-адрес сервера",
                 "USERNAME": "Имя пользователя",
                 "PASSWORD": "Пароль",
@@ -132,15 +126,11 @@
         },
         "ADD_PLAYLIST": {
             "PICK_METHOD": "Выберите способ подключения. Переименовать плейлист можно позже.",
-            "METHOD_URL_LABEL": "M3U URL",
-            "METHOD_URL_SUB": "Вставьте ссылку на удалённый файл .m3u или .m3u8",
-            "METHOD_FILE_LABEL": "Файл M3U",
             "METHOD_FILE_SUB": "Загрузите плейлист с вашего компьютера",
             "METHOD_XTREAM_LABEL": "Учётные данные Xtream",
             "METHOD_XTREAM_SUB": "Подключение через сервер, имя пользователя и пароль",
             "METHOD_STALKER_LABEL": "Stalker портал",
             "METHOD_STALKER_SUB": "MAC-адрес и URL портала",
-            "METHOD_TEXT_LABEL": "M3U текстом",
             "METHOD_TEXT_SUB": "Для разовых плейлистов или когда есть только текст"
         },
         "FILE_UPLOAD": {
@@ -151,7 +141,6 @@
             "REJECTED": "К сожалению, данный формат файлов не поддерживается {{filename}}."
         },
         "URL_UPLOAD": {
-            "PLAYLIST_URL": "Ссылка на плейлист (*.m3u или *.m3u8)",
             "ADD_PLAYLIST": "Добавить плейлист",
             "CORS_NOTE": "Примечание: Чтобы избежать проблем с CORS, приложение использует публичный CORS-прокси сервис. Если вы хотите загрузить плейлист с конфиденциальными данными, безопаснее импортировать его из файла.",
             "ERROR_FETCH_FAILED": "Не удалось получить плейлист. Проверьте URL и попробуйте снова.",
@@ -165,7 +154,6 @@
             "TRUST_TLS_HOST_WARNING": "Only continue if you trust this playlist host. ARM-Nator will allow invalid TLS certificates for this host, but other hosts still require valid certificates."
         },
         "TEXT_IMPORT": {
-            "LABEL": "Вставьте плейлист формата m3u(8) в данное поле",
             "BUTTON_LABEL": "Импортировать"
         },
         "XTREAM_PLAYLIST": {
@@ -204,7 +192,6 @@
             "CUSTOM_ORDER": "Пользовательский порядок (Drag & Drop)"
         },
         "PLAYLIST_TYPES": {
-            "M3U": "M3U (локально, URL, текст)",
             "XTREAM": "Xtream",
             "STALKER": "Stalker"
         },
@@ -255,7 +242,6 @@
         "DESCRIPTION": "Закончив настройку, не забудьте подтвердить новые настройки кнопкой 'Сохранить'",
         "VIDEO_PLAYER_LABEL": "Видеоплеер",
         "LIVE_VIDEO_PLAYER_LABEL": "Live TV player",
-        "LIVE_VIDEO_PLAYER_DESCRIPTION": "Default player for live TV and M3U channels",
         "VOD_VIDEO_PLAYER_LABEL": "Movies and series player",
         "VOD_VIDEO_PLAYER_DESCRIPTION": "Default player for movies and series episodes",
         "PLAYER_HTML5": "HTML5-плеер",
@@ -305,13 +291,11 @@
         "EMBEDDED_MPV_NOTICE_TITLE": "Среда выполнения встроенного MPV",
         "EMBEDDED_MPV_NOTICE_DESCRIPTION": "Сборки для настольных платформ могут включать библиотеки libmpv и FFmpeg для экспериментального встроенного MPV-проигрывателя. Установка отдельного приложения MPV не требуется; внешние MPV и VLC по-прежнему доступны как запасные проигрыватели.",
         "IMPORT_EXPORT_DATA": "Импорт/экспорт плейлистов",
-        "IMPORT_EXPORT_DATA_DESCRIPTION": "Export or restore playlist backups including M3U snapshots, Xtream/Stalker connection metadata, and user state.",
         "IMPORT_DATA": "Импорт",
         "EXPORT_DATA": "Экспорт",
         "EXPORTING_DATA": "Экспорт…",
         "REMOVE_ALL": "Delete all playlists and playlist data",
         "REMOVE_ALL_BUTTON": "Delete all",
-        "REMOVE_ALL_DESCRIPTION": "Delete every M3U, Xtream, and Stalker playlist stored in the app.",
         "REMOVE_DIALOG": {
             "TITLE": "Delete all playlists?",
             "MESSAGE": "Delete all {{count}} playlists from the app. This also removes stored playlist data on this device.",
@@ -599,7 +583,6 @@
     },
     "ABOUT": {
         "TITLE": "О приложении",
-        "DESCRIPTION": "Кроссплатформенное приложение IPTV-плеера с множеством функций, таких как поддержка плейлистов m3u и m3u8, избранное, телегид, ТВ-архив/catchup и многое другое.",
         "VERSION": "Версия",
         "BUY_ME_A_COFFEE_TOOLTIP": "Поддержать разработчика"
     },
@@ -785,8 +768,6 @@
             "NO_RESULTS_FOR": "Нет результатов по запросу \"{{term}}\"",
             "GROUP_BY_PLAYLIST": "Группировать результаты по плейлистам",
             "VISIBLE_CATEGORIES_ONLY": "Только видимые категории",
-            "GLOBAL_SEARCH_SOURCE_NOTE": "Глобальный поиск включает результаты из плейлистов Xtream и M3U.",
-            "GLOBAL_INITIAL_DESCRIPTION": "Введите минимум 2 символа для поиска по плейлистам Xtream и M3U.",
             "LOADING_MORE_RESULTS": "Загружаем еще результаты..."
         },
         "STREAM_URL_COPIED": "URL-адрес потока был скопирован в буфер обмена.",
@@ -904,7 +885,6 @@
             "NO_HISTORY_HINT": "История просмотра появится здесь, как только вы начнете воспроизводить контент из своих плейлистов.",
             "XTREAM": "Xtream",
             "STALKER": "Stalker",
-            "M3U": "M3U",
             "STALKER_PORTAL": "Портал Stalker",
             "PROVIDER": "Провайдер",
             "TYPE_LIVE": "ТВ",
@@ -979,8 +959,6 @@
             "GO_TO_DASHBOARD": "Back to dashboard",
             "GO_TO_SOURCES": "Go to Sources",
             "DROP_OVERLAY_TITLE": "Drop to add playlist",
-            "DROP_OVERLAY_BODY": "Release an .m3u or .m3u8 file anywhere in the workspace to import it.",
-            "DROP_OVERLAY_REJECTED_BODY": "Please drop an .m3u or .m3u8 file. Press Esc to dismiss.",
             "DROP_OVERLAY_REJECTED_UNSUPPORTED": "Unsupported file type",
             "DROP_OVERLAY_REJECTED_EMPTY": "That file is empty",
             "DROP_OVERLAY_REJECTED_READ_ERROR": "Could not read that file",
@@ -1017,8 +995,6 @@
                 "OPEN_DASHBOARD_DESCRIPTION": "Перейти к панели управления",
                 "ADD_PLAYLIST_LABEL": "Добавить источник",
                 "ADD_PLAYLIST_DESCRIPTION": "Открыть диалог добавления плейлиста",
-                "ADD_PLAYLIST_M3U_LABEL": "Add M3U playlist",
-                "ADD_PLAYLIST_M3U_DESCRIPTION": "Open add dialog on the M3U file or URL tab",
                 "ADD_PLAYLIST_XTREAM_LABEL": "Add Xtream Codes playlist",
                 "ADD_PLAYLIST_XTREAM_DESCRIPTION": "Open add dialog on the Xtream Codes tab",
                 "ADD_PLAYLIST_STALKER_LABEL": "Add Stalker portal",
@@ -1054,7 +1030,6 @@
             "SUBTITLE": "Фильтрация и сортировка плейлистов",
             "TYPE": "Тип",
             "ALL": "Все",
-            "M3U_PLAYLISTS": "M3U плейлисты",
             "XTREAM_PLAYLISTS": "Xtream плейлисты",
             "STALKER_PLAYLISTS": "Stalker плейлисты",
             "ALL_PLAYLISTS": "Все плейлисты",
@@ -1115,7 +1090,6 @@
                 "OPEN_RECENTLY_VIEWED": "Open recently viewed",
                 "SUBMIT_SHELL_SEARCH": "Submit workspace search",
                 "TOGGLE_SIDEBAR": "Toggle sidebar",
-                "M3U_CHANNEL_NUMBER": "Select M3U channel by number",
                 "PLAY_PAUSE": "Play or pause embedded MPV playback",
                 "TOGGLE_FULLSCREEN": "Toggle embedded MPV fullscreen",
                 "SEEK": "Seek embedded MPV playback by 5 seconds",
@@ -1135,7 +1109,6 @@
             "NO_RESULTS": "Ничего не найдено",
             "NO_RESULTS_HINT": "Попробуйте другой поисковый запрос",
             "EMPTY_TITLE": "Пока нет избранных телеканалов",
-            "EMPTY_HINT": "Добавляйте в избранное live-каналы из плейлистов M3U, Xtream или Stalker, чтобы они появились здесь.",
             "EMPTY_PLAYER": "Выберите канал, чтобы начать просмотр",
             "NO_PLAYLISTS_TITLE": "No favorites to show",
             "NO_PLAYLISTS_BODY": "Add a playlist to start collecting favorites from live channels, movies, and series.",

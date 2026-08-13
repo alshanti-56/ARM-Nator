@@ -1,4 +1,5 @@
 import { PlaylistRecentlyViewedItem } from './playlist-recently-viewed.interface';
+import { StalkerPortalItem } from './stalker-portal-item.interface';
 
 export interface PlaylistHeader {
     raw?: string;
@@ -26,12 +27,11 @@ export interface Playlist {
     _id: string;
     title: string;
     filename?: string;
-    /** The parsed playlist payload (e.g., parsed M3U object or portal payload) */
+    /** The provider payload used to restore portal state. */
     playlist?: PlaylistPayload;
     importDate: string;
     lastUsage: string;
-    /** M3U playlists store channel URL strings (`string[]`). */
-    favorites?: string[];
+    favorites?: Array<string | StalkerPortalItem>;
     items?: unknown[];
     header?: unknown;
     count: number;
@@ -70,6 +70,5 @@ export interface Playlist {
     recentlyViewed?: PlaylistRecentlyViewedItem[];
     /** Xtream server timezone string for catch-up URL construction */
     serverTimezone?: string;
-    /** Hidden M3U group titles for the groups view */
     hiddenGroupTitles?: string[];
 }

@@ -8,7 +8,7 @@ import { Store } from '@ngrx/store';
 import { RecentPlaylistsComponent } from '@arm-nator/providers/shared/playlist-ui';
 import { XtreamMetadataIndexService } from '@arm-nator/providers/xtream/data-access';
 import { TranslatePipe, TranslateService } from '@ngx-translate/core';
-import { selectActiveTypeFilters, selectAllPlaylistsMeta } from '@arm-nator/providers/m3u/state';
+import { selectActiveTypeFilters, selectAllPlaylistsMeta } from '@arm-nator/providers/shared/playlist-state';
 import { map, startWith } from 'rxjs';
 import { SortBy, SortOrder, SortService } from '@arm-nator/services';
 import {
@@ -112,9 +112,6 @@ export class WorkspaceSourcesComponent {
         const filters = this.activeTypeFilters();
 
         if (filters.length === 1) {
-            if (filters[0] === 'm3u') {
-                return this.translateText('WORKSPACE.SOURCES.M3U_PLAYLISTS');
-            }
             if (filters[0] === 'xtream') {
                 return this.translateText('WORKSPACE.SOURCES.XTREAM_PLAYLISTS');
             }

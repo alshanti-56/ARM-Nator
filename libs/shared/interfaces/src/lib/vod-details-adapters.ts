@@ -1,6 +1,11 @@
-import { XtreamVodDetails, getXtreamVodInfo } from './xtream-vod-details.interface';
+import { StalkerVodDetails } from './stalker-vod-details.interface';
+import {
+    XtreamVodDetails,
+    getXtreamVodInfo,
+} from './xtream-vod-details.interface';
 import {
     NormalizedVodMeta,
+    StalkerVodItem,
     VodDetailsItem,
     XtreamVodItem,
 } from './vod-details-item.interface';
@@ -30,6 +35,30 @@ export function normalizeXtreamVod(item: XtreamVodDetails): NormalizedVodMeta {
         tmdbCast: info?.tmdb_cast,
         tmdbDirectors: info?.tmdb_directors,
         tmdbRecommendations: info?.tmdb_recommendations,
+    };
+}
+
+/** Normalizes Stalker/Ministra VOD metadata into the shared detail shape. */
+export function normalizeStalkerVod(
+    item: StalkerVodDetails
+): NormalizedVodMeta {
+    const info = item.info;
+
+    return {
+        title: info.o_name || info.name || 'Unknown',
+        description: info.description,
+        posterUrl: info.movie_image,
+        backdropUrl: info.tmdb_backdrop,
+        year: extractYear(info.releasedate),
+        genre: info.genre,
+        actors: info.actors,
+        director: info.director,
+        ratingImdb: info.rating_imdb,
+        ratingKinopoisk: info.rating_kinopoisk,
+        youtubeTrailer: info.tmdb_trailer,
+        tmdbCast: info.tmdb_cast,
+        tmdbDirectors: info.tmdb_directors,
+        tmdbRecommendations: info.tmdb_recommendations,
     };
 }
 
@@ -72,7 +101,9 @@ export function youtubeEmbedUrl(
  * Uses discriminated union for type-safe handling.
  */
 export function normalizeVodDetails(item: VodDetailsItem): NormalizedVodMeta {
-    return normalizeXtreamVod(item.data);
+    return item.type === 'stalker'
+        ? normalizeStalkerVod(item.data)
+        : normalizeXtreamVod(item.data);
 }
 
 /**
@@ -88,6 +119,22 @@ export function createXtreamVodItem(
         data,
         playlistId,
         vodId: vodId ?? data.movie_data?.stream_id ?? 0,
+    };
+}
+
+/** Creates a shared VOD item wrapper for a Stalker/Ministra movie. */
+export function createStalkerVodItem(
+    data: StalkerVodDetails,
+    playlistId: string
+): StalkerVodItem {
+    const numericId = Number(data.id);
+
+    return {
+        type: 'stalker',
+        data,
+        cmd: data.cmd,
+        playlistId,
+        vodId: Number.isFinite(numericId) ? numericId : 0,
     };
 }
 

@@ -5,7 +5,7 @@ index 242c2388..50759303 100644
 @@ -158,6 +158,10 @@ public final class MetalPlayView: UIView, VideoOutput {
          draw(force: true)
      }
-
+ 
 +    public func setPictureAdjustments(brightness: Float, contrast: Float, blackLevel: Float, saturation: Float, gamma: Float) {
 +        metalView.setPictureAdjustments(brightness: brightness, contrast: contrast, blackLevel: blackLevel, saturation: saturation, gamma: gamma)
 +    }
@@ -14,7 +14,7 @@ index 242c2388..50759303 100644
  //        print()
  //    }
 @@ -241,6 +245,10 @@ extension MetalPlayView {
-
+ 
  class MetalView: UIView {
      private let render = MetalRender()
 +
@@ -25,19 +25,29 @@ index 242c2388..50759303 100644
      override public class var layerClass: AnyClass { CAMetalLayer.self }
      #endif
 diff --git a/Sources/KSPlayer/Metal/MetalRender.swift b/Sources/KSPlayer/Metal/MetalRender.swift
-index f86211a4..b112358e 100644
+index f86211a4..2a6f6cbc 100644
 --- a/Sources/KSPlayer/Metal/MetalRender.swift
 +++ b/Sources/KSPlayer/Metal/MetalRender.swift
 @@ -12,6 +12,8 @@ import QuartzCore
  import simd
-
+ 
  class MetalRender {
 +    private var pictureAdjustments = SIMD4<Float>(0, 0, 0, 0)
 +    private var pictureGamma: Float = 0
      static let device = MTLCreateSystemDefaultDevice()!
      static let library: MTLLibrary = {
          var library: MTLLibrary!
-@@ -100,6 +102,10 @@ class MetalRender {
+@@ -86,7 +88,8 @@ class MetalRender {
+         encoder.endEncoding()
+         commandBuffer.present(drawable)
+         commandBuffer.commit()
+-        commandBuffer.waitUntilCompleted()
++        // Metal retains the drawable and textures until completion. Do not
++        // block the display-link thread waiting for the GPU on every frame.
+     }
+ 
+     @MainActor
+@@ -100,8 +103,11 @@ class MetalRender {
          let state = display.pipeline(planeCount: pixelBuffer.planeCount, bitDepth: pixelBuffer.bitDepth)
          encoder.setRenderPipelineState(state)
          encoder.setFragmentSamplerState(samplerState, index: 0)
@@ -46,20 +56,25 @@ index f86211a4..b112358e 100644
 +        encoder.setFragmentBytes(&picture, length: MemoryLayout<SIMD4<Float>>.stride, index: 3)
 +        encoder.setFragmentBytes(&gamma, length: MemoryLayout<Float>.stride, index: 4)
          for (index, texture) in inputTextures.enumerated() {
-             texture.label = "texture\(index)"
+-            texture.label = "texture\(index)"
              encoder.setFragmentTexture(texture, index: index)
-@@ -113,6 +119,11 @@ class MetalRender {
-         commandBuffer.waitUntilCompleted()
-     }
-
+         }
+         setFragmentBuffer(pixelBuffer: pixelBuffer, encoder: encoder)
+@@ -110,7 +116,13 @@ class MetalRender {
+         encoder.endEncoding()
+         commandBuffer.present(drawable)
+         commandBuffer.commit()
+-        commandBuffer.waitUntilCompleted()
++        // Keep rendering asynchronous so the main/display-link thread can
++        // continue while Metal completes the submitted command buffer.
++    }
++
 +    func setPictureAdjustments(brightness: Float, contrast: Float, blackLevel: Float, saturation: Float, gamma: Float) {
 +        pictureAdjustments = SIMD4<Float>(brightness, contrast, blackLevel, saturation)
 +        pictureGamma = gamma
-+    }
-+
+     }
+ 
      private func setFragmentBuffer(pixelBuffer: PixelBufferProtocol, encoder: MTLRenderCommandEncoder) {
-         if pixelBuffer.planeCount > 1 {
-             let buffer: MTLBuffer?
 diff --git a/Sources/KSPlayer/Metal/Shaders.metal b/Sources/KSPlayer/Metal/Shaders.metal
 index 0d59206a..db16e8bf 100755
 --- a/Sources/KSPlayer/Metal/Shaders.metal
@@ -67,7 +82,7 @@ index 0d59206a..db16e8bf 100755
 @@ -28,11 +28,24 @@ vertex VertexOut mapSphereTexture(VertexIn input [[stage_in]], constant float4x4
      return outVertex;
  }
-
+ 
 +half3 applyPictureAdjustments(half3 rgb, constant float4& picture [[ buffer(3) ]], constant float& gamma [[ buffer(4) ]]) {
 +    const half brightness = half(1.0 + picture.x / 100.0);
 +    const half contrast = half(1.0 + picture.y / 100.0);
@@ -85,11 +100,11 @@ index 0d59206a..db16e8bf 100755
 +                              constant float4& picture [[ buffer(3) ]],
 +                              constant float& gamma [[ buffer(4) ]]) {
      constexpr sampler s(address::clamp_to_edge, filter::linear);
-
+ 
 -    return half4(texture.sample(s, mappingVertex.textureCoordinate));
 +    return half4(applyPictureAdjustments(texture.sample(s, mappingVertex.textureCoordinate).rgb, picture, gamma), 1);
  }
-
+ 
  fragment half4 displayYUVTexture(VertexOut in [[ stage_in ]],
 @@ -42,13 +55,15 @@ fragment half4 displayYUVTexture(VertexOut in [[ stage_in ]],
                                    sampler textureSampler [[ sampler(0) ]],
@@ -107,8 +122,8 @@ index 0d59206a..db16e8bf 100755
 -    return half4(half3x3(yuvToBGRMatrix)*(yuv*half3(leftShift)+half3(colorOffset)), 1);
 +    return half4(applyPictureAdjustments(half3x3(yuvToBGRMatrix)*(yuv*half3(leftShift)+half3(colorOffset)), picture, gamma), 1);
  }
-
-
+ 
+ 
 @@ -58,12 +73,14 @@ fragment half4 displayNV12Texture(VertexOut in [[ stage_in ]],
                                    sampler textureSampler [[ sampler(0) ]],
                                    constant float3x3& yuvToBGRMatrix [[ buffer(0) ]],
@@ -124,5 +139,6 @@ index 0d59206a..db16e8bf 100755
 -    return half4(half3x3(yuvToBGRMatrix)*(yuv*half3(leftShift)+half3(colorOffset)), 1);
 +    return half4(applyPictureAdjustments(half3x3(yuvToBGRMatrix)*(yuv*half3(leftShift)+half3(colorOffset)), picture, gamma), 1);
  }
-
+ 
  half3 shaderLinearize(half3 rgb) {
+

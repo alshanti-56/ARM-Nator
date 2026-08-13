@@ -2,8 +2,6 @@ export const RENDERER_PERFORMANCE_PHASE_HOOK_KEY =
     'arm-nator.renderer.performance-phase-hook.v1';
 
 export const RENDERER_PERFORMANCE_PHASE = {
-    M3U_IMPORT_DISPATCH: 'store.m3u-import-dispatch',
-    M3U_PUBLISH_CHANNELS: 'store.m3u-publish-channels',
 } as const;
 
 export type RendererPerformancePhase =

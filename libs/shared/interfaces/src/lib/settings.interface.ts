@@ -136,7 +136,7 @@ export function normalizeDashboardRailsSettings(
 export interface Settings {
     /** Legacy default retained for migration and compatibility. */
     player: VideoPlayer;
-    /** Default engine for live TV and M3U channel playback. */
+    /** Default engine for live TV playback. */
     livePlayer: VideoPlayer;
     /** Default engine for movies and series episodes. */
     vodPlayer: VideoPlayer;

@@ -14,7 +14,7 @@ import {
     PlaybackPositionRuntimeBridgeService,
     PlaylistsService,
 } from '@arm-nator/services';
-import { VodDetailsComponent } from '@arm-nator/ui/components';
+import { VodDetailsComponent } from '@arm-nator/player/ui';
 import { EMPTY, of } from 'rxjs';
 import { StalkerCatalogFacadeService } from '../stalker-catalog-facade.service';
 import { StalkerSeriesViewComponent } from '../stalker-series-view/stalker-series-view.component';

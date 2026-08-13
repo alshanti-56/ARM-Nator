@@ -13,42 +13,28 @@ import {
     MatDialogRef,
 } from '@angular/material/dialog';
 import { MatIcon } from '@angular/material/icon';
-import { MatSnackBar } from '@angular/material/snack-bar';
-import { Store } from '@ngrx/store';
-import { TranslateModule, TranslateService } from '@ngx-translate/core';
-import { PlaylistType } from '@arm-nator/providers/shared/playlist-ui';
-import { PlaylistActions } from '@arm-nator/providers/m3u/state';
-import { DataService } from '@arm-nator/services';
-import { PLAYLIST_PARSE_BY_URL } from '@arm-nator/shared/interfaces';
-import { FileUploadComponent } from '../file-upload/file-upload.component';
-import { TextImportComponent } from '../text-import/text-import.component';
-import { UrlUploadComponent } from '../url-upload/url-upload.component';
+import { TranslateModule } from '@ngx-translate/core';
 import { XtreamCodeImportComponent } from '../xtream-code-import/xtream-code-import.component';
 import { StalkerPortalImportComponent } from '../stalker-portal-import/stalker-portal-import.component';
 
 /**
- * Flat 4-method option model — replaces the prior category × subtype matrix
- * (M3U/Xtream × URL/File/Text) which created several combinations of which
- * only 4 are real. Now each entry IS a method, no nesting.
+ * The source dialog only exposes the supported portal types.
  */
 export interface PlaylistMethodOption {
-    value: PlaylistType | 'stalker';
+    value: 'xtream' | 'stalker';
     icon: string;
     labelKey: string;
     subKey: string;
 }
 
-type AddPlaylistMethod = PlaylistType | 'stalker';
+type AddPlaylistMethod = 'xtream' | 'stalker';
 
 @Component({
     imports: [
-        FileUploadComponent,
         MatButtonModule,
         MatDialogModule,
         MatIcon,
-        TextImportComponent,
         TranslateModule,
-        UrlUploadComponent,
         XtreamCodeImportComponent,
         StalkerPortalImportComponent,
     ],
@@ -58,42 +44,17 @@ type AddPlaylistMethod = PlaylistType | 'stalker';
     encapsulation: ViewEncapsulation.None,
 })
 export class AddPlaylistDialogComponent {
-    private dataService = inject(DataService);
     private dialogRef = inject(MatDialogRef<AddPlaylistDialogComponent>);
-    private store = inject(Store);
-    private snackBar = inject(MatSnackBar);
-    private translateService = inject(TranslateService);
-    private data = inject<{ type?: PlaylistType } | null>(MAT_DIALOG_DATA, {
+    private data = inject<{ type?: AddPlaylistMethod } | null>(MAT_DIALOG_DATA, {
         optional: true,
     });
 
-    readonly urlUpload = viewChild(UrlUploadComponent);
-    readonly fileUpload = viewChild(FileUploadComponent);
-    readonly textImport = viewChild(TextImportComponent);
     readonly xtreamImport = viewChild(XtreamCodeImportComponent);
     readonly stalkerImport = viewChild(StalkerPortalImportComponent);
 
-    readonly method = signal<AddPlaylistMethod>('url');
+    readonly method = signal<AddPlaylistMethod>('xtream');
 
-    // Order matches the v0.22 mockup left-to-right: URL first (Most common),
-    // then File, Xtream credentials, raw text paste. Each
-    // entry stands on its own — no nested subtypes. Labels are short and
-    // sentence-cased; the "Add via …" / "Add Xtreme Code" wording from the
-    // old tab labels is redundant inside a dialog already titled "Add
-    // playlist".
     readonly methodOptions: PlaylistMethodOption[] = [
-        {
-            value: 'url',
-            icon: 'public',
-            labelKey: 'HOME.ADD_PLAYLIST.METHOD_URL_LABEL',
-            subKey: 'HOME.ADD_PLAYLIST.METHOD_URL_SUB',
-        },
-        {
-            value: 'file',
-            icon: 'folder_open',
-            labelKey: 'HOME.ADD_PLAYLIST.METHOD_FILE_LABEL',
-            subKey: 'HOME.ADD_PLAYLIST.METHOD_FILE_SUB',
-        },
         {
             value: 'xtream',
             icon: 'vpn_key',
@@ -105,12 +66,6 @@ export class AddPlaylistDialogComponent {
             icon: 'router',
             labelKey: 'HOME.STALKER_PORTAL.TITLE',
             subKey: 'HOME.STALKER_PORTAL.URL_HINT',
-        },
-        {
-            value: 'text',
-            icon: 'subject',
-            labelKey: 'HOME.ADD_PLAYLIST.METHOD_TEXT_LABEL',
-            subKey: 'HOME.ADD_PLAYLIST.METHOD_TEXT_SUB',
         },
     ];
 
@@ -126,72 +81,8 @@ export class AddPlaylistDialogComponent {
         }
     }
 
-    /**
-     * Closes the dialog after a successful file import. The actual parse and
-     * dispatch happens inside `PlaylistFileImportService` (called from the
-     * `FileUploadComponent`).
-     */
-    onFileImported(): void {
-        this.closeDialog();
-    }
-
-    rejectFile(filename: string): void {
-        this.snackBar.open(
-            this.translateService.instant('HOME.FILE_UPLOAD.REJECTED', {
-                filename,
-            })
-        );
-    }
-
-    /**
-     * Sends url of the playlist to the renderer process and preserves the
-     * existing fallback title behavior when the optional name is blank.
-     */
-    submitUrlPlaylist(): void {
-        const formValue = this.urlUpload()?.form?.getRawValue();
-        const playlistUrl = formValue?.playlistUrl?.trim();
-
-        if (!playlistUrl) {
-            return;
-        }
-
-        const playlistName = this.normalizeOptionalValue(
-            formValue?.playlistName
-        );
-
-        this.dataService.sendIpcEvent(PLAYLIST_PARSE_BY_URL, {
-            url: playlistUrl,
-            ...(playlistName ? { title: playlistName } : {}),
-        });
-        this.closeDialog();
-    }
-
-    /**
-     * Sends IPC event to the renderer process to parse playlist
-     * @param text playlist as string
-     */
-    uploadAsText(playlist: string): void {
-        this.store.dispatch(
-            PlaylistActions.parsePlaylist({
-                uploadType: 'TEXT',
-                playlist,
-                title: this.translateService.instant('HOME.IMPORTED_AS_TEXT'),
-            })
-        );
-        this.closeDialog();
-    }
-
     clearCurrentForm(): void {
         switch (this.playlistType()) {
-            case 'url':
-                this.urlUpload()?.clearForm();
-                break;
-            case 'file':
-                this.fileUpload()?.clearSelection();
-                break;
-            case 'text':
-                this.textImport()?.clearForm();
-                break;
             case 'xtream':
                 this.xtreamImport()?.clearForm();
                 break;
@@ -203,11 +94,6 @@ export class AddPlaylistDialogComponent {
 
     isClearDisabled(): boolean {
         switch (this.playlistType()) {
-            case 'file':
-                return (
-                    !this.fileUpload()?.selectedFile() ||
-                    !!this.fileUpload()?.isImporting()
-                );
             case 'xtream':
                 return !!this.xtreamImport()?.isTestingConnection;
             case 'stalker':
@@ -221,8 +107,4 @@ export class AddPlaylistDialogComponent {
         this.dialogRef.close();
     }
 
-    private normalizeOptionalValue(value?: string | null): string | undefined {
-        const normalizedValue = value?.trim();
-        return normalizedValue ? normalizedValue : undefined;
-    }
 }

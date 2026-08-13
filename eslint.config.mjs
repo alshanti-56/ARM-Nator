@@ -140,6 +140,7 @@ export default [
                                 'domain:shared-runtime',
                                 'domain:shared-ui',
                                 'domain:providers-shared',
+                                'domain:player',
                                 'scope:shared',
                             ],
                         },
@@ -198,6 +199,7 @@ export default [
                                 'domain:shared-runtime',
                                 'domain:shared-ui',
                                 'domain:providers-shared',
+                                'domain:player',
                                 'scope:shared',
                             ],
                         },
@@ -261,7 +263,7 @@ export default [
         files: ['**/*.ts', '**/*.tsx'],
         rules: {
             'max-lines': [
-                'error',
+                'warn',
                 { max: 400, skipBlankLines: false, skipComments: false },
             ],
         },

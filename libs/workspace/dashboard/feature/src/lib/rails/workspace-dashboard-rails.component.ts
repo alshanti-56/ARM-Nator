@@ -29,7 +29,7 @@ import {
   WorkspacePlaylistType,
 } from "@arm-nator/workspace/shell/util";
 import { DialogService } from "@arm-nator/ui/components";
-import { PlaylistActions } from "@arm-nator/providers/m3u/state";
+import { PlaylistActions } from "@arm-nator/providers/shared/playlist-state";
 import {
   PlaylistDeleteActionService,
   RuntimeCapabilitiesService,

@@ -15,7 +15,7 @@ import {
     selectActivePlaylistId,
     selectAllPlaylistsMeta,
     selectPlaylistsLoadingFlag,
-} from '@arm-nator/providers/m3u/state';
+} from '@arm-nator/providers/shared/playlist-state';
 import { filter } from 'rxjs';
 import { PlaylistMeta } from '@arm-nator/shared/interfaces';
 import {
@@ -56,7 +56,6 @@ const XTREAM_SECTIONS = [
     'search',
     'recently-added',
 ] as const;
-const M3U_SECTIONS = ['all', 'groups', 'favorites', 'recent'] as const;
 
 @Injectable({ providedIn: 'root' })
 export class PlaylistContextFacade {
@@ -219,15 +218,6 @@ export class PlaylistContextFacade {
             return null;
         }
 
-        if (provider === 'playlists') {
-            const section = this.resolveTargetSection(
-                provider,
-                routeContext.section,
-                playlistId
-            );
-            return [...prefix, 'playlists', playlistId, section];
-        }
-
         if (!this.supportsSectionNavigation(provider)) {
             return [...prefix, provider, playlistId];
         }
@@ -247,7 +237,7 @@ export class PlaylistContextFacade {
         if (playlist.serverUrl) {
             return 'xtreams';
         }
-        return 'playlists';
+        return 'xtreams';
     }
 
     private isWorkspaceRoute(url: string): boolean {
@@ -256,7 +246,7 @@ export class PlaylistContextFacade {
 
     private getRouteContext(url: string): PlaylistRouteContext {
         const match = url.match(
-            /^\/(?:workspace\/)?(playlists|xtreams|stalker)\/([^/?]+)(?:\/([^/?]+))?/
+            /^\/(?:workspace\/)?(xtreams|stalker)\/([^/?]+)(?:\/([^/?]+))?/
         );
 
         return {
@@ -305,10 +295,6 @@ export class PlaylistContextFacade {
             return fromCurrent;
         }
 
-        if (provider === 'playlists' && currentSection) {
-            return 'all';
-        }
-
         const memory = this.readSectionMemory();
         const playlistMemory = memory.playlists[targetPlaylistId];
         if (playlistMemory?.provider === provider) {
@@ -328,10 +314,6 @@ export class PlaylistContextFacade {
         );
         if (normalizedProviderSection) {
             return normalizedProviderSection;
-        }
-
-        if (provider === 'playlists') {
-            return 'all';
         }
 
         return 'vod';
@@ -360,14 +342,6 @@ export class PlaylistContextFacade {
 
             return XTREAM_SECTIONS.includes(
                 section as (typeof XTREAM_SECTIONS)[number]
-            )
-                ? section
-                : null;
-        }
-
-        if (provider === 'playlists') {
-            return M3U_SECTIONS.includes(
-                section as (typeof M3U_SECTIONS)[number]
             )
                 ? section
                 : null;
@@ -402,9 +376,6 @@ export class PlaylistContextFacade {
             ];
             if (typeof parsedProviders === 'object' && parsedProviders !== null) {
                 const candidate = parsedProviders as Record<string, unknown>;
-                if (typeof candidate['playlists'] === 'string') {
-                    providers.playlists = candidate['playlists'];
-                }
                 if (typeof candidate['xtreams'] === 'string') {
                     providers.xtreams = candidate['xtreams'];
                 }
@@ -432,7 +403,6 @@ export class PlaylistContextFacade {
                     const section = row['section'];
                     const updatedAt = row['updatedAt'];
                     const isProviderValid =
-                        provider === 'playlists' ||
                         provider === 'xtreams' ||
                         provider === 'stalker';
                     if (!isProviderValid || typeof section !== 'string') {

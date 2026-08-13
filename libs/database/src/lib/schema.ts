@@ -26,7 +26,7 @@ export const playlists = sqliteTable('playlists', {
     dateCreated: text('date_created').default(sql`CURRENT_TIMESTAMP`),
     lastUpdated: text('last_updated'),
     type: text('type', {
-        enum: ['xtream', 'm3u-file', 'm3u-text', 'm3u-url'],
+        enum: ['xtream'],
     }).notNull(),
     userAgent: text('userAgent'),
     origin: text('origin'),

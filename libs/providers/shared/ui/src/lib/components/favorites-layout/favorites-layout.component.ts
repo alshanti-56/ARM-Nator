@@ -31,7 +31,7 @@ export interface FavoriteLayoutItem {
   readonly playlist_id?: string;
   readonly playlist_name?: string;
   readonly poster_url?: string;
-  readonly source?: "xtream" | "m3u";
+  readonly source?: "xtream" | "stalker";
   readonly stream_icon?: string;
   readonly title?: string;
   readonly type?: string;

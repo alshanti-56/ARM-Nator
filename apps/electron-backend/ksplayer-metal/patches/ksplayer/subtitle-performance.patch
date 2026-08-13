@@ -1,0 +1,60 @@
+diff --git a/Sources/KSPlayer/Subtitle/KSSubtitle.swift b/Sources/KSPlayer/Subtitle/KSSubtitle.swift
+index be13677d..8ded3ba0 100644
+--- a/Sources/KSPlayer/Subtitle/KSSubtitle.swift
++++ b/Sources/KSPlayer/Subtitle/KSSubtitle.swift
+@@ -155,8 +155,27 @@ public class KSSubtitle {
+ extension KSSubtitle: KSSubtitleProtocol {
+     /// Search for target group for time
+     public func search(for time: TimeInterval) -> [SubtitlePart] {
++        guard !parts.isEmpty else {
++            return []
++        }
++
++        // Subtitle parts are ordered by time. Find the first part that can
++        // still contain the target instead of scanning from the beginning on
++        // every subtitle timer tick.
++        var lowerBound = 0
++        var upperBound = parts.count
++        while lowerBound < upperBound {
++            let middle = lowerBound + (upperBound - lowerBound) / 2
++            if parts[middle].end < time {
++                lowerBound = middle + 1
++            } else {
++                upperBound = middle
++            }
++        }
++
+         var result = [SubtitlePart]()
+-        for part in parts {
++        for index in lowerBound..<parts.count {
++            let part = parts[index]
+             if part == time {
+                 result.append(part)
+             } else if part.start > time {
+diff --git a/Sources/KSPlayer/Subtitle/SubtitleDataSouce.swift b/Sources/KSPlayer/Subtitle/SubtitleDataSouce.swift
+index 92ad7c5e..771c7b5d 100644
+--- a/Sources/KSPlayer/Subtitle/SubtitleDataSouce.swift
++++ b/Sources/KSPlayer/Subtitle/SubtitleDataSouce.swift
+@@ -17,12 +17,19 @@ public class EmptySubtitleInfo: SubtitleInfo {
+ }
+ 
+ public class URLSubtitleInfo: KSSubtitle, SubtitleInfo {
++    private var isParsing = false
+     public var isEnabled: Bool = false {
+         didSet {
+-            if isEnabled, parts.isEmpty {
+-                Task {
+-                    try? await parse(url: downloadURL, userAgent: userAgent)
++            guard isEnabled, parts.isEmpty, !isParsing else {
++                return
++            }
++            isParsing = true
++            Task { [weak self] in
++                guard let self else {
++                    return
+                 }
++                try? await self.parse(url: self.downloadURL, userAgent: self.userAgent)
++                self.isParsing = false
+             }
+         }
+     }

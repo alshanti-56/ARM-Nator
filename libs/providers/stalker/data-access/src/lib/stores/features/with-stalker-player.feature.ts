@@ -93,7 +93,7 @@ export function withStalkerPlayer() {
                     recentItem: StalkerRecentlyViewedItem
                 ): void => {
                     playlistService
-                        .addPlaylistRecentlyViewed(playlistId, recentItem as any)
+                        .addPortalRecentlyViewed(playlistId, recentItem as any)
                         .subscribe((updatedPlaylist) => {
                             dispatchStalkerPlaylistMetaUpdate(
                                 ngrxStore,

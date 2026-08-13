@@ -73,75 +73,29 @@ function makeXtream(
     type: "xtream",
     originalText,
     serverUrl: normalizedServer,
-    playlistUrl: "",
     username: normalizedUsername,
     password: normalizedPassword,
     normalizedKey: `xtream|${normalizedServer.toLowerCase()}|${normalizedUsername}|${normalizedPassword}`,
   };
 }
 
-function makeM3u(
-  originalText: string,
-  playlistUrl: string,
-): BulkTestCandidate | null {
-  const normalized = trimToken(playlistUrl);
-  let url: URL;
-  try {
-    url = new URL(normalized);
-    if (
-      (url.protocol !== "http:" && url.protocol !== "https:") ||
-      url.username ||
-      url.password
-    ) {
-      return null;
-    }
-  } catch {
-    return null;
-  }
-
-  url.protocol = url.protocol.toLowerCase();
-  url.hostname = url.hostname.toLowerCase();
-  url.hash = "";
-  const normalizedUrl = url.toString();
-
-  return {
-    id: randomId(),
-    type: "m3u",
-    originalText,
-    serverUrl: "",
-    playlistUrl: normalizedUrl,
-    username: "",
-    password: "",
-    // URL normalizes scheme, hostname, and default ports while preserving the
-    // case-sensitive path and query portions used by some IPTV providers.
-    normalizedKey: `m3u|${normalizedUrl}`,
-  };
-}
-
-function looksLikeM3u(value: string): boolean {
-  const lower = value.toLowerCase();
-  return (
-    lower.includes(".m3u") ||
-    lower.includes("type=m3u") ||
-    lower.includes("m3u_plus") ||
-    lower.includes("output=m3u") ||
-    lower.includes("/get.php") ||
-    lower.includes("/playlist")
-  );
-}
-
-function isLikelyHttpsIptvLine(line: string): boolean {
+function isLikelyXtreamLine(line: string): boolean {
   const match = line.match(URL_PATTERN);
   if (!match) {
     return false;
   }
 
   const urlText = trimToken(match[0]);
-  try {
-    const url = new URL(urlText);
-    if (url.username || url.password || looksLikeM3u(urlText)) {
-      return true;
-    }
+    try {
+        const url = new URL(urlText);
+        if (
+            url.username ||
+            url.password ||
+            (url.searchParams.has("username") &&
+                url.searchParams.has("password"))
+        ) {
+            return true;
+        }
   } catch {
     return false;
   }
@@ -180,16 +134,12 @@ function parseUrlCandidate(line: string): BulkTestCandidate | null {
     );
   }
 
-  if (looksLikeM3u(urlText)) {
-    return makeM3u(line, urlText);
-  }
-
   const pathParts = url.pathname.split("/").filter(Boolean);
   if (pathParts.length >= 2) {
     return makeXtream(line, serverRoot(url), pathParts[0], pathParts[1]);
   }
 
-  return makeM3u(line, urlText);
+  return null;
 }
 
 function parseSpacedCredentials(line: string): BulkTestCandidate | null {
@@ -226,7 +176,7 @@ function parseSlashCredentials(line: string): BulkTestCandidate | null {
 }
 
 function parseLine(line: string): BulkTestCandidate | null {
-  if (/https:\/\//i.test(line) && !isLikelyHttpsIptvLine(line)) {
+  if (/https?:\/\//i.test(line) && !isLikelyXtreamLine(line)) {
     return null;
   }
 
@@ -327,7 +277,7 @@ export function parseIptvCredentials(
       invalidEntries.push({
         id: randomId(),
         text: line,
-        reason: "Could not detect M3U or Xtream credentials.",
+        reason: "Could not detect Xtream credentials.",
       });
       continue;
     }

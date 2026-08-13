@@ -108,14 +108,6 @@ export const APP_KEYBOARD_SHORTCUTS: readonly KeyboardShortcutDefinition[] = [
         order: 10,
     },
     {
-        id: 'm3u-channel-number',
-        group: 'navigation',
-        labelKey: 'WORKSPACE.SHORTCUTS.ITEMS.M3U_CHANNEL_NUMBER',
-        icon: 'dialpad',
-        keys: ['0-9'],
-        order: 20,
-    },
-    {
         id: 'embedded-mpv-play-pause',
         group: 'playback',
         labelKey: 'WORKSPACE.SHORTCUTS.ITEMS.PLAY_PAUSE',

@@ -1,6 +1,6 @@
 import type { PlaylistMeta } from './playlist-meta.type';
 
-export type PlaylistSourceType = 'm3u' | 'xtream' | 'stalker';
+export type PlaylistSourceType = 'xtream' | 'stalker';
 
 type PlaylistSourceShape = Pick<
     PlaylistMeta,
@@ -27,5 +27,5 @@ export function getPlaylistSourceType(
         return 'xtream';
     }
 
-    return 'm3u';
+    return 'xtream';
 }

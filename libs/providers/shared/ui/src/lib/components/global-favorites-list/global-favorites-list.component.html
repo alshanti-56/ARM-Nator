@@ -59,12 +59,6 @@
 
 <mat-menu #channelContextMenu="matMenu">
 
-    @if (contextMenuChannel()?.m3uChannel) {
-        <button mat-menu-item (click)="openChannelDetails()">
-            <mat-icon>info</mat-icon>
-            <span>{{ 'CHANNELS.SHOW_DETAILS' | translate }}</span>
-        </button>
-    }
     @if (mode() === 'recent') {
         <button mat-menu-item (click)="removeContextMenuChannel()">
             <mat-icon>delete</mat-icon>

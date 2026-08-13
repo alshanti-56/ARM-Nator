@@ -100,11 +100,6 @@ describe('playback target capabilities', () => {
             PlaybackSourceKind.Hls,
         ],
         [
-            PlaybackDiagnosticSource.Source,
-            { container: 'm3u' },
-            PlaybackSourceKind.Hls,
-        ],
-        [
             PlaybackDiagnosticSource.Vhs,
             {
                 mimeType: '  Application/Vnd.Apple.MPEGURL; charset=UTF-8  ',

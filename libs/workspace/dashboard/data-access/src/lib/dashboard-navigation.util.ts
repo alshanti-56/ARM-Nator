@@ -50,7 +50,7 @@ export function getPlaylistLink(playlist: PlaylistMeta): string[] {
         return ['/workspace', 'xtreams', playlist._id, 'vod'];
     }
 
-    return ['/workspace', 'playlists', playlist._id];
+    return ['/workspace', 'xtreams', playlist._id, 'vod'];
 }
 
 export function getRecentItemLink(item: PortalRecentItem): string[] {

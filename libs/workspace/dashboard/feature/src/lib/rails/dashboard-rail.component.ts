@@ -17,7 +17,7 @@ import { MatMenuModule } from '@angular/material/menu';
 import { RouterLink } from '@angular/router';
 import { TranslatePipe } from '@ngx-translate/core';
 import { SettingsStore } from '@arm-nator/services';
-import { applyChannelNameStrip } from '@arm-nator/providers/m3u/utils';
+import { applyChannelNameStrip } from '@arm-nator/providers/shared/util';
 
 export interface DashboardRailAction {
     id: string;

@@ -95,7 +95,7 @@ const CREATE_TABLE_STATEMENTS = [
       password TEXT,
       date_created TEXT DEFAULT (datetime('now')),
       last_updated TEXT,
-      type TEXT NOT NULL CHECK (type IN ('xtream', 'm3u-file', 'm3u-text', 'm3u-url')),
+      type TEXT NOT NULL CHECK (type IN ('xtream')),
       userAgent TEXT,
       origin TEXT,
       referrer TEXT,
@@ -245,7 +245,6 @@ const CREATE_TABLE_STATEMENTS = [
 const COLUMN_MIGRATION_STATEMENTS = [
     // v1.0.0 -> v1.1.0: Add hidden column to categories for category management
     `ALTER TABLE categories ADD COLUMN hidden INTEGER DEFAULT 0`,
-    // v1.1.0 -> v1.2.0: Add playlist metadata/payload columns for M3U + unified playlist persistence
     `ALTER TABLE playlists ADD COLUMN portal_url TEXT`,
     `ALTER TABLE playlists ADD COLUMN count INTEGER`,
     `ALTER TABLE playlists ADD COLUMN import_date TEXT`,
@@ -280,16 +279,6 @@ const INDEX_MIGRATION_STATEMENTS = [
     `CREATE UNIQUE INDEX IF NOT EXISTS content_category_type_xtream_unique ON content(category_id, type, xtream_id)`,
     // v1.6.0 -> v1.7.0: Query global favorites in stable display order
     `CREATE INDEX IF NOT EXISTS favorites_playlist_position_idx ON favorites(playlist_id, position, added_at DESC)`,
-];
-
-const LEGACY_GUIDE_CLEANUP_STATEMENTS = [
-    `DROP TRIGGER IF EXISTS epg_programs_ai`,
-    `DROP TRIGGER IF EXISTS epg_programs_ad`,
-    `DROP TRIGGER IF EXISTS epg_programs_au`,
-    `DROP TABLE IF EXISTS epg_programs_fts`,
-    `DROP TABLE IF EXISTS epg_channel_mappings`,
-    `DROP TABLE IF EXISTS epg_programs`,
-    `DROP TABLE IF EXISTS epg_channels`,
 ];
 
 export const __databaseConnectionTestHooks = {
@@ -817,7 +806,6 @@ function runMigrations(sqliteDb: Database.Database): void {
     deduplicateXtreamCache(sqliteDb);
     normalizeXtreamContentAddedEpochs(sqliteDb);
     runMigrationStatements(sqliteDb, INDEX_MIGRATION_STATEMENTS);
-    runMigrationStatements(sqliteDb, LEGACY_GUIDE_CLEANUP_STATEMENTS);
 }
 
 export interface DatabaseOptions {

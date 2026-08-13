@@ -119,7 +119,7 @@ function safeAccount(value: unknown): CredentialAccountSummary | undefined {
 }
 
 function sourceFor(input: CredentialTestInput): string {
-    return input.provider === 'm3u' ? input.playlistUrl : input.serverUrl;
+    return input.serverUrl;
 }
 
 function queuedResult(input: CredentialTestInput): CredentialTestResult {

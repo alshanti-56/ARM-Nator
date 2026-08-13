@@ -509,7 +509,6 @@ describe('Stalker edited-session coordination', () => {
         const currentPlaylist = {
             ...oldPlaylist,
             title: 'Newer title',
-            epgUrls: ['https://new.example.com/epg.xml'],
         } as Playlist;
         transformPlaylistMeta.mockImplementationOnce((_id, transform) =>
             of(transform(currentPlaylist))
@@ -542,7 +541,6 @@ describe('Stalker edited-session coordination', () => {
         expect(persisted).toEqual(
             expect.objectContaining({
                 title: 'Newer title',
-                epgUrls: ['https://new.example.com/epg.xml'],
                 portalUrl: 'https://new.example.com/server/load.php',
                 username: 'subscriber',
                 stalkerToken: 'NEW_TOKEN',

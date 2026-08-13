@@ -34,7 +34,6 @@
                     "apps/desktop-ui/src/m3-theme.scss"
                 ],
                 "allowedCommonJsDependencies": [
-                    "iptv-playlist-parser",
                     "mpegts.js",
                     "shaka-player",
                     "global/window",

@@ -1,10 +1,3 @@
-// Playlist related commands
-export const PLAYLIST_PARSE_BY_URL = 'PLAYLIST:PARSE_PLAYLIST_BY_URL';
-export const PLAYLIST_UPDATE = 'PLAYLIST:UPDATE';
-export const PLAYLIST_REFRESH = 'PLAYLIST:REFRESH';
-export const PLAYLIST_REFRESH_EVENT = 'PLAYLIST:REFRESH_EVENT';
-export const PLAYLIST_CANCEL_REFRESH = 'PLAYLIST:CANCEL_REFRESH';
-
 // General
 export const ERROR = 'ERROR';
 export const OPEN_FILE = 'OPEN_FILE';
@@ -12,10 +5,6 @@ export const OPEN_FILE = 'OPEN_FILE';
 // Views
 export const VIEW_SETTINGS = 'VIEW:SETTINGS';
 export const VIEW_ADD_PLAYLIST = 'VIEW:PLAYLISTS';
-
-// Auto-update
-export const AUTO_UPDATE_PLAYLISTS = 'AUTO_UPDATE';
-export const AUTO_UPDATE_PLAYLISTS_RESPONSE = 'AUTO_UPDATE_RESPONSE';
 
 // Experimental
 export const OPEN_MPV_PLAYER = 'OPEN_MPV_PLAYER';

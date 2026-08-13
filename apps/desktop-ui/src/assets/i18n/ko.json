@@ -23,10 +23,8 @@
             "WELCOME_TITLE": "ARM-Nator에 오신 것을 환영합니다",
             "WELCOME_DESCRIPTION": "첫 번째 재생목록을 추가하여 스트리밍을 시작하세요. 즐겨 사용하는 IPTV 서비스에 연결하여 라이브 TV, 영화, 시리즈를 즐겨보세요.",
             "ADD_YOUR_FIRST": "첫 번째 재생목록 추가",
-            "FEATURE_M3U": "M3U/M3U8 파일",
             "FEATURE_XTREAM": "Xtream 코드",
             "FEATURE_STALKER": "Stalker 포털",
-            "FEATURE_M3U_LABEL": "Add an M3U file or URL",
             "FEATURE_XTREAM_LABEL": "Connect via Xtream Codes",
             "FEATURE_STALKER_LABEL": "Connect to a Stalker portal",
             "VALUE_PROPS_LABEL": "What you can do",
@@ -35,7 +33,6 @@
             "VALUE_PROP_MULTISOURCE": "Multi-source library",
             "VALUE_PROP_OFFLINE": "Offline downloads",
             "DASHBOARD_WELCOME_TAGLINE": "Your IPTV library, in one place.",
-            "DASHBOARD_WELCOME_DESCRIPTION": "Connect M3U files, Xtream Codes, or Stalker portals — then enjoy live TV, movies and series on every screen.",
             "FEATURE_LIVE_TITLE": "Live TV",
             "FEATURE_LIVE_DESC": "Stream live channels with full schedule.",
             "FEATURE_VOD_TITLE": "Movies & Series",
@@ -44,8 +41,6 @@
             "FEATURE_OFFLINE_DESC": "Save movies and episodes for later.",
             "SOURCES_WELCOME_TITLE": "Add your first playlist",
             "SOURCES_WELCOME_BODY": "Pick a source type below to get started.",
-            "SOURCE_M3U_NEEDS": "Local file or URL pointing to an M3U/M3U8 playlist.",
-            "SOURCE_M3U_ADD": "Add M3U",
             "SOURCE_XTREAM_NEEDS": "Username, password and server URL from your provider.",
             "SOURCE_XTREAM_ADD": "Add Xtream",
             "SOURCE_STALKER_NEEDS": "Portal URL and MAC address (Ministra-compatible).",
@@ -79,7 +74,6 @@
                 "AUTO_UPDATE": "자동 업데이트",
                 "AUTO_UPDATE_DESCRIPTION": "자동 새로 고침 기능이 활성화되면 앱이 시작될 때마다 재생 목록이 자동으로 업데이트됩니다.",
                 "CUSTOM_USER_AGENT": "일부 IPTV 공급자는 재생 목록을 재생하기 위해 특정 사용자 에이전트가 필요합니다.",
-                "EXPORT_PLAYLIST": "재생목록을 m3u로 내보내기",
                 "SERVER_URL": "서버 URL",
                 "USERNAME": "사용자 이름",
                 "PASSWORD": "비밀번호",
@@ -132,15 +126,11 @@
         },
         "ADD_PLAYLIST": {
             "PICK_METHOD": "연결 방식을 선택하세요. 이름은 나중에 변경할 수 있습니다.",
-            "METHOD_URL_LABEL": "M3U URL",
-            "METHOD_URL_SUB": "원격 .m3u 또는 .m3u8 링크를 붙여넣으세요",
-            "METHOD_FILE_LABEL": "M3U 파일",
             "METHOD_FILE_SUB": "내 컴퓨터에서 재생목록을 업로드하세요",
             "METHOD_XTREAM_LABEL": "Xtream 자격 증명",
             "METHOD_XTREAM_SUB": "호스트, 사용자 이름, 비밀번호로 연결하세요",
             "METHOD_STALKER_LABEL": "Stalker 포털",
             "METHOD_STALKER_SUB": "MAC 주소와 포털 URL",
-            "METHOD_TEXT_LABEL": "원본 m3u 텍스트",
             "METHOD_TEXT_SUB": "일회성 목록이나 텍스트만 있을 때 사용하세요"
         },
         "FILE_UPLOAD": {
@@ -151,7 +141,6 @@
             "REJECTED": "파일이 거부되었습니다. 지원되지 않는 파일 형식 {{filename}}."
         },
         "URL_UPLOAD": {
-            "PLAYLIST_URL": "재생 목록 URL (m3u, m3u8)",
             "ADD_PLAYLIST": "재생 목록을 추가하십시오",
             "CORS_NOTE": "참고: CORS 문제를 피하기 위해 현재 애플리케이션은 공용 CORS 프록시 서비스를 사용합니다. 민감한 데이터가 포함된 재생목록을 업로드하려면 파일에서 가져오는 것이 더 안전합니다.",
             "ERROR_FETCH_FAILED": "재생목록을 가져오지 못했습니다. URL을 확인하고 다시 시도해 주세요.",
@@ -165,7 +154,6 @@
             "TRUST_TLS_HOST_WARNING": "Only continue if you trust this playlist host. ARM-Nator will allow invalid TLS certificates for this host, but other hosts still require valid certificates."
         },
         "TEXT_IMPORT": {
-            "LABEL": "Insert m3u(8) playlist as text",
             "BUTTON_LABEL": "Import"
         },
         "XTREAM_PLAYLIST": {
@@ -204,7 +192,6 @@
             "CUSTOM_ORDER": "사용자 지정 순서 (Drag & Drop)"
         },
         "PLAYLIST_TYPES": {
-            "M3U": "M3U (로컬, URL, 텍스트)",
             "XTREAM": "Xtream",
             "STALKER": "Stalker"
         },
@@ -255,7 +242,6 @@
         "DESCRIPTION": "아래 목록에서 옵션을 적용하고 저장 버튼으로 확인하십시오.",
         "VIDEO_PLAYER_LABEL": "비디오 플레이어",
         "LIVE_VIDEO_PLAYER_LABEL": "Live TV player",
-        "LIVE_VIDEO_PLAYER_DESCRIPTION": "Default player for live TV and M3U channels",
         "VOD_VIDEO_PLAYER_LABEL": "Movies and series player",
         "VOD_VIDEO_PLAYER_DESCRIPTION": "Default player for movies and series episodes",
         "PLAYER_HTML5": "HTML5 비디오 플레이어",
@@ -305,13 +291,11 @@
         "EMBEDDED_MPV_NOTICE_TITLE": "내장 MPV 런타임",
         "EMBEDDED_MPV_NOTICE_DESCRIPTION": "데스크톱 빌드에는 실험적인 내장 MPV 플레이어를 위해 번들된 libmpv 및 FFmpeg 라이브러리가 포함될 수 있습니다. 사용자는 MPV 앱을 별도로 설치할 필요가 없으며, 외부 MPV와 VLC는 폴백 플레이어로 계속 사용할 수 있습니다.",
         "IMPORT_EXPORT_DATA": "재생목록 가져오기/내보내기",
-        "IMPORT_EXPORT_DATA_DESCRIPTION": "Export or restore playlist backups including M3U snapshots, Xtream/Stalker connection metadata, and user state.",
         "IMPORT_DATA": "수입",
         "EXPORT_DATA": "내보내다",
         "EXPORTING_DATA": "내보내는 중…",
         "REMOVE_ALL": "Delete all playlists and playlist data",
         "REMOVE_ALL_BUTTON": "Delete all",
-        "REMOVE_ALL_DESCRIPTION": "Delete every M3U, Xtream, and Stalker playlist stored in the app.",
         "REMOVE_DIALOG": {
             "TITLE": "Delete all playlists?",
             "MESSAGE": "Delete all {{count}} playlists from the app. This also removes stored playlist data on this device.",
@@ -599,7 +583,6 @@
     },
     "ABOUT": {
         "TITLE": "ARM-Nator 소개",
-        "DESCRIPTION": "M3U 및 M3U8 재생목록 지원, 즐겨찾기, TV 가이드, TV 아카이브/Catchup 등 다양한 기능을 갖춘 크로스 플랫폼 IPTV 플레이어 애플리케이션입니다.",
         "VERSION": "버전",
         "BUY_ME_A_COFFEE_TOOLTIP": "Buy me a coffee"
     },
@@ -785,8 +768,6 @@
             "NO_RESULTS_FOR": "\"{{term}}\"에 대한 결과를 찾을 수 없습니다",
             "GROUP_BY_PLAYLIST": "재생목록별로 결과 그룹화",
             "VISIBLE_CATEGORIES_ONLY": "표시되는 카테고리만",
-            "GLOBAL_SEARCH_SOURCE_NOTE": "Global search includes results from Xtream and M3U playlists.",
-            "GLOBAL_INITIAL_DESCRIPTION": "Enter at least 2 characters to search across Xtream and M3U playlists.",
             "LOADING_MORE_RESULTS": "Loading more results..."
         },
         "STREAM_URL_COPIED": "스트림 URL이 클립보드에 복사되었습니다.",
@@ -904,7 +885,6 @@
             "NO_HISTORY_HINT": "재생목록에서 콘텐츠를 재생하기 시작하면 시청 기록이 여기에 표시됩니다.",
             "XTREAM": "Xtream",
             "STALKER": "Stalker",
-            "M3U": "M3U",
             "STALKER_PORTAL": "Stalker 포털",
             "PROVIDER": "공급자",
             "TYPE_LIVE": "라이브",
@@ -979,8 +959,6 @@
             "GO_TO_DASHBOARD": "Back to dashboard",
             "GO_TO_SOURCES": "Go to Sources",
             "DROP_OVERLAY_TITLE": "Drop to add playlist",
-            "DROP_OVERLAY_BODY": "Release an .m3u or .m3u8 file anywhere in the workspace to import it.",
-            "DROP_OVERLAY_REJECTED_BODY": "Please drop an .m3u or .m3u8 file. Press Esc to dismiss.",
             "DROP_OVERLAY_REJECTED_UNSUPPORTED": "Unsupported file type",
             "DROP_OVERLAY_REJECTED_EMPTY": "That file is empty",
             "DROP_OVERLAY_REJECTED_READ_ERROR": "Could not read that file",
@@ -1017,8 +995,6 @@
                 "OPEN_DASHBOARD_DESCRIPTION": "대시보드로 이동",
                 "ADD_PLAYLIST_LABEL": "새 소스 추가",
                 "ADD_PLAYLIST_DESCRIPTION": "재생목록 추가 대화상자 열기",
-                "ADD_PLAYLIST_M3U_LABEL": "Add M3U playlist",
-                "ADD_PLAYLIST_M3U_DESCRIPTION": "Open add dialog on the M3U file or URL tab",
                 "ADD_PLAYLIST_XTREAM_LABEL": "Add Xtream Codes playlist",
                 "ADD_PLAYLIST_XTREAM_DESCRIPTION": "Open add dialog on the Xtream Codes tab",
                 "ADD_PLAYLIST_STALKER_LABEL": "Add Stalker portal",
@@ -1054,7 +1030,6 @@
             "SUBTITLE": "재생목록 필터링 및 정렬",
             "TYPE": "유형",
             "ALL": "전체",
-            "M3U_PLAYLISTS": "M3U 재생목록",
             "XTREAM_PLAYLISTS": "Xtream 재생목록",
             "STALKER_PLAYLISTS": "Stalker 재생목록",
             "ALL_PLAYLISTS": "모든 재생목록",
@@ -1115,7 +1090,6 @@
                 "OPEN_RECENTLY_VIEWED": "Open recently viewed",
                 "SUBMIT_SHELL_SEARCH": "Submit workspace search",
                 "TOGGLE_SIDEBAR": "Toggle sidebar",
-                "M3U_CHANNEL_NUMBER": "Select M3U channel by number",
                 "PLAY_PAUSE": "Play or pause embedded MPV playback",
                 "TOGGLE_FULLSCREEN": "Toggle embedded MPV fullscreen",
                 "SEEK": "Seek embedded MPV playback by 5 seconds",
@@ -1135,7 +1109,6 @@
             "NO_RESULTS": "결과가 없습니다",
             "NO_RESULTS_HINT": "다른 검색어를 시도해 보세요",
             "EMPTY_TITLE": "아직 라이브 TV 즐겨찾기가 없습니다",
-            "EMPTY_HINT": "M3U, Xtream, Stalker 재생목록의 라이브 채널에 별표를 눌러 여기에서 확인하세요.",
             "EMPTY_PLAYER": "시청을 시작할 채널을 선택하세요",
             "NO_PLAYLISTS_TITLE": "No favorites to show",
             "NO_PLAYLISTS_BODY": "Add a playlist to start collecting favorites from live channels, movies, and series.",

@@ -15,18 +15,14 @@ export * from './lib/indexed-db.config';
 export * from './lib/ipc-command.class';
 export * from './lib/ipc-commands';
 export * from './lib/language.enum';
-export * from './lib/m3u-favorite-channel.interface';
 export * from './lib/parsed-playlist.interface';
 export * from './lib/performance-phase.interface';
 export * from './lib/playback-position.interface';
-export * from './lib/playlist-auto-update.interface';
 export * from './lib/playlist-backup.interface';
 export * from './lib/playlist-meta.type';
 export * from './lib/playlist-source-type.util';
 export * from './lib/preload-performance-marker.interface';
 export * from './lib/playlist-recently-viewed.interface';
-export * from './lib/playlist-recently-viewed.utils';
-export * from './lib/playlist-refresh.interface';
 export * from './lib/playlist.interface';
 export * from './lib/portal-activity-item.interface';
 export * from './lib/portal-debug.interface';
@@ -74,6 +70,7 @@ export * from './lib/xtream-vod-details.interface';
 export * from './lib/xtream-vod-stream.interface';
 
 export * from './lib/date-normalizer';
+export * from './lib/download-metadata.interface';
 
 // Unified VOD details (discriminated union + adapters)
 export * from './lib/vod-details-adapters';

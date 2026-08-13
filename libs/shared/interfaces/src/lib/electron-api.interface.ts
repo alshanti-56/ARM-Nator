@@ -12,19 +12,12 @@ import {
     GlobalSearchResult,
     GlobalSearchResultSource,
 } from './global-search-result.interface';
-import { M3uFavoriteChannel } from './m3u-favorite-channel.interface';
 import { PlaybackPositionData } from './playback-position.interface';
-import { AutoUpdatePlaylistsResult } from './playlist-auto-update.interface';
 import {
     XtreamBackupFavoriteItem,
     XtreamBackupHiddenCategory,
     XtreamBackupRecentlyViewedItem,
 } from './playlist-backup.interface';
-import {
-    PlaylistRefreshCancelledResult,
-    PlaylistRefreshEvent,
-    PlaylistRefreshPayload,
-} from './playlist-refresh.interface';
 import { Playlist } from './playlist.interface';
 import {
     PlayerContentInfo,
@@ -62,10 +55,21 @@ export type ElectronBridgePlaybackContentType =
     | typeof ELECTRON_BRIDGE_CONTENT_TYPES.Vod
     | typeof ELECTRON_BRIDGE_CONTENT_TYPES.Episode;
 
+/**
+ * Provider-specific namespaces for persisted episode downloads. Stalker VOD
+ * series and regular series can reuse numeric episode IDs, so their download
+ * identities must remain distinct even inside one playlist.
+ */
+export const ELECTRON_BRIDGE_EPISODE_IDENTITY_SCOPES = {
+    StalkerEmbeddedVod: 'stalker-embedded-vod',
+    StalkerLazyVod: 'stalker-lazy-vod',
+    StalkerRegularSeries: 'stalker-regular-series',
+} as const;
+
+export type ElectronBridgeEpisodeIdentityScope =
+    (typeof ELECTRON_BRIDGE_EPISODE_IDENTITY_SCOPES)[keyof typeof ELECTRON_BRIDGE_EPISODE_IDENTITY_SCOPES];
+
 export const ELECTRON_BRIDGE_PLAYLIST_TYPES = {
-    M3uFile: 'm3u-file',
-    M3uText: 'm3u-text',
-    M3uUrl: 'm3u-url',
     Xtream: 'xtream',
 } as const;
 

@@ -29,7 +29,7 @@ import { resolveChannelLogo } from "../channel-logo-fallback.util";
 import { ChannelDetailsDialogComponent } from "../channel-details-dialog/channel-details-dialog.component";
 import { ChannelListItemComponent } from "../channel-list-item/channel-list-item.component";
 
-const ALL_CHANNELS_SORT_STORAGE_KEY = "m3u-all-channels-sort-mode";
+const ALL_CHANNELS_SORT_STORAGE_KEY = "all-channels-sort-mode";
 
 
 @Component({

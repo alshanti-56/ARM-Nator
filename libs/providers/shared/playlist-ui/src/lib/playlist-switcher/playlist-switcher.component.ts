@@ -27,7 +27,7 @@ import { Store } from '@ngrx/store';
 import { normalizeDateLocale } from '@arm-nator/pipes';
 import { TranslatePipe, TranslateService } from '@ngx-translate/core';
 import { DialogService } from '@arm-nator/ui/components';
-import { PlaylistActions } from '@arm-nator/providers/m3u/state';
+import { PlaylistActions } from '@arm-nator/providers/shared/playlist-state';
 import { PlaylistContextFacade } from '@arm-nator/providers/shared/playlist-util';
 import {
     PlaylistDeleteActionService,
@@ -48,7 +48,6 @@ type PlaylistFilterType = PlaylistSourceType;
 const SEARCH_QUERY_STORAGE_KEY = 'playlist-switcher:search-query';
 const PLAYLIST_TYPE_FILTER_STORAGE_KEY = 'playlist-switcher:type-filters';
 const DEFAULT_PLAYLIST_TYPE_FILTERS: Record<PlaylistFilterType, boolean> = {
-    m3u: true,
     xtream: true,
     stalker: true,
 };
@@ -244,7 +243,7 @@ export class PlaylistSwitcherComponent {
             [type]: !current[type],
         };
 
-        if (!next.m3u && !next.xtream && !next.stalker) {
+        if (!next.xtream && !next.stalker) {
             return;
         }
 
@@ -540,13 +539,12 @@ export class PlaylistSwitcherComponent {
             const parsed = JSON.parse(raw) as Partial<
                 Record<PlaylistFilterType, boolean>
             >;
-            const next = {
-                m3u: parsed.m3u !== false,
+            const next: Record<PlaylistFilterType, boolean> = {
                 xtream: parsed.xtream !== false,
                 stalker: parsed.stalker !== false,
             };
 
-            if (!next.m3u && !next.xtream && !next.stalker) {
+            if (!next.xtream && !next.stalker) {
                 return { ...DEFAULT_PLAYLIST_TYPE_FILTERS };
             }
 

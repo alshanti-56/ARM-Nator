@@ -30,7 +30,7 @@ import {
 import {
     type PlaybackFallbackRequest,
     VodDetailsComponent,
-} from '@arm-nator/ui/components';
+} from '@arm-nator/player/ui';
 import {
     DownloadsService,
     PlaybackPositionRuntimeBridgeService,

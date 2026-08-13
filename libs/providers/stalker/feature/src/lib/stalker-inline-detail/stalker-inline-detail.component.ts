@@ -8,7 +8,7 @@ import { StalkerSelectedVodItem } from '@arm-nator/providers/stalker/data-access
 import {
     type PlaybackFallbackRequest,
     VodDetailsComponent,
-} from '@arm-nator/ui/components';
+} from '@arm-nator/player/ui';
 import {
     ExternalPlayerSession,
     ResolvedPortalPlayback,

@@ -1,16 +1,13 @@
 /* eslint-disable max-lines */
 import { inject, Injectable } from '@angular/core';
 import { firstValueFrom } from 'rxjs';
-import { PlaylistsService } from './playlists.service';
-import { SettingsStore } from './settings-store.service';
 import { DatabaseService } from './database-electron.service';
 import { PlaybackPositionService } from './playback-position.service';
+import { PlaylistsService } from './playlists.service';
 import { XtreamPendingRestoreService } from './xtream-pending-restore.service';
 import {
-    isM3uRecentlyViewedItem,
+    createRandomId,
     normalizeXtreamPendingRestoreState,
-    M3uPlaylistBackupEntry,
-    M3uRecentlyViewedItem,
     Playlist,
     PlaylistBackupEntry,
     PlaylistBackupManifestV1,
@@ -19,9 +16,8 @@ import {
     PLAYLIST_BACKUP_VERSION,
     XtreamBackupCategoryType,
     XtreamBackupContentType,
-    XtreamPlaylistBackupEntry,
     XtreamPendingRestoreState,
-    createRandomId,
+    XtreamPlaylistBackupEntry,
 } from '@arm-nator/shared/interfaces';
 
 export interface PlaylistBackupExportPayload {
@@ -45,8 +41,6 @@ export class PlaylistBackupError extends Error {
     }
 }
 
-type PlaylistPortalType = 'm3u' | 'xtream';
-
 type XtreamContentType = XtreamBackupContentType;
 type XtreamCategoryType = XtreamBackupCategoryType;
 
@@ -55,7 +49,6 @@ type XtreamCategoryType = XtreamBackupCategoryType;
 })
 export class PlaylistBackupService {
     private readonly playlistsService = inject(PlaylistsService);
-    private readonly settingsStore = inject(SettingsStore);
     private readonly databaseService = inject(DatabaseService);
     private readonly playbackPositionService = inject(PlaybackPositionService);
     private readonly pendingRestoreService = inject(
@@ -63,21 +56,18 @@ export class PlaylistBackupService {
     );
 
     async exportBackup(): Promise<PlaylistBackupExportPayload> {
-        const playlists = await firstValueFrom(
+        const playlists = (await firstValueFrom(
             this.playlistsService.getAllData()
-        );
-        const settings = this.buildSettingsPayload();
-        const playlistEntries = await Promise.all(
-            playlists.map((playlist) => this.buildPlaylistEntry(playlist))
-        );
+        )).filter((playlist) => this.isXtreamPlaylist(playlist));
         const exportedAt = new Date().toISOString();
         const manifest: PlaylistBackupManifestV1 = {
             kind: PLAYLIST_BACKUP_KIND,
             version: PLAYLIST_BACKUP_VERSION,
             exportedAt,
             includeSecrets: true,
-            ...(settings ? { settings } : {}),
-            playlists: playlistEntries,
+            playlists: await Promise.all(
+                playlists.map((playlist) => this.buildXtreamEntry(playlist))
+            ),
         };
 
         return {
@@ -92,14 +82,15 @@ export class PlaylistBackupService {
 
     async importBackup(json: string): Promise<PlaylistBackupImportSummary> {
         const manifest = this.parseManifest(json);
-        const existingPlaylists = await firstValueFrom(
+        const existingPlaylists = (await firstValueFrom(
             this.playlistsService.getAllData()
-        );
+        )).filter((playlist) => this.isXtreamPlaylist(playlist));
         const existingIds = new Set(
             existingPlaylists.map((playlist) => playlist._id)
         );
-        const fingerprintMap =
-            await this.buildExistingFingerprintMap(existingPlaylists);
+        const fingerprintMap = await this.buildExistingFingerprintMap(
+            existingPlaylists
+        );
         const seenBackupFingerprints = new Set<string>();
         const summary: PlaylistBackupImportSummary = {
             imported: 0,
@@ -109,15 +100,11 @@ export class PlaylistBackupService {
             errors: [],
         };
 
-        await this.restoreSettings(manifest.settings);
-
         for (const entry of manifest.playlists) {
-            const entryLabel =
-                entry.title || entry.exportedId || entry.portalType;
+            const entryLabel = entry.title || entry.exportedId;
 
             try {
                 const fingerprint = this.getEntryFingerprint(entry);
-
                 if (seenBackupFingerprints.has(fingerprint)) {
                     summary.skipped += 1;
                     summary.errors.push(
@@ -125,7 +112,6 @@ export class PlaylistBackupService {
                     );
                     continue;
                 }
-
                 seenBackupFingerprints.add(fingerprint);
 
                 const existingMatch = fingerprintMap.get(fingerprint);
@@ -134,22 +120,18 @@ export class PlaylistBackupService {
                     existingMatch?._id,
                     existingIds
                 );
-                const isMerge = existingMatch != null;
-                const nextPlaylist = await this.buildImportedPlaylist(
-                    entry,
-                    targetId,
-                    existingMatch ?? null
-                );
-
                 await firstValueFrom(
-                    this.playlistsService.addPlaylist(nextPlaylist)
+                    this.playlistsService.addPlaylist(
+                        this.buildImportedXtreamPlaylist(
+                            entry,
+                            targetId,
+                            existingMatch ?? null
+                        )
+                    )
                 );
+                await this.restoreXtreamEntry(targetId, entry);
 
-                if (entry.portalType === 'xtream') {
-                    await this.restoreXtreamEntry(targetId, entry);
-                }
-
-                if (isMerge) {
+                if (existingMatch) {
                     summary.merged += 1;
                 } else {
                     summary.imported += 1;
@@ -166,84 +148,31 @@ export class PlaylistBackupService {
         return summary;
     }
 
-    private async buildPlaylistEntry(
+    private async buildXtreamEntry(
         playlist: Playlist
-    ): Promise<PlaylistBackupEntry> {
-        const portalType = this.getPlaylistPortalType(playlist);
-
-        switch (portalType) {
-            case 'xtream':
-                return this.buildXtreamEntry(playlist);
-            case 'm3u':
-            default:
-                return this.buildM3uEntry(playlist);
+    ): Promise<XtreamPlaylistBackupEntry> {
+        if (!this.isXtreamPlaylist(playlist)) {
+            throw new PlaylistBackupError(
+                `Unsupported playlist source for "${playlist.title}".`
+            );
         }
-    }
 
-    private async buildM3uEntry(
-        playlist: Playlist
-    ): Promise<M3uPlaylistBackupEntry> {
-        const rawM3u = await firstValueFrom(
-            this.playlistsService.getRawPlaylistById(playlist._id)
-        );
-        const favorites = Array.isArray(playlist.favorites)
-            ? playlist.favorites.filter(
-                  (item): item is string =>
-                      typeof item === 'string' && item.trim().length > 0
-              )
-            : [];
-        const recentlyViewed = Array.isArray(playlist.recentlyViewed)
-            ? playlist.recentlyViewed.filter(isM3uRecentlyViewedItem)
-            : [];
-
-        return {
-            portalType: 'm3u',
+        const base = {
+            portalType: 'xtream' as const,
             exportedId: playlist._id,
             title: playlist.title,
             autoRefresh: Boolean(playlist.autoRefresh),
             position: playlist.position,
-            source: {
-                kind: this.resolveM3uSourceKind(playlist),
-                rawM3u,
-                ...(playlist.url ? { url: playlist.url } : {}),
-                ...(playlist.userAgent
-                    ? { userAgent: playlist.userAgent }
-                    : {}),
-                ...(playlist.referrer ? { referrer: playlist.referrer } : {}),
-                ...(playlist.origin ? { origin: playlist.origin } : {}),
-                ...(playlist.filePath
-                    ? { filePathHint: playlist.filePath }
-                    : {}),
-            },
-            userState: {
-                favorites: this.uniqueStrings(favorites),
-                recentlyViewed: recentlyViewed.map((item) => ({ ...item })),
-                hiddenGroupTitles: this.uniqueStrings(
-                    Array.isArray(playlist.hiddenGroupTitles)
-                        ? playlist.hiddenGroupTitles
-                        : []
-                ),
+            connection: {
+                serverUrl: playlist.serverUrl,
+                username: playlist.username,
+                ...(playlist.password ? { password: playlist.password } : {}),
             },
         };
-    }
 
-    private async buildXtreamEntry(
-        playlist: Playlist
-    ): Promise<XtreamPlaylistBackupEntry> {
         if (!this.hasElectronApi()) {
             return {
-                portalType: 'xtream',
-                exportedId: playlist._id,
-                title: playlist.title,
-                autoRefresh: Boolean(playlist.autoRefresh),
-                position: playlist.position,
-                connection: {
-                    serverUrl: playlist.serverUrl ?? '',
-                    username: playlist.username ?? '',
-                    ...(playlist.password
-                        ? { password: playlist.password }
-                        : {}),
-                },
+                ...base,
                 userState: {
                     hiddenCategories: [],
                     favorites: [],
@@ -270,16 +199,7 @@ export class PlaylistBackupService {
         ]);
 
         return {
-            portalType: 'xtream',
-            exportedId: playlist._id,
-            title: playlist.title,
-            autoRefresh: Boolean(playlist.autoRefresh),
-            position: playlist.position,
-            connection: {
-                serverUrl: playlist.serverUrl ?? '',
-                username: playlist.username ?? '',
-                ...(playlist.password ? { password: playlist.password } : {}),
-            },
+            ...base,
             userState: {
                 hiddenCategories: [
                     ...this.mapHiddenCategories(liveCategories, 'live'),
@@ -306,13 +226,8 @@ export class PlaylistBackupService {
         };
     }
 
-    private buildSettingsPayload(): PlaylistBackupSettings | undefined {
-        return undefined;
-    }
-
     private parseManifest(json: string): PlaylistBackupManifestV1 {
         let parsed: unknown;
-
         try {
             parsed = JSON.parse(json);
         } catch (error) {
@@ -321,28 +236,19 @@ export class PlaylistBackupService {
             );
         }
 
-        if (Array.isArray(parsed)) {
-            throw new PlaylistBackupError(
-                'Legacy playlist JSON exports are not supported. Create a versioned backup first.'
-            );
-        }
-
-        if (!parsed || typeof parsed !== 'object') {
+        if (!parsed || typeof parsed !== 'object' || Array.isArray(parsed)) {
             throw new PlaylistBackupError('Backup file must be a JSON object.');
         }
 
         const manifest = parsed as Partial<PlaylistBackupManifestV1>;
-
         if (manifest.kind !== PLAYLIST_BACKUP_KIND) {
             throw new PlaylistBackupError('Unsupported backup file format.');
         }
-
         if (manifest.version !== PLAYLIST_BACKUP_VERSION) {
             throw new PlaylistBackupError(
                 `Unsupported backup version: ${manifest.version ?? 'unknown'}`
             );
         }
-
         if (!Array.isArray(manifest.playlists)) {
             throw new PlaylistBackupError(
                 'Backup file must contain playlists.'
@@ -357,56 +263,31 @@ export class PlaylistBackupService {
     }
 
     private validateEntry(entry: PlaylistBackupEntry): void {
-        if (!entry || typeof entry !== 'object') {
+        if (
+            !entry ||
+            typeof entry !== 'object' ||
+            entry.portalType !== 'xtream' ||
+            !entry.exportedId ||
+            !entry.title
+        ) {
             throw new PlaylistBackupError(
-                'Backup contains an invalid playlist entry.'
+                'Backup contains an invalid or unsupported playlist entry.'
             );
         }
-
-        if (!entry.exportedId || !entry.title) {
+        if (!entry.connection?.serverUrl || !entry.connection?.username) {
             throw new PlaylistBackupError(
-                'Backup contains a playlist entry without required metadata.'
+                `Xtream backup "${entry.title}" is missing connection metadata.`
             );
         }
-
-        switch (entry.portalType) {
-            case 'm3u':
-                if (!entry.source?.rawM3u) {
-                    throw new PlaylistBackupError(
-                        `M3U backup "${entry.title}" is missing raw playlist data.`
-                    );
-                }
-                break;
-            case 'xtream':
-                if (
-                    !entry.connection?.serverUrl ||
-                    !entry.connection?.username
-                ) {
-                    throw new PlaylistBackupError(
-                        `Xtream backup "${entry.title}" is missing connection metadata.`
-                    );
-                }
-
-                // Restore treats the backup's user state as authoritative and
-                // replaces the existing state with it. Every v1 export writes
-                // all four collections, so a missing one signals a damaged or
-                // hand-edited file — reject it instead of wiping user data
-                // with normalized empty arrays.
-                if (
-                    !Array.isArray(entry.userState?.hiddenCategories) ||
-                    !Array.isArray(entry.userState?.favorites) ||
-                    !Array.isArray(entry.userState?.recentlyViewed) ||
-                    !Array.isArray(entry.userState?.playbackPositions)
-                ) {
-                    throw new PlaylistBackupError(
-                        `Xtream backup "${entry.title}" has incomplete user state.`
-                    );
-                }
-                break;
-            default:
-                throw new PlaylistBackupError(
-                    `Unsupported backup playlist type: ${(entry as { portalType?: string }).portalType ?? 'unknown'}`
-                );
+        if (
+            !Array.isArray(entry.userState?.hiddenCategories) ||
+            !Array.isArray(entry.userState?.favorites) ||
+            !Array.isArray(entry.userState?.recentlyViewed) ||
+            !Array.isArray(entry.userState?.playbackPositions)
+        ) {
+            throw new PlaylistBackupError(
+                `Xtream backup "${entry.title}" has incomplete user state.`
+            );
         }
     }
 
@@ -414,73 +295,35 @@ export class PlaylistBackupService {
         playlists: Playlist[]
     ): Promise<Map<string, Playlist>> {
         const map = new Map<string, Playlist>();
-
         for (const playlist of playlists) {
-            const portalType = this.getPlaylistPortalType(playlist);
-
-            if (portalType === 'm3u' && !playlist.url) {
-                const rawM3u = await firstValueFrom(
-                    this.playlistsService.getRawPlaylistById(playlist._id)
-                );
-                map.set(this.buildM3uRawFingerprint(rawM3u), playlist);
-                continue;
+            if (this.isXtreamPlaylist(playlist)) {
+                map.set(this.getPlaylistFingerprint(playlist), playlist);
             }
-
-            map.set(this.getPlaylistFingerprint(playlist), playlist);
         }
-
         return map;
     }
 
     private getPlaylistFingerprint(playlist: Playlist): string {
-        const portalType = this.getPlaylistPortalType(playlist);
-
-        switch (portalType) {
-            case 'xtream':
-                return [
-                    'xtream',
-                    this.normalizeUrlIdentity(playlist.serverUrl ?? ''),
-                    this.normalizeIdentityValue(playlist.username ?? ''),
-                ].join('|');
-            case 'm3u':
-            default:
-                if (playlist.url) {
-                    return this.buildM3uUrlFingerprint(playlist.url);
-                }
-
-                throw new PlaylistBackupError(
-                    `Unable to fingerprint M3U playlist "${playlist.title}".`
-                );
+        if (!this.isXtreamPlaylist(playlist)) {
+            throw new PlaylistBackupError(
+                `Unable to fingerprint unsupported playlist "${playlist.title}".`
+            );
         }
+        return [
+            'xtream',
+            this.normalizeUrlIdentity(playlist.serverUrl),
+            this.normalizeIdentityValue(playlist.username),
+        ].join('|');
     }
 
     private getEntryFingerprint(entry: PlaylistBackupEntry): string {
-        switch (entry.portalType) {
-            case 'xtream':
-                return [
-                    'xtream',
-                    this.normalizeUrlIdentity(entry.connection.serverUrl),
-                    this.normalizeIdentityValue(entry.connection.username),
-                ].join('|');
-            case 'm3u':
-            default:
-                if (entry.source.url) {
-                    return this.buildM3uUrlFingerprint(entry.source.url);
-                }
-
-                return this.buildM3uRawFingerprint(entry.source.rawM3u);
+        if (entry.portalType !== 'xtream') {
+            throw new PlaylistBackupError('Unsupported backup playlist type.');
         }
-    }
-
-    private buildM3uUrlFingerprint(url: string): string {
-        return ['m3u', 'url', this.normalizeUrlIdentity(url)].join('|');
-    }
-
-    private buildM3uRawFingerprint(rawM3u: string): string {
         return [
-            'm3u',
-            'raw',
-            this.hashString(this.canonicalizeM3u(rawM3u)),
+            'xtream',
+            this.normalizeUrlIdentity(entry.connection.serverUrl),
+            this.normalizeIdentityValue(entry.connection.username),
         ].join('|');
     }
 
@@ -489,88 +332,13 @@ export class PlaylistBackupService {
         matchedId: string | undefined,
         existingIds: Set<string>
     ): string {
-        if (matchedId) {
-            return matchedId;
-        }
-
+        if (matchedId) return matchedId;
         if (entry.exportedId && !existingIds.has(entry.exportedId)) {
             return entry.exportedId;
         }
-
         let nextId = createRandomId();
-
-        while (existingIds.has(nextId)) {
-            nextId = createRandomId();
-        }
-
+        while (existingIds.has(nextId)) nextId = createRandomId();
         return nextId;
-    }
-
-    private async buildImportedPlaylist(
-        entry: PlaylistBackupEntry,
-        playlistId: string,
-        existing: Playlist | null
-    ): Promise<Playlist> {
-        switch (entry.portalType) {
-            case 'xtream':
-                return this.buildImportedXtreamPlaylist(
-                    entry,
-                    playlistId,
-                    existing
-                );
-            case 'm3u':
-            default:
-                return this.buildImportedM3uPlaylist(
-                    entry,
-                    playlistId,
-                    existing
-                );
-        }
-    }
-
-    private async buildImportedM3uPlaylist(
-        entry: M3uPlaylistBackupEntry,
-        playlistId: string,
-        existing: Playlist | null
-    ): Promise<Playlist> {
-        const parsedPlaylist = await this.playlistsService.handlePlaylistParsing(
-            'TEXT',
-            entry.source.rawM3u,
-            entry.title
-        );
-        const now = new Date().toISOString();
-
-        return {
-            ...existing,
-            ...parsedPlaylist,
-            _id: playlistId,
-            title: entry.title,
-            filename: entry.title,
-            importDate: existing?.importDate ?? now,
-            lastUsage: existing?.lastUsage ?? now,
-            autoRefresh: entry.autoRefresh,
-            position: entry.position,
-            favorites: this.uniqueStrings(entry.userState.favorites),
-            recentlyViewed: entry.userState.recentlyViewed.map((item) =>
-                this.normalizeM3uRecentlyViewedItem(item)
-            ),
-            hiddenGroupTitles: this.uniqueStrings(
-                entry.userState.hiddenGroupTitles
-            ),
-            ...(entry.source.url
-                ? { url: entry.source.url }
-                : { url: undefined }),
-            ...(entry.source.userAgent
-                ? { userAgent: entry.source.userAgent }
-                : { userAgent: undefined }),
-            ...(entry.source.referrer
-                ? { referrer: entry.source.referrer }
-                : { referrer: undefined }),
-            ...(entry.source.origin
-                ? { origin: entry.source.origin }
-                : { origin: undefined }),
-            filePath: undefined,
-        };
     }
 
     private buildImportedXtreamPlaylist(
@@ -579,7 +347,6 @@ export class PlaylistBackupService {
         existing: Playlist | null
     ): Playlist {
         const now = new Date().toISOString();
-
         return {
             ...existing,
             _id: playlistId,
@@ -598,30 +365,15 @@ export class PlaylistBackupService {
         };
     }
 
-    private async restoreSettings(
-        settings: PlaylistBackupSettings | undefined
-    ): Promise<void> {
-        void settings;
-    }
-
     private async restoreXtreamEntry(
         playlistId: string,
         entry: XtreamPlaylistBackupEntry
     ): Promise<void> {
-        // Backup files are user-supplied JSON; normalization drops user-state
-        // entries without a usable numeric xtreamId (e.g. hiddenCategories
-        // exported by builds affected by issue #1017) so they cannot match
-        // arbitrary categories during restore.
         const restoreState: XtreamPendingRestoreState =
             normalizeXtreamPendingRestoreState(entry.userState);
-
         this.pendingRestoreService.set(playlistId, restoreState);
 
-        if (!this.hasElectronApi()) {
-            return;
-        }
-
-        if (!(await this.hasCompletedOfflineCache(playlistId))) {
+        if (!this.hasElectronApi() || !(await this.hasCompletedOfflineCache(playlistId))) {
             return;
         }
 
@@ -629,46 +381,21 @@ export class PlaylistBackupService {
         this.pendingRestoreService.clear(playlistId);
     }
 
-    private async hasCompletedOfflineCache(
-        playlistId: string
-    ): Promise<boolean> {
+    private async hasCompletedOfflineCache(playlistId: string): Promise<boolean> {
         const checks = await Promise.all(
             [
-                {
-                    categoryType: 'live' as const,
-                    contentType: 'live' as const,
-                },
-                {
-                    categoryType: 'movies' as const,
-                    contentType: 'movie' as const,
-                },
-                {
-                    categoryType: 'series' as const,
-                    contentType: 'series' as const,
-                },
+                { categoryType: 'live' as const, contentType: 'live' as const },
+                { categoryType: 'movies' as const, contentType: 'movie' as const },
+                { categoryType: 'series' as const, contentType: 'series' as const },
             ].map(async ({ categoryType, contentType }) => {
-                const [importStatus, hasCategories, hasContent] =
-                    await Promise.all([
-                        this.databaseService.getXtreamImportStatus(
-                            playlistId,
-                            contentType
-                        ),
-                        this.databaseService.hasXtreamCategories(
-                            playlistId,
-                            categoryType
-                        ),
-                        this.databaseService.hasXtreamContent(
-                            playlistId,
-                            contentType
-                        ),
-                    ]);
-
-                return (
-                    importStatus === 'completed' && hasCategories && hasContent
-                );
+                const [importStatus, hasCategories, hasContent] = await Promise.all([
+                    this.databaseService.getXtreamImportStatus(playlistId, contentType),
+                    this.databaseService.hasXtreamCategories(playlistId, categoryType),
+                    this.databaseService.hasXtreamContent(playlistId, contentType),
+                ]);
+                return importStatus === 'completed' && hasCategories && hasContent;
             })
         );
-
         return checks.every(Boolean);
     }
 
@@ -682,11 +409,7 @@ export class PlaylistBackupService {
             state.favorites,
             state.recentlyViewed
         );
-
-        await this.playbackPositionService.clearAllPlaybackPositions(
-            playlistId
-        );
-
+        await this.playbackPositionService.clearAllPlaybackPositions(playlistId);
         for (const playbackPosition of state.playbackPositions) {
             await this.playbackPositionService.savePlaybackPosition(
                 playlistId,
@@ -704,27 +427,21 @@ export class PlaylistBackupService {
             this.databaseService.getAllXtreamCategories(playlistId, 'movies'),
             this.databaseService.getAllXtreamCategories(playlistId, 'series'),
         ]);
-
         for (const categories of categoriesByType) {
-            if (categories.length === 0) {
-                continue;
-            }
-
+            if (categories.length === 0) continue;
             await this.databaseService.updateCategoryVisibility(
                 categories.map((category) => category.id),
                 false
             );
-
             const hiddenCategoryIds = categories
                 .filter((category) =>
                     state.hiddenCategories.some(
-                        (hiddenCategory) =>
-                            hiddenCategory.categoryType === category.type &&
-                            hiddenCategory.xtreamId === category.xtream_id
+                        (hidden) =>
+                            hidden.categoryType === category.type &&
+                            hidden.xtreamId === category.xtream_id
                     )
                 )
                 .map((category) => category.id);
-
             if (hiddenCategoryIds.length > 0) {
                 await this.databaseService.updateCategoryVisibility(
                     hiddenCategoryIds,
@@ -744,126 +461,32 @@ export class PlaylistBackupService {
     ): XtreamPendingRestoreState['hiddenCategories'] {
         return categories
             .filter((category) => category.hidden)
-            .map((category) => ({
-                categoryType,
-                xtreamId: category.xtream_id,
-            }));
+            .map((category) => ({ categoryType, xtreamId: category.xtream_id }));
     }
 
-    private getPlaylistPortalType(playlist: Playlist): PlaylistPortalType {
-        if (playlist.serverUrl && playlist.username) {
-            return 'xtream';
-        }
-
-        return 'm3u';
-    }
-
-    private resolveM3uSourceKind(playlist: Playlist): 'url' | 'file' | 'text' {
-        if (playlist.url) {
-            return 'url';
-        }
-
-        if (playlist.filePath) {
-            return 'file';
-        }
-
-        return 'text';
-    }
-
-    private normalizeM3uRecentlyViewedItem(
-        item: M3uRecentlyViewedItem
-    ): M3uRecentlyViewedItem {
-        return {
-            ...item,
-            source: 'm3u',
-            id: String(item.id ?? item.url),
-            url: String(item.url),
-            title: String(item.title ?? ''),
-            category_id: 'live',
-            added_at: item.added_at ?? new Date().toISOString(),
-        };
-    }
-
-    private normalizeSettingsUrls(urls: string[]): string[] {
-        return this.uniqueStrings(
-            urls
-                .map((url) => String(url ?? '').trim())
-                .filter((url) => url.length > 0)
-        );
-    }
-
-    private mergeUrls(primary: string[], secondary: string[]): string[] {
-        const merged = new Map<string, string>();
-
-        for (const url of [...primary, ...secondary]) {
-            const normalized = this.normalizeUrlIdentity(url);
-
-            if (!normalized || merged.has(normalized)) {
-                continue;
-            }
-
-            merged.set(normalized, url.trim());
-        }
-
-        return [...merged.values()];
-    }
-
-    private uniqueStrings(values: string[]): string[] {
-        const seen = new Set<string>();
-        const result: string[] = [];
-
-        for (const value of values) {
-            const normalized = value.trim();
-
-            if (!normalized || seen.has(normalized)) {
-                continue;
-            }
-
-            seen.add(normalized);
-            result.push(normalized);
-        }
-
-        return result;
+    private isXtreamPlaylist(
+        playlist: Playlist
+    ): playlist is Playlist & { serverUrl: string; username: string } {
+        return Boolean(playlist.serverUrl && playlist.username);
     }
 
     private normalizeUrlIdentity(value: string): string {
         const trimmed = value.trim();
-
-        if (!trimmed) {
-            return '';
-        }
-
+        if (!trimmed) return '';
         try {
             const url = new URL(trimmed);
             const pathname =
                 url.pathname === '/'
                     ? '/'
                     : url.pathname.replace(/\/+$/, '') || '/';
-
             return `${url.protocol.toLowerCase()}//${url.host.toLowerCase()}${pathname}${url.search}${url.hash}`;
         } catch {
             return trimmed.toLowerCase();
         }
     }
 
-    private normalizeIdentityValue(value: string, toLowerCase = false): string {
-        const trimmed = value.trim();
-        return toLowerCase ? trimmed.toLowerCase() : trimmed;
-    }
-
-    private canonicalizeM3u(rawM3u: string): string {
-        return rawM3u.replace(/\r\n?/g, '\n').trim();
-    }
-
-    private hashString(value: string): string {
-        let hash = 0x811c9dc5;
-
-        for (let index = 0; index < value.length; index += 1) {
-            hash ^= value.charCodeAt(index);
-            hash = Math.imul(hash, 0x01000193);
-        }
-
-        return (hash >>> 0).toString(16);
+    private normalizeIdentityValue(value: string): string {
+        return value.trim();
     }
 
     private getErrorMessage(error: unknown): string {

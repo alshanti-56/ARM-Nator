@@ -1,8 +1,5 @@
-import { Channel } from './channel.interface';
-
 export const GLOBAL_SEARCH_RESULT_SOURCES = {
     Xtream: 'xtream',
-    M3u: 'm3u',
 } as const;
 
 export type GlobalSearchResultSource =
@@ -54,23 +51,4 @@ export interface XtreamGlobalSearchResult extends GlobalSearchBaseResult {
     position?: number | null;
 }
 
-export interface M3uGlobalSearchResult extends GlobalSearchBaseResult {
-    source_type: typeof GLOBAL_SEARCH_RESULT_SOURCES.M3u;
-    content_type: typeof GLOBAL_SEARCH_CONTENT_TYPES.Live;
-    type: typeof GLOBAL_SEARCH_CONTENT_TYPES.Live;
-    channel_id: string;
-    stream_url: string;
-    group_title: string;
-    radio: string;
-    channel: Channel;
-}
-
-export type GlobalSearchResult =
-    | XtreamGlobalSearchResult
-    | M3uGlobalSearchResult;
-
-export function isM3uGlobalSearchResult(
-    result: GlobalSearchResult
-): result is M3uGlobalSearchResult {
-    return result.source_type === GLOBAL_SEARCH_RESULT_SOURCES.M3u;
-}
+export type GlobalSearchResult = XtreamGlobalSearchResult;

@@ -41,11 +41,7 @@ handleWorkerRequest(
     (
         kind: 'all' | 'vod' | 'series' = 'all',
         limit = 200,
-        playlistType?:
-            | 'xtream'
-            | 'm3u-file'
-            | 'm3u-text'
-            | 'm3u-url'
+        playlistType?: 'xtream'
     ) => ({
         kind,
         limit,

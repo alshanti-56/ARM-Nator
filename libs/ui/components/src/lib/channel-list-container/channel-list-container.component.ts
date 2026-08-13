@@ -28,34 +28,25 @@ import {
   PlaylistActions,
   selectActive,
   selectFavorites,
-} from "@arm-nator/providers/m3u/state";
+} from "@arm-nator/providers/shared/playlist-state";
 
 import {
   BehaviorSubject,
   combineLatest,
   filter,
-  firstValueFrom,
   map,
 } from "rxjs";
 import {
-  PlaylistsService,
   SettingsStore,
 } from "@arm-nator/services";
 import {
   Channel,
-  isM3uRecentlyViewedItem,
-  normalizeDate,
   PlaylistMeta,
-  PlaylistRecentlyViewedItem,
 } from "@arm-nator/shared/interfaces";
 
 import { AllChannelsViewComponent } from "./all-channels-view/all-channels-view.component";
 import { FavoritesViewComponent } from "./favorites-view/favorites-view.component";
 import { GroupsViewComponent } from "./groups-view/groups-view.component";
-import {
-  RecentViewComponent,
-  RecentViewItem,
-} from "./recent-view/recent-view.component";
 import { ChannelListLoadingStateComponent } from "../channel-list-loading-state/channel-list-loading-state.component";
 
 function groupChannelsByTitle(channels: Channel[]): Record<string, Channel[]> {
@@ -95,19 +86,15 @@ function mapChannelsByFirstUrl(channels: Channel[]): Map<string, Channel> {
     GroupsViewComponent,
     MatButtonModule,
     MatIconModule,
-    RecentViewComponent,
     TranslatePipe,
   ],
 })
 export class ChannelListContainerComponent implements OnInit, OnDestroy {
-  private readonly playlistsService = inject(PlaylistsService);
   private readonly store = inject(Store);
   private readonly router = inject(Router);
   private readonly route = inject(ActivatedRoute);
   private readonly playlistContext = inject(PlaylistContextFacade);
   private readonly settingsStore = inject(SettingsStore);
-  /** Route-aware playlist ID for recent-item mutations */
-  private readonly resolvedPlaylistId = this.playlistContext.resolvedPlaylistId;
   private readonly activePlaylist = this.playlistContext.activePlaylist;
   readonly channelIconMap = signal(new Map<string, string>());
 
@@ -125,7 +112,6 @@ export class ChannelListContainerComponent implements OnInit, OnDestroy {
   /** Active view (all, groups, favorites, recent) */
   readonly activeView = input<string>("all");
   readonly channelsLoading = input(false);
-  readonly recentItems = input<PlaylistRecentlyViewedItem[]>([]);
   readonly sidebarWidth = input<number | null>(null);
   readonly sidebarWidthRequested = output<number>();
   readonly sidebarWidthRequestEnded = output<number>();
@@ -199,46 +185,6 @@ export class ChannelListContainerComponent implements OnInit, OnDestroy {
     groupChannelsByTitle(this.displayedChannels()),
   );
 
-  readonly recentChannelItems = computed<RecentViewItem[]>(() => {
-    const channels = this.channelListSignal();
-    const recentItems = this.recentItems();
-    const channelsByUrl = new Map(
-      channels.map((channel) => [channel.url, channel] as const),
-    );
-    const channelsById = new Map(
-      channels.map((channel) => [channel.id, channel] as const),
-    );
-    const seenUrls = new Set<string>();
-
-    return [...recentItems]
-      .filter(isM3uRecentlyViewedItem)
-      .sort(
-        (a, b) =>
-          new Date(normalizeDate(b.added_at)).getTime() -
-          new Date(normalizeDate(a.added_at)).getTime(),
-      )
-      .reduce<RecentViewItem[]>((acc, item) => {
-        const channelUrl = item.url?.trim();
-        if (!channelUrl || seenUrls.has(channelUrl)) {
-          return acc;
-        }
-
-        const channel =
-          channelsByUrl.get(channelUrl) ||
-          (item.channel_id ? channelsById.get(item.channel_id) : undefined);
-
-        if (!channel) {
-          return acc;
-        }
-
-        seenUrls.add(channel.url);
-        acc.push({
-          channel,
-          viewedAt: normalizeDate(item.added_at),
-        });
-        return acc;
-      }, []);
-  });
 
   /** Selected channel */
   readonly activeChannel = this.store.selectSignal(selectActive);
@@ -331,45 +277,6 @@ export class ChannelListContainerComponent implements OnInit, OnDestroy {
     this.store.dispatch(FavoritesActions.setFavorites({ channelIds }));
   }
 
-  async removeRecentChannel(channelUrl: string): Promise<void> {
-    const playlistId = this.resolvedPlaylistId();
-    if (!playlistId) {
-      return;
-    }
-
-    const updatedPlaylist = await firstValueFrom(
-      this.playlistsService.removeFromM3uRecentlyViewed(playlistId, channelUrl),
-    );
-
-    this.store.dispatch(
-      PlaylistActions.updatePlaylistMeta({
-        playlist: {
-          _id: playlistId,
-          recentlyViewed: updatedPlaylist?.recentlyViewed ?? [],
-        } as PlaylistMeta,
-      }),
-    );
-  }
-
-  async clearRecentChannels(): Promise<void> {
-    const playlistId = this.resolvedPlaylistId();
-    if (!playlistId) {
-      return;
-    }
-
-    const updatedPlaylist = await firstValueFrom(
-      this.playlistsService.clearM3uRecentlyViewed(playlistId),
-    );
-
-    this.store.dispatch(
-      PlaylistActions.updatePlaylistMeta({
-        playlist: {
-          _id: playlistId,
-          recentlyViewed: updatedPlaylist?.recentlyViewed ?? [],
-        } as PlaylistMeta,
-      }),
-    );
-  }
 
   onSidebarWidthRequested(width: number): void {
     this.sidebarWidthRequested.emit(width);

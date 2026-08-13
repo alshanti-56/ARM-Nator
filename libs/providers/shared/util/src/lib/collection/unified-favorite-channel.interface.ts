@@ -1,10 +1,8 @@
 /**
  * Unified interface for displaying live TV favorites from any source
- * (M3U playlists and Xtream Codes portals) in one list.
+ * (Xtream and Stalker portals) in one list.
  */
-import { Channel } from '@arm-nator/shared/interfaces';
-
-export type FavoriteSourceType = 'm3u' | 'xtream';
+export type FavoriteSourceType = 'xtream';
 
 export interface UnifiedFavoriteChannel {
     /**
@@ -28,16 +26,10 @@ export interface UnifiedFavoriteChannel {
     /** Human-readable playlist name */
     playlistName: string;
 
-    /** Direct stream URL (M3U channels only) */
-    streamUrl?: string;
-
-    /** Full M3U channel metadata used by row context menu actions */
-    m3uChannel?: Channel;
-
-    /** Xtream numeric stream ID (Xtream channels only) */
+    /** Xtream numeric stream ID */
     xtreamId?: number;
 
-    /** TVG identifier retained from M3U metadata. */
+    /** TVG identifier for live channels. */
     tvgId?: string;
 
     /** ISO timestamp when added to favorites */

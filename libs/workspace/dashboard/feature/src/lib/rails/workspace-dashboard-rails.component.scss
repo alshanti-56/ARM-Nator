@@ -340,7 +340,7 @@
 }
 
 // Watch-progress visualisation. Appears between the subtitle and the CTA
-// only when a resume position is known — VOD/series only (M3U and live
+// only when a resume position is known — VOD/series only (live
 // channels have no playback positions in the schema).
 .hero__progress {
     display: block;

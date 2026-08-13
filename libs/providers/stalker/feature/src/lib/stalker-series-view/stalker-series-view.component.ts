@@ -60,11 +60,13 @@ import {
     buildUpNextRailItems,
     getSeriesEpisodeMetadata,
     getSeriesPlaybackNavigation,
-    type PlaybackFallbackRequest,
-    PortalInlinePlayerComponent,
     type SeriesPlaybackEpisodeState,
     type UpNextRailItem,
 } from '@arm-nator/ui/components';
+import {
+    type PlaybackFallbackRequest,
+    PortalInlinePlayerComponent,
+} from '@arm-nator/player/ui';
 import {
     CrossPortalSimilarItem,
     CrossPortalSimilarService,

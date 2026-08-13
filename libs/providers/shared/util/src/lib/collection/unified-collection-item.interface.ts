@@ -1,13 +1,11 @@
 /**
  * Unified interface for displaying favorites or recently-viewed items
- * from M3U and Xtream sources in one list.
+ * from supported portal sources in one list.
  *
  * Extends the previous live-only UnifiedFavoriteChannel to cover
  * all content types: live TV, movies, and series.
  */
-import { Channel } from '@arm-nator/shared/interfaces';
-
-export type CollectionSourceType = 'm3u' | 'xtream';
+export type CollectionSourceType = 'xtream';
 export type CollectionContentType = 'live' | 'movie' | 'series';
 
 export interface UnifiedCollectionItem {
@@ -35,20 +33,8 @@ export interface UnifiedCollectionItem {
     /** Poster image URL (movies / series) */
     posterUrl?: string | null;
 
-    /** Direct stream URL (M3U channels only) */
-    streamUrl?: string;
-
     /** Stable TVG identifier from the source playlist */
     tvgId?: string;
-
-    /** M3U playlist channel id used to rehydrate the full channel object */
-    channelId?: string;
-
-    /** Radio flag used to preserve the dedicated audio player layout */
-    radio?: string;
-
-    /** Full M3U channel metadata used by shared live collection row actions */
-    m3uChannel?: Channel;
 
     /** Xtream numeric stream ID */
     xtreamId?: number;

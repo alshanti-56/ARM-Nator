@@ -1,6 +1,5 @@
 export type {
   CredentialAccountSummary,
-  CredentialM3uTestInput,
   CredentialTestBatchLifecycleStatus,
   CredentialTestBatchOptions,
   CredentialTestInput,

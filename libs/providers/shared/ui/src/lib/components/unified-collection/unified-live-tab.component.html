@@ -25,41 +25,7 @@
 </div>
 
 <div class="content-container">
-    @if (activeDetail()) {
-        @if (shouldUseInlinePlayer()) {
-            <div
-                class="video-player"
-                [class.video-player--radio]="isRadioSelection()"
-            >
-                @if (isRadioSelection()) {
-                    <button
-                        mat-icon-button
-                        (click)="onClose()"
-                        class="radio-close-btn"
-                        aria-label="Close player"
-                    >
-                        <mat-icon>close</mat-icon>
-                    </button>
-
-                    <app-audio-player
-                        [url]="currentStreamUrl()"
-                        [icon]="
-                            activeRadioChannel()?.tvg?.logo ??
-                            activeDetail()?.playback?.thumbnail ??
-                            ''
-                        "
-                        [channelName]="
-                            activeRadioChannel()?.name ||
-                            activeDetail()?.playback?.title ||
-                            ''
-                        "
-                    />
-                }
-            </div>
-        }
-
-
-    } @else {
+    @if (!activeDetail()) {
         <app-portal-empty-state
             icon="live_tv"
             [message]="'CHANNELS.SELECT_CHANNEL_PLAYBACK' | translate"

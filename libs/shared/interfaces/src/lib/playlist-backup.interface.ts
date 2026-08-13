@@ -1,11 +1,9 @@
 import { PlaybackPositionData } from './playback-position.interface';
-import { M3uRecentlyViewedItem } from './playlist-recently-viewed.interface';
 
 export const PLAYLIST_BACKUP_KIND = 'arm-nator-playlist-backup';
 export const PLAYLIST_BACKUP_VERSION = 1;
 
-export type PlaylistBackupPortalType = 'm3u' | 'xtream';
-export type M3uBackupSourceKind = 'url' | 'file' | 'text';
+export type PlaylistBackupPortalType = 'xtream';
 export type XtreamBackupContentType = 'live' | 'movie' | 'series';
 export type XtreamBackupCategoryType = 'live' | 'movies' | 'series';
 
@@ -17,24 +15,6 @@ export interface PlaylistBackupBaseEntry {
     title: string;
     autoRefresh: boolean;
     position?: number;
-}
-
-export interface M3uPlaylistBackupEntry extends PlaylistBackupBaseEntry {
-    portalType: 'm3u';
-    source: {
-        kind: M3uBackupSourceKind;
-        rawM3u: string;
-        url?: string;
-        userAgent?: string;
-        referrer?: string;
-        origin?: string;
-        filePathHint?: string;
-    };
-    userState: {
-        favorites: string[];
-        recentlyViewed: M3uRecentlyViewedItem[];
-        hiddenGroupTitles: string[];
-    };
 }
 
 export interface XtreamBackupHiddenCategory {
@@ -73,8 +53,7 @@ export interface XtreamPlaylistBackupEntry extends PlaylistBackupBaseEntry {
 }
 
 export type PlaylistBackupEntry =
-    | M3uPlaylistBackupEntry
-    | XtreamPlaylistBackupEntry;
+    XtreamPlaylistBackupEntry;
 
 export interface PlaylistBackupManifestV1 {
     kind: typeof PLAYLIST_BACKUP_KIND;

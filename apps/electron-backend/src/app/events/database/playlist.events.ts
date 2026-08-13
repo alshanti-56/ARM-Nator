@@ -22,9 +22,6 @@ handleWorkerRequest(
 handleWorkerRequest('DB_GET_APP_PLAYLISTS', () => ({}));
 handleWorkerRequest('DB_GET_APP_PLAYLIST_METAS', () => ({}));
 handleWorkerRequest('DB_GET_APP_PLAYLIST', (playlistId: string) => ({ playlistId }));
-handleWorkerRequest('DB_GET_APP_PLAYLIST_FAVORITE_CHANNELS', (playlistId: string) => ({
-    playlistId,
-}));
 handleWorkerRequest('DB_GET_PLAYLIST', (playlistId: string) => ({ playlistId }));
 handleWorkerRequest(
     'DB_UPDATE_PLAYLIST',

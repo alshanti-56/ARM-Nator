@@ -1,14 +1,11 @@
 import { and, asc, desc, eq, inArray, or, sql, type SQL } from 'drizzle-orm';
 import * as schema from '@arm-nator/database/schema';
 import {
-    Channel,
     GLOBAL_SEARCH_CONTENT_TYPES,
     GLOBAL_SEARCH_RESULT_SOURCES,
     GlobalSearchContentType,
     GlobalSearchPaginationOptions,
     GlobalSearchResult,
-    GlobalSearchResultSource,
-    M3uGlobalSearchResult,
     catalogSearchText,
     hasCompleteXtreamSearchMetadata,
     getXtreamRecentlyAddedMaxEpochSeconds,
@@ -21,8 +18,6 @@ import {
     buildContentTitleFtsMatchQuery,
     buildGlobPrefixPatterns,
     buildLikePatterns,
-    buildM3uPayloadCompoundPatterns,
-    buildM3uPayloadTextFieldPatterns,
     getSearchWordPlans,
     getSqlSearchTokenGroups,
     isShortSearchTokenGroup,
@@ -46,7 +41,6 @@ const MAX_GLOBAL_SEARCH_CANDIDATE_LIMIT = 5000;
 const DEFAULT_PLAYLIST_SEARCH_LIMIT = 50;
 const MAX_PLAYLIST_SEARCH_LIMIT = 500;
 const MAX_PLAYLIST_SEARCH_CANDIDATE_LIMIT = 5000;
-const M3U_PLAYLIST_TYPES = ['m3u-file', 'm3u-text', 'm3u-url'] as const;
 
 interface NormalizedGlobalSearchPagination {
     limit: number;
@@ -58,12 +52,6 @@ interface ScoredGlobalSearchResult<
 > {
     result: T;
     score: number;
-}
-
-interface M3uPlaylistSearchRow {
-    id: string;
-    name: string;
-    payload: string | null;
 }
 
 interface XtreamMetadataSearchCandidate {
@@ -91,15 +79,6 @@ interface XtreamGlobalSearchCandidate extends XtreamMetadataSearchCandidate {
     playlist_name: string;
 }
 
-interface ParsedM3uPlaylistItems {
-    items?: unknown;
-}
-
-interface ParsedM3uPlaylistPayload {
-    hiddenGroupTitles?: unknown;
-    playlist?: ParsedM3uPlaylistItems;
-    items?: unknown;
-}
 
 function normalizeSearchText(value: unknown): string {
     return typeof value === 'string' ? value.trim() : '';
@@ -437,225 +416,6 @@ async function selectXtreamGlobalSearchCandidatesWithContentScan(
         .limit(candidateLimit);
 }
 
-/**
- * Per-word M3U payload prefilter conditions, AND-ed by the caller — the same
- * compound-word composition as `buildContentTitleSearchConditions`: "A&E"
- * must reach channel names like "US: A&E" (issue #1161), while the other
- * words of the query keep constraining the candidate playlists.
- */
-function buildM3uPayloadSearchConditions(searchTerm: string) {
-    let groupIndex = 0;
-
-    return getSearchWordPlans(searchTerm)
-        .map((plan) => {
-            const tokenConditions = plan.tokenGroups
-                .map((tokens) => {
-                    const mode =
-                        groupIndex === 0 && isShortSearchTokenGroup(tokens)
-                            ? 'prefix'
-                            : 'contains';
-                    groupIndex += 1;
-                    const patterns = tokens.flatMap((token) =>
-                        buildM3uPayloadTextFieldPatterns(token, mode)
-                    );
-                    const likeConditions = patterns.map(
-                        (pattern) =>
-                            sql`${schema.playlists.payload} LIKE ${pattern} ESCAPE '\\'`
-                    );
-                    return or(...likeConditions);
-                })
-                .filter((condition) => condition !== undefined);
-
-            const tokenArm =
-                tokenConditions.length > 0
-                    ? and(...tokenConditions)
-                    : undefined;
-            if (plan.compound === null) {
-                return tokenArm;
-            }
-
-            const compoundConditions = buildM3uPayloadCompoundPatterns(
-                plan.compound
-            ).map(
-                (pattern) =>
-                    sql`${schema.playlists.payload} LIKE ${pattern} ESCAPE '\\'`
-            );
-            return tokenArm === undefined
-                ? or(...compoundConditions)
-                : or(tokenArm, ...compoundConditions);
-        })
-        .filter((condition) => condition !== undefined);
-}
-
-function asStringArray(value: unknown): string[] {
-    if (!Array.isArray(value)) {
-        return [];
-    }
-
-    return value
-        .map((item) => normalizeSearchText(item))
-        .filter((item) => item.length > 0);
-}
-
-function hasGlobalSearchSource(
-    sources: readonly GlobalSearchResultSource[] | undefined,
-    source: GlobalSearchResultSource
-): boolean {
-    return !sources || sources.length === 0 || sources.includes(source);
-}
-
-function parseM3uPlaylistPayload(
-    payload: string | null
-): ParsedM3uPlaylistPayload | null {
-    if (!payload) {
-        return null;
-    }
-
-    try {
-        const parsed = JSON.parse(payload) as unknown;
-        return parsed && typeof parsed === 'object'
-            ? (parsed as ParsedM3uPlaylistPayload)
-            : null;
-    } catch {
-        return null;
-    }
-}
-
-function normalizeM3uChannel(value: unknown): Channel | null {
-    if (!value || typeof value !== 'object') {
-        return null;
-    }
-
-    const source = value as Partial<Channel>;
-    const url = normalizeSearchText(source.url);
-    const name = normalizeSearchText(source.name);
-    if (!url || !name) {
-        return null;
-    }
-
-    return {
-        id: normalizeSearchText(source.id) || url,
-        url,
-        name,
-        group: {
-            title: normalizeSearchText(source.group?.title),
-        },
-        tvg: {
-            id: normalizeSearchText(source.tvg?.id),
-            name: normalizeSearchText(source.tvg?.name),
-            url: normalizeSearchText(source.tvg?.url),
-            logo: normalizeSearchText(source.tvg?.logo),
-            rec: normalizeSearchText(source.tvg?.rec),
-        },
-        timeshift: source.timeshift,
-        catchup: source.catchup,
-        http: {
-            referrer: normalizeSearchText(source.http?.referrer),
-            'user-agent': normalizeSearchText(source.http?.['user-agent']),
-            origin: normalizeSearchText(source.http?.origin),
-        },
-        radio: normalizeSearchText(source.radio),
-    };
-}
-
-function getM3uPayloadChannels(payload: ParsedM3uPlaylistPayload): Channel[] {
-    const items = Array.isArray(payload.playlist?.items)
-        ? payload.playlist?.items
-        : Array.isArray(payload.items)
-          ? payload.items
-          : [];
-
-    return items
-        .map((item) => normalizeM3uChannel(item))
-        .filter((item): item is Channel => item !== null);
-}
-
-function scoreM3uChannel(channel: Channel, searchTerm: string): number | null {
-    const scores = [
-        scoreSearchTextMatch(channel.name, searchTerm),
-        scoreSearchTextMatch(channel.tvg.name, searchTerm),
-        scoreSearchTextMatch(channel.group.title, searchTerm),
-    ].filter((score): score is number => score !== null);
-
-    return scores.length > 0 ? Math.min(...scores) : null;
-}
-
-function toM3uGlobalSearchResult(
-    row: M3uPlaylistSearchRow,
-    channel: Channel
-): M3uGlobalSearchResult {
-    return {
-        source_type: GLOBAL_SEARCH_RESULT_SOURCES.M3u,
-        content_type: GLOBAL_SEARCH_CONTENT_TYPES.Live,
-        playlist_id: row.id,
-        playlist_name: row.name,
-        channel_id: channel.id,
-        stream_url: channel.url,
-        group_title: channel.group.title,
-        radio: channel.radio,
-        poster_url: channel.tvg.logo || null,
-        channel,
-        id: `${row.id}::${channel.id || channel.url}`,
-        category_id: 'm3u',
-        title: channel.name || channel.tvg.name || channel.url,
-        rating: null,
-        added: null,
-        xtream_id: -1,
-        type: GLOBAL_SEARCH_CONTENT_TYPES.Live,
-    };
-}
-
-function buildScoredM3uGlobalSearchResults(
-    rows: readonly M3uPlaylistSearchRow[],
-    searchTerm: string,
-    excludeHidden = false,
-    maxResults = MAX_GLOBAL_SEARCH_CANDIDATE_LIMIT
-): ScoredGlobalSearchResult<M3uGlobalSearchResult>[] {
-    const results: ScoredGlobalSearchResult<M3uGlobalSearchResult>[] = [];
-
-    for (const row of rows) {
-        const payload = parseM3uPlaylistPayload(row.payload);
-        if (!payload) {
-            continue;
-        }
-
-        const hiddenGroups = new Set(asStringArray(payload.hiddenGroupTitles));
-        for (const channel of getM3uPayloadChannels(payload)) {
-            if (excludeHidden && hiddenGroups.has(channel.group.title)) {
-                continue;
-            }
-
-            const score = scoreM3uChannel(channel, searchTerm);
-            if (score === null) {
-                continue;
-            }
-
-            results.push({
-                result: toM3uGlobalSearchResult(row, channel),
-                score,
-            });
-
-            if (results.length >= maxResults) {
-                return results;
-            }
-        }
-    }
-
-    return results;
-}
-
-export function buildM3uGlobalSearchResults(
-    rows: readonly M3uPlaylistSearchRow[],
-    searchTerm: string,
-    excludeHidden = false,
-    options?: GlobalSearchPaginationOptions | number
-): M3uGlobalSearchResult[] {
-    return paginateScoredResults(
-        buildScoredM3uGlobalSearchResults(rows, searchTerm, excludeHidden),
-        normalizeGlobalSearchPagination(options)
-    );
-}
-
 export type GlobalRecentlyAddedKind = 'all' | 'vod' | 'series';
 
 function getRecentlyAddedContentTypes(
@@ -780,11 +540,7 @@ export async function getContent(
         : baseQuery.orderBy(desc(schema.content.added));
 }
 
-export type RecentlyAddedPlaylistType =
-    | 'xtream'
-    | 'm3u-file'
-    | 'm3u-text'
-    | 'm3u-url';
+export type RecentlyAddedPlaylistType = 'xtream';
 
 export async function getGlobalRecentlyAdded(
     db: AppDatabase,
@@ -1250,7 +1006,7 @@ export async function globalSearch(
     searchTerm: string,
     types: string[],
     excludeHidden = false,
-    sources?: GlobalSearchResultSource[],
+    _sources?: readonly string[],
     options?: GlobalSearchPaginationOptions
 ): Promise<GlobalSearchResult[]> {
     if (!types || types.length === 0 || !normalizeSearchMatchText(searchTerm)) {
@@ -1261,7 +1017,7 @@ export async function globalSearch(
     const candidateLimit = getGlobalSearchCandidateLimit();
     const results: ScoredGlobalSearchResult[] = [];
 
-    if (hasGlobalSearchSource(sources, GLOBAL_SEARCH_RESULT_SOURCES.Xtream)) {
+    {
         let candidates: XtreamGlobalSearchCandidate[];
 
         if (shouldUseContentTitlePrefixIndex(searchTerm)) {
@@ -1348,37 +1104,6 @@ export async function globalSearch(
                     ): item is ScoredGlobalSearchResult<XtreamGlobalSearchResult> =>
                         item !== null
                 )
-        );
-    }
-
-    if (
-        types.includes(GLOBAL_SEARCH_CONTENT_TYPES.Live) &&
-        hasGlobalSearchSource(sources, GLOBAL_SEARCH_RESULT_SOURCES.M3u)
-    ) {
-        const rows = await db
-            .select({
-                id: schema.playlists.id,
-                name: schema.playlists.name,
-                payload: schema.playlists.payload,
-            })
-            .from(schema.playlists)
-            .where(
-                and(
-                    inArray(schema.playlists.type, [...M3U_PLAYLIST_TYPES]),
-                    sql`${schema.playlists.payload} IS NOT NULL`,
-                    ...buildM3uPayloadSearchConditions(searchTerm)
-                )
-            )
-            .orderBy(schema.playlists.name)
-            .limit(candidateLimit);
-
-        results.push(
-            ...buildScoredM3uGlobalSearchResults(
-                rows,
-                searchTerm,
-                excludeHidden,
-                candidateLimit
-            )
         );
     }
 

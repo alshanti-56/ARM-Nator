@@ -6,7 +6,7 @@ import type {
     PortalPlaybackPositions,
     PortalPlayer,
 } from '@arm-nator/providers/shared/util';
-import type { PlaybackFallbackRequest } from '@arm-nator/ui/components';
+import type { PlaybackFallbackRequest } from '@arm-nator/player/ui';
 import {
     PlaybackPositionData,
     ResolvedPortalPlayback,

@@ -4,8 +4,8 @@ import {
 } from './stalker-identity.utils';
 
 /**
- * User-Agent of a MAG250 set-top box (matches the stalker-to-m3u reference
- * implementation). Sent as both `User-Agent` and `X-User-Agent` on every
+ * User-Agent of a MAG250 set-top box. Sent as both `User-Agent` and
+ * `X-User-Agent` on every
  * portal API request — some panels reject requests without it.
  */
 export const STALKER_MAG_USER_AGENT =

@@ -15,7 +15,7 @@ import {
   buildPortalRailLinks,
   PortalRailLink,
 } from "@arm-nator/providers/shared/util";
-import { selectAllPlaylistsMeta } from "@arm-nator/providers/m3u/state";
+import { selectAllPlaylistsMeta } from "@arm-nator/providers/shared/playlist-state";
 import { RuntimeCapabilitiesService } from "@arm-nator/services";
 import {
   parseWorkspaceShellRoute,

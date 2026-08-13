@@ -297,7 +297,7 @@ export class StalkerEditedSessionCoordinator {
 
         this.tokens.set(
             playlistId,
-            sessionPatch.stalkerToken,
+            sessionPatch.stalkerToken ?? '',
             sessionFingerprint
         );
         this.watchdog.applyProfileTiming(playlistId, {

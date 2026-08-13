@@ -1,4 +1,4 @@
-export type BulkTestSourceType = "xtream" | "m3u";
+export type BulkTestSourceType = "xtream";
 
 export type BulkTestStatus =
   | "pending"
@@ -19,7 +19,6 @@ export interface BulkTestCandidate {
   readonly type: BulkTestSourceType;
   readonly originalText: string;
   readonly serverUrl: string;
-  readonly playlistUrl: string;
   readonly username: string;
   readonly password: string;
   readonly normalizedKey: string;

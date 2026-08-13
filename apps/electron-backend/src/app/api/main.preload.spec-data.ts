@@ -93,12 +93,6 @@ export const dbPreloadCases: PreloadInvokeCase[] = [
         forwardedArgs: [playlistId],
     },
     {
-        method: 'dbGetAppPlaylistFavoriteChannels',
-        args: [playlistId],
-        channel: 'DB_GET_APP_PLAYLIST_FAVORITE_CHANNELS',
-        forwardedArgs: [playlistId],
-    },
-    {
         method: 'dbUpdatePlaylist',
         args: [playlistId, playlistUpdates],
         channel: 'DB_UPDATE_PLAYLIST',
