@@ -55,20 +55,6 @@ export type ElectronBridgePlaybackContentType =
     | typeof ELECTRON_BRIDGE_CONTENT_TYPES.Vod
     | typeof ELECTRON_BRIDGE_CONTENT_TYPES.Episode;
 
-/**
- * Provider-specific namespaces for persisted episode downloads. Stalker VOD
- * series and regular series can reuse numeric episode IDs, so their download
- * identities must remain distinct even inside one playlist.
- */
-export const ELECTRON_BRIDGE_EPISODE_IDENTITY_SCOPES = {
-    StalkerEmbeddedVod: 'stalker-embedded-vod',
-    StalkerLazyVod: 'stalker-lazy-vod',
-    StalkerRegularSeries: 'stalker-regular-series',
-} as const;
-
-export type ElectronBridgeEpisodeIdentityScope =
-    (typeof ELECTRON_BRIDGE_EPISODE_IDENTITY_SCOPES)[keyof typeof ELECTRON_BRIDGE_EPISODE_IDENTITY_SCOPES];
-
 export const ELECTRON_BRIDGE_PLAYLIST_TYPES = {
     Xtream: 'xtream',
 } as const;

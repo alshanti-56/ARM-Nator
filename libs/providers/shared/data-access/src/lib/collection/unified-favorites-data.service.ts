@@ -151,8 +151,6 @@ export class UnifiedFavoritesDataService {
             categoryId: row.category_id,
             tvgId: contentType === 'live' ? String(row.xtream_id) : undefined,
             rating: row.rating ?? undefined,
-            tvArchive: row.tv_archive ?? null,
-            tvArchiveDuration: row.tv_archive_duration ?? null,
             addedAt: normalizeDate(row.added_at) || new Date(0).toISOString(),
             position: row.position ?? 0,
             contentId: row.id,

@@ -17,7 +17,7 @@ import {
 import { TmdbEnrichmentService } from '@arm-nator/services';
 import type { ResolvedPortalPlayback } from '@arm-nator/shared/interfaces';
 import { StalkerSeriesViewComponent } from './stalker-series-view.component';
-import { STALKER_SERIES_DOWNLOAD_MODES } from './stalker-series-download.adapter';
+import { STALKER_SERIES_PLAYBACK_MODES } from './stalker-episode-playback-session-key';
 import { createStalkerEpisodePlaybackSessionKey } from './stalker-episode-playback-session-key';
 
 function deferred<T>() {
@@ -193,18 +193,18 @@ describe('StalkerSeriesViewComponent playback session key', () => {
     }
 
     it.each([
-        STALKER_SERIES_DOWNLOAD_MODES.RegularSeries,
-        STALKER_SERIES_DOWNLOAD_MODES.EmbeddedVod,
-        STALKER_SERIES_DOWNLOAD_MODES.LazyVod,
+        STALKER_SERIES_PLAYBACK_MODES.RegularSeries,
+        STALKER_SERIES_PLAYBACK_MODES.EmbeddedVod,
+        STALKER_SERIES_PLAYBACK_MODES.LazyVod,
     ])('owns a collision-safe key for %s playback', async (expectedMode) => {
-        if (expectedMode === STALKER_SERIES_DOWNLOAD_MODES.EmbeddedVod) {
+        if (expectedMode === STALKER_SERIES_PLAYBACK_MODES.EmbeddedVod) {
             fixture.componentRef.setInput('vodWithSeries', {
                 id: 'series|parent',
                 cmd: 'ffrt4://embedded|full-command',
                 series: [1, 2],
                 info: { name: 'Embedded series', movie_image: 'poster.jpg' },
             });
-        } else if (expectedMode === STALKER_SERIES_DOWNLOAD_MODES.LazyVod) {
+        } else if (expectedMode === STALKER_SERIES_PLAYBACK_MODES.LazyVod) {
             selectedContentType.set('vod');
             selectedItem.set({
                 id: 'series|parent',
@@ -285,7 +285,7 @@ describe('StalkerSeriesViewComponent playback session key', () => {
         const expectedKey = createStalkerEpisodePlaybackSessionKey({
             sourceId: 'stalker|playlist',
             parentSeriesId: 'series|parent',
-            seriesMode: STALKER_SERIES_DOWNLOAD_MODES.RegularSeries,
+            seriesMode: STALKER_SERIES_PLAYBACK_MODES.RegularSeries,
             episodeState: {
                 seasonKey: seasonKeyA,
                 seasonNumber: Number(episodeA.season) || Number(seasonKeyA),
@@ -313,7 +313,7 @@ describe('StalkerSeriesViewComponent playback session key', () => {
         const refreshedKey = createStalkerEpisodePlaybackSessionKey({
             sourceId: 'stalker|playlist',
             parentSeriesId: 'series|parent',
-            seriesMode: STALKER_SERIES_DOWNLOAD_MODES.RegularSeries,
+            seriesMode: STALKER_SERIES_PLAYBACK_MODES.RegularSeries,
             episodeState: {
                 seasonKey: seasonKeyB,
                 seasonNumber: Number(episodeB.season) || Number(seasonKeyB),
@@ -397,7 +397,7 @@ describe('StalkerSeriesViewComponent playback session key', () => {
         const expectedBKey = createStalkerEpisodePlaybackSessionKey({
             sourceId: 'stalker|playlist',
             parentSeriesId: 'series|parent',
-            seriesMode: STALKER_SERIES_DOWNLOAD_MODES.RegularSeries,
+            seriesMode: STALKER_SERIES_PLAYBACK_MODES.RegularSeries,
             episodeState: {
                 seasonKey: '2',
                 seasonNumber: 2,
@@ -410,7 +410,7 @@ describe('StalkerSeriesViewComponent playback session key', () => {
         const wrongAKey = createStalkerEpisodePlaybackSessionKey({
             sourceId: 'stalker|playlist',
             parentSeriesId: 'series|parent',
-            seriesMode: STALKER_SERIES_DOWNLOAD_MODES.RegularSeries,
+            seriesMode: STALKER_SERIES_PLAYBACK_MODES.RegularSeries,
             episodeState: {
                 seasonKey: '1',
                 seasonNumber: 1,

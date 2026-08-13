@@ -118,8 +118,6 @@ export class UnifiedRecentDataService {
             xtreamId: row.xtream_id,
             categoryId: row.category_id ?? undefined,
             tvgId: contentType === 'live' ? String(row.xtream_id) : undefined,
-            tvArchive: row.tv_archive ?? null,
-            tvArchiveDuration: row.tv_archive_duration ?? null,
             contentId: row.id,
             viewedAt: normalizeDate(row.viewed_at ?? ''),
         };

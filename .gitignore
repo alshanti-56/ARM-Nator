@@ -15,7 +15,6 @@
 /e2e/screenshots 
 /test-results 
 api.js 
-epg-worker.js 
 main.js 
 menu.js 
 src/**/*.js

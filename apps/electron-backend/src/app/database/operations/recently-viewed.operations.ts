@@ -15,8 +15,6 @@ export async function getRecentlyViewed(db: AppDatabase) {
             backdrop_url: schema.content.backdropUrl,
             xtream_id: schema.content.xtreamId,
             type: schema.content.type,
-            tv_archive: schema.content.tvArchive,
-            tv_archive_duration: schema.content.tvArchiveDuration,
             playlist_id: schema.categories.playlistId,
             playlist_name: schema.playlists.name,
             viewed_at: schema.recentlyViewed.viewedAt,
@@ -60,8 +58,6 @@ export async function getRecentItems(
             backdrop_url: schema.content.backdropUrl,
             xtream_id: schema.content.xtreamId,
             type: schema.content.type,
-            tv_archive: schema.content.tvArchive,
-            tv_archive_duration: schema.content.tvArchiveDuration,
             viewed_at: schema.recentlyViewed.viewedAt,
         })
         .from(schema.recentlyViewed)

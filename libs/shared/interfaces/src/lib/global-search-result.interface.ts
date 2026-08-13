@@ -43,8 +43,6 @@ export interface XtreamGlobalSearchResult extends GlobalSearchBaseResult {
     cast?: string | null;
     description?: string;
     backdrop_url?: string | null;
-    tv_archive?: number | null;
-    tv_archive_duration?: number | null;
     direct_source?: string | null;
     added_at?: string;
     viewed_at?: string;

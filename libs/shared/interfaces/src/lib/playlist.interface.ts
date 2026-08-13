@@ -68,7 +68,5 @@ export interface Playlist {
         status?: number;
     };
     recentlyViewed?: PlaylistRecentlyViewedItem[];
-    /** Xtream server timezone string for catch-up URL construction */
-    serverTimezone?: string;
     hiddenGroupTitles?: string[];
 }

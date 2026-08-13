@@ -118,8 +118,6 @@ export function withPortal() {
                             await apiService.getAccountInfo(credentials);
                         const portalStatus =
                             resolveXtreamPortalStatus(response);
-                        const serverTimezone =
-                            response?.server_info?.timezone ?? undefined;
                         const allowedOutputFormats = response?.user_info
                             ?.allowed_output_formats?.length
                             ? response.user_info.allowed_output_formats
@@ -133,9 +131,6 @@ export function withPortal() {
                                 currentPlaylist: {
                                     ...current,
                                     allowedOutputFormats,
-                                    ...(serverTimezone
-                                        ? { serverTimezone }
-                                        : {}),
                                 },
                             });
                         }

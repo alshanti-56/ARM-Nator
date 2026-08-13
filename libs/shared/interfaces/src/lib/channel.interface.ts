@@ -18,12 +18,6 @@ export interface Channel {
         logo: string;
         rec: string;
     };
-    timeshift?: string;
-    catchup?: {
-        type?: string;
-        source?: string;
-        days?: string;
-    };
     http: {
         referrer: string;
         'user-agent': string;

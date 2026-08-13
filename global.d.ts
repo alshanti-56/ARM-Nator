@@ -1,7 +1,6 @@
 import type {
     ElectronBridgeApi,
     ElectronBridgeDbOperationEvent,
-    ElectronDownloadItem,
 } from './libs/shared/interfaces/src/lib/electron-api.interface';
 
 declare module 'iptv-playlist-parser' {
@@ -20,8 +19,6 @@ declare global {
         require: NodeRequire;
     }
 
-    /** Download item from the database */
-    type DownloadItem = ElectronDownloadItem;
 }
 
 // SystemJS module definition

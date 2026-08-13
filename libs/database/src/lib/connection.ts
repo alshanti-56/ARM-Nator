@@ -147,8 +147,6 @@ const CREATE_TABLE_STATEMENTS = [
       added TEXT,
       poster_url TEXT,
       backdrop_url TEXT,
-      tv_archive INTEGER,
-      tv_archive_duration INTEGER,
       direct_source TEXT,
       xtream_id INTEGER NOT NULL,
       type TEXT NOT NULL CHECK (type IN ('live', 'movie', 'series')),
@@ -290,8 +288,6 @@ const COLUMN_MIGRATION_STATEMENTS = [
     // v1.2.0 -> v1.3.0: Add position column to favorites for global favorites ordering
     `ALTER TABLE favorites ADD COLUMN position INTEGER DEFAULT 0`,
     // v1.4.0 -> v1.5.0: Preserve Xtream live archive metadata
-    `ALTER TABLE content ADD COLUMN tv_archive INTEGER`,
-    `ALTER TABLE content ADD COLUMN tv_archive_duration INTEGER`,
     `ALTER TABLE content ADD COLUMN direct_source TEXT`,
     // v1.5.0 -> v1.6.0: Cinematic backdrop persisted on first detail fetch
     `ALTER TABLE content ADD COLUMN backdrop_url TEXT`,

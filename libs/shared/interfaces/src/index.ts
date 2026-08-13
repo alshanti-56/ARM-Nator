@@ -70,7 +70,6 @@ export * from './lib/xtream-vod-details.interface';
 export * from './lib/xtream-vod-stream.interface';
 
 export * from './lib/date-normalizer';
-export * from './lib/download-metadata.interface';
 
 // Unified VOD details (discriminated union + adapters)
 export * from './lib/vod-details-adapters';

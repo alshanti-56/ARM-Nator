@@ -10,7 +10,6 @@ import {
     PORTAL_PLAYER,
 } from '@arm-nator/providers/shared/util';
 import {
-    DownloadsService,
     PlaybackPositionRuntimeBridgeService,
     PlaylistsService,
 } from '@arm-nator/services';
@@ -43,7 +42,6 @@ class StubVodDetailsComponent {
     readonly playClicked = output<unknown>();
     readonly resumeClicked = output<unknown>();
     readonly favoriteToggled = output<unknown>();
-    readonly downloadRequested = output<unknown>();
     readonly backClicked = output<void>();
     readonly inlineTimeUpdated = output<unknown>();
     readonly inlinePlaybackClosed = output<void>();
@@ -122,7 +120,6 @@ describe('StalkerCatalogDetailComponent provider presentation', () => {
                     provide: PlaylistsService,
                     useValue: { getPortalFavorites: jest.fn(() => of([])) },
                 },
-                { provide: DownloadsService, useValue: {} },
                 { provide: Router, useValue: { navigateByUrl: jest.fn() } },
                 { provide: MatSnackBar, useValue: snackBar },
                 {

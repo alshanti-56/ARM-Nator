@@ -44,7 +44,6 @@ const XTREAM_CREDENTIAL_PATH_SEGMENTS = new Set([
     'live',
     'movie',
     'series',
-    'timeshift',
 ]);
 
 export interface RedactionOptions {

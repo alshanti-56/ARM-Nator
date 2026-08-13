@@ -5,22 +5,27 @@ import {
 } from '@arm-nator/providers/stalker/data-access';
 import type { XtreamSerieEpisode } from '@arm-nator/shared/interfaces';
 import type { SeriesPlaybackEpisodeState } from '@arm-nator/ui/components';
-import {
-    STALKER_SERIES_DOWNLOAD_MODES,
-    type StalkerSeriesDownloadMode,
-} from './stalker-series-download.adapter';
+
+export const STALKER_SERIES_PLAYBACK_MODES = {
+    EmbeddedVod: 'embedded-vod',
+    LazyVod: 'lazy-vod',
+    RegularSeries: 'regular-series',
+} as const;
+
+export type StalkerSeriesPlaybackMode =
+    (typeof STALKER_SERIES_PLAYBACK_MODES)[keyof typeof STALKER_SERIES_PLAYBACK_MODES];
 
 export interface StalkerEpisodePlaybackSessionKeyOptions {
     readonly sourceId: string | null | undefined;
     readonly parentSeriesId: unknown;
-    readonly seriesMode: StalkerSeriesDownloadMode;
+    readonly seriesMode: StalkerSeriesPlaybackMode;
     readonly episodeState: SeriesPlaybackEpisodeState<XtreamSerieEpisode> | null;
 }
 
 export interface StalkerEpisodePlaybackSessionIdentity {
     readonly sourceId: string;
     readonly parentSeriesId: string;
-    readonly seriesMode: StalkerSeriesDownloadMode;
+    readonly seriesMode: StalkerSeriesPlaybackMode;
     readonly originalEpisodeIdentity: string | number;
     readonly seasonKey: string;
     readonly seasonNumber: number;
@@ -31,7 +36,7 @@ export interface StalkerEpisodePlaybackSessionIdentity {
 export interface StalkerEpisodePlaybackStructuralIdentity {
     readonly sourceId: string;
     readonly parentSeriesId: string;
-    readonly seriesMode: StalkerSeriesDownloadMode;
+    readonly seriesMode: StalkerSeriesPlaybackMode;
     readonly seasonKey: string;
     readonly seasonNumber: number;
     readonly episodeNumber: number;
@@ -62,7 +67,7 @@ export function captureStalkerEpisodePlaybackSessionIdentity({
     const { episodeNumber, seasonKey, seasonNumber } = episodeState;
     const episode = episodeState.episode as StalkerMappedEpisode;
     const originalIdentity =
-        seriesMode === STALKER_SERIES_DOWNLOAD_MODES.LazyVod
+        seriesMode === STALKER_SERIES_PLAYBACK_MODES.LazyVod
             ? episode.originalId
             : episode.originalCmd;
     if (
@@ -176,7 +181,7 @@ export function resolveStalkerEpisodeStateByIdentity({
         (candidate, state) => {
             const mapped = candidate as StalkerMappedEpisode;
             const originalIdentity =
-                identity.seriesMode === STALKER_SERIES_DOWNLOAD_MODES.LazyVod
+                identity.seriesMode === STALKER_SERIES_PLAYBACK_MODES.LazyVod
                     ? mapped.originalId
                     : mapped.originalCmd;
             return (

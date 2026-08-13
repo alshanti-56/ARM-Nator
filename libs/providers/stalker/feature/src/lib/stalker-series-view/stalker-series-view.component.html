@@ -202,8 +202,6 @@
                     inlinePlayback()?.contentInfo?.contentXtreamId ?? null
                 "
                 [seasonDescriptions]="seasonDescriptions()"
-                [downloadsEnabled]="!providerOnly()"
-                [downloadAdapter]="episodeDownloadAdapter()"
                 [isLoading]="
                     isVodSeriesSeasonsLoading() ||
                     isCurrentSeasonLoading(seasonContainer?.selectedSeason())

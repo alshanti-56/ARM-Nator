@@ -16,7 +16,6 @@ import {
 import type { PlaybackPositionData } from '@arm-nator/shared/interfaces';
 import {
     CrossPortalSimilarService,
-    DownloadsService,
     PlaybackPositionRuntimeBridgeService,
     TmdbEnrichmentService,
 } from '@arm-nator/services';
@@ -308,12 +307,6 @@ describe('StalkerSeriesViewComponent position compatibility', () => {
                     useValue: {
                         navigate: jest.fn(),
                         navigateByUrl: jest.fn(),
-                    },
-                },
-                {
-                    provide: DownloadsService,
-                    useValue: {
-                        startDownload: jest.fn(),
                     },
                 },
                 {

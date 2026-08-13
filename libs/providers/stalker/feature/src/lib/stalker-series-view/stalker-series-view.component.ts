@@ -84,10 +84,7 @@ import {
     StalkerSeriesPositionPartialSaveError,
 } from './stalker-series-position-compatibility';
 import {
-    createStalkerSeriesDownloadAdapter,
-    STALKER_SERIES_DOWNLOAD_MODES,
-} from './stalker-series-download.adapter';
-import {
+    STALKER_SERIES_PLAYBACK_MODES,
     captureStalkerEpisodePlaybackSessionIdentity,
     resolveSelectedStalkerEpisodeState,
     resolveStalkerEpisodeStateByIdentity,
@@ -517,10 +514,10 @@ export class StalkerSeriesViewComponent implements OnDestroy {
 
     readonly seriesMode = computed(() =>
         this.isVodSeries()
-            ? STALKER_SERIES_DOWNLOAD_MODES.LazyVod
+            ? STALKER_SERIES_PLAYBACK_MODES.LazyVod
             : this.vodWithSeries()
-              ? STALKER_SERIES_DOWNLOAD_MODES.EmbeddedVod
-              : STALKER_SERIES_DOWNLOAD_MODES.RegularSeries
+              ? STALKER_SERIES_PLAYBACK_MODES.EmbeddedVod
+              : STALKER_SERIES_PLAYBACK_MODES.RegularSeries
     );
 
     private readonly seriesPlaybackOwnerKey = computed(() => {
@@ -531,27 +528,6 @@ export class StalkerSeriesViewComponent implements OnDestroy {
             : '';
     });
 
-    readonly episodeDownloadAdapter = computed(() => {
-        const playlist = this.stalkerStore.currentPlaylist();
-        const item = this.displayItem();
-        return createStalkerSeriesDownloadAdapter({
-            playlist,
-            item,
-            language:
-                this.translateService.currentLang ||
-                this.translateService.defaultLang ||
-                'en',
-            seriesId: this.toSeriesId(item?.id ?? 0),
-            seriesMode: this.seriesMode(),
-            resolveUrl: (command, episodeNumber) =>
-                this.stalkerStore.fetchLinkToPlay(
-                    playlist?.portalUrl ?? '',
-                    playlist?.macAddress ?? '',
-                    command,
-                    episodeNumber
-                ),
-        });
-    });
 
     /**
      * Adapts both Regular and VOD series data into the format expected by SeasonContainerComponent.

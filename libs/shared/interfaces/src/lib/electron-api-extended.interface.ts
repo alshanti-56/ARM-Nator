@@ -171,8 +171,6 @@ export interface ElectronBridgeXtreamContent {
     added: string;
     poster_url: string;
     backdrop_url?: string | null;
-    tv_archive?: number | null;
-    tv_archive_duration?: number | null;
     direct_source?: string | null;
     xtream_id: number;
     type: string;
@@ -191,8 +189,6 @@ export type ElectronBridgeXtreamContentStream = {
     cover?: string;
     name?: string;
     title?: string;
-    tv_archive?: string | number;
-    tv_archive_duration?: string | number;
     direct_source?: string;
     series_id?: string | number;
     stream_id?: string | number;

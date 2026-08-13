@@ -26,6 +26,5 @@ export * from './lib/navigation/portal-route.utils';
 export * from './lib/navigation/workspace-portal-navigation';
 export * from './lib/collection';
 export * from './lib/dash.utils';
-export * from './lib/download-metadata';
 export * from './lib/playback-media-extension.util';
 export * from './lib/strip-country-prefix.util';

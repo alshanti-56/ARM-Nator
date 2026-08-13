@@ -105,8 +105,6 @@ export const content = sqliteTable(
         added: text('added'),
         posterUrl: text('poster_url'),
         backdropUrl: text('backdrop_url'),
-        tvArchive: integer('tv_archive'),
-        tvArchiveDuration: integer('tv_archive_duration'),
         directSource: text('direct_source'),
         xtreamId: integer('xtream_id').notNull(),
         type: text('type', { enum: ['live', 'movie', 'series'] }).notNull(),

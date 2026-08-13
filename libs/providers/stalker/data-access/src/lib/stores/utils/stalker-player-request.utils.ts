@@ -75,7 +75,7 @@ export async function fetchStalkerPlaybackLink(
             // row, with no catalog load in between, so a VOD opened from
             // Favorites on a cold start would play a same-host gated stream
             // without a Bearer token. Warming at this single choke point
-            // covers ITV, VOD, radio and downloads alike.
+            // covers ITV, VOD, and radio alike.
             // Classify BEFORE authenticating. A stream on a foreign host never
             // needs the portal session, and warming it anyway would block
             // playback behind a handshake worth up to 15 s per request against

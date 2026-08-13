@@ -165,7 +165,7 @@ export function createStalkerInfo(item: StalkerVodSource): StalkerVodInfo {
  *
  * This is a whitelist, not a spread, so anything not named here is dropped.
  * `use_http_tmp_link` / `use_load_balancing` MUST stay on the list: playback
- * and downloads read them to decide whether `create_link` is required, and a
+ * reads them to decide whether `create_link` is required, and a
  * missing flag reads as "no temporary link needed" — it fails OPEN, playing
  * the portal's non-final URL instead of minting one. See
  * `docs/architecture/stalker-portal.md`, "Playback Link Resolution".

@@ -6,7 +6,6 @@ import { MatSnackBar } from '@angular/material/snack-bar';
 import { TranslatePipe, TranslateService } from '@ngx-translate/core';
 import { MockPipe } from 'ng-mocks';
 import { SeasonContainerComponent } from '@arm-nator/ui/components';
-import type { SeasonEpisodeDownloadAdapter } from '@arm-nator/providers/shared/data-access';
 import {
     PORTAL_EXTERNAL_PLAYBACK,
     PORTAL_PLAYBACK_POSITIONS,
@@ -39,8 +38,6 @@ class StubSeasonContainerComponent {
     readonly playingEpisodeId = input<number | null>(null);
     readonly seasonDescriptions = input<unknown>(null);
     readonly isLoading = input(false);
-    readonly downloadsEnabled = input(true);
-    readonly downloadAdapter = input<SeasonEpisodeDownloadAdapter | null>(null);
     readonly seasonSelected = output<string>();
     readonly episodeClicked = output<unknown>();
     readonly playbackToggleRequested = output<unknown>();
@@ -92,7 +89,6 @@ describe('StalkerSeriesViewComponent', () => {
     const openResolvedPlayback = jest.fn();
     const isEmbeddedPlayer = jest.fn();
     const tmdbGetSeason = jest.fn();
-    const fetchLinkToPlay = jest.fn();
     const currentPlaylist = signal({
         _id: 'stalker-1',
         title: 'Living Room Portal',
@@ -162,9 +158,6 @@ describe('StalkerSeriesViewComponent', () => {
             overview: 'Season overview from TMDB',
             episodes: [],
         });
-        fetchLinkToPlay
-            .mockReset()
-            .mockResolvedValue('https://cdn.example.test/episode.mpg');
         currentPlaylist.set({
             _id: 'stalker-1',
             title: 'Living Room Portal',
@@ -188,7 +181,6 @@ describe('StalkerSeriesViewComponent', () => {
                         isSerialSeasonsLoading,
                         fetchVodSeriesEpisodes,
                         resolveVodPlayback,
-                        fetchLinkToPlay,
                         clearSelectedItem: jest.fn(),
                     },
                 },
@@ -321,126 +313,6 @@ describe('StalkerSeriesViewComponent', () => {
                 streamUrl: 'http://stalker.example/episode.mpg',
             }),
             true
-        );
-    });
-
-    it('keeps provider episodes playable while hiding download presentation', async () => {
-        fixture.componentRef.setInput('providerOnly', true);
-
-        await stabilize();
-
-        const seasonContainer = fixture.debugElement.query(
-            By.directive(StubSeasonContainerComponent)
-        ).componentInstance as StubSeasonContainerComponent;
-        expect(seasonContainer.downloadsEnabled()).toBe(false);
-        expect(
-            Object.values(
-                seasonContainer.seasons() as Record<string, unknown[]>
-            ).flat()
-        ).toHaveLength(2);
-        expect(
-            fixture.nativeElement.querySelector(
-                '[data-testid="series-quick-start"]'
-            )
-        ).not.toBeNull();
-    });
-
-    it('binds a Stalker adapter that prepares canonical episode metadata', async () => {
-        selectedContentType.set('vod');
-        selectedItem.set({
-            id: '50001',
-            is_series: true,
-            category_id: '18',
-            info: { name: 'Signal House' },
-        });
-
-        await stabilize();
-
-        const seasonContainer = fixture.debugElement.query(
-            By.directive(StubSeasonContainerComponent)
-        ).componentInstance as StubSeasonContainerComponent;
-        const initialAdapter = seasonContainer.downloadAdapter();
-        const candidate = initialAdapter?.createCandidate(
-            {
-                id: '61001',
-                episode_num: 3,
-                title: 'The Call',
-                custom_sid: 'vod-series',
-                season: 2,
-                originalId: '502',
-            } as never,
-            '2'
-        );
-
-        const request = await candidate?.prepare();
-
-        expect(fetchLinkToPlay).toHaveBeenCalledWith(
-            'https://stalker.example.test',
-            '00:1A:79:12:34:56',
-            '/media/file_502.mpg',
-            3
-        );
-        expect(request).toEqual(
-            expect.objectContaining({
-                episodeIdentityScope: 'stalker-lazy-vod',
-                playlistId: 'stalker-1',
-                seriesXtreamId: 50001,
-                xtreamId: 61001,
-                title: 'Signal House - S02E03 - The Call',
-            })
-        );
-
-        currentPlaylist.set({
-            _id: 'stalker-2',
-            title: 'Bedroom Portal',
-            portalUrl: 'https://bedroom.example.test',
-            macAddress: '00:1A:79:65:43:21',
-        });
-        selectedItem.set({
-            id: '40002:season-slice',
-            category_id: '22',
-            info: { name: 'Second Signal' },
-        });
-        await stabilize();
-
-        const updatedAdapter = seasonContainer.downloadAdapter();
-        expect(updatedAdapter).not.toBe(initialAdapter);
-        const updatedCandidate = updatedAdapter?.createCandidate(
-            {
-                id: '62001',
-                episode_num: 1,
-                title: 'Pilot',
-                custom_sid: 'regular-series',
-                season: 4,
-                originalCmd: '/media/file_888.mpg',
-            } as never,
-            '4'
-        );
-        if (!updatedCandidate) {
-            throw new Error('expected a refreshed Stalker download adapter');
-        }
-        const updatedRequest = await updatedCandidate.prepare();
-
-        expect(fetchLinkToPlay).toHaveBeenLastCalledWith(
-            'https://bedroom.example.test',
-            '00:1A:79:65:43:21',
-            '/media/file_888.mpg',
-            1
-        );
-        expect(updatedRequest).toEqual(
-            expect.objectContaining({
-                episodeIdentityScope: 'stalker-regular-series',
-                playlistId: 'stalker-2',
-                seriesXtreamId: 40002,
-                xtreamId: 62001,
-                title: 'Second Signal - S04E01 - Pilot',
-                portalUrl: 'https://bedroom.example.test',
-                macAddress: '00:1A:79:65:43:21',
-                metadataSnapshot: expect.objectContaining({
-                    title: 'Second Signal',
-                    providerCategoryId: '22',
-                }),
-            })
         );
     });
 

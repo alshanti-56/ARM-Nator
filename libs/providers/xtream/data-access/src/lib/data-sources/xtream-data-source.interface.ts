@@ -34,7 +34,6 @@ export interface XtreamPlaylistData {
     userAgent?: string;
     referrer?: string;
     origin?: string;
-    serverTimezone?: string;
     allowedOutputFormats?: string[];
 }
 
@@ -60,8 +59,6 @@ export interface XtreamContentItem {
     added: string;
     poster_url: string;
     backdrop_url?: string | null;
-    tv_archive?: number | null;
-    tv_archive_duration?: number | null;
     direct_source?: string | null;
     xtream_id: number;
     type: string;

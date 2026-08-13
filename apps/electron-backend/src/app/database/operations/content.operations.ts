@@ -70,8 +70,6 @@ interface XtreamGlobalSearchCandidate extends XtreamMetadataSearchCandidate {
     category_id: number;
     added: string | null;
     poster_url: string | null;
-    tv_archive: number | null;
-    tv_archive_duration: number | null;
     direct_source: string | null;
     xtream_id: number;
     type: string;
@@ -256,8 +254,6 @@ async function selectXtreamGlobalSearchCandidatesWithTitleIndex(
             c.description AS description,
             c.added AS added,
             c.poster_url AS poster_url,
-            c.tv_archive AS tv_archive,
-            c.tv_archive_duration AS tv_archive_duration,
             c.direct_source AS direct_source,
             c.xtream_id AS xtream_id,
             c.type AS type,
@@ -303,8 +299,6 @@ async function selectXtreamGlobalSearchCandidatesWithFts(
             c.description AS description,
             c.added AS added,
             c.poster_url AS poster_url,
-            c.tv_archive AS tv_archive,
-            c.tv_archive_duration AS tv_archive_duration,
             c.direct_source AS direct_source,
             c.xtream_id AS xtream_id,
             c.type AS type,
@@ -357,8 +351,6 @@ async function selectXtreamPlaylistSearchCandidatesWithFts(
             c.added AS added,
             c.poster_url AS poster_url,
             c.backdrop_url AS backdrop_url,
-            c.tv_archive AS tv_archive,
-            c.tv_archive_duration AS tv_archive_duration,
             c.direct_source AS direct_source,
             c.xtream_id AS xtream_id,
             c.type AS type
@@ -449,8 +441,6 @@ function selectContentFields() {
         metadata_retry_after: schema.content.metadataRetryAfter,
         added: schema.content.added,
         poster_url: schema.content.posterUrl,
-        tv_archive: schema.content.tvArchive,
-        tv_archive_duration: schema.content.tvArchiveDuration,
         direct_source: schema.content.directSource,
         xtream_id: schema.content.xtreamId,
         type: schema.content.type,
@@ -650,8 +640,6 @@ type XtreamContentValue = {
   metadataStatus?: 'complete';
     added: string;
     posterUrl: string;
-    tvArchive?: number | null;
-    tvArchiveDuration?: number | null;
     directSource?: string | null;
     xtreamId: number;
     type: 'live' | 'movie' | 'series';
@@ -677,8 +665,6 @@ type XtreamContentSource = Record<string, unknown> & {
     cover?: string;
     name?: string;
     title?: string;
-    tv_archive?: string | number;
-    tv_archive_duration?: string | number;
     direct_source?: string;
     series_id?: string | number;
     stream_id?: string | number;
@@ -730,17 +716,6 @@ function toXtreamContentValue(
                 : source.added || source.last_modified
         ),
         posterUrl: metadata.posterUrl ?? '',
-        tvArchive:
-            type === 'live'
-                ? Number.parseInt(String(source.tv_archive ?? '0'), 10) || 0
-                : null,
-        tvArchiveDuration:
-            type === 'live'
-                ? Number.parseInt(
-                      String(source.tv_archive_duration ?? '0'),
-                      10
-                  ) || 0
-                : null,
         directSource:
             type === 'live'
                 ? String(source.direct_source ?? '').trim() || null

@@ -1,6 +1,6 @@
 import { createPlaybackSessionKey } from '@arm-nator/player/util';
 import type { StalkerMappedEpisode } from '@arm-nator/providers/stalker/data-access';
-import { STALKER_SERIES_DOWNLOAD_MODES } from './stalker-series-download.adapter';
+import { STALKER_SERIES_PLAYBACK_MODES } from './stalker-episode-playback-session-key';
 import {
     captureStalkerEpisodePlaybackSessionIdentity,
     createStalkerEpisodePlaybackSessionKey,
@@ -29,8 +29,8 @@ const episodeState = (
 
 describe('createStalkerEpisodePlaybackSessionKey', () => {
     it.each([
-        STALKER_SERIES_DOWNLOAD_MODES.RegularSeries,
-        STALKER_SERIES_DOWNLOAD_MODES.EmbeddedVod,
+        STALKER_SERIES_PLAYBACK_MODES.RegularSeries,
+        STALKER_SERIES_PLAYBACK_MODES.EmbeddedVod,
     ])(
         'keeps %s provider credentials out of the structural key',
         (seriesMode) => {
@@ -88,7 +88,7 @@ describe('createStalkerEpisodePlaybackSessionKey', () => {
         const identity = captureStalkerEpisodePlaybackSessionIdentity({
             sourceId: 'playlist',
             parentSeriesId: 'series',
-            seriesMode: STALKER_SERIES_DOWNLOAD_MODES.RegularSeries,
+            seriesMode: STALKER_SERIES_PLAYBACK_MODES.RegularSeries,
             episodeState: state,
         });
         if (!identity) throw new Error('Expected a captured request identity');
@@ -96,7 +96,7 @@ describe('createStalkerEpisodePlaybackSessionKey', () => {
         expect(identity).toEqual({
             sourceId: 'playlist',
             parentSeriesId: 'series',
-            seriesMode: STALKER_SERIES_DOWNLOAD_MODES.RegularSeries,
+                seriesMode: STALKER_SERIES_PLAYBACK_MODES.RegularSeries,
             originalEpisodeIdentity: originalCmd,
             seasonKey: state.seasonKey,
             seasonNumber: state.seasonNumber,
@@ -111,7 +111,7 @@ describe('createStalkerEpisodePlaybackSessionKey', () => {
         const identity = captureStalkerEpisodePlaybackSessionIdentity({
             sourceId: 'playlist',
             parentSeriesId: 'series',
-            seriesMode: STALKER_SERIES_DOWNLOAD_MODES.RegularSeries,
+                seriesMode: STALKER_SERIES_PLAYBACK_MODES.RegularSeries,
             episodeState: episodeState({ originalCmd }),
         });
         if (!identity) throw new Error('Expected a captured request identity');
@@ -137,7 +137,7 @@ describe('createStalkerEpisodePlaybackSessionKey', () => {
         const requestIdentity = captureStalkerEpisodePlaybackSessionIdentity({
             sourceId: 'playlist',
             parentSeriesId: 'series',
-            seriesMode: STALKER_SERIES_DOWNLOAD_MODES.RegularSeries,
+                seriesMode: STALKER_SERIES_PLAYBACK_MODES.RegularSeries,
             episodeState: state,
         });
         if (!requestIdentity) {
@@ -169,7 +169,7 @@ describe('createStalkerEpisodePlaybackSessionKey', () => {
         const options = {
             sourceId: 'playlist',
             parentSeriesId: '50001',
-            seriesMode: STALKER_SERIES_DOWNLOAD_MODES.LazyVod,
+                seriesMode: STALKER_SERIES_PLAYBACK_MODES.LazyVod,
         } as const;
         const identityA = captureStalkerEpisodePlaybackSessionIdentity({
             ...options,
@@ -200,7 +200,7 @@ describe('createStalkerEpisodePlaybackSessionKey', () => {
         const base = {
             sourceId: 'playlist|a',
             parentSeriesId: 'parent|a',
-            seriesMode: STALKER_SERIES_DOWNLOAD_MODES.RegularSeries,
+            seriesMode: STALKER_SERIES_PLAYBACK_MODES.RegularSeries,
             episodeState: episodeState({ originalCmd: 'cmd|a' }),
         } as const;
         const variants = [
@@ -208,7 +208,7 @@ describe('createStalkerEpisodePlaybackSessionKey', () => {
             { ...base, parentSeriesId: 'parent|b' },
             {
                 ...base,
-                seriesMode: STALKER_SERIES_DOWNLOAD_MODES.EmbeddedVod,
+            seriesMode: STALKER_SERIES_PLAYBACK_MODES.EmbeddedVod,
             },
             {
                 ...base,
@@ -247,19 +247,19 @@ describe('createStalkerEpisodePlaybackSessionKey', () => {
 
     it.each([
         {
-            seriesMode: STALKER_SERIES_DOWNLOAD_MODES.RegularSeries,
+            seriesMode: STALKER_SERIES_PLAYBACK_MODES.RegularSeries,
             state: episodeState({}),
         },
         {
-            seriesMode: STALKER_SERIES_DOWNLOAD_MODES.RegularSeries,
+            seriesMode: STALKER_SERIES_PLAYBACK_MODES.RegularSeries,
             state: episodeState({ originalCmd: '' }),
         },
         {
-            seriesMode: STALKER_SERIES_DOWNLOAD_MODES.LazyVod,
+            seriesMode: STALKER_SERIES_PLAYBACK_MODES.LazyVod,
             state: episodeState({}),
         },
         {
-            seriesMode: STALKER_SERIES_DOWNLOAD_MODES.LazyVod,
+            seriesMode: STALKER_SERIES_PLAYBACK_MODES.LazyVod,
             state: episodeState({ originalId: '' }),
         },
     ])(

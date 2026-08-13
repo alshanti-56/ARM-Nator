@@ -32,7 +32,6 @@ import {
     VodDetailsComponent,
 } from '@arm-nator/player/ui';
 import {
-    DownloadsService,
     PlaybackPositionRuntimeBridgeService,
     PlaylistsService,
 } from '@arm-nator/services';
@@ -46,7 +45,6 @@ import {
 import { StalkerCatalogFacadeService } from '../stalker-catalog-facade.service';
 import { StalkerSeriesViewComponent } from '../stalker-series-view/stalker-series-view.component';
 
-import { startStalkerVodDownload } from './stalker-vod-download';
 import { createPlaybackSessionKey } from '@arm-nator/player/util';
 
 @Component({
@@ -75,7 +73,6 @@ export class StalkerCatalogDetailComponent implements OnDestroy {
     private readonly snackBar = inject(MatSnackBar);
     private readonly translateService = inject(TranslateService);
     private readonly playlistService = inject(PlaylistsService);
-    private readonly downloadsService = inject(DownloadsService);
     private readonly logger = createLogger('StalkerCatalogDetail');
     private readonly favoritesRefresh = createRefreshTrigger();
     private playbackRequestId = 0;
@@ -275,25 +272,6 @@ export class StalkerCatalogDetailComponent implements OnDestroy {
         void launch;
     }
 
-    async onVodDownload(item: VodDetailsItem): Promise<void> {
-        await startStalkerVodDownload(item, {
-            playlist: this.catalog.playlist(),
-            downloadsService: this.downloadsService,
-            fetchMovieFileId: (id) => this.catalog.fetchMovieFileId(id),
-            fetchLinkToPlay: (portalUrl, macAddress, cmd, linkFlags) =>
-                this.catalog.fetchLinkToPlay(
-                    portalUrl,
-                    macAddress,
-                    cmd,
-                    undefined,
-                    linkFlags
-                ),
-            language:
-                this.translateService.currentLang ||
-                this.translateService.defaultLang ||
-                'en',
-        });
-    }
 
     ngOnDestroy(): void {
         this.closeInlinePlayer();

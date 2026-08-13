@@ -27,12 +27,6 @@ export interface ParsedPlaylistItem {
     /** absent when an #EXTINF entry has no stream URL (e.g. truncated file) */
     url?: string;
     raw: string;
-    catchup?: {
-        type?: string;
-        source?: string;
-        days?: string;
-    };
-    timeshift?: string;
     radio?: string;
     drm?: ChannelDrm;
 }
