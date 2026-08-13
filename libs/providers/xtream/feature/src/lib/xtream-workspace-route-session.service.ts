@@ -388,7 +388,10 @@ export class XtreamWorkspaceRouteSession {
       ) {
         await this.xtreamStore.hydrateCachedContent(cacheScope);
       }
-      this.xtreamStore.backfillXtreamCatalogMetadata(playlistId);
+      // Catalog title/genre/year fields are already available from the
+      // imported remote list. Full metadata enrichment is intentionally
+      // user-triggered so entering a section never starts one request per
+      // movie or series in the background.
       return;
     }
 
@@ -404,7 +407,6 @@ export class XtreamWorkspaceRouteSession {
         sectionLoadState !== "ready")
     ) {
       await this.xtreamStore.initializeContent();
-      this.xtreamStore.backfillXtreamCatalogMetadata(playlistId);
     }
   }
 }

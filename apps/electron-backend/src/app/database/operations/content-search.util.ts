@@ -115,7 +115,16 @@ export function shouldUseContentTitlePrefixIndex(searchTerm: string): boolean {
     return !!firstTokenGroup && isShortSearchTokenGroup(firstTokenGroup);
 }
 
-export function buildContentTitleFtsMatchQuery(searchTerm: string): string {
+/**
+ * Builds an AND query for the lean content search FTS table.
+ *
+ * The table contains only title, genre, and release date. A query such as
+ * "2025 comedy" therefore matches those terms across the supported search
+ * fields instead of requiring them to appear in the title itself.
+ */
+export function buildContentSearchFtsMatchQuery(
+    searchTerm: string
+): string {
     return getSqlSearchTokenGroups(searchTerm)
         .map((tokens) => {
             const quotedTokens = tokens
@@ -132,10 +141,10 @@ export function buildContentTitleFtsMatchQuery(searchTerm: string): string {
         .join(' AND ');
 }
 
-export function shouldUseContentTitleFts(searchTerm: string): boolean {
+export function shouldUseContentSearchFts(searchTerm: string): boolean {
     return (
         !shouldUseContentTitlePrefixIndex(searchTerm) &&
-        buildContentTitleFtsMatchQuery(searchTerm).length > 0
+        buildContentSearchFtsMatchQuery(searchTerm).length > 0
     );
 }
 

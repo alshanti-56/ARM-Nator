@@ -309,11 +309,15 @@ export const XtreamStore = signalStore(
             },
           });
         },
-        onFailure: (job, error) =>
-          logger.debug("Metadata backfill deferred", {
+        onFailure: (job, error) => {
+          logger.debug("Metadata backfill stopped after failure", {
             type: job.type,
             error,
-          }),
+          });
+          if (metadataIndexService.shouldContinue(playlistId)) {
+            metadataIndexService.stop(playlistId);
+          }
+        },
       }).then((completed) => {
         if (isActive()) {
           logger.info("Catalog metadata backfill complete", {

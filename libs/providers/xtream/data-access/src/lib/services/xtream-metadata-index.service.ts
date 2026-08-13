@@ -180,6 +180,11 @@ export class XtreamMetadataIndexService {
                 },
                 onProgress: (progress) =>
                     this.updateProgress(playlistId, progress),
+                onFailure: () => {
+                    if (this.shouldContinue(playlistId)) {
+                        this.stop(playlistId);
+                    }
+                },
             });
         } catch (error: unknown) {
             this.setStatus(playlistId, {

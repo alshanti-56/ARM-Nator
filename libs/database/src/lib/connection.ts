@@ -29,8 +29,10 @@ const XTREAM_ADDED_EPOCH_SECONDS_MIGRATION_KEY =
     'migration:xtream-content-added-epoch-seconds:v1';
 const CONTENT_TITLE_FTS_MIGRATION_KEY =
     'migration:content-title-fts-trigram:v1';
-const CONTENT_METADATA_FTS_MIGRATION_KEY =
-    'migration:content-metadata-fts-trigram:v1';
+const CONTENT_SEARCH_FTS_MIGRATION_KEY =
+    'migration:content-search-fts-trigram:v1';
+const CONTENT_METADATA_FTS_RETIREMENT_MIGRATION_KEY =
+    'migration:content-metadata-fts-retired:v1';
 const TMDB_SEARCH_LOOKUP_V2_CACHE_CLEANUP_MIGRATION_KEY =
     'migration:tmdb-search-lookup-v2-cache-cleanup:v1';
 
@@ -207,6 +209,38 @@ const CREATE_TABLE_STATEMENTS = [
       INSERT INTO content_title_fts(rowid, title)
       VALUES (new.id, new.title);
   END`,
+    // Lean trigram FTS index for the supported catalog search fields. Full
+    // cast/director/description indexing is intentionally excluded because it
+    // adds substantial storage for a feature that is not required by the
+    // title/genre/year search path.
+    `CREATE VIRTUAL TABLE IF NOT EXISTS content_search_fts USING fts5(
+      title,
+      genre,
+      release_date,
+      content='content',
+      content_rowid='id',
+      tokenize='trigram'
+  )`,
+    `CREATE TRIGGER IF NOT EXISTS content_search_fts_ai AFTER INSERT ON content BEGIN
+      INSERT INTO content_search_fts(rowid, title, genre, release_date)
+      VALUES (new.id, new.title, new.genre, new.release_date);
+  END`,
+    `CREATE TRIGGER IF NOT EXISTS content_search_fts_ad AFTER DELETE ON content BEGIN
+      INSERT INTO content_search_fts(
+        content_search_fts, rowid, title, genre, release_date
+      ) VALUES (
+        'delete', old.id, old.title, old.genre, old.release_date
+      );
+  END`,
+    `CREATE TRIGGER IF NOT EXISTS content_search_fts_au AFTER UPDATE ON content BEGIN
+      INSERT INTO content_search_fts(
+        content_search_fts, rowid, title, genre, release_date
+      ) VALUES (
+        'delete', old.id, old.title, old.genre, old.release_date
+      );
+      INSERT INTO content_search_fts(rowid, title, genre, release_date)
+      VALUES (new.id, new.title, new.genre, new.release_date);
+  END`,
     `CREATE UNIQUE INDEX IF NOT EXISTS favorites_content_playlist_unique ON favorites(content_id, playlist_id)`,
     `CREATE INDEX IF NOT EXISTS favorites_playlist_idx ON favorites(playlist_id)`,
     `CREATE INDEX IF NOT EXISTS favorites_content_idx ON favorites(content_id)`,
@@ -289,7 +323,8 @@ export const __databaseConnectionTestHooks = {
     removeLegacyStalkerAndDownloads,
     normalizeXtreamContentAddedEpochs,
     ensureContentTitleFts,
-    ensureContentMetadataFts,
+    ensureContentSearchFts,
+    retireContentMetadataFts,
     cleanupLegacyTmdbSearchCache,
     runMigrations,
 } as const;
@@ -556,71 +591,55 @@ function ensureContentTitleFts(sqliteDb: Database.Database): void {
     }
 }
 
-function ensureContentMetadataFts(sqliteDb: Database.Database): void {
+function ensureContentSearchFts(sqliteDb: Database.Database): boolean {
     try {
         sqliteDb.exec(`
-            CREATE VIRTUAL TABLE IF NOT EXISTS content_metadata_fts USING fts5(
+            CREATE VIRTUAL TABLE IF NOT EXISTS content_search_fts USING fts5(
                 title,
                 genre,
                 release_date,
-                country,
-                director,
-                cast,
-                description,
                 content='content',
                 content_rowid='id',
                 tokenize='trigram'
             );
-            CREATE TRIGGER IF NOT EXISTS content_metadata_fts_ai
+            CREATE TRIGGER IF NOT EXISTS content_search_fts_ai
             AFTER INSERT ON content BEGIN
-                INSERT INTO content_metadata_fts(
-                    rowid, title, genre, release_date, country, director, cast, description
-                ) VALUES (
-                    new.id, new.title, new.genre, new.release_date, new.country,
-                    new.director, new.cast, new.description
-                );
+                INSERT INTO content_search_fts(rowid, title, genre, release_date)
+                VALUES (new.id, new.title, new.genre, new.release_date);
             END;
-            CREATE TRIGGER IF NOT EXISTS content_metadata_fts_ad
+            CREATE TRIGGER IF NOT EXISTS content_search_fts_ad
             AFTER DELETE ON content BEGIN
-                INSERT INTO content_metadata_fts(
-                    content_metadata_fts, rowid, title, genre, release_date,
-                    country, director, cast, description
+                INSERT INTO content_search_fts(
+                    content_search_fts, rowid, title, genre, release_date
                 ) VALUES (
-                    'delete', old.id, old.title, old.genre, old.release_date,
-                    old.country, old.director, old.cast, old.description
+                    'delete', old.id, old.title, old.genre, old.release_date
                 );
             END;
-            CREATE TRIGGER IF NOT EXISTS content_metadata_fts_au
+            CREATE TRIGGER IF NOT EXISTS content_search_fts_au
             AFTER UPDATE ON content BEGIN
-                INSERT INTO content_metadata_fts(
-                    content_metadata_fts, rowid, title, genre, release_date,
-                    country, director, cast, description
+                INSERT INTO content_search_fts(
+                    content_search_fts, rowid, title, genre, release_date
                 ) VALUES (
-                    'delete', old.id, old.title, old.genre, old.release_date,
-                    old.country, old.director, old.cast, old.description
+                    'delete', old.id, old.title, old.genre, old.release_date
                 );
-                INSERT INTO content_metadata_fts(
-                    rowid, title, genre, release_date, country, director, cast, description
-                ) VALUES (
-                    new.id, new.title, new.genre, new.release_date, new.country,
-                    new.director, new.cast, new.description
-                );
+                INSERT INTO content_search_fts(rowid, title, genre, release_date)
+                VALUES (new.id, new.title, new.genre, new.release_date);
             END;
         `);
 
         const migrationState = sqliteDb
             .prepare(`SELECT value FROM app_state WHERE key = ?`)
-            .get(CONTENT_METADATA_FTS_MIGRATION_KEY) as
+            .get(CONTENT_SEARCH_FTS_MIGRATION_KEY) as
             | { value?: unknown }
             | undefined;
         if (migrationState?.value === 'done') {
-            return;
+            return true;
         }
 
         const executeMigration = sqliteDb.transaction(() => {
             sqliteDb
                 .prepare(
-                    `INSERT INTO content_metadata_fts(content_metadata_fts)
+                    `INSERT INTO content_search_fts(content_search_fts)
                      VALUES ('rebuild')`
                 )
                 .run();
@@ -632,16 +651,61 @@ function ensureContentMetadataFts(sqliteDb: Database.Database): void {
                         value = excluded.value,
                         updated_at = excluded.updated_at`
                 )
-                .run(CONTENT_METADATA_FTS_MIGRATION_KEY);
+                .run(CONTENT_SEARCH_FTS_MIGRATION_KEY);
         });
         executeMigration();
+        return true;
     } catch (error) {
         const message =
             typeof error === 'object' && error !== null && 'message' in error
                 ? String((error as { message?: unknown }).message ?? error)
                 : String(error);
         console.warn(
-            `Content metadata FTS rebuild failed (continuing): ${message}`
+            `Content search FTS rebuild failed (continuing): ${message}`
+        );
+        return false;
+    }
+}
+
+function retireContentMetadataFts(sqliteDb: Database.Database): void {
+    try {
+        const migrationState = sqliteDb
+            .prepare(`SELECT value FROM app_state WHERE key = ?`)
+            .get(CONTENT_METADATA_FTS_RETIREMENT_MIGRATION_KEY) as
+            | { value?: unknown }
+            | undefined;
+
+        if (migrationState?.value === 'done') {
+            return;
+        }
+
+        sqliteDb.exec(`
+            DROP TRIGGER IF EXISTS content_metadata_fts_ai;
+            DROP TRIGGER IF EXISTS content_metadata_fts_ad;
+            DROP TRIGGER IF EXISTS content_metadata_fts_au;
+            DROP TABLE IF EXISTS content_metadata_fts;
+        `);
+
+        // Dropping an FTS table returns pages to SQLite's freelist. Compact
+        // this one-time migration so users actually recover the disk space.
+        sqliteDb.exec('VACUUM');
+        sqliteDb
+            .prepare(
+                `INSERT INTO app_state (key, value, updated_at)
+                 VALUES (?, 'done', datetime('now'))
+                 ON CONFLICT(key) DO UPDATE SET
+                    value = excluded.value,
+                    updated_at = excluded.updated_at`
+            )
+            .run(CONTENT_METADATA_FTS_RETIREMENT_MIGRATION_KEY);
+    } catch (error) {
+        const message =
+            typeof error === 'object' && error !== null && 'message' in error
+                ? String((error as { message?: unknown }).message ?? error)
+                : String(error);
+
+        console.warn(
+            `Retiring legacy content metadata FTS failed (continuing): ${message}`
         );
     }
 }
@@ -802,7 +866,9 @@ function runMigrations(sqliteDb: Database.Database): void {
     removeLegacyStalkerAndDownloads(sqliteDb);
     runMigrationStatements(sqliteDb, COLUMN_MIGRATION_STATEMENTS);
     ensureContentTitleFts(sqliteDb);
-    ensureContentMetadataFts(sqliteDb);
+    if (ensureContentSearchFts(sqliteDb)) {
+        retireContentMetadataFts(sqliteDb);
+    }
     deduplicateXtreamCache(sqliteDb);
     normalizeXtreamContentAddedEpochs(sqliteDb);
     runMigrationStatements(sqliteDb, INDEX_MIGRATION_STATEMENTS);

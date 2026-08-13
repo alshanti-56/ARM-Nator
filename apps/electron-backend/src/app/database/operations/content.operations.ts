@@ -15,7 +15,7 @@ import {
 } from '@arm-nator/shared/interfaces';
 import type { AppDatabase } from '../database.types';
 import {
-    buildContentTitleFtsMatchQuery,
+    buildContentSearchFtsMatchQuery,
     buildGlobPrefixPatterns,
     buildLikePatterns,
     getSearchWordPlans,
@@ -23,7 +23,7 @@ import {
     isShortSearchTokenGroup,
     normalizeSearchMatchText,
     scoreSearchTextMatch,
-    shouldUseContentTitleFts,
+    shouldUseContentSearchFts,
     shouldUseContentTitlePrefixIndex,
 } from './content-search.util';
 import {
@@ -310,11 +310,11 @@ async function selectXtreamGlobalSearchCandidatesWithFts(
             c.type AS type,
             cat.playlist_id AS playlist_id,
             p.name AS playlist_name
-        FROM content_metadata_fts
-        INNER JOIN content AS c ON c.id = content_metadata_fts.rowid
+        FROM content_search_fts
+        INNER JOIN content AS c ON c.id = content_search_fts.rowid
         INNER JOIN categories AS cat ON c.category_id = cat.id
         INNER JOIN playlists AS p ON cat.playlist_id = p.id
-        WHERE content_metadata_fts MATCH ${matchQuery}
+        WHERE content_search_fts MATCH ${matchQuery}
         AND c.type IN (${sql.join(
             types.map((type) => sql`${type}`),
             sql`, `
@@ -362,10 +362,10 @@ async function selectXtreamPlaylistSearchCandidatesWithFts(
             c.direct_source AS direct_source,
             c.xtream_id AS xtream_id,
             c.type AS type
-        FROM content_metadata_fts
-        INNER JOIN content AS c ON c.id = content_metadata_fts.rowid
+        FROM content_search_fts
+        INNER JOIN content AS c ON c.id = content_search_fts.rowid
         INNER JOIN categories AS cat ON c.category_id = cat.id
-        WHERE content_metadata_fts MATCH ${matchQuery}
+        WHERE content_search_fts MATCH ${matchQuery}
         AND cat.playlist_id = ${playlistId}
         AND c.type IN (${sql.join(
             types.map((type) => sql`${type}`),
@@ -955,12 +955,12 @@ export async function searchContent(
         : DEFAULT_PLAYLIST_SEARCH_LIMIT;
 
     let candidates: XtreamMetadataSearchCandidate[];
-    if (shouldUseContentTitleFts(searchTerm)) {
+    if (shouldUseContentSearchFts(searchTerm)) {
         try {
             candidates = await selectXtreamPlaylistSearchCandidatesWithFts(
                 db,
                 playlistId,
-                buildContentTitleFtsMatchQuery(searchTerm),
+                buildContentSearchFtsMatchQuery(searchTerm),
                 types,
                 excludeHidden,
                 candidateLimit
@@ -1041,11 +1041,11 @@ export async function globalSearch(
                 ...titleCandidates,
                 ...metadataCandidates,
             ]).slice(0, candidateLimit);
-        } else if (shouldUseContentTitleFts(searchTerm)) {
+        } else if (shouldUseContentSearchFts(searchTerm)) {
             try {
                 candidates = await selectXtreamGlobalSearchCandidatesWithFts(
                     db,
-                    buildContentTitleFtsMatchQuery(searchTerm),
+                    buildContentSearchFtsMatchQuery(searchTerm),
                     types,
                     excludeHidden,
                     candidateLimit
