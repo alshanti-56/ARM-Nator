@@ -1,4 +1,8 @@
-import Hls, { type ErrorData, type ManifestParsedData } from "hls.js";
+import Hls, {
+  ErrorTypes,
+  type ErrorData,
+  type ManifestParsedData,
+} from "hls.js";
 import { createDevLogger } from "@arm-nator/shared/interfaces";
 import type { HtmlVideoControlsSource } from "./html-video-player-controls.bridge";
 import {
@@ -146,7 +150,15 @@ export class HtmlVideoLiveController {
     }
     emitFatalHlsPlaybackError(url, data, this.config.emitPlaybackIssue);
     if (data.fatal && this.config.isLive()) {
-      this.hlsRecovery.request(`${data.type}: ${data.details}`);
+      if (data.type === ErrorTypes.NETWORK_ERROR) {
+        hls.startLoad();
+      } else if (data.type === ErrorTypes.MEDIA_ERROR) {
+        hls.recoverMediaError();
+      } else {
+        this.hlsRecovery.request(`${data.type}: ${data.details}`, {
+          cancelOnPlaying: false,
+        });
+      }
     }
   }
 }

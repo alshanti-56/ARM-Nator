@@ -150,6 +150,11 @@ export class ArtPlayerComponent implements OnInit, OnDestroy, OnChanges {
       showCaptions: () => this.showCaptions(),
       emitPlaybackIssue: (issue) => this.playbackIssue.emit(issue),
       getDrm: () => this.channel().drm,
+      hlsRequestHeaders: {
+        'User-Agent': channel.http['user-agent'],
+        Referer: channel.http.referrer,
+        Origin: channel.http.origin,
+      },
     });
     this.sourceSession = sourceSession;
 

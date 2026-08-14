@@ -55,6 +55,11 @@ interface WebVideoControlsContext {
     seriesNavigation: Signal<SeriesPlaybackNavigation | null>;
 }
 
+export type WebVideoPlaybackIntent = 'play' | 'pause';
+export type WebVideoPlaybackIntentListener = (
+    intent: WebVideoPlaybackIntent,
+) => void;
+
 /**
  * Can bridge any `<video>`-backed web engine onto the generic
  * {@link PlayerController} contract using only DOM/video APIs.
@@ -64,6 +69,7 @@ export class WebVideoControlsAdapter implements PlayerController {
     private video: HTMLVideoElement | null = null;
     private opts: WebVideoControlsOptions = {};
     private detachFn: (() => void) | null = null;
+    private readonly playbackIntentListeners = new Set<WebVideoPlaybackIntentListener>();
     private bindingGeneration = 0;
     private lastMetricSample: {
         at: number;
@@ -244,7 +250,18 @@ export class WebVideoControlsAdapter implements PlayerController {
     });
 
     readonly commands: PlayerControlsCommands = {
-        togglePlay: () => toggleVideoPlay(this.video),
+        togglePlay: () => {
+            const video = this.video;
+            if (!video) {
+                return;
+            }
+            const intent: WebVideoPlaybackIntent =
+                video.paused || video.ended ? 'play' : 'pause';
+            for (const listener of this.playbackIntentListeners) {
+                listener(intent);
+            }
+            toggleVideoPlay(video);
+        },
         seekTo: (seconds) =>
             applyVideoCurrentTime(this.video, seconds, () =>
                 readVideoDuration(this.video, this.opts),
@@ -333,6 +350,16 @@ export class WebVideoControlsAdapter implements PlayerController {
      */
     refresh(): void {
         this.tick.update((value) => value + 1);
+    }
+
+    /** Registers for explicit play/pause commands issued through the controls. */
+    registerPlaybackIntentListener(
+        listener: WebVideoPlaybackIntentListener,
+    ): () => void {
+        this.playbackIntentListeners.add(listener);
+        return () => {
+            this.playbackIntentListeners.delete(listener);
+        };
     }
 
     /** Removes listeners and clears the bound element. Idempotent. */

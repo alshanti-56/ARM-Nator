@@ -79,6 +79,41 @@ test('combines a server URL with labeled credentials on following lines', () => 
     assert.equal(parsed.candidates[0].password, 'passs');
 });
 
+test('combines unlabeled three-line Xtream credential blocks', () => {
+    const parsed = parseIptvCredentials(
+        [
+            'http://provider-one.example:8080',
+            'user-one',
+            'password-one',
+            '',
+            'http://provider-two.example',
+            'user-two',
+            'password-two',
+        ].join('\n')
+    );
+
+    assert.equal(parsed.invalidEntries.length, 0);
+    assert.deepEqual(
+        parsed.candidates.map((candidate) => ({
+            serverUrl: candidate.serverUrl,
+            username: candidate.username,
+            password: candidate.password,
+        })),
+        [
+            {
+                serverUrl: 'http://provider-one.example:8080',
+                username: 'user-one',
+                password: 'password-one',
+            },
+            {
+                serverUrl: 'http://provider-two.example',
+                username: 'user-two',
+                password: 'password-two',
+            },
+        ]
+    );
+});
+
 test('ignores generic HTTPS links while keeping explicit HTTPS IPTV URLs', () => {
     const parsed = parseIptvCredentials(
         [

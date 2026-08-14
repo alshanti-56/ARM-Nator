@@ -446,6 +446,10 @@ const electronApi: ElectronBridgeApi = {
         headers?: Record<string, string>
     ): Promise<PlaybackNetworkInspection> =>
         ipcRenderer.invoke('INSPECT_PLAYBACK_URL', url, headers),
+    createHlsProxySession: (url: string, headers?: Record<string, string>) =>
+        ipcRenderer.invoke('CREATE_HLS_PROXY_SESSION', url, headers),
+    releaseHlsProxySession: (sessionId: string) =>
+        ipcRenderer.invoke('RELEASE_HLS_PROXY_SESSION', sessionId),
     getPlayerEngineAvailability: (): Promise<PlayerEngineAvailability[]> =>
         ipcRenderer.invoke('GET_PLAYER_ENGINE_AVAILABILITY'),
     closeExternalPlayerSession: (sessionId: string) =>

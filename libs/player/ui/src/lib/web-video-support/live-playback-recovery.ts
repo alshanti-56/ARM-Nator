@@ -7,6 +7,11 @@ export interface LiveRecoveryScheduled {
   readonly reason: string;
 }
 
+export interface LiveRecoveryRequestOptions {
+  /** Keep a fatal-engine reconnect pending even if buffered media is still playing. */
+  readonly cancelOnPlaying?: boolean;
+}
+
 /**
  * Serializes live-engine reconnects and backs repeated failures off. A pending
  * reconnect is cancelled when playback genuinely resumes.
@@ -16,6 +21,7 @@ export class LivePlaybackRecovery {
   private reconnectTimer: ReturnType<typeof setTimeout> | undefined;
   private stableTimer: ReturnType<typeof setTimeout> | undefined;
   private destroyed = false;
+  private cancelReconnectOnPlaying = true;
 
   constructor(
     private readonly config: {
@@ -25,16 +31,23 @@ export class LivePlaybackRecovery {
     },
   ) {}
 
-  request(reason: string): boolean {
+  request(
+    reason: string,
+    options: LiveRecoveryRequestOptions = {},
+  ): boolean {
     if (
       this.destroyed ||
       !this.config.isLive() ||
       this.reconnectTimer !== undefined
     ) {
+      if (options.cancelOnPlaying === false) {
+        this.cancelReconnectOnPlaying = false;
+      }
       return false;
     }
 
     this.markUnstable();
+    this.cancelReconnectOnPlaying = options.cancelOnPlaying !== false;
     this.attempt += 1;
     const delayMs =
       RETRY_DELAYS_MS[Math.min(this.attempt - 1, RETRY_DELAYS_MS.length - 1)];
@@ -56,7 +69,9 @@ export class LivePlaybackRecovery {
     if (this.destroyed || !this.config.isLive()) {
       return;
     }
-    this.clearReconnectTimer();
+    if (this.cancelReconnectOnPlaying) {
+      this.clearReconnectTimer();
+    }
     this.clearStableTimer();
     this.stableTimer = setTimeout(() => {
       this.stableTimer = undefined;
@@ -84,6 +99,7 @@ export class LivePlaybackRecovery {
       clearTimeout(this.reconnectTimer);
       this.reconnectTimer = undefined;
     }
+    this.cancelReconnectOnPlaying = true;
   }
 
   private clearStableTimer(): void {

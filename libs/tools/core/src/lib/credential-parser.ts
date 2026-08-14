@@ -38,6 +38,15 @@ function labeledServerValue(value: string): string | null {
   return match?.[1] ? trimToken(match[1]) : null;
 }
 
+function standaloneCredentialValue(value: string): string | null {
+  if (/https?:\/\//i.test(value)) {
+    return null;
+  }
+
+  const tokens = tokenize(value);
+  return tokens.length === 1 ? tokens[0] : null;
+}
+
 function serverRoot(url: URL): string {
   return `${url.protocol.toLowerCase()}//${url.host.toLowerCase()}`;
 }
@@ -234,12 +243,14 @@ function splitInput(rawInput: string): string[] {
       continue;
     }
 
-    const username = lines[index + 1]
-      ? labeledCredentialValue(lines[index + 1], "username")
-      : null;
-    const password = lines[index + 2]
-      ? labeledCredentialValue(lines[index + 2], "password")
-      : null;
+    const usernameLine = lines[index + 1] ?? "";
+    const passwordLine = lines[index + 2] ?? "";
+    const username =
+      labeledCredentialValue(usernameLine, "username") ??
+      standaloneCredentialValue(usernameLine);
+    const password =
+      labeledCredentialValue(passwordLine, "password") ??
+      standaloneCredentialValue(passwordLine);
 
     if (username && password) {
       entries.push(`${serverLine} ${username} ${password}`);

@@ -19,6 +19,7 @@ import SettingsEvents from './app/events/settings.events';
 import SharedEvents from './app/events/shared.events';
 import { isStartupTraceEnabled, trace } from './app/services/debug-trace';
 import { registerStaticHeaderShims } from './app/services/request-header-overrides.service';
+import { hlsPlaybackProxy } from './app/services/hls-playback-proxy.service';
 import { databaseWorkerClient } from './app/services/database-worker-client';
 import WindowEvents from './app/events/window.events';
 import BrowserEvents, {
@@ -163,6 +164,7 @@ if (!hasSingleInstanceLock) {
         });
 
         app.on('before-quit', () => {
+            void hlsPlaybackProxy.shutdown();
             void shutdownCredentialTesterBatches();
             shutdownBrowserView();
             shutdownKsPlayerMetal();
