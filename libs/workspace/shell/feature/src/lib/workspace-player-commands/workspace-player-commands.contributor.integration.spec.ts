@@ -83,6 +83,18 @@ test("command palette probes KSPlayer Metal separately from embedded MPV", async
       "ksplayer-metal",
     );
     assert.equal(
+      PLAYER_COMMAND_DEFS.find(
+        (definition) => definition.player === VideoPlayer.ArtPlayer2,
+      )?.id,
+      "switch-player-artplayer2",
+    );
+    assert.equal(
+      registrations
+        .find((command) => command.id === "switch-player-artplayer2")
+        ?.visible?.(),
+      true,
+    );
+    assert.equal(
       registrations
         .find((command) => command.id === "switch-player-embedded-mpv")
         ?.visible?.(),

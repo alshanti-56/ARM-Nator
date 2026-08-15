@@ -155,9 +155,22 @@ ipcMain.handle(
     hlsPlaybackProxy.createSession({ url, headers }),
 );
 
+ipcMain.handle(
+  "CREATE_PROGRESSIVE_VOD_PROXY_SESSION",
+  async (_event, url: string, headers?: Record<string, string>) =>
+    hlsPlaybackProxy.createProgressiveVodSession({ url, headers }),
+);
+
 ipcMain.handle("RELEASE_HLS_PROXY_SESSION", (_event, sessionId: string) => {
   hlsPlaybackProxy.releaseSession(sessionId);
 });
+
+ipcMain.handle(
+  "RELEASE_PROGRESSIVE_VOD_PROXY_SESSION",
+  (_event, sessionId: string) => {
+    hlsPlaybackProxy.releaseSession(sessionId);
+  },
+);
 
 ipcMain.handle(
   "OPEN_MPV_PLAYER",

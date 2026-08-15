@@ -94,6 +94,7 @@ export function getDirectPlayStaticCapabilities(
     case VideoPlayer.KsPlayer:
       return ["Play / pause", "Seek", "Volume", "Fullscreen"];
     case VideoPlayer.ArtPlayer:
+    case VideoPlayer.ArtPlayer2:
     case VideoPlayer.Html5Player:
       return [
         "Play / pause",

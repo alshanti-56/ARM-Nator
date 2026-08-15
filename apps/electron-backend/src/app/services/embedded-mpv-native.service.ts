@@ -505,6 +505,15 @@ export class EmbeddedMpvNativeService {
 
         this.pollingTimer = setInterval(() => {
             [...this.sessions.keys()].forEach((sessionId) => {
+                const session = this.sessions.get(sessionId);
+                if (
+                    session?.lastStatus === 'paused' ||
+                    session?.lastStatus === 'ended' ||
+                    session?.lastStatus === 'error' ||
+                    session?.lastStatus === 'idle'
+                ) {
+                    return;
+                }
                 // An addon-side throw must not escape the interval callback:
                 // it would surface as an uncaughtException in the main
                 // process every 500 ms while the timer keeps running. Log

@@ -13,6 +13,7 @@ export enum VideoPlayer {
     MPV = 'mpv',
     VLC = 'vlc',
     ArtPlayer = 'artplayer',
+    ArtPlayer2 = 'artplayer2',
 }
 
 export type DirectPlayLayoutMode = 'compact' | 'full';

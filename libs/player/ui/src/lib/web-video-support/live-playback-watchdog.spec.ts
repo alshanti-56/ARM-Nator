@@ -66,6 +66,28 @@ test('does not reconnect after a plain user pause', async () => {
     watchdog.destroy();
 });
 
+test('a new live source clears the previous source pause intent', () => {
+    const firstVideo = new FakeVideo();
+    const secondVideo = new FakeVideo();
+    let reconnects = 0;
+    const watchdog = startWatchdog(firstVideo, () => {
+        reconnects += 1;
+    });
+
+    watchdog.notifyPlaybackIntent('pause');
+    watchdog.start(secondVideo as unknown as HTMLVideoElement, {
+        isLive: () => true,
+        onNoProgress: () => {
+            reconnects += 1;
+        },
+    });
+    secondVideo.ended = true;
+    secondVideo.dispatchEvent(new Event('ended'));
+
+    assert.equal(reconnects, 1);
+    watchdog.destroy();
+});
+
 test('shared controls cancel recovery and clear the user-pause latch', async () => {
     const { dom, adapter, setPaused } = createControlsHarness();
     const video = new FakeVideo();
@@ -153,6 +175,31 @@ test('fatal recovery is not canceled while buffered media is still playing', asy
         await new Promise((resolve) => setTimeout(resolve, 350));
 
         assert.equal(reconnects, 1);
+    } finally {
+        recovery.destroy();
+    }
+});
+
+test('recovery starts a new budget after an exhausted window', async () => {
+    let exhausted = 0;
+    const recovery = new LivePlaybackRecovery({
+        isLive: () => true,
+        restart: () => undefined,
+        getRecoveryBudgetMs: () => 50,
+        onExhausted: () => {
+            exhausted += 1;
+        },
+    });
+
+    try {
+        assert.equal(recovery.request('expired live playlist'), true);
+        await new Promise((resolve) => setTimeout(resolve, 80));
+
+        assert.equal(exhausted, 1);
+        assert.equal(
+            recovery.request('provider still has not refreshed the playlist'),
+            true,
+        );
     } finally {
         recovery.destroy();
     }

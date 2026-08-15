@@ -51,6 +51,7 @@ export class VodDetailsPlaybackService {
   /** Signals bound from the host component via `bind()` */
   private readonly bindings = signal<VodDetailsPlaybackBindings | null>(null);
   private lastSaveTime = 0;
+  private latestInlinePosition: PlaybackPositionData | null = null;
 
   readonly inlinePlayback = signal<ResolvedPortalPlayback | null>(null);
   readonly vodPlaybackPosition = signal<PlaybackPositionData | null>(null);
@@ -218,6 +219,12 @@ export class VodDetailsPlaybackService {
     const vodId = this.bindings()?.vodId() ?? NaN;
     const position = this.vodPlaybackPosition();
     const streamUrl = this.xtreamStore.constructVodStreamUrl(vodItem);
+    const resumePosition =
+      position &&
+      Number.isFinite(position.positionSeconds) &&
+      position.positionSeconds > 0
+        ? position.positionSeconds
+        : undefined;
 
     const contentInfo: PlayerContentInfo = {
       playlistId: playlist.id,
@@ -228,7 +235,7 @@ export class VodDetailsPlaybackService {
       streamUrl,
       title: info?.name ?? vodItem.movie_data?.name ?? "Unknown",
       thumbnail: info?.movie_image,
-      startTime: position?.positionSeconds,
+      startTime: resumePosition,
       contentInfo,
     };
 
@@ -268,8 +275,10 @@ export class VodDetailsPlaybackService {
   }
 
   closeInlinePlayer(): void {
+    this.flushLatestInlinePosition();
     this.inlinePlayback.set(null);
     this.lastSaveTime = 0;
+    this.latestInlinePosition = null;
   }
 
   handleInlineTimeUpdate(event: {
@@ -279,19 +288,25 @@ export class VodDetailsPlaybackService {
     const playback = this.inlinePlayback();
     if (!playback?.contentInfo) return;
 
+    if (!Number.isFinite(event.currentTime) || event.currentTime < 0) {
+      return;
+    }
+
+    const position: PlaybackPositionData = {
+      ...playback.contentInfo,
+      positionSeconds: Math.floor(event.currentTime),
+      durationSeconds:
+        Number.isFinite(event.duration) && event.duration > 0
+          ? Math.floor(event.duration)
+          : undefined,
+    };
+    this.latestInlinePosition = position;
+
     const now = Date.now();
     if (now - this.lastSaveTime <= 15000) return;
 
     this.lastSaveTime = now;
-    const position: PlaybackPositionData = {
-      ...playback.contentInfo,
-      positionSeconds: Math.floor(event.currentTime),
-      durationSeconds: Math.floor(event.duration),
-    };
-    void this.playbackPositions.savePlaybackPosition(
-      playback.contentInfo.playlistId,
-      position,
-    );
+    this.saveInlinePosition(position);
     this.vodPlaybackPosition.set(position);
   }
 
@@ -321,9 +336,9 @@ export class VodDetailsPlaybackService {
   }
 
   private startPlayback(playback: ResolvedPortalPlayback): void {
+    this.closeInlinePlayer();
     this.lastSaveTime = 0;
     if (!this.portalPlayer.isEmbeddedPlayer(false)) {
-      this.closeInlinePlayer();
       void this.portalPlayer.openResolvedPlayback(playback, true);
       return;
     }
@@ -333,5 +348,24 @@ export class VodDetailsPlaybackService {
       onClosed: () => this.closeInlinePlayer(),
       onTimeUpdate: (event) => this.handleInlineTimeUpdate(event),
     });
+  }
+
+  private flushLatestInlinePosition(): void {
+    const position = this.latestInlinePosition;
+    if (!position?.playlistId) {
+      return;
+    }
+    this.saveInlinePosition(position);
+    this.vodPlaybackPosition.set(position);
+  }
+
+  private saveInlinePosition(position: PlaybackPositionData): void {
+    if (!position.playlistId) {
+      return;
+    }
+    void this.playbackPositions.savePlaybackPosition(
+      position.playlistId,
+      position,
+    );
   }
 }

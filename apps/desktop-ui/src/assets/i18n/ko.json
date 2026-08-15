@@ -246,6 +246,7 @@
         "VOD_VIDEO_PLAYER_DESCRIPTION": "Default player for movies and series episodes",
         "PLAYER_HTML5": "HTML5 비디오 플레이어",
         "PLAYER_ARTPLAYER": "ArtPlayer",
+        "PLAYER_ARTPLAYER2": "ArtPlayer 2 (stock)",
         "PLAYER_EMBEDDED_MPV": "내장 MPV",
         "PLAYER_MPV": "MPV 플레이어",
         "PLAYER_VLC": "VLC",

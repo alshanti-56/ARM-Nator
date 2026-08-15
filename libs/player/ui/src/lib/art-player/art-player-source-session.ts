@@ -34,10 +34,13 @@ import {
 } from '../web-video-support/mpegts-live-recovery';
 import { LivePlaybackRecovery } from '../web-video-support/live-playback-recovery';
 import { LivePlaybackWatchdog } from '../web-video-support/live-playback-watchdog';
+import {
+    VodPlaybackRecovery,
+} from '../web-video-support/vod-playback-recovery';
+import { ProgressiveVodProxySession } from '../web-video-support/progressive-vod-proxy-session';
 
-const LIVE_HLS_ERROR_GRACE_MS = 5_000;
-const LIVE_HLS_RESTART_BUFFER_GUARD_SECONDS = 2;
-const LIVE_HLS_DEFERRED_RESTART_DELAY_MS = 3_000;
+// Used only before the first live playlist exposes timing metadata.
+const LIVE_HLS_FALLBACK_SEGMENT_DURATION_SECONDS = 2;
 const INITIAL_LIVE_SYNC_SEGMENTS = 4;
 const MAX_LIVE_SYNC_SEGMENTS = 6;
 const LIVE_WINDOW_SAFETY_SEGMENTS = 2;
@@ -53,6 +56,15 @@ export interface ArtPlayerSourceSessionConfig {
     loadShaka?: ShakaModuleLoader;
     /** Provider headers retained by the main-process HLS transport. */
     hlsRequestHeaders?: Record<string, string>;
+    /** Provider headers used by progressive-VOD byte-range requests. */
+    mediaRequestHeaders?: Record<string, string>;
+}
+
+interface PendingPlaybackIssue {
+    kind: 'live-hls' | 'vod-hls';
+    hls?: Hls;
+    issue: PlaybackDiagnostic;
+    currentTime?: number;
 }
 
 /**
@@ -66,6 +78,7 @@ export class ArtPlayerSourceSession {
     readonly customType: NonNullable<Option['customType']> = {
         m3u8: (video, url) => this.startHls(video, url),
         mpd: (video, url) => this.startDash(video, url),
+        mp4: (video, url) => this.startProgressiveVod(video, url),
         ts: (video, url) => this.startMpegTs(video, url),
         'video/matroska': (video, url) => this.startNative(video, url),
     };
@@ -77,18 +90,22 @@ export class ArtPlayerSourceSession {
     private hlsUrl = '';
     private hlsVideo: HTMLVideoElement | null = null;
     private readonly hlsProxySession = new ArtPlayerHlsProxySession();
+    private readonly progressiveVodProxy = new ProgressiveVodProxySession();
+    private nativeSourceGeneration = 0;
     private readonly hlsWatchdog = new LivePlaybackWatchdog();
     private readonly hlsRecovery: LivePlaybackRecovery;
+    private readonly vodHlsRecovery: VodPlaybackRecovery;
     private readonly unregisterPlaybackIntentListener: () => void;
-    private pendingHlsIssue: {
-        hls: Hls;
-        issue: PlaybackDiagnostic;
-        currentTime: number;
-    } | null = null;
-    private pendingHlsIssueTimer: ReturnType<typeof setTimeout> | undefined;
-    private deferredHlsRestartTimer:
-        | ReturnType<typeof setTimeout>
-        | undefined;
+    private pendingPlaybackIssue: PendingPlaybackIssue | null = null;
+    private pendingPlaybackIssueTimer: ReturnType<typeof setTimeout> | undefined;
+    private hlsResumeTimer: ReturnType<typeof setTimeout> | undefined;
+    private lastHlsIssue: PlaybackDiagnostic | null = null;
+    private playbackIntent: WebVideoPlaybackIntent | null = null;
+    private vodHlsPlayingListener: EventListener | null = null;
+    private hlsTargetDurationSeconds =
+        LIVE_HLS_FALLBACK_SEGMENT_DURATION_SECONDS;
+    private hlsObservedSegmentDurationSeconds =
+        LIVE_HLS_FALLBACK_SEGMENT_DURATION_SECONDS;
     private hlsManifestListener:
         | ((event: unknown, data: ManifestParsedData) => void)
         | null = null;
@@ -105,6 +122,8 @@ export class ArtPlayerSourceSession {
     private mpegTsErrorListener:
         | ((type: string, details: string, info: unknown) => void)
         | null = null;
+    private pendingMpegTsIssue: PlaybackDiagnostic | null = null;
+    private mpegTsIssueTimer: ReturnType<typeof setTimeout> | undefined;
     private shakaSession: ShakaVideoSession | null = null;
     private destroyed = false;
 
@@ -112,10 +131,29 @@ export class ArtPlayerSourceSession {
         this.mpegTsRecovery = new MpegTsLiveRecovery({
             isLive: this.config.isLive,
             restart: () => this.restartMpegTsAfterDisconnect(),
+            onExhausted: ({ reason }) =>
+                this.handleMpegTsRecoveryExhausted(reason),
         });
         this.hlsRecovery = new LivePlaybackRecovery({
             isLive: this.config.isLive,
             restart: () => this.restartHls(),
+            getRecoveryBudgetMs: () => this.getHlsRecoveryBudgetMs(),
+            onExhausted: ({ reason }) =>
+                this.handleHlsRecoveryExhausted(reason),
+        });
+        this.vodHlsRecovery = new VodPlaybackRecovery({
+            retry: (kind) => {
+                const hls = this.hls;
+                if (!hls || this.config.isLive()) {
+                    return;
+                }
+                if (kind === 'media') {
+                    hls.recoverMediaError();
+                } else {
+                    hls.startLoad();
+                }
+            },
+            onExhausted: () => this.handleVodHlsRecoveryExhausted(),
         });
         this.unregisterPlaybackIntentListener =
             this.config.controlsAdapter.registerPlaybackIntentListener(
@@ -144,6 +182,24 @@ export class ArtPlayerSourceSession {
         this.controlsBridge?.refreshInputs();
     }
 
+    shouldDeferNativePlaybackError(errorCode?: number): boolean {
+        const video = this.hlsVideo;
+        if (
+            !this.config.isLive() ||
+            !this.hls ||
+            !video ||
+            video.paused ||
+            (errorCode !== 1 && errorCode !== 2)
+        ) {
+            return false;
+        }
+
+        return (
+            this.getLiveBufferAheadSeconds(video) >=
+            this.getMinimumLiveBufferSeconds()
+        );
+    }
+
     resolveDuration(fallbackDuration: number): number {
         const correctedDuration = this.controlsBridge?.readDuration() ?? NaN;
         return Number.isNaN(correctedDuration)
@@ -165,6 +221,8 @@ export class ArtPlayerSourceSession {
         this.mpegTsRecovery.destroy();
         this.hlsWatchdog.destroy();
         this.hlsRecovery.destroy();
+        this.vodHlsRecovery.destroy();
+        this.progressiveVodProxy.release();
         this.shakaSession?.destroy();
         this.shakaSession = null;
         this.player = null;
@@ -181,17 +239,42 @@ export class ArtPlayerSourceSession {
         }
 
         this.prepareForSourceChange(preserveRecovery);
+        this.hlsTargetDurationSeconds =
+            LIVE_HLS_FALLBACK_SEGMENT_DURATION_SECONDS;
+        this.hlsObservedSegmentDurationSeconds =
+            LIVE_HLS_FALLBACK_SEGMENT_DURATION_SECONDS;
         if (Hls.isSupported()) {
-            const hls = new Hls({
-                // Keep enough media behind the live edge for providers whose
-                // segment fetch time approaches the segment duration.
-                liveSyncDurationCount: INITIAL_LIVE_SYNC_SEGMENTS,
-                liveMaxLatencyDurationCount: 9,
-                maxBufferLength: 30,
-            });
+            const hls = new Hls(
+                this.config.isLive()
+                    ? {
+                          // Keep enough media behind the live edge for
+                          // providers whose segment fetch time approaches the
+                          // segment duration.
+                          liveSyncDurationCount: INITIAL_LIVE_SYNC_SEGMENTS,
+                          liveMaxLatencyDurationCount: 9,
+                          maxBufferLength: 30,
+                      }
+                    : {
+                          // VOD starts from the asset beginning. Do not carry
+                          // live latency controls into a finite playlist.
+                          startPosition: -1,
+                          abrEwmaFastVoD: 3,
+                          abrEwmaSlowVoD: 9,
+                      },
+            );
             this.hls = hls;
             this.hlsUrl = url;
             this.hlsVideo = video;
+            if (!this.config.isLive()) {
+                this.vodHlsPlayingListener = () => {
+                    if (this.hlsVideo !== video) {
+                        return;
+                    }
+                    this.vodHlsRecovery.markProgress();
+                    this.clearPendingPlaybackIssue();
+                };
+                video.addEventListener('playing', this.vodHlsPlayingListener);
+            }
             this.hlsManifestListener = (_event, data) => {
                 if (this.destroyed || this.hls !== hls) {
                     return;
@@ -228,18 +311,21 @@ export class ArtPlayerSourceSession {
                         !this.destroyed &&
                         this.hls === hls
                     ) {
-                        this.hlsWatchdog.start(video, {
-                            isLive: this.config.isLive,
-                            onNoProgress: (reason) =>
-                                this.hlsRecovery.request(reason),
-                            onPlaying: () => {
-                                this.clearPendingHlsIssue();
-                                this.clearDeferredHlsRestart();
-                                this.hlsRecovery.markPlaying();
-                            },
-                            onUnstable: () => this.hlsRecovery.markUnstable(),
-                            onUserPause: () => this.hlsRecovery.reset(),
-                        });
+                        if (this.config.isLive()) {
+                            this.hlsWatchdog.start(video, {
+                                isLive: this.config.isLive,
+                                onNoProgress: (reason) =>
+                                    this.hlsRecovery.request(reason),
+                                onPlaying: () => {
+                                    this.clearPendingPlaybackIssue();
+                                    this.clearHlsResumeTimer();
+                                    this.lastHlsIssue = null;
+                                    this.hlsRecovery.markPlaying();
+                                },
+                                onUnstable: () => this.hlsRecovery.markUnstable(),
+                                onUserPause: () => this.hlsRecovery.reset(),
+                            });
+                        }
                         if (resumePlayback) {
                             const playResult = video.play();
                             if (playResult) {
@@ -286,14 +372,21 @@ export class ArtPlayerSourceSession {
             if (this.destroyed || this.mpegTsPlayer !== engine) {
                 return;
             }
-            this.config.emitPlaybackIssue(
-                classifyMpegTsPlaybackIssue(
-                    { type, details, info },
-                    this.createSourceMetadata(url, 'video/mp2t')
-                )
-            );
             if (isLive && isRecoverableMpegTsLiveFailure(type, details, info)) {
+                this.deferMpegTsIssue(
+                    classifyMpegTsPlaybackIssue(
+                        { type, details, info },
+                        this.createSourceMetadata(url, 'video/mp2t')
+                    )
+                );
                 this.mpegTsRecovery.request(`${type}: ${details}`);
+            } else {
+                this.config.emitPlaybackIssue(
+                    classifyMpegTsPlaybackIssue(
+                        { type, details, info },
+                        this.createSourceMetadata(url, 'video/mp2t')
+                    )
+                );
             }
         };
         this.mpegTsEndedListener = () => {
@@ -303,7 +396,10 @@ export class ArtPlayerSourceSession {
                 );
             }
         };
-        this.mpegTsPlayingListener = () => this.mpegTsRecovery.markPlaying();
+        this.mpegTsPlayingListener = () => {
+            this.mpegTsRecovery.markPlaying();
+            this.clearMpegTsIssue();
+        };
 
         engine.attachMediaElement(video);
         this.bindControlsSource({ kind: 'mpegts' });
@@ -334,12 +430,55 @@ export class ArtPlayerSourceSession {
         }
 
         this.prepareForSourceChange();
+        video.preload = 'auto';
         video.src = url;
         this.bindControlsSource({ kind: 'native' });
     }
 
+    private startProgressiveVod(video: HTMLVideoElement, url: string): void {
+        if (this.destroyed) {
+            return;
+        }
+
+        this.prepareForSourceChange();
+        this.bindControlsSource({ kind: 'native' });
+        const generation = ++this.nativeSourceGeneration;
+        const setSource = (sourceUrl: string): void => {
+            video.preload = 'auto';
+            video.src = sourceUrl;
+        };
+
+        void this.progressiveVodProxy
+            .load(
+                { setSource },
+                url,
+                this.config.mediaRequestHeaders,
+                () =>
+                    !this.destroyed &&
+                    generation === this.nativeSourceGeneration,
+            )
+            .then((loaded) => {
+                if (
+                    !loaded ||
+                    this.destroyed ||
+                    generation !== this.nativeSourceGeneration
+                ) {
+                    return;
+                }
+                video.load();
+                if (this.playbackIntent !== 'pause') {
+                    const playResult = video.play();
+                    if (playResult) {
+                        void playResult.catch(() => undefined);
+                    }
+                }
+            });
+    }
+
     private prepareForSourceChange(preserveHlsRecovery = false): void {
         this.controlsBridge?.clearSource();
+        this.nativeSourceGeneration += 1;
+        this.progressiveVodProxy.release();
         this.destroyHls(!preserveHlsRecovery);
         this.destroyMpegTs();
         this.shakaSession?.stop();
@@ -362,21 +501,24 @@ export class ArtPlayerSourceSession {
     }
 
     private handlePlaybackIntent(intent: WebVideoPlaybackIntent): void {
+        this.playbackIntent = intent;
         this.hlsWatchdog.notifyPlaybackIntent(intent);
         if (intent === 'pause') {
-            this.clearPendingHlsIssue();
-            this.clearDeferredHlsRestart();
+            this.clearPendingPlaybackIssue();
+            this.clearHlsResumeTimer();
             // The watchdog may not be active while a new HLS source is loading.
             // Reset directly as well so a queued reconnect cannot survive that
             // gap.
             this.hlsRecovery.reset();
+            this.vodHlsRecovery.reset();
         }
     }
 
     private destroyHls(resetRecovery = true): void {
         this.hlsWatchdog.stop();
-        this.clearPendingHlsIssue();
-        this.clearDeferredHlsRestart();
+        this.clearPendingPlaybackIssue();
+        this.clearHlsResumeTimer();
+        this.vodHlsRecovery.reset();
         const hls = this.hls;
         if (hls) {
             if (this.hlsManifestListener) {
@@ -390,6 +532,13 @@ export class ArtPlayerSourceSession {
             }
             hls.destroy();
         }
+        if (this.hlsVideo && this.vodHlsPlayingListener) {
+            this.hlsVideo.removeEventListener(
+                'playing',
+                this.vodHlsPlayingListener,
+            );
+        }
+        this.vodHlsPlayingListener = null;
         this.hls = null;
         this.hlsManifestListener = null;
         this.hlsErrorListener = null;
@@ -398,6 +547,7 @@ export class ArtPlayerSourceSession {
         if (resetRecovery) {
             this.hlsUrl = '';
             this.hlsVideo = null;
+            this.lastHlsIssue = null;
             this.hlsRecovery.reset();
         }
     }
@@ -410,29 +560,49 @@ export class ArtPlayerSourceSession {
         }
         if (
             this.getLiveBufferAheadSeconds(video) >
-            LIVE_HLS_RESTART_BUFFER_GUARD_SECONDS
+            this.getMinimumLiveBufferSeconds()
         ) {
             // A stalled manifest does not mean that the already-buffered MSE
             // media is unusable. Keep the current engine and ask it to load
             // again; replacing HLS here would throw away the visible buffer.
             this.hls?.startLoad();
-            this.clearDeferredHlsRestart();
-            this.deferredHlsRestartTimer = setTimeout(() => {
-                this.deferredHlsRestartTimer = undefined;
-                if (
-                    !this.destroyed &&
-                    this.hlsVideo === video &&
-                    this.hlsUrl === url &&
-                    this.config.isLive()
-                ) {
-                    this.hlsRecovery.request(
-                        'Live HLS recovery deferred while media remains buffered.',
-                    );
-                }
-            }, LIVE_HLS_DEFERRED_RESTART_DELAY_MS);
+            this.resumeHlsWhenBuffered(video, url);
             return;
         }
         this.startHls(video, url, true, true);
+    }
+
+    private resumeHlsWhenBuffered(
+        video: HTMLVideoElement,
+        url: string,
+    ): void {
+        this.clearHlsResumeTimer();
+        const checkBuffer = () => {
+            this.hlsResumeTimer = undefined;
+            if (
+                this.destroyed ||
+                this.hlsVideo !== video ||
+                this.hlsUrl !== url ||
+                !this.config.isLive()
+            ) {
+                return;
+            }
+            if (
+                this.getLiveBufferAheadSeconds(video) >
+                this.getMinimumLiveBufferSeconds()
+            ) {
+                this.hlsResumeTimer = setTimeout(
+                    checkBuffer,
+                    this.getHlsRefreshDelayMs(),
+                );
+                return;
+            }
+            this.startHls(video, url, true, true);
+        };
+        this.hlsResumeTimer = setTimeout(
+            checkBuffer,
+            this.getHlsRefreshDelayMs(),
+        );
     }
 
     private getLiveBufferAheadSeconds(video: HTMLVideoElement): number {
@@ -447,17 +617,42 @@ export class ArtPlayerSourceSession {
         return 0;
     }
 
-    private clearDeferredHlsRestart(): void {
-        if (this.deferredHlsRestartTimer !== undefined) {
-            clearTimeout(this.deferredHlsRestartTimer);
-            this.deferredHlsRestartTimer = undefined;
+    private clearHlsResumeTimer(): void {
+        if (this.hlsResumeTimer !== undefined) {
+            clearTimeout(this.hlsResumeTimer);
+            this.hlsResumeTimer = undefined;
         }
+    }
+
+    private getMinimumLiveBufferSeconds(): number {
+        return Math.max(0.5, this.hlsObservedSegmentDurationSeconds);
+    }
+
+    private getHlsRefreshDelayMs(): number {
+        return Math.max(250, Math.round(this.hlsTargetDurationSeconds * 1_000));
+    }
+
+    private getHlsIssueGraceMs(): number {
+        return Math.max(
+            250,
+            Math.round(this.getMinimumLiveBufferSeconds() * 1_000),
+        );
+    }
+
+    private getHlsRecoveryBudgetMs(): number {
+        // Three target durations cover the minimum live-window expectation.
+        // Before the playlist is parsed, the documented fallback above is used.
+        return Math.max(
+            10_000,
+            Math.round(this.hlsTargetDurationSeconds * 3_000),
+        );
     }
 
     private mpegTsEndedListener: EventListener | null = null;
     private mpegTsPlayingListener: EventListener | null = null;
 
     private destroyMpegTs(preserveRecovery = false): void {
+        this.clearMpegTsIssue();
         const engine = this.mpegTsPlayer;
         const video = this.mpegTsVideo;
         if (video && this.mpegTsEndedListener) {
@@ -501,6 +696,54 @@ export class ArtPlayerSourceSession {
         return this.config.isLive();
     }
 
+    private handleMpegTsRecoveryExhausted(reason: string): void {
+        const issue =
+            this.pendingMpegTsIssue ??
+            classifyMpegTsPlaybackIssue(
+                { type: 'network', details: reason, info: undefined },
+                this.createSourceMetadata(this.mpegTsUrl, 'video/mp2t')
+            );
+        const video = this.mpegTsVideo;
+        if (video && this.getLiveBufferAheadSeconds(video) > 0.5) {
+            this.deferMpegTsIssue(issue);
+            return;
+        }
+        this.clearMpegTsIssue();
+        this.config.emitPlaybackIssue(issue);
+    }
+
+    private deferMpegTsIssue(issue: PlaybackDiagnostic): void {
+        this.clearMpegTsIssue();
+        this.pendingMpegTsIssue = issue;
+        const check = () => {
+            this.mpegTsIssueTimer = undefined;
+            if (this.pendingMpegTsIssue !== issue) {
+                return;
+            }
+            const video = this.mpegTsVideo;
+            if (
+                video &&
+                !video.ended &&
+                !video.error &&
+                this.getLiveBufferAheadSeconds(video) > 0.5
+            ) {
+                this.mpegTsIssueTimer = setTimeout(check, 500);
+                return;
+            }
+            this.pendingMpegTsIssue = null;
+            this.config.emitPlaybackIssue(issue);
+        };
+        this.mpegTsIssueTimer = setTimeout(check, 500);
+    }
+
+    private clearMpegTsIssue(): void {
+        if (this.mpegTsIssueTimer !== undefined) {
+            clearTimeout(this.mpegTsIssueTimer);
+            this.mpegTsIssueTimer = undefined;
+        }
+        this.pendingMpegTsIssue = null;
+    }
+
     private handleHlsManifestParsed(
         url: string,
         data: ManifestParsedData
@@ -525,6 +768,26 @@ export class ArtPlayerSourceSession {
         const details = data.details;
         if (!details.live || details.fragments.length === 0) {
             return;
+        }
+
+        if (
+            Number.isFinite(details.targetduration) &&
+            details.targetduration > 0
+        ) {
+            this.hlsTargetDurationSeconds = details.targetduration;
+        }
+
+        const recentDurations = details.fragments
+            .map((fragment) => fragment.duration)
+            .filter(
+                (duration): duration is number =>
+                    Number.isFinite(duration) && duration > 0,
+            )
+            .slice(-5)
+            .sort((left, right) => left - right);
+        if (recentDurations.length > 0) {
+            this.hlsObservedSegmentDurationSeconds =
+                recentDurations[Math.floor(recentDurations.length / 2)];
         }
 
         const safeSegmentCount = Math.max(
@@ -565,6 +828,7 @@ export class ArtPlayerSourceSession {
                 this.config.emitPlaybackIssue(issue);
             }
             if (data.type === ErrorTypes.NETWORK_ERROR) {
+                this.lastHlsIssue = issue;
                 // Keep the current HLS instance alive while buffered media is
                 // still playing. Destroying it here discards the MSE buffer
                 // and creates a visible stop even when media remains queued.
@@ -584,49 +848,147 @@ export class ArtPlayerSourceSession {
             }
             return;
         }
-        this.config.emitPlaybackIssue(issue);
+        this.pendingPlaybackIssue = {
+            kind: 'vod-hls',
+            issue,
+        };
+        if (data.type === ErrorTypes.NETWORK_ERROR) {
+            this.vodHlsRecovery.request(
+                'asset',
+                'VOD HLS asset request failed.',
+            );
+        } else if (data.type === ErrorTypes.MEDIA_ERROR) {
+            this.vodHlsRecovery.request(
+                'media',
+                'VOD HLS media recovery was requested.',
+            );
+        } else {
+            this.clearPendingPlaybackIssue();
+            this.config.emitPlaybackIssue(issue);
+        }
     }
 
     private deferLiveHlsIssue(hls: Hls, issue: PlaybackDiagnostic): void {
-        this.clearPendingHlsIssue();
+        this.clearPendingPlaybackIssue();
         const video = this.hlsVideo;
         if (!video) {
             this.config.emitPlaybackIssue(issue);
             return;
         }
-        this.pendingHlsIssue = {
+        this.pendingPlaybackIssue = {
+            kind: 'live-hls',
             hls,
             issue,
             currentTime: video.currentTime,
         };
-        this.pendingHlsIssueTimer = setTimeout(() => {
-            this.pendingHlsIssueTimer = undefined;
-            const pending = this.pendingHlsIssue;
-            this.pendingHlsIssue = null;
+        this.pendingPlaybackIssueTimer = setTimeout(() => {
+            this.pendingPlaybackIssueTimer = undefined;
+            const pending = this.pendingPlaybackIssue;
+            this.pendingPlaybackIssue = null;
             if (
                 !pending ||
+                pending.kind !== 'live-hls' ||
                 this.destroyed ||
                 this.hls !== pending.hls ||
                 !this.hlsVideo
             ) {
                 return;
             }
+            const isPlaying =
+                !this.hlsVideo.paused &&
+                pending.currentTime !== undefined &&
+                this.hlsVideo.currentTime - pending.currentTime >= 0.05;
             if (
-                this.hlsVideo.paused ||
-                this.hlsVideo.currentTime - pending.currentTime >= 0.05
+                isPlaying ||
+                this.getLiveBufferAheadSeconds(this.hlsVideo) >=
+                    this.getMinimumLiveBufferSeconds()
             ) {
+                this.deferLiveHlsIssue(pending.hls, pending.issue);
                 return;
             }
             this.config.emitPlaybackIssue(pending.issue);
-        }, LIVE_HLS_ERROR_GRACE_MS);
+        }, this.getHlsIssueGraceMs());
     }
 
-    private clearPendingHlsIssue(): void {
-        if (this.pendingHlsIssueTimer !== undefined) {
-            clearTimeout(this.pendingHlsIssueTimer);
-            this.pendingHlsIssueTimer = undefined;
+    private handleHlsRecoveryExhausted(
+        reason = 'Live HLS recovery budget was exhausted.',
+    ): void {
+        const issue =
+            this.lastHlsIssue ??
+            classifyHlsPlaybackIssue(
+                {
+                    type: ErrorTypes.NETWORK_ERROR,
+                    details: reason,
+                    fatal: true,
+                },
+                this.createSourceMetadata(
+                    this.hlsUrl,
+                    'application/x-mpegURL',
+                ),
+            );
+        if (!issue || !this.hlsVideo) {
+            return;
         }
-        this.pendingHlsIssue = null;
+        if (
+            this.hlsVideo.paused ||
+            this.getLiveBufferAheadSeconds(this.hlsVideo) <
+                this.getMinimumLiveBufferSeconds()
+        ) {
+            this.lastHlsIssue = null;
+            this.config.emitPlaybackIssue(issue);
+            return;
+        }
+        const hls = this.hls;
+        if (hls) {
+            this.deferLiveHlsIssue(hls, issue);
+        } else {
+            this.config.emitPlaybackIssue(issue);
+        }
+    }
+
+    private handleVodHlsRecoveryExhausted(): void {
+        const pending = this.pendingPlaybackIssue;
+        if (!pending || pending.kind !== 'vod-hls') {
+            return;
+        }
+        this.deferVodHlsIssueUntilUnavailable(pending.issue);
+    }
+
+    private deferVodHlsIssueUntilUnavailable(issue: PlaybackDiagnostic): void {
+        this.clearPendingPlaybackIssue();
+        this.pendingPlaybackIssue = {
+            kind: 'vod-hls',
+            issue,
+        };
+        const check = () => {
+            this.pendingPlaybackIssueTimer = undefined;
+            const pending = this.pendingPlaybackIssue;
+            if (
+                this.destroyed ||
+                pending?.kind !== 'vod-hls' ||
+                pending.issue !== issue ||
+                !this.hlsVideo
+            ) {
+                return;
+            }
+            const video = this.hlsVideo;
+            const bufferAhead = this.getLiveBufferAheadSeconds(video);
+            if (!video.ended && !video.error && bufferAhead > 0.5) {
+                this.pendingPlaybackIssueTimer = setTimeout(check, 500);
+                return;
+            }
+            this.pendingPlaybackIssue = null;
+            this.config.emitPlaybackIssue(issue);
+        };
+        this.pendingPlaybackIssueTimer = setTimeout(check, 500);
+    }
+
+    private clearPendingPlaybackIssue(): void {
+        if (this.pendingPlaybackIssueTimer !== undefined) {
+            clearTimeout(this.pendingPlaybackIssueTimer);
+            this.pendingPlaybackIssueTimer = undefined;
+        }
+        this.pendingPlaybackIssue = null;
     }
 
     private createSourceMetadata(

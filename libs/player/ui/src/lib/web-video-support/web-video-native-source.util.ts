@@ -14,6 +14,7 @@ export function setNativeVideoSource(
     url: string,
     type?: string
 ): void {
+    element.preload = 'auto';
     clearNativeVideoSources(element);
     const source = document.createElement('source');
     source.src = url;

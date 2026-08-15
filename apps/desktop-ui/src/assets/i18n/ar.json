@@ -246,6 +246,7 @@
         "VOD_VIDEO_PLAYER_DESCRIPTION": "المشغل الافتراضي للأفلام وحلقات المسلسلات",
         "PLAYER_HTML5": "مشغل فيديو HTML5",
         "PLAYER_ARTPLAYER": "ArtPlayer",
+        "PLAYER_ARTPLAYER2": "ArtPlayer 2 (stock)",
         "PLAYER_EMBEDDED_MPV": "MPV المضمّن",
         "PLAYER_MPV": "مشغل MPV",
         "PLAYER_VLC": "VLC",

@@ -5,14 +5,17 @@ import {
     classifyNativePlaybackIssue,
     createPlaybackSourceMetadata,
 } from '../playback-diagnostics/playback-diagnostics.util';
+import { VodSeekController } from '../web-video-support/vod-seek-controller';
 
 export interface ArtPlayerVideoSessionConfig {
     player: Artplayer;
     sourceUrl: string;
+    isLive?: () => boolean;
     getStartTime: () => number;
     getDuration: () => number;
     persistSharedVolume: boolean;
     emitPlaybackIssue: (issue: PlaybackDiagnostic | null) => void;
+    shouldDeferNativePlaybackError?: (errorCode?: number) => boolean;
     emitTimeUpdate: (value: { currentTime: number; duration: number }) => void;
     emitPlaybackEnded: () => void;
 }
@@ -21,9 +24,17 @@ export interface ArtPlayerVideoSessionConfig {
 export class ArtPlayerVideoSession {
     private attached = false;
     private destroyed = false;
+    private readonly seekController: VodSeekController;
 
     private readonly handleNativePlaybackError = (): void => {
         const { player, sourceUrl } = this.config;
+        if (
+            this.config.shouldDeferNativePlaybackError?.(
+                player.video.error?.code,
+            )
+        ) {
+            return;
+        }
         this.config.emitPlaybackIssue(
             classifyNativePlaybackIssue(
                 player.video.error,
@@ -54,10 +65,7 @@ export class ArtPlayerVideoSession {
     };
 
     private readonly handleReady = (): void => {
-        const startTime = this.config.getStartTime();
-        if (startTime > 0) {
-            this.config.player.seek = startTime;
-        }
+        this.seekController.requestStartTime();
     };
 
     private readonly handleTimeUpdate = (): void => {
@@ -72,13 +80,22 @@ export class ArtPlayerVideoSession {
         readonly [event: string, listener: EventListener]
     > = [
         ['error', this.handleNativePlaybackError],
-        ['loadeddata', this.clearPlaybackIssue],
         ['playing', this.clearPlaybackIssue],
         ['volumechange', this.handleVolumeChange],
         ['ended', this.handlePlaybackEnded],
     ];
 
-    constructor(private readonly config: ArtPlayerVideoSessionConfig) {}
+    constructor(private readonly config: ArtPlayerVideoSessionConfig) {
+        this.seekController = new VodSeekController({
+            video: config.player.video,
+            getStartTime: config.getStartTime,
+            getDuration: config.getDuration,
+            isVod: () => config.isLive?.() !== true,
+            seek: (seconds) => {
+                config.player.seek = seconds;
+            },
+        });
+    }
 
     attach(): void {
         if (this.attached || this.destroyed) {
@@ -86,6 +103,7 @@ export class ArtPlayerVideoSession {
         }
 
         this.attached = true;
+        this.seekController.attach();
         for (const [event, listener] of this.nativeListeners) {
             this.config.player.video.addEventListener(event, listener);
         }
@@ -103,6 +121,7 @@ export class ArtPlayerVideoSession {
         for (const [event, listener] of this.nativeListeners) {
             this.config.player.video.removeEventListener(event, listener);
         }
+        this.seekController.destroy();
         this.config.player.off('ready', this.handleReady);
         this.config.player.off('video:timeupdate', this.handleTimeUpdate);
     }

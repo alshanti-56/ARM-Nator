@@ -20,7 +20,12 @@ test("filters embedded MPV and KSPlayer Metal independently", () => {
       supportsKsPlayerMetal: true,
       supportsManagedExternalPlayers: false,
     }),
-    [VideoPlayer.ArtPlayer, VideoPlayer.Html5Player, VideoPlayer.KsPlayer],
+    [
+      VideoPlayer.ArtPlayer,
+      VideoPlayer.ArtPlayer2,
+      VideoPlayer.Html5Player,
+      VideoPlayer.KsPlayer,
+    ],
   );
   assert.deepEqual(
     playerIds({
@@ -28,7 +33,12 @@ test("filters embedded MPV and KSPlayer Metal independently", () => {
       supportsKsPlayerMetal: false,
       supportsManagedExternalPlayers: false,
     }),
-    [VideoPlayer.ArtPlayer, VideoPlayer.Html5Player, VideoPlayer.EmbeddedMpv],
+    [
+      VideoPlayer.ArtPlayer,
+      VideoPlayer.ArtPlayer2,
+      VideoPlayer.Html5Player,
+      VideoPlayer.EmbeddedMpv,
+    ],
   );
 });
 
@@ -41,6 +51,7 @@ test("keeps web and managed external engine ordering unchanged", () => {
     }),
     [
       VideoPlayer.ArtPlayer,
+      VideoPlayer.ArtPlayer2,
       VideoPlayer.Html5Player,
       VideoPlayer.EmbeddedMpv,
       VideoPlayer.KsPlayer,

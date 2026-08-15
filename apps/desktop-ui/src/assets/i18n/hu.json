@@ -245,6 +245,7 @@
         "VOD_VIDEO_PLAYER_DESCRIPTION": "Default player for movies and series episodes",
         "PLAYER_HTML5": "HTML5-videólejátszó",
         "PLAYER_ARTPLAYER": "ArtPlayer",
+        "PLAYER_ARTPLAYER2": "ArtPlayer 2 (stock)",
         "PLAYER_EMBEDDED_MPV": "Beágyazott MPV",
         "PLAYER_MPV": "MPV-lejátszó",
         "PLAYER_VLC": "VLC",

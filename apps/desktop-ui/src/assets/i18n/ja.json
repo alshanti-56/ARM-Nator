@@ -246,6 +246,7 @@
         "VOD_VIDEO_PLAYER_DESCRIPTION": "Default player for movies and series episodes",
         "PLAYER_HTML5": "HTML5ビデオプレーヤー",
         "PLAYER_ARTPLAYER": "ArtPlayer",
+        "PLAYER_ARTPLAYER2": "ArtPlayer 2 (stock)",
         "PLAYER_EMBEDDED_MPV": "組み込みMPV",
         "PLAYER_MPV": "MPVプレーヤー",
         "PLAYER_VLC": "VLC",

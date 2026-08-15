@@ -27,6 +27,7 @@ import {
 import type { ExternalPlayerName } from "@arm-nator/shared/interfaces";
 import { RuntimeCapabilitiesService, SettingsStore } from "@arm-nator/services";
 import { ArtPlayerComponent } from "../art-player/art-player.component";
+import { ArtPlayer2Component } from "../art-player2/art-player2.component";
 import { EmbeddedMpvPlayerComponent } from "../embedded-mpv-player/embedded-mpv-player.component";
 import { HtmlVideoPlayerComponent } from "../html-video-player/html-video-player.component";
 import {
@@ -55,6 +56,7 @@ import {
   },
   imports: [
     ArtPlayerComponent,
+    ArtPlayer2Component,
     ClipboardModule,
     EmbeddedMpvPlayerComponent,
     HtmlVideoPlayerComponent,

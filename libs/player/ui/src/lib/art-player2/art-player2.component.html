@@ -1,0 +1,11 @@
+<div
+  #playerRoot
+  class="art-player2-shell"
+  [class.art-player2-shell--interaction-disabled]="!interactionEnabled()"
+  [attr.data-artplayer2-title]="mediaTitle()?.primary || null"
+>
+  <div #artplayer class="art-player2-container"></div>
+  <div class="art-player2-buffer-readout" data-test-id="artplayer2-buffer">
+    {{ bufferReadout() }}
+  </div>
+</div>

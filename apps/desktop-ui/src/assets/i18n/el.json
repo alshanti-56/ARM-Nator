@@ -246,6 +246,7 @@
         "VOD_VIDEO_PLAYER_DESCRIPTION": "Default player for movies and series episodes",
         "PLAYER_HTML5": "Πρόγραμμα αναπαραγωγής HTML5",
         "PLAYER_ARTPLAYER": "ArtPlayer",
+        "PLAYER_ARTPLAYER2": "ArtPlayer 2 (stock)",
         "PLAYER_EMBEDDED_MPV": "Ενσωματωμένο MPV",
         "PLAYER_MPV": "MPV player",
         "PLAYER_VLC": "VLC",

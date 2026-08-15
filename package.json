@@ -58,6 +58,7 @@
     "@ngrx/store-devtools": "21.1.1",
     "@ngx-pwa/local-storage": "21.0.0",
     "artplayer": "5.4.0",
+    "artplayer-plugin-hls-control": "1.1.0",
     "axios": "^1.4.0",
     "better-sqlite3": "12.9.0",
     "drizzle-orm": "0.45.2",

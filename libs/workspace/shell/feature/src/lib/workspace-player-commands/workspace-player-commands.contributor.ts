@@ -33,13 +33,22 @@ export const PLAYER_COMMAND_DEFS: readonly PlayerCommandDefinition[] = [
     priority: 90,
   },
   {
+    id: "switch-player-artplayer2",
+    player: VideoPlayer.ArtPlayer2,
+    icon: "play_circle",
+    nameKey: "SETTINGS.PLAYER_ARTPLAYER2",
+    keywords: ["player", "artplayer", "artplayer2", "stock", "web", "hls"],
+    requires: "none",
+    priority: 91,
+  },
+  {
     id: "switch-player-html5",
     player: VideoPlayer.Html5Player,
     icon: "play_circle",
     nameKey: "SETTINGS.PLAYER_HTML5",
     keywords: ["player", "html5", "web", "hls"],
     requires: "none",
-    priority: 91,
+    priority: 92,
   },
   {
     id: "switch-player-embedded-mpv",
@@ -48,7 +57,7 @@ export const PLAYER_COMMAND_DEFS: readonly PlayerCommandDefinition[] = [
     nameKey: "SETTINGS.PLAYER_EMBEDDED_MPV",
     keywords: ["player", "embedded", "mpv", "native"],
     requires: "embedded-mpv",
-    priority: 92,
+    priority: 93,
   },
   {
     id: "switch-player-mpv",
@@ -57,7 +66,7 @@ export const PLAYER_COMMAND_DEFS: readonly PlayerCommandDefinition[] = [
     nameKey: "SETTINGS.PLAYER_MPV",
     keywords: ["player", "external", "mpv"],
     requires: "managed-external",
-    priority: 93,
+    priority: 94,
   },
   {
     id: "switch-player-ksplayer",
@@ -66,7 +75,7 @@ export const PLAYER_COMMAND_DEFS: readonly PlayerCommandDefinition[] = [
     nameKey: "SETTINGS.PLAYER_KSPLAYER",
     keywords: ["player", "embedded", "ksplayer", "hardware"],
     requires: "ksplayer-metal",
-    priority: 94,
+    priority: 95,
   },
   {
     id: "switch-player-vlc",
@@ -75,7 +84,7 @@ export const PLAYER_COMMAND_DEFS: readonly PlayerCommandDefinition[] = [
     nameKey: "SETTINGS.PLAYER_VLC",
     keywords: ["player", "external", "vlc"],
     requires: "managed-external",
-    priority: 95,
+    priority: 96,
   },
 ];
 

@@ -1,4 +1,5 @@
 export * from './lib/art-player/art-player.component';
+export * from './lib/art-player2/art-player2.component';
 export * from './lib/audio-player/audio-player.component';
 export * from './lib/embedded-mpv-player/embedded-mpv-overlay-visibility.service';
 export * from './lib/embedded-mpv-player/embedded-mpv-player.component';

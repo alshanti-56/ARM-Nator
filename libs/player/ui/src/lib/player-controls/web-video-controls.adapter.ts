@@ -27,7 +27,7 @@ import {
     applyVideoCurrentTime,
     applyVideoSpeed,
     applyVideoVolume,
-    hasSeekableRange,
+    canSeekFiniteVideo,
     isVideoStalled,
     mapVideoStatus,
     normalizeVideoDuration,
@@ -38,6 +38,8 @@ import {
     type WebVideoMetadataOptions,
     WEB_VIDEO_EVENTS,
 } from './web-video-controls.media-helpers';
+
+const NOISY_MEDIA_REFRESH_DELAY_MS = 250;
 
 /**
  * Engine-agnostic accessors a web engine injects so the adapter can read/select
@@ -153,7 +155,7 @@ export class WebVideoControlsAdapter implements PlayerController {
             positionSeconds: Math.max(0, video?.currentTime ?? 0),
             durationSeconds: duration,
             isLive,
-            canSeek: !isLive && (duration ?? 0) > 0 && hasSeekableRange(video),
+            canSeek: canSeekFiniteVideo(video, duration, isLive),
             volume: readVideoVolume(video),
             audioTracks,
             subtitleTracks,
@@ -326,15 +328,45 @@ export class WebVideoControlsAdapter implements PlayerController {
         this.subtitleAdjustments = new WebVideoSubtitleAdjustments(video);
         this.subtitleAdjustments.apply(this.subtitle());
 
-        const onEvent = () => {
-            if (this.video === video && this.bindingGeneration === generation) {
-                this.refresh();
+        let noisyRefreshTimer: number | null = null;
+        const onEvent = (event?: Event) => {
+            if (this.video !== video || this.bindingGeneration !== generation) {
+                return;
             }
+
+            if (
+                event?.type === 'timeupdate' ||
+                event?.type === 'progress'
+            ) {
+                if (noisyRefreshTimer !== null) {
+                    return;
+                }
+                noisyRefreshTimer = window.setTimeout(() => {
+                    noisyRefreshTimer = null;
+                    if (
+                        this.video === video &&
+                        this.bindingGeneration === generation
+                    ) {
+                        this.refresh();
+                    }
+                }, NOISY_MEDIA_REFRESH_DELAY_MS);
+                return;
+            }
+
+            if (noisyRefreshTimer !== null) {
+                window.clearTimeout(noisyRefreshTimer);
+                noisyRefreshTimer = null;
+            }
+            this.refresh();
         };
         for (const eventName of WEB_VIDEO_EVENTS) {
             video.addEventListener(eventName, onEvent);
         }
         this.detachFn = () => {
+            if (noisyRefreshTimer !== null) {
+                window.clearTimeout(noisyRefreshTimer);
+                noisyRefreshTimer = null;
+            }
             for (const eventName of WEB_VIDEO_EVENTS) {
                 video.removeEventListener(eventName, onEvent);
             }

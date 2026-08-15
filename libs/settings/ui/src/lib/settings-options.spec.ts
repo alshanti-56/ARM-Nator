@@ -16,7 +16,12 @@ test("settings keeps KS Player when embedded MPV is unsupported", () => {
         supportsManagedExternalPlayers: false,
       }),
     ),
-    [VideoPlayer.ArtPlayer, VideoPlayer.Html5Player, VideoPlayer.KsPlayer],
+    [
+      VideoPlayer.ArtPlayer,
+      VideoPlayer.ArtPlayer2,
+      VideoPlayer.Html5Player,
+      VideoPlayer.KsPlayer,
+    ],
   );
 });
 
@@ -29,7 +34,12 @@ test("settings hides KS Player when it is unsupported", () => {
         supportsManagedExternalPlayers: false,
       }),
     ),
-    [VideoPlayer.ArtPlayer, VideoPlayer.Html5Player, VideoPlayer.EmbeddedMpv],
+    [
+      VideoPlayer.ArtPlayer,
+      VideoPlayer.ArtPlayer2,
+      VideoPlayer.Html5Player,
+      VideoPlayer.EmbeddedMpv,
+    ],
   );
 });
 
@@ -44,6 +54,7 @@ test("settings preserves web and external player ordering", () => {
     ),
     [
       VideoPlayer.ArtPlayer,
+      VideoPlayer.ArtPlayer2,
       VideoPlayer.Html5Player,
       VideoPlayer.MPV,
       VideoPlayer.VLC,

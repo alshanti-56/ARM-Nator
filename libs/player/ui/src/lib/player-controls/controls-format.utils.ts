@@ -35,7 +35,7 @@ export function formatBufferSeconds(
     if (typeof value !== 'number' || !Number.isFinite(value)) {
         return null;
     }
-    return `${Math.max(0, value).toFixed(1)}s`;
+    return `${Math.floor(Math.max(0, value))}s`;
 }
 
 /** Rounds and formats a playback rate as e.g. `1.5×` for tooltips. */

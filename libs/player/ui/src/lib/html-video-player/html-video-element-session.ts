@@ -6,6 +6,7 @@ import {
   classifyMpegTsPlaybackIssue,
   createPlaybackSourceMetadata,
 } from "../playback-diagnostics/playback-diagnostics.util";
+import { VodSeekController } from "../web-video-support/vod-seek-controller";
 
 const debugHtmlPlayer = createDevLogger("HtmlVideoPlayer");
 
@@ -22,6 +23,7 @@ export interface HtmlVideoElementSessionConfig {
 
 export class HtmlVideoElementSession {
   private attached = false;
+  private readonly seekController: VodSeekController;
 
   private readonly handleNativePlaybackError = (): void => {
     const video = this.config.video;
@@ -48,10 +50,7 @@ export class HtmlVideoElementSession {
   };
 
   private readonly handleLoadedMetadata = (): void => {
-    const startTime = this.config.getStartTime();
-    if (startTime > 0) {
-      this.config.video.currentTime = startTime;
-    }
+    this.seekController.requestStartTime();
   };
 
   private readonly handleTimeUpdate = (): void => {
@@ -106,21 +105,35 @@ export class HtmlVideoElementSession {
     ["loadedmetadata", this.handleLoadedMetadata],
     ["timeupdate", this.handleTimeUpdate],
     ["error", this.handleNativePlaybackError],
-    ["loadeddata", this.clearPlaybackIssue],
     ["playing", this.clearPlaybackIssue],
     ["ended", this.handlePlaybackEnded],
   ];
 
-  constructor(private readonly config: HtmlVideoElementSessionConfig) {}
+  constructor(private readonly config: HtmlVideoElementSessionConfig) {
+    this.seekController = new VodSeekController({
+      video: config.video,
+      getStartTime: config.getStartTime,
+      getDuration: () => config.video.duration,
+      isVod: () => config.getIsLive?.() !== true,
+      seek: (seconds) => {
+        config.video.currentTime = seconds;
+      },
+    });
+  }
 
   attach(): void {
     if (this.attached) {
       return;
     }
     this.attached = true;
+    this.seekController.attach();
     for (const [event, listener] of this.listeners) {
       this.config.video.addEventListener(event, listener);
     }
+  }
+
+  resetForSourceChange(): void {
+    this.seekController.reset();
   }
 
   play(): void {
@@ -137,11 +150,13 @@ export class HtmlVideoElementSession {
 
   destroy(): void {
     if (!this.attached) {
+      this.seekController.destroy();
       return;
     }
     this.attached = false;
     for (const [event, listener] of this.listeners) {
       this.config.video.removeEventListener(event, listener);
     }
+    this.seekController.destroy();
   }
 }

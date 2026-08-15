@@ -57,6 +57,7 @@ export class LivePlaybackWatchdog {
 
   start(video: HTMLVideoElement, config: LivePlaybackWatchdogConfig): void {
     this.stop();
+    this.userPausedIntent = false;
     this.video = video;
     this.config = config;
     this.lastCurrentTime = video.currentTime;
@@ -87,6 +88,7 @@ export class LivePlaybackWatchdog {
     this.lastCurrentTime = 0;
     this.lastProgressAt = 0;
     this.unstableSince = 0;
+    this.userPausedIntent = false;
   }
 
   destroy(): void {

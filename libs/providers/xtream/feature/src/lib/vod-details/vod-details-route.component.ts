@@ -338,7 +338,7 @@ export class VodDetailsRouteComponent implements OnInit, OnDestroy {
       if (this.lastInitKey() === initKey) return;
       this.lastInitKey.set(initKey);
 
-      this.inlinePlayback.set(null);
+      this.playback.closeInlinePlayer();
       this.vodPlaybackPosition.set(null);
       this.initializeVodDetails(playlistId, vodId);
     });

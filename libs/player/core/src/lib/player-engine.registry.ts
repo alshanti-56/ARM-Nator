@@ -24,6 +24,12 @@ export const PLAYER_ENGINES: readonly PlayerEngineDescriptor[] = [
     priority: 10,
   },
   {
+    id: VideoPlayer.ArtPlayer2,
+    kind: "web",
+    labelKey: "SETTINGS.PLAYER_ARTPLAYER2",
+    priority: 15,
+  },
+  {
     id: VideoPlayer.Html5Player,
     kind: "web",
     labelKey: "SETTINGS.PLAYER_HTML5",

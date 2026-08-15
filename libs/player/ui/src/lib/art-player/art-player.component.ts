@@ -34,8 +34,6 @@ import { syncOnlineSubtitleTrack } from "../web-video-support/online-subtitle-tr
 
 const debugArtPlayer = createDevLogger("ArtPlayer");
 
-Artplayer.AUTO_PLAYBACK_TIMEOUT = 10000;
-
 @Component({
   selector: "app-art-player",
   imports: [PlayerControlsComponent],
@@ -155,6 +153,11 @@ export class ArtPlayerComponent implements OnInit, OnDestroy, OnChanges {
         Referer: channel.http.referrer,
         Origin: channel.http.origin,
       },
+      mediaRequestHeaders: {
+        'User-Agent': channel.http['user-agent'],
+        Referer: channel.http.referrer,
+        Origin: channel.http.origin,
+      },
     });
     this.sourceSession = sourceSession;
 
@@ -179,10 +182,13 @@ export class ArtPlayerComponent implements OnInit, OnDestroy, OnChanges {
     const videoSession = new ArtPlayerVideoSession({
       player,
       sourceUrl: channel.url,
+      isLive: () => this.isLive(),
       getStartTime: () => this.startTime(),
       getDuration: () => sourceSession.resolveDuration(player.duration),
       persistSharedVolume: true,
       emitPlaybackIssue: (issue) => this.playbackIssue.emit(issue),
+      shouldDeferNativePlaybackError: (errorCode) =>
+        sourceSession.shouldDeferNativePlaybackError(errorCode),
       emitTimeUpdate: (value) => this.timeUpdate.emit(value),
       emitPlaybackEnded: () => this.playbackEnded.emit(),
     });

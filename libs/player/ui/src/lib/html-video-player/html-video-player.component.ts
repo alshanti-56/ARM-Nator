@@ -41,13 +41,10 @@ import {
   shouldUseHls,
   shouldUseMpegTs,
 } from "../web-video-support/web-video-source-selection";
-import {
-  createMpegTsConfig,
-  isRecoverableMpegTsLiveFailure,
-} from "../web-video-support/mpegts-live-recovery";
+import { createMpegTsConfig } from "../web-video-support/mpegts-live-recovery";
 import { syncOnlineSubtitleTrack } from "../web-video-support/online-subtitle-track";
+import { ProgressiveVodProxySession } from "../web-video-support/progressive-vod-proxy-session";
 import { HtmlVideoElementSession } from "./html-video-element-session";
-import { emitMpegTsPlaybackError } from "./html-video-player-diagnostics";
 import { HtmlVideoLiveController } from "./html-video-live-controller";
 import {
   HtmlVideoPlayerControlsBridge,
@@ -117,17 +114,24 @@ export class HtmlVideoPlayerComponent implements OnInit, OnChanges, OnDestroy {
   private mpegtsUrl = "";
   private readonly liveController = new HtmlVideoLiveController({
     getVideo: () => this.videoPlayer.nativeElement,
+    getSourceUrl: () => this.channel?.url,
     isLive: () => this.isLive(),
     restartMpegTs: () => this.restartMpegTsAfterDisconnect(),
     bindControlsSource: (source) => this.bindControlsSource(source),
     play: () => this.handlePlayOperation(),
     emitPlaybackIssue: (issue) => this.playbackIssue.emit(issue),
   });
+  private readonly unregisterPlaybackIntentListener =
+    this.controlsAdapter.registerPlaybackIntentListener((intent) =>
+      this.liveController.handlePlaybackIntent(intent),
+    );
   /** Shaka session for DASH (.mpd) streams, created on first use */
   private shakaSession: ShakaVideoSession | null = null;
   private controlsSource: HtmlVideoControlsSource | null = null;
   private controlsBridge: HtmlVideoPlayerControlsBridge | null = null;
   private videoSession: HtmlVideoElementSession | null = null;
+  private readonly progressiveVodProxy = new ProgressiveVodProxySession();
+  private sourceGeneration = 0;
 
   ngOnInit() {
     this.syncOnlineSubtitle();
@@ -193,8 +197,11 @@ export class HtmlVideoPlayerComponent implements OnInit, OnChanges, OnDestroy {
    * @param channel given channel object
    */
   playChannel(channel: Channel): void {
+    const sourceGeneration = ++this.sourceGeneration;
+    this.videoSession?.resetForSourceChange();
     this.liveController.stop();
     this.clearControlsSource();
+    this.progressiveVodProxy.release();
     this.destroyMpegtsPlayer();
     this.shakaSession?.stop();
     clearNativeVideoSources(this.videoPlayer.nativeElement);
@@ -243,15 +250,39 @@ export class HtmlVideoPlayerComponent implements OnInit, OnChanges, OnDestroy {
         this.liveController.openHls(url);
       } else {
         debugHtmlPlayer("Using native video player");
-        setNativeVideoSource(
-          this.videoPlayer.nativeElement,
-          url,
-          getNativeMediaMimeType(extension),
-        );
         this.syncOnlineSubtitle();
         this.bindControlsSource({ kind: "native" });
-        this.videoPlayer.nativeElement.load();
-        this.handlePlayOperation();
+        const setSource = (sourceUrl: string): void => {
+          setNativeVideoSource(
+            this.videoPlayer.nativeElement,
+            sourceUrl,
+            getNativeMediaMimeType(extension),
+          );
+        };
+        if (!this.isLive() && extension === "mp4") {
+          void this.progressiveVodProxy
+            .load(
+              { setSource },
+              url,
+              {
+                "User-Agent": channel.http?.["user-agent"],
+                Referer: channel.http?.referrer,
+                Origin: channel.http?.origin,
+              },
+              () => this.sourceGeneration === sourceGeneration,
+            )
+            .then((loaded) => {
+              if (!loaded || this.sourceGeneration !== sourceGeneration) {
+                return;
+              }
+              this.videoPlayer.nativeElement.load();
+              this.handlePlayOperation();
+            });
+        } else {
+          setSource(url);
+          this.videoPlayer.nativeElement.load();
+          this.handlePlayOperation();
+        }
       }
     }
   }
@@ -312,12 +343,7 @@ export class HtmlVideoPlayerComponent implements OnInit, OnChanges, OnDestroy {
         if (this.mpegtsPlayer !== player) {
           return;
         }
-        emitMpegTsPlaybackError(url, { type, details, info }, (issue) =>
-          this.playbackIssue.emit(issue),
-        );
-        if (isLive && isRecoverableMpegTsLiveFailure(type, details, info)) {
-          this.liveController.requestMpegTsRecovery(`${type}: ${details}`);
-        }
+        this.liveController.handleMpegTsError(url, { type, details, info });
       },
     );
     player.load();
@@ -358,6 +384,8 @@ export class HtmlVideoPlayerComponent implements OnInit, OnChanges, OnDestroy {
    * Destroy hls instance on component destroy and clean up event listener
    */
   ngOnDestroy(): void {
+    this.sourceGeneration += 1;
+    this.progressiveVodProxy.release();
     this.videoPlayer.nativeElement.removeEventListener(
       "ended",
       this.handleMpegTsEnded,
@@ -365,6 +393,7 @@ export class HtmlVideoPlayerComponent implements OnInit, OnChanges, OnDestroy {
     this.controlsBridge?.destroy();
     this.controlsBridge = null;
     this.controlsSource = null;
+    this.unregisterPlaybackIntentListener();
     this.liveController.destroy();
     this.videoSession?.destroy();
     this.videoSession = null;

@@ -34,6 +34,33 @@
     (previousEpisodeRequested)="previousEpisodeRequested.emit()"
     (nextEpisodeRequested)="nextEpisodeRequested.emit()"
   />
+} @else if (selectedPlayer() === "artplayer2") {
+  @defer (on immediate) {
+    <app-art-player2
+      [channel]="$any(channel)"
+      [mediaTitle]="resolvedMediaTitle()"
+      [volume]="volume()"
+      [showCaptions]="showCaptions()"
+      [isLive]="resolvedIsLive()"
+      [interactionEnabled]="playbackInteractionEnabled()"
+      [startTime]="startTime()"
+      [requestHeaders]="resolvedPlayback().headers ?? {}"
+      [seriesNavigation]="seriesNavigation()"
+      [onlineSubtitleUrl]="resolvedPlayback().subtitleUrl ?? ''"
+      [onlineSubtitleLabel]="
+        resolvedPlayback().subtitleLabel ?? 'Online subtitle'
+      "
+      [onlineSubtitleLanguage]="resolvedPlayback().subtitleLanguage ?? 'und'"
+      (timeUpdate)="timeUpdate.emit($event)"
+      (runtimeSnapshotChange)="runtimeSnapshotChange.emit($event)"
+      (playbackIssue)="handlePlaybackIssue($event)"
+      (playbackEnded)="playbackEnded.emit()"
+      (previousEpisodeRequested)="previousEpisodeRequested.emit()"
+      (nextEpisodeRequested)="nextEpisodeRequested.emit()"
+    />
+  } @placeholder {
+    <div class="web-player-defer-placeholder" aria-hidden="true"></div>
+  }
 } @else {
   @defer (on immediate) {
     <app-art-player

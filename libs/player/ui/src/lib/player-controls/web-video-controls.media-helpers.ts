@@ -1,6 +1,7 @@
 import type { PlayerStatus } from './player-controls.model';
 
 const HAVE_FUTURE_DATA = 3;
+const HAVE_METADATA = 1;
 const NETWORK_EMPTY = 0;
 
 export interface WebVideoMetadataOptions {
@@ -48,6 +49,27 @@ export function toggleVideoPlay(video: HTMLVideoElement | null): void {
     }
 }
 
+export function canSeekFiniteVideo(
+    video: HTMLVideoElement | null,
+    duration: number | null,
+    isLive: boolean
+): boolean {
+    if (
+        isLive ||
+        !video ||
+        duration === null ||
+        !Number.isFinite(duration) ||
+        duration <= 0
+    ) {
+        return false;
+    }
+
+    // A finite duration plus loaded metadata is enough to let the browser
+    // attempt a byte-range seek. Some providers do not expose a seekable
+    // TimeRanges entry until the first range request completes.
+    return hasSeekableRange(video) || video.readyState >= HAVE_METADATA;
+}
+
 export function applyVideoCurrentTime(
     video: HTMLVideoElement | null,
     seconds: number,
@@ -58,8 +80,12 @@ export function applyVideoCurrentTime(
     }
     const duration = getDuration();
     const upperBound = Number.isFinite(duration) ? duration : seconds;
+    const shouldResume = !video.paused && !video.ended;
     try {
         video.currentTime = Math.max(0, Math.min(seconds, upperBound));
+        if (shouldResume) {
+            void video.play().catch(() => undefined);
+        }
     } catch {
         // Some media implementations reject writes while changing source.
     }
@@ -115,10 +141,22 @@ export function applyTrackSelection(
 }
 
 export function isVideoStalled(video: HTMLVideoElement | null): boolean {
-    if (!video || video.readyState === undefined) {
+    if (!video || video.readyState === undefined || video.paused || video.ended) {
         return false;
     }
-    return !video.paused && !video.ended && video.readyState < HAVE_FUTURE_DATA;
+    if (video.readyState >= HAVE_FUTURE_DATA) {
+        return false;
+    }
+
+    // A progressive MP4 can briefly report HAVE_METADATA while a post-seek
+    // frame is being decoded even though the current contiguous range already
+    // contains useful forward media. Prefer that measured buffer over a
+    // transient readyState downgrade.
+    const bufferAhead = getBufferAheadSeconds(video);
+    if (bufferAhead > 0.25) {
+        return false;
+    }
+    return video.readyState < HAVE_FUTURE_DATA;
 }
 
 export function normalizeVideoDuration(
@@ -184,5 +222,20 @@ export function mapVideoStatus(video: HTMLVideoElement | null): PlayerStatus {
     if (video.paused) {
         return 'paused';
     }
-    return video.readyState < HAVE_FUTURE_DATA ? 'loading' : 'playing';
+    return isVideoStalled(video) ? 'loading' : 'playing';
+}
+
+function getBufferAheadSeconds(video: HTMLVideoElement): number {
+    try {
+        for (let index = 0; index < video.buffered.length; index += 1) {
+            const start = video.buffered.start(index);
+            const end = video.buffered.end(index);
+            if (video.currentTime >= start && video.currentTime <= end) {
+                return Math.max(0, end - video.currentTime);
+            }
+        }
+    } catch {
+        // Media ranges can change while being read.
+    }
+    return 0;
 }

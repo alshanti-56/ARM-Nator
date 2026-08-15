@@ -243,6 +243,8 @@ export interface ElectronBridgeApi extends ElectronBridgeKsPlayerMetalApi {
     inspectPlaybackUrl: (url: string, headers?: Record<string, string>) => Promise<PlaybackNetworkInspection>;
     createHlsProxySession: (url: string, headers?: Record<string, string>) => Promise<{ id: string; url: string }>;
     releaseHlsProxySession: (sessionId: string) => Promise<void>;
+    createProgressiveVodProxySession: (url: string, headers?: Record<string, string>) => Promise<{ id: string; url: string }>;
+    releaseProgressiveVodProxySession: (sessionId: string) => Promise<void>;
     getPlayerEngineAvailability: () => Promise<PlayerEngineAvailability[]>;
     updateSettings: (settings: Partial<Settings>) => Promise<void>;
     getAiSettings: () => Promise<ElectronBridgeAiSettings>;
