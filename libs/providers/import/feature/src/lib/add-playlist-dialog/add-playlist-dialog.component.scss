@@ -193,6 +193,13 @@
         width: 100%;
     }
 
+    .advanced-options-toggle {
+        align-self: flex-start;
+        min-width: auto;
+        padding-inline: 0;
+        color: var(--apd-accent);
+    }
+
     // Textarea overrides the compact density so multi-line input has room.
     textarea.mat-mdc-input-element {
         min-height: 140px;

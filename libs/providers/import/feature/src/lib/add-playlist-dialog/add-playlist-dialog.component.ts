@@ -64,8 +64,8 @@ export class AddPlaylistDialogComponent {
         {
             value: 'stalker',
             icon: 'router',
-            labelKey: 'HOME.STALKER_PORTAL.TITLE',
-            subKey: 'HOME.STALKER_PORTAL.URL_HINT',
+            labelKey: 'HOME.ADD_PLAYLIST.METHOD_STALKER_LABEL',
+            subKey: 'HOME.ADD_PLAYLIST.METHOD_STALKER_SUB',
         },
     ];
 

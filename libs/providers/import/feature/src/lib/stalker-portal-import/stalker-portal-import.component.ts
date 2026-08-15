@@ -1,5 +1,6 @@
 import { Component, inject, output, signal } from '@angular/core';
 import { FormControl, FormGroup, FormsModule, ReactiveFormsModule, Validators } from '@angular/forms';
+import { MatButtonModule } from '@angular/material/button';
 import { MatCheckboxModule } from '@angular/material/checkbox';
 import { MatFormFieldModule } from '@angular/material/form-field';
 import { MatInputModule } from '@angular/material/input';
@@ -18,7 +19,15 @@ import {
 @Component({
     selector: 'app-stalker-portal-import',
     standalone: true,
-    imports: [FormsModule, ReactiveFormsModule, MatCheckboxModule, MatFormFieldModule, MatInputModule, TranslatePipe],
+    imports: [
+        FormsModule,
+        ReactiveFormsModule,
+        MatButtonModule,
+        MatCheckboxModule,
+        MatFormFieldModule,
+        MatInputModule,
+        TranslatePipe,
+    ],
     templateUrl: './stalker-portal-import.component.html',
 })
 export class StalkerPortalImportComponent {
@@ -43,6 +52,7 @@ export class StalkerPortalImportComponent {
     });
     private readonly store = inject(Store);
     derivesDeviceIds = signal(false);
+    advancedOpen = signal(false);
     showsForeignOuiHint = false;
     private derivationRequest = 0;
 
