@@ -18,8 +18,11 @@
         />
     }
 
-    @if (!hasNoPlaylists()) {
-        <label class="search-field">
+    @if (!hasNoPlaylists() && canUseSearch()) {
+        <label
+            class="search-field"
+            [attr.title]="searchScopeLabel() || null"
+        >
             <mat-icon>search</mat-icon>
             @if (searchScopeLabel()) {
                 <span class="search-chip search-chip--scope">
@@ -28,7 +31,7 @@
             }
             <input
                 #searchInput
-                type="search"
+                type="text"
                 spellcheck="false"
                 [value]="searchQuery()"
                 (input)="onSearchInput($event)"

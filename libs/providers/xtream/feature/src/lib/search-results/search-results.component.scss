@@ -166,6 +166,15 @@
 
 // Subheader row for global search (scope note + filters/options)
 .global-search-subheader {
+  padding: 10px;
+  border: 1px solid var(--mat-sys-outline-variant);
+  border-radius: 10px;
+  background: color-mix(
+    in srgb,
+    var(--mat-sys-surface-container) 72%,
+    transparent
+  );
+
   display: flex;
   flex-direction: column;
   align-items: stretch;
@@ -209,6 +218,19 @@
 
   ::ng-deep mat-checkbox {
     flex-shrink: 0;
+  }
+}
+
+@media (max-width: 640px) {
+  .global-search-subheader {
+    padding: 9px;
+
+    .global-search-controls,
+    .global-search-filters,
+    .global-search-options {
+      align-items: flex-start;
+      gap: 6px 10px;
+    }
   }
 }
 

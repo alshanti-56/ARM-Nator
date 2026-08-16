@@ -12,6 +12,12 @@
     border-bottom: 1px solid var(--mat-sys-outline-variant);
     background: var(--app-header-bg, var(--mat-sys-surface-container-low));
     app-region: drag;
+    overflow-x: auto;
+    scrollbar-width: none;
+
+    &::-webkit-scrollbar {
+        display: none;
+    }
 }
 
 .playlist-switcher {
@@ -21,6 +27,7 @@
 }
 
 .search-field {
+    container: workspace-search / inline-size;
     flex: 1;
     min-width: 160px;
     max-width: 560px;
@@ -53,6 +60,7 @@
     }
 
     .search-chip {
+        box-sizing: border-box;
         max-width: 200px;
         padding: 0 10px;
         height: 24px;
@@ -74,7 +82,7 @@
         white-space: nowrap;
         overflow: hidden;
         text-overflow: ellipsis;
-        flex-shrink: 1;
+        flex: 0 1 auto;
         min-width: 48px;
     }
 
@@ -98,6 +106,7 @@
 
     input {
         flex: 1;
+        min-width: 0;
         border: none;
         outline: none;
         background: transparent;
@@ -162,8 +171,16 @@
     }
 }
 
+@container workspace-search (max-width: 360px) {
+    .search-field .search-chip--scope,
+    .search-field .search-chip--status {
+        display: none;
+    }
+}
+
 .header-actions {
     display: flex;
+    flex: 0 0 auto;
     align-items: center;
     gap: 4px;
     app-region: no-drag;
@@ -271,15 +288,29 @@
 }
 
 @media (max-width: 640px) {
+    .workspace-header {
+        flex-wrap: nowrap;
+    }
+
     .playlist-switcher {
-        width: auto;
+        width: 140px;
         min-width: 140px;
-        flex: 1;
+        flex: 0 0 140px;
     }
 
     .search-field {
+        width: min(260px, 58vw);
+        min-width: 170px;
+        flex: 0 0 min(260px, 58vw);
+
         .search-chip--status {
             display: none;
         }
+    }
+
+    .header-actions--trailing {
+        margin-left: 0;
+        padding-left: 4px;
+        border-left: 0;
     }
 }

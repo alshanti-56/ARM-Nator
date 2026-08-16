@@ -6,7 +6,7 @@ refinement tools, and plays streams through several local and browser-based
 engines.
 
 This document describes the current repository rather than a historical
-roadmap. The package version in this checkout is `0.29.0`.
+roadmap. The package version in this checkout is `0.30.0`.
 
 ## What is available now
 
@@ -244,6 +244,17 @@ pnpm clean                # Remove generated build output
 
 `pnpm dev` is the normal development workflow. The Angular renderer is served
 at `http://localhost:4200` while Electron runs the desktop window.
+
+The same development command also exposes a loopback web data adapter at
+`http://127.0.0.1:4310/api` after SQLite initialization. Opening
+`http://localhost:4200` in a normal browser uses this adapter for playlists,
+catalogs, favorites, recently viewed items, playback positions, app state, and
+Xtream requests. The adapter forwards to the existing database worker; it does
+not open or copy the SQLite file in the browser. Set
+`ARM_NATOR_WEB_API_PORT` before starting Electron to change the API port.
+
+Native-only features such as MPV/VLC launching and Electron BrowserViews remain
+available only in the desktop app.
 
 When validating large Xtream catalogs, open `/workspace/sources` first. Start
 one source at a time, observe its indexed/total progress, and then verify

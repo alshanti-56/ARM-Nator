@@ -32,6 +32,7 @@ import {
 } from '@arm-nator/providers/xtream/data-access';
 
 export interface XtreamChannelListItem {
+    readonly [key: string]: unknown;
     readonly category_id?: string | number;
     readonly id?: string | number;
     readonly name?: string;

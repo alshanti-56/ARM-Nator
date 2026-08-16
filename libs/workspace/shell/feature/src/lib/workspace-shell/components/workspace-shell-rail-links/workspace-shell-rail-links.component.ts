@@ -37,6 +37,18 @@ export class WorkspaceShellRailLinksComponent {
         return link.icon;
     }
 
+    isCustomIcon(link: PortalRailLink): boolean {
+        return link.icon === 'arm_open_slate_reel';
+    }
+
+    isCompoundIcon(link: PortalRailLink): boolean {
+        return link.icon === 'arm_link_play';
+    }
+
+    isYouTubeIcon(link: PortalRailLink): boolean {
+        return link.icon === 'smart_display';
+    }
+
     isActive(link: PortalRailLink): boolean {
         const selectedSection = this.selectedSection();
         if (selectedSection && link.section) {

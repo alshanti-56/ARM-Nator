@@ -1,26 +1,31 @@
 :host {
     position: absolute;
     right: 12px;
-    // The component is mounted inside the bottom control strip. Keep its
-    // bottom edge above that strip so the player's overflow clipping never
-    // cuts off the lower half of the settings sheet.
-    bottom: 70px;
+    // The component is mounted inside the bottom control strip. Anchor it
+    // above the strip's actual height so stacked mini-player controls never
+    // sit underneath the settings sheet.
+    bottom: calc(100% - 16px);
     z-index: 6;
-    width: min(500px, calc(100% - 24px));
-    height: min(520px, calc(100vh - 230px));
+    width: min(420px, calc(100cqw - 24px));
+    height: min(520px, max(140px, calc(100cqh - 176px)));
     max-height: none;
     overflow: hidden;
+    border-radius: 14px;
     display: flex;
     align-items: flex-end;
     justify-content: flex-end;
     pointer-events: auto;
     color: #f4f6fb;
-    font: 14px/1.35 -apple-system, BlinkMacSystemFont, 'SF Pro Text', sans-serif;
+    font: clamp(12px, 1.1cqw, 14px)/1.35 -apple-system, BlinkMacSystemFont, 'SF Pro Text', sans-serif;
+    --settings-nav-width: clamp(96px, 24cqw, 136px);
+    --settings-content-padding: clamp(11px, 1.5cqw, 16px);
+    --settings-gap: clamp(5px, 1cqw, 8px);
 }
 
 .player-settings {
+    box-sizing: border-box;
     display: grid;
-    grid-template-columns: 136px minmax(0, 1fr);
+    grid-template-columns: var(--settings-nav-width) minmax(0, 1fr);
     overflow: hidden;
     border: 1px solid rgba(255, 255, 255, 0.13);
     border-radius: 14px;
@@ -39,7 +44,7 @@
 }
 
 .player-settings__nav {
-    padding: 10px 8px;
+    padding: clamp(7px, 1.5cqw, 10px) clamp(6px, 1.2cqw, 8px);
     min-height: 0;
     overflow-y: auto;
     border-inline-end: 1px solid rgba(255, 255, 255, 0.13);
@@ -47,17 +52,17 @@
 }
 
 .player-settings__nav-title {
-    padding: 6px 9px 12px;
+    padding: clamp(5px, 1cqw, 6px) clamp(7px, 1.4cqw, 9px) clamp(8px, 2cqw, 12px);
     font-weight: 650;
 }
 
 .player-settings__nav-button {
     display: flex;
     align-items: center;
-    gap: 8px;
+    gap: var(--settings-gap);
     width: 100%;
     margin: 2px 0;
-    padding: 8px 9px;
+    padding: clamp(6px, 1.4cqw, 8px) clamp(7px, 1.4cqw, 9px);
     color: #aeb5c5;
     background: transparent;
     border: 0;
@@ -95,21 +100,21 @@
 .player-settings__content {
     min-width: 0;
     min-height: 0;
-    padding: 16px;
+    padding: var(--settings-content-padding);
     overflow-x: hidden;
     overflow-y: auto;
 }
 
 .player-settings__title {
     margin-bottom: 2px;
-    font-size: 16px;
+    font-size: clamp(14px, 1.6cqw, 16px);
     font-weight: 650;
 }
 
 .player-settings__subtitle,
 .player-settings__status {
     color: #aeb5c5;
-    font-size: 12px;
+    font-size: clamp(11px, 1.2cqw, 12px);
 }
 
 .player-settings__subtitle {
@@ -127,9 +132,9 @@
 
 .player-settings__row {
     display: grid;
-    grid-template-columns: 82px minmax(0, 1fr) 42px;
+    grid-template-columns: clamp(64px, 17cqw, 82px) minmax(0, 1fr) clamp(36px, 9cqw, 42px);
     align-items: center;
-    gap: 8px;
+    gap: var(--settings-gap);
     margin: 9px 0;
 }
 
@@ -160,7 +165,7 @@
 .player-settings__display-mode,
 .player-settings__search input {
     min-height: 34px;
-    padding: 7px 9px;
+    padding: clamp(6px, 1.2cqw, 7px) clamp(7px, 1.4cqw, 9px);
     color: #f4f6fb;
     background: rgba(33, 37, 48, 0.9);
     border: 1px solid rgba(255, 255, 255, 0.13);
@@ -183,8 +188,8 @@
 
 .player-settings__search {
     display: grid;
-    grid-template-columns: minmax(0, 1fr) 58px 38px;
-    gap: 7px;
+    grid-template-columns: minmax(0, 1fr) clamp(44px, 12cqw, 58px) clamp(32px, 8cqw, 38px);
+    gap: var(--settings-gap);
 }
 
 .player-settings__search select,
@@ -337,8 +342,8 @@
 
 .player-settings__color-row {
     display: grid;
-    grid-template-columns: 1fr 1fr;
-    gap: 8px;
+    grid-template-columns: repeat(auto-fit, minmax(min(140px, 100%), 1fr));
+    gap: var(--settings-gap);
     margin-top: 10px;
 }
 
@@ -363,9 +368,9 @@
 
 .player-settings__sync {
     display: grid;
-    grid-template-columns: 34px minmax(56px, 1fr) 34px auto;
+    grid-template-columns: clamp(28px, 7cqw, 34px) minmax(44px, 1fr) clamp(28px, 7cqw, 34px) auto;
     align-items: center;
-    gap: 8px;
+    gap: var(--settings-gap);
 }
 
 .player-settings__sync output {
@@ -410,6 +415,7 @@
     display: flex;
     align-items: center;
     justify-content: space-between;
+    flex-wrap: wrap;
     gap: 12px;
     margin-top: 16px;
     padding-top: 14px;
@@ -467,5 +473,59 @@
         flex: 0 0 auto;
         width: auto;
         white-space: nowrap;
+    }
+}
+
+// A mini player can be narrow while the application viewport remains wide.
+// Use the player-controls container so the settings sheet responds to the
+// space it actually has instead of the browser window around it.
+@container player-controls (max-width: 560px) {
+    :host {
+        right: 8px;
+        width: min(340px, calc(100cqw - 16px));
+        // In a mini player, fit the sheet between the header and the
+        // stacked controls instead of allowing it to cover the header.
+        bottom: 100%;
+        // Keep the outer sheet at 150px, while the two inner columns stay at
+        // 130px and remain bottom-aligned above the control bar.
+        height: min(150px, max(130px, calc(100cqh - 82px)));
+    }
+
+    .player-settings__nav,
+    .player-settings__content {
+        box-sizing: border-box;
+        height: min(130px, 100%);
+        align-self: center;
+    }
+}
+
+@container player-controls (max-width: 380px) {
+    .player-settings {
+        grid-template-columns: 1fr;
+    }
+
+    .player-settings__nav {
+        display: flex;
+        gap: 3px;
+        overflow-x: auto;
+        border-inline-end: 0;
+        border-bottom: 1px solid rgba(255, 255, 255, 0.13);
+    }
+
+    .player-settings__nav-title {
+        display: none;
+    }
+
+    .player-settings__nav-button {
+        flex: 0 0 auto;
+        width: auto;
+        white-space: nowrap;
+    }
+
+    .player-settings__nav,
+    .player-settings__content {
+        box-sizing: border-box;
+        height: auto;
+        align-self: stretch;
     }
 }

@@ -77,7 +77,7 @@ export class WorkspaceShellRouteStateService {
 
     if (this.showDashboard()) {
       links.push({
-        icon: "dashboard",
+        icon: "space_dashboard",
         tooltip: this.translateText("WORKSPACE.SHELL.RAIL_DASHBOARD"),
         path: ["/workspace/dashboard"],
         exact: true,
@@ -85,14 +85,14 @@ export class WorkspaceShellRouteStateService {
     }
 
     links.push({
-      icon: "library_books",
+      icon: "playlist_play",
       tooltip: this.translateText("WORKSPACE.SHELL.RAIL_SOURCES"),
       path: ["/workspace/sources"],
     });
 
-    if (this.runtime.isElectron) {
+    if (this.runtime.supportsGlobalSearch) {
       links.push({
-        icon: "search",
+        icon: "manage_search",
         tooltip: this.translateText("WORKSPACE.SHELL.RAIL_GLOBAL_SEARCH"),
         path: ["/workspace/search"],
         exact: true,
@@ -100,7 +100,7 @@ export class WorkspaceShellRouteStateService {
 
       if (this.playlists().some((playlist) => Boolean(playlist.serverUrl))) {
         links.push({
-          icon: "movie_filter",
+          icon: "theater_comedy",
           tooltip: this.translateText("XTREAM.ACTOR_FILMOGRAPHY"),
           path: ["/workspace/filmography"],
           exact: true,
@@ -123,7 +123,7 @@ export class WorkspaceShellRouteStateService {
     });
 
     links.push({
-      icon: "play_circle",
+      icon: "arm_link_play",
       tooltip: this.translateText("WORKSPACE.SHELL.RAIL_DIRECT_PLAY"),
       path: ["/workspace/tools/direct-play"],
       exact: true,

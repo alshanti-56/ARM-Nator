@@ -14,7 +14,19 @@
                 activeClass() === 'is-active' && isActive(link)
             "
         >
-            <mat-icon>{{ resolveIcon(link) }}</mat-icon>
+            @if (isCustomIcon(link)) {
+                <span class="arm-custom-icon" aria-hidden="true">&#xe901;</span>
+            } @else if (isCompoundIcon(link)) {
+                <span class="arm-compound-icon" aria-hidden="true">
+                    <mat-icon>link</mat-icon>
+                    <mat-icon class="arm-play-badge">play_arrow</mat-icon>
+                </span>
+            } @else {
+                <mat-icon>{{ resolveIcon(link) }}</mat-icon>
+                @if (isYouTubeIcon(link)) {
+                    <span class="arm-icon-caption" aria-hidden="true">uYou +</span>
+                }
+            }
         </a>
     }
 </nav>

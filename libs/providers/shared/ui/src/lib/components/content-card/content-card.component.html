@@ -5,6 +5,7 @@
                 mat-icon-button
                 class="remove-button"
                 [matTooltip]="removeTooltip()"
+                [attr.aria-label]="removeTooltip()"
                 (click)="onRemoveClick($event)"
             >
                 <mat-icon>close</mat-icon>

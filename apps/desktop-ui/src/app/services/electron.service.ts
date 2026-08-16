@@ -84,15 +84,7 @@ export class ElectronService extends DataService {
     }
 
     private setupPortalDebugListener() {
-        const onPortalDebugEvent = (
-            window.electron as {
-                onPortalDebugEvent?: (
-                    callback: (
-                        event: Parameters<typeof logPortalDebugEvent>[0]
-                    ) => void
-                ) => void;
-            }
-        ).onPortalDebugEvent;
+        const onPortalDebugEvent = window.electron?.onPortalDebugEvent;
 
         if (AppConfig.production || !onPortalDebugEvent) {
             return;

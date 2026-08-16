@@ -1,18 +1,12 @@
 @use '../../styles/skeleton';
+@use '../../../../../../../ui/styles/motion' as motion;
 
 // ─── Card base ───────────────────────────────────────────────────────────────
 mat-card {
     overflow: hidden;
-    transition:
-        transform 0.18s ease,
-        box-shadow 0.18s ease;
     box-shadow: none;
     background: transparent;
-}
-
-mat-card:hover {
-    transform: translateY(-3px);
-    box-shadow: 0 6px 16px rgba(0, 0, 0, 0.12);
+    @include motion.interactive-surface(-3px);
 }
 
 // ─── Grid layout ─────────────────────────────────────────────────────────────

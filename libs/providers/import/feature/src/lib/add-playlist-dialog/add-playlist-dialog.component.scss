@@ -50,26 +50,30 @@
     line-height: 1.45;
 }
 
-// ─── Method grid (5 flat cards instead of 2-level segmented control) ────────
-// One card per source method. Replaces the prior 3×3 type×subtype matrix
-// which had 9 cells of which only 5 were real (Xtream-via-file, etc. didn't
-// exist). Each card is self-describing — icon + label + one-line sub.
+// ─── Method grid ────────────────────────────────────────────────────────────
+// One spacious card per supported source method. The two cards intentionally
+// fill the row so the chooser reads as a deliberate pair instead of a partial
+// five-column grid.
 .apd-method-grid {
     display: grid;
-    grid-template-columns: repeat(5, minmax(0, 1fr));
-    gap: 10px;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 18px;
     margin: 4px 0 16px;
 }
 
 .apd-method {
     appearance: none;
-    background: var(--apd-segment-track);
-    border: 1px solid var(--apd-border);
-    border-radius: 10px;
-    padding: 10px 11px 12px;
+    background: linear-gradient(
+        145deg,
+        color-mix(in srgb, var(--apd-accent) 8%, transparent),
+        color-mix(in srgb, var(--apd-accent) 4%, transparent)
+    );
+    border: 1px solid color-mix(in srgb, var(--apd-accent) 20%, transparent);
+    border-radius: 16px;
+    padding: 14px;
     display: flex;
     flex-direction: column;
-    gap: 5px;
+    gap: 8px;
     cursor: pointer;
     text-align: left;
     font: inherit;
@@ -79,38 +83,36 @@
     // longest subtitle. Without this the URL card (short text) collapses
     // and the Xtream card (longer text) pushes tall — selection
     // states then look visually inconsistent.
-    min-height: 132px;
+    min-height: 148px;
     transition:
         background-color 160ms ease,
         border-color 160ms ease,
         box-shadow 160ms ease;
 
     &:hover:not(.active) {
-        background: var(--apd-segment-active);
-        border-color: color-mix(in srgb, var(--apd-accent) 32%, transparent);
+        background: linear-gradient(
+            145deg,
+            color-mix(in srgb, var(--apd-accent) 14%, transparent),
+            color-mix(in srgb, var(--apd-accent) 7%, transparent)
+        );
+        border-color: color-mix(in srgb, var(--apd-accent) 40%, transparent);
 
         .apd-method__icon {
-            background: color-mix(
-                in srgb,
-                var(--apd-accent) 14%,
-                transparent
-            );
             color: var(--apd-accent);
         }
     }
 
     &.active {
-        background: color-mix(in srgb, var(--apd-accent) 12%, transparent);
+        background: linear-gradient(
+            145deg,
+            color-mix(in srgb, var(--apd-accent) 16%, transparent),
+            color-mix(in srgb, var(--apd-accent) 8%, transparent)
+        );
         border-color: var(--apd-accent);
-        box-shadow: 0 1px 2px
-            color-mix(in srgb, var(--apd-accent) 32%, transparent);
+        box-shadow: 0 8px 20px
+            color-mix(in srgb, var(--apd-accent) 14%, transparent);
 
         .apd-method__icon {
-            background: color-mix(
-                in srgb,
-                var(--apd-accent) 22%,
-                transparent
-            );
             color: var(--apd-accent);
         }
 
@@ -125,32 +127,32 @@
     }
 }
 
+.apd-method__head {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    min-width: 0;
+}
+
 .apd-method__icon {
-    width: 32px;
-    height: 32px;
-    display: grid;
-    place-items: center;
-    border-radius: 8px;
-    background: color-mix(
-        in srgb,
-        var(--apd-surface-raised) 75%,
-        transparent
-    );
-    color: var(--apd-muted);
-    transition:
-        background-color 160ms ease,
-        color 160ms ease;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    flex: 0 0 28px;
+    color: var(--apd-accent);
+    transition: color 160ms ease;
 
     mat-icon {
-        font-size: 18px;
-        width: 18px;
-        height: 18px;
-        line-height: 18px;
+        font-size: 28px;
+        width: 28px;
+        height: 28px;
+        line-height: 28px;
     }
 }
 
 .apd-method__title {
-    font-size: 13px;
+    min-width: 0;
+    font-size: 16px;
     font-weight: 600;
     line-height: 1.25;
     color: var(--apd-heading);
@@ -158,14 +160,34 @@
 }
 
 .apd-method__sub {
-    font-size: 11.5px;
+    font-size: 12px;
     color: var(--apd-muted);
-    line-height: 1.4;
+    line-height: 1.45;
+    min-height: 2.5em;
 }
 
-// On narrow widths the 5-column grid wraps to 2 columns to stay legible.
-// 480px keeps the dialog usable down to small modals; below that it stacks
-// fully.
+.apd-method__chips {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 6px;
+    margin: 2px 0 0;
+    padding: 0;
+    list-style: none;
+}
+
+.apd-method__chip {
+    padding: 3px 9px;
+    border: 1px solid color-mix(in srgb, var(--apd-accent) 26%, transparent);
+    border-radius: 999px;
+    background: color-mix(in srgb, var(--apd-accent) 14%, transparent);
+    color: color-mix(in srgb, var(--apd-accent) 78%, white);
+    font-size: 10px;
+    font-weight: 500;
+    letter-spacing: 0.04em;
+    line-height: 1.2;
+    text-transform: uppercase;
+}
+
 @media (max-width: 720px) {
     .apd-method-grid {
         grid-template-columns: repeat(2, minmax(0, 1fr));

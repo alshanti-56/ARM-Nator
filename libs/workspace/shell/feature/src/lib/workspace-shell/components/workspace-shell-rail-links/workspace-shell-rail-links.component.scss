@@ -38,6 +38,14 @@
             --rail-link-hover-bg,
             var(--mat-sys-surface-container)
         );
+        transform: translateY(-2px) scale(1.03);
+        box-shadow: 0 12px 24px -18px var(--app-selection-glow);
+    }
+
+    &:focus-visible {
+        outline: 2px solid var(--app-selection-color);
+        outline-offset: 2px;
+        box-shadow: var(--app-motion-focus-shadow);
     }
 
     mat-icon {
@@ -45,6 +53,65 @@
         width: 20px;
         height: 20px;
     }
+
+    &:has(.arm-icon-caption) {
+        flex-direction: column;
+        gap: 0;
+    }
+}
+
+.arm-custom-icon {
+    display: inline-block;
+    width: 24px;
+    height: 24px;
+    color: currentColor;
+    font-family: 'ARM-Nator Custom Icons';
+    font-size: 24px;
+    font-style: normal;
+    font-weight: 400;
+    line-height: 1;
+    text-rendering: geometricPrecision;
+}
+
+.arm-compound-icon {
+    position: relative;
+    display: inline-grid;
+    width: 24px;
+    height: 24px;
+    place-items: center;
+
+    > mat-icon:first-child {
+        width: 22px;
+        height: 22px;
+        font-size: 22px;
+    }
+
+    .arm-play-badge {
+        position: absolute;
+        right: -4px;
+        bottom: -3px;
+        display: grid;
+        width: 12px;
+        height: 12px;
+        place-items: center;
+        border: 2px solid var(--app-rail-bg, var(--mat-sys-surface-container-low));
+        border-radius: 50%;
+        background: var(--app-selection-color);
+        color: var(--app-rail-bg, var(--mat-sys-surface-container-low));
+        font-size: 8px;
+        line-height: 12px;
+    }
+}
+
+.arm-icon-caption {
+    margin-top: -1px;
+    color: currentColor;
+    font-family: 'DM Sans', sans-serif;
+    font-size: 6px;
+    font-weight: 700;
+    letter-spacing: -0.02em;
+    line-height: 7px;
+    white-space: nowrap;
 }
 
 @for $i from 1 through 8 {
@@ -96,4 +163,21 @@
     border-radius: 999px;
     background: var(--rail-link-active-icon, var(--app-selection-color));
     box-shadow: 0 0 10px var(--rail-link-active-glow, var(--app-selection-glow));
+}
+
+@media (max-width: 640px) {
+    :host {
+        width: auto;
+        flex: 0 0 auto;
+    }
+
+    .rail-links {
+        flex-direction: row;
+        width: auto;
+        gap: 4px;
+    }
+
+    .portal-rail-link {
+        flex: 0 0 44px;
+    }
 }

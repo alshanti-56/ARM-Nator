@@ -120,6 +120,41 @@
     font-size: 13px;
 }
 
+.browser-page__error {
+    position: absolute;
+    inset: 0;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 12px;
+    padding: 24px;
+    color: var(--app-text-secondary, #aeb3bd);
+    text-align: left;
+
+    > mat-icon {
+        flex: 0 0 auto;
+        color: var(--mat-sys-error, #ff8b90);
+    }
+
+    > div {
+        display: grid;
+        gap: 4px;
+        max-width: 420px;
+    }
+
+    strong {
+        color: var(--app-text-primary, #f4f5f7);
+    }
+
+    span {
+        font-size: 13px;
+    }
+
+    button {
+        flex: 0 0 auto;
+    }
+}
+
 .browser-page--youtube {
     gap: 10px;
     padding-top: 10px;

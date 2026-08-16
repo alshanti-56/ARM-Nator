@@ -7,6 +7,8 @@
     z-index: 1200;
     display: grid;
     overflow: hidden;
+    container-type: inline-size;
+    container-name: workspace-player;
     border: 1px solid rgb(255 255 255 / 14%);
     border-radius: 14px;
     background: #090b10;
@@ -31,6 +33,7 @@
     position: relative;
     z-index: 2;
     display: flex;
+    min-width: 0;
     min-height: 52px;
     align-items: center;
     gap: 12px;
@@ -43,6 +46,7 @@
 
 .workspace-player__identity {
     display: grid;
+    flex: 1 1 180px;
     min-width: 140px;
     max-width: 280px;
     gap: 1px;
@@ -66,9 +70,17 @@
     position: relative;
     z-index: 1;
     display: flex;
+    flex: 0 1 auto;
+    max-width: 45%;
     min-width: 0;
+    overflow-x: auto;
+    scrollbar-width: none;
     gap: 4px;
     pointer-events: auto;
+}
+
+.workspace-player__engines::-webkit-scrollbar {
+    display: none;
 }
 
 .workspace-player__engines button {
@@ -119,7 +131,16 @@
 
 .workspace-player__window-actions {
     display: flex;
+    flex: 0 0 auto;
     align-items: center;
+    gap: 2px;
+    padding-left: 4px;
+    border-left: 1px solid rgb(255 255 255 / 10%);
+}
+
+.workspace-player__engine-menu-trigger {
+    display: none;
+    flex: 0 0 auto;
 }
 
 .workspace-player__window-actions button {
@@ -132,6 +153,11 @@
     width: 19px;
     height: 19px;
     font-size: 19px;
+}
+
+.workspace-player__window-actions
+    .workspace-player__media-action[data-test-id='workspace-player-copy-url'] {
+    color: #c9d8ff;
 }
 
 .workspace-player__surface {
@@ -179,16 +205,57 @@
 
 .workspace-player--mini .workspace-player__engines,
 .workspace-player--mini .workspace-player__health,
-.workspace-player--mini .workspace-player__window-actions .workspace-player__media-action {
+.workspace-player--mini .workspace-player__engine-menu-trigger,
+.workspace-player--mini
+    .workspace-player__window-actions
+    .workspace-player__media-action:not([data-test-id='workspace-player-copy-url']) {
     display: none;
 }
 
-@media (max-width: 900px) {
+@container workspace-player (max-width: 900px) {
     .workspace-player--expanded {
         inset: 58px 8px 8px;
     }
 
     .workspace-player__health {
         display: none;
+    }
+}
+
+@container workspace-player (max-width: 720px) {
+    .workspace-player__header {
+        gap: 6px;
+        padding-inline: 8px;
+    }
+
+    .workspace-player__identity {
+        min-width: 0;
+    }
+
+    .workspace-player__engines {
+        display: none;
+    }
+
+    .workspace-player__engine-menu-trigger {
+        display: inline-flex;
+    }
+}
+
+@container workspace-player (max-width: 480px) {
+    .workspace-player__identity span {
+        display: none;
+    }
+
+    .workspace-player__identity strong {
+        font-size: 0.78rem;
+    }
+
+    .workspace-player__window-actions {
+        padding-left: 2px;
+    }
+
+    .workspace-player__window-actions button {
+        width: 32px;
+        height: 32px;
     }
 }

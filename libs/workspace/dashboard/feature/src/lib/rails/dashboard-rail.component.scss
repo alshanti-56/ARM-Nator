@@ -162,10 +162,12 @@
     border-radius: var(--rail-radius);
     transition:
         transform 0.2s ease,
-        filter 0.2s ease;
+        filter 0.2s ease,
+        box-shadow 0.2s ease;
 
     &:hover {
         transform: translateY(-2px);
+        box-shadow: var(--app-motion-shadow);
 
         .rail__art {
             box-shadow:
@@ -292,6 +294,11 @@
     width: 30px;
     height: 30px;
     padding: 3px;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    box-sizing: border-box;
+    line-height: 1;
     border-radius: 50%;
     color: #fff;
     background: transparent;

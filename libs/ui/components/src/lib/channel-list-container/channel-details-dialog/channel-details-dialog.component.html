@@ -74,9 +74,11 @@
             <div class="channel-dialog__url-block">
                 <code>{{ channel.url }}</code>
                 <button
+                    type="button"
                     mat-icon-button
                     class="channel-dialog__copy-btn"
                     [cdkCopyToClipboard]="channel.url"
+                    aria-label="Copy stream URL"
                 >
                     <mat-icon>content_copy</mat-icon>
                 </button>

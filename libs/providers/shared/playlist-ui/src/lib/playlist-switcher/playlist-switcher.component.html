@@ -84,8 +84,10 @@
         />
         @if (searchQuery()) {
             <button
+                type="button"
                 mat-icon-button
                 class="clear-btn"
+                aria-label="Clear playlist search"
                 (click)="setSearchQuery('')"
             >
                 <mat-icon>close</mat-icon>

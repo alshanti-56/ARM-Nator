@@ -1,3 +1,5 @@
+@use '../../../../../../../ui/styles/motion' as motion;
+
 :host {
     display: block;
     width: 100%;
@@ -16,6 +18,7 @@
     color: inherit;
     cursor: pointer;
     box-sizing: border-box;
+    @include motion.interactive-surface(-1px);
     transition:
         background 0.15s ease,
         border-color 0.15s ease,

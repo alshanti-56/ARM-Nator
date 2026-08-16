@@ -32,6 +32,7 @@ import CredentialTesterEvents, {
     shutdownCredentialTesterBatches,
 } from './app/events/credential-tester.events';
 import { runEmbeddedMpvRuntimeDiagnosticOrContinue } from './app/services/embedded-mpv-runtime-diagnostic';
+import { startWebApi, stopWebApi } from './app/services/web-api.service';
 
 app.setName('arm-nator');
 
@@ -117,6 +118,8 @@ export default class Main {
         // IPC handlers call getDatabase() lazily and share the same promise.
         await initDatabase();
 
+        await startWebApi();
+
         if (isStartupTraceEnabled()) {
             trace('startup', 'init-database:done');
         }
@@ -164,6 +167,7 @@ if (!hasSingleInstanceLock) {
         });
 
         app.on('before-quit', () => {
+            void stopWebApi();
             void hlsPlaybackProxy.shutdown();
             void shutdownCredentialTesterBatches();
             shutdownBrowserView();

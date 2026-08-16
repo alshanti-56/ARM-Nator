@@ -201,7 +201,7 @@ export class WorkspaceShellFacade {
             section: this.currentSection(),
             hasActivePlaylist: !!this.activePlaylist(),
             hasSearchablePlaylists:
-                this.isElectron &&
+                this.runtime.supportsGlobalSearch &&
                 this.playlists().some(isWorkspaceGlobalSearchablePlaylist),
             canRefreshPlaylist: this.canRefreshPlaylist(),
             showDashboard: this.showDashboard(),

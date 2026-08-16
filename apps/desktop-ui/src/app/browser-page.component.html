@@ -14,7 +14,7 @@
             <button
                 mat-icon-button
                 type="button"
-                [disabled]="!state()?.canGoBack"
+                [disabled]="!browserViewAvailable() || !state()?.canGoBack"
                 (click)="goBack()"
                 [matTooltip]="'BROWSER.BACK' | translate"
                 [attr.aria-label]="'BROWSER.BACK' | translate"
@@ -24,7 +24,7 @@
             <button
                 mat-icon-button
                 type="button"
-                [disabled]="!state()?.canGoForward"
+                [disabled]="!browserViewAvailable() || !state()?.canGoForward"
                 (click)="goForward()"
                 [matTooltip]="'BROWSER.FORWARD' | translate"
                 [attr.aria-label]="'BROWSER.FORWARD' | translate"
@@ -83,10 +83,28 @@
     </header>
 
     <div #browserViewport class="browser-page__viewport">
-        @if (!state()) {
+        @if (!state() && !requestError()) {
             <div class="browser-page__initializing">
                 <mat-icon>language</mat-icon>
                 <span>{{ 'BROWSER.OPENING' | translate }}</span>
+            </div>
+        } @else if (!state() && requestError(); as error) {
+            <div class="browser-page__error" role="alert">
+                <mat-icon>error_outline</mat-icon>
+                <div>
+                    <strong>Browser unavailable</strong>
+                    <span>{{ error }}</span>
+                </div>
+                @if (browserViewAvailable()) {
+                    <button
+                        mat-flat-button
+                        type="button"
+                        (click)="retryOpen()"
+                        aria-label="Retry opening browser"
+                    >
+                        Retry
+                    </button>
+                }
             </div>
         }
     </div>

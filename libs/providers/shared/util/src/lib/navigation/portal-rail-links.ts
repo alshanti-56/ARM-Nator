@@ -46,19 +46,19 @@ export function buildPortalRailLinks(
 
         primary.push(
             {
-                icon: 'movie',
+                icon: 'arm_open_slate_reel',
                 tooltip: 'Movies (this playlist)',
                 path: [...root, 'vod'],
                 section: 'vod',
             },
             {
-                icon: 'live_tv',
+                icon: 'satellite_alt',
                 tooltip: 'Live TV (this playlist)',
                 path: [...root, 'live'],
                 section: 'live',
             },
             {
-                icon: 'tv',
+                icon: 'subscriptions',
                 tooltip: 'Series (this playlist)',
                 path: [...root, 'series'],
                 section: 'series',
@@ -87,20 +87,20 @@ export function buildPortalRailLinks(
         return {
             primary: [
                 {
-                    icon: 'movie',
+                    icon: 'arm_open_slate_reel',
                     tooltip: 'Movies (this portal)',
                     path: [...root, 'vod'],
                     section: 'vod',
                 },
                 {
-                    icon: 'live_tv',
+                    icon: 'satellite_alt',
                     tooltip: 'Live TV (this portal)',
                     path: [...root, 'itv'],
                     exact: true,
                     section: 'itv',
                 },
                 {
-                    icon: 'tv',
+                    icon: 'subscriptions',
                     tooltip: 'Series (this portal)',
                     path: [...root, 'series'],
                     section: 'series',

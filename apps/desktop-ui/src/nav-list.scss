@@ -61,6 +61,14 @@
     &:hover:not(.selected):not(.active):not(.is-active) {
         background: var(--app-selection-surface);
         color: var(--mat-sys-on-surface);
+        transform: translateY(-1px);
+        box-shadow: 0 10px 20px -18px var(--app-selection-glow);
+    }
+
+    &:focus-visible {
+        outline: 2px solid var(--app-selection-color);
+        outline-offset: 2px;
+        box-shadow: var(--app-motion-focus-shadow);
     }
 
     &.selected,

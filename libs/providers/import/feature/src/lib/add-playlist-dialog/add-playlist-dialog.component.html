@@ -23,15 +23,24 @@
                     [class.active]="method() === opt.value"
                     (click)="method.set(opt.value)"
                 >
-                    <span class="apd-method__icon" aria-hidden="true">
-                        <mat-icon>{{ opt.icon }}</mat-icon>
-                    </span>
-                    <span class="apd-method__title">
-                        {{ opt.labelKey | translate }}
+                    <span class="apd-method__head">
+                        <span class="apd-method__icon" aria-hidden="true">
+                            <mat-icon>{{ opt.icon }}</mat-icon>
+                        </span>
+                        <span class="apd-method__title">
+                            {{ opt.labelKey | translate }}
+                        </span>
                     </span>
                     <span class="apd-method__sub">
                         {{ opt.subKey | translate }}
                     </span>
+                    <ul class="apd-method__chips" role="list">
+                        @for (chip of opt.contentKeys; track chip) {
+                            <li class="apd-method__chip">
+                                {{ chip | translate }}
+                            </li>
+                        }
+                    </ul>
                 </button>
             }
         </div>

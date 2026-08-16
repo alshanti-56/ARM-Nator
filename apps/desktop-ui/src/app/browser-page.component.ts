@@ -42,9 +42,12 @@ export class BrowserPageComponent implements AfterViewInit, OnDestroy {
     private resizeObserver: ResizeObserver | null = null;
     private unsubscribe: (() => void) | null = null;
     private lastBounds = '';
+    private openAttempt = 0;
+    private openTimeout: ReturnType<typeof setTimeout> | null = null;
 
     readonly mode = (this.route.snapshot.data['browserMode'] ?? 'browser') as BrowserViewMode;
     readonly state = signal<BrowserViewState | null>(null);
+    readonly browserViewAvailable = signal(true);
     readonly address = signal('');
     readonly requestError = signal('');
     readonly isYouTube = computed(() => this.mode === 'youtube');
@@ -58,6 +61,14 @@ export class BrowserPageComponent implements AfterViewInit, OnDestroy {
     ngAfterViewInit(): void {
         const viewport = this.viewport()?.nativeElement;
         if (!viewport) {
+            return;
+        }
+
+        if (!this.supportsBrowserView()) {
+            this.browserViewAvailable.set(false);
+            this.requestError.set(
+                'The in-app browser is available in the Electron desktop app.'
+            );
             return;
         }
 
@@ -84,12 +95,19 @@ export class BrowserPageComponent implements AfterViewInit, OnDestroy {
     }
 
     ngOnDestroy(): void {
+        this.openAttempt += 1;
+        if (this.openTimeout) {
+            clearTimeout(this.openTimeout);
+            this.openTimeout = null;
+        }
         this.resizeObserver?.disconnect();
         this.resizeObserver = null;
         window.removeEventListener('resize', this.handleWindowResize);
         this.unsubscribe?.();
         this.unsubscribe = null;
-        void window.electron.closeBrowserView(this.mode);
+        if (this.supportsBrowserView()) {
+            void window.electron.closeBrowserView(this.mode);
+        }
     }
 
     navigate(): void {
@@ -113,6 +131,10 @@ export class BrowserPageComponent implements AfterViewInit, OnDestroy {
         void this.execute({ type: 'reload' });
     }
 
+    retryOpen(): void {
+        void this.open();
+    }
+
     stop(): void {
         void this.execute({ type: 'stop' });
     }
@@ -125,8 +147,32 @@ export class BrowserPageComponent implements AfterViewInit, OnDestroy {
     };
 
     private async open(): Promise<void> {
+        if (!this.supportsBrowserView()) {
+            this.browserViewAvailable.set(false);
+            this.requestError.set(
+                'The in-app browser is available in the Electron desktop app.'
+            );
+            return;
+        }
+
+        const attempt = ++this.openAttempt;
+        this.requestError.set('');
+        this.state.set(null);
+
+        const timeout = new Promise<never>((_, reject) => {
+            this.openTimeout = setTimeout(() => {
+                reject(new Error('The browser did not respond. Try again.'));
+            }, 8000);
+        });
+
         try {
-            const state = await window.electron.openBrowserView(this.mode);
+            const state = await Promise.race([
+                window.electron.openBrowserView(this.mode),
+                timeout,
+            ]);
+            if (attempt !== this.openAttempt) {
+                return;
+            }
             this.state.set(state);
             this.address.set(state.url);
             this.requestError.set(state.error ?? '');
@@ -135,11 +181,19 @@ export class BrowserPageComponent implements AfterViewInit, OnDestroy {
                 this.syncBounds(viewport);
             }
         } catch (error) {
+            if (attempt !== this.openAttempt) {
+                return;
+            }
             this.requestError.set(
                 error instanceof Error
                     ? error.message
-                    : 'The browser could not be opened.'
+                    : 'The browser could not be opened. Try again.'
             );
+        } finally {
+            if (attempt === this.openAttempt && this.openTimeout) {
+                clearTimeout(this.openTimeout);
+                this.openTimeout = null;
+            }
         }
     }
 
@@ -161,6 +215,9 @@ export class BrowserPageComponent implements AfterViewInit, OnDestroy {
     }
 
     private syncBounds(viewport: HTMLElement): void {
+        if (typeof window.electron?.setBrowserViewBounds !== 'function') {
+            return;
+        }
         if (this.state()?.displayMode === 'mini' || this.state()?.isFullscreen) {
             return;
         }
@@ -177,5 +234,13 @@ export class BrowserPageComponent implements AfterViewInit, OnDestroy {
         }
         this.lastBounds = key;
         void window.electron.setBrowserViewBounds(bounds);
+    }
+
+    private supportsBrowserView(): boolean {
+        return (
+            window.electron?.platform !== 'web' &&
+            typeof window.electron?.openBrowserView === 'function' &&
+            typeof window.electron?.setBrowserViewBounds === 'function'
+        );
     }
 }

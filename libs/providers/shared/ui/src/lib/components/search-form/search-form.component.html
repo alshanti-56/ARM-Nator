@@ -3,7 +3,7 @@
         <mat-icon>search</mat-icon>
         <input
             #searchInput
-            type="search"
+            type="text"
             spellcheck="false"
             autocomplete="off"
             [placeholder]="placeholder"
@@ -11,7 +11,13 @@
             (ngModelChange)="onSearchTermChange()"
         />
         @if (searchTerm()) {
-            <button mat-icon-button class="clear-btn" (click)="clearSearch()">
+            <button
+                type="button"
+                mat-icon-button
+                class="clear-btn"
+                [attr.aria-label]="'CLEAR' | translate"
+                (click)="clearSearch()"
+            >
                 <mat-icon>close</mat-icon>
             </button>
         }

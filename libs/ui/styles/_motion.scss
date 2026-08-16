@@ -1,0 +1,43 @@
+// Shared interaction language for ARM-Nator surfaces.
+//
+// The motion is intentionally small: a surface lifts a few pixels, then
+// catches the app selection glow. The mixin only owns transform, shadow,
+// focus, and reduced-motion behavior so each component can keep its own
+// background and border treatment.
+
+@mixin interactive-surface($lift: -3px) {
+    transition:
+        transform var(--app-motion-duration, 200ms)
+            var(--app-motion-ease, cubic-bezier(0.2, 0.8, 0.2, 1)),
+        filter var(--app-motion-duration, 200ms)
+            var(--app-motion-ease, cubic-bezier(0.2, 0.8, 0.2, 1)),
+        box-shadow var(--app-motion-duration, 200ms)
+            var(--app-motion-ease, cubic-bezier(0.2, 0.8, 0.2, 1));
+
+    &:hover:not(:disabled) {
+        transform: translateY($lift);
+        filter: saturate(1.06);
+        box-shadow: var(
+            --app-motion-shadow,
+            0 12px 28px -18px var(--app-selection-glow, rgba(47, 123, 255, 0.34))
+        );
+    }
+
+    &:focus-visible {
+        outline: 2px solid var(--app-selection-color, #2f7bff);
+        outline-offset: 2px;
+        box-shadow: var(
+            --app-motion-focus-shadow,
+            0 0 0 4px color-mix(in srgb, var(--app-selection-color, #2f7bff) 18%, transparent)
+        );
+    }
+
+    @media (prefers-reduced-motion: reduce) {
+        transition: none;
+
+        &:hover:not(:disabled) {
+            transform: none;
+            filter: none;
+        }
+    }
+}

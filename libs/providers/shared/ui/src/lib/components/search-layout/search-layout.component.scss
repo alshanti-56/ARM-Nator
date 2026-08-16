@@ -22,7 +22,7 @@
     flex: 1;
     min-height: 0;
     overflow: hidden;
-    padding: 0 20px 0 20px;
+    padding: 0 20px;
 }
 
 .header {
@@ -31,6 +31,17 @@
     z-index: 100;
     padding: 20px 0 10px 0;
     margin-bottom: 2px;
+    border-bottom: 1px solid color-mix(
+        in srgb,
+        var(--mat-sys-outline-variant) 58%,
+        transparent
+    );
+    background: color-mix(
+        in srgb,
+        var(--mat-sys-surface) 94%,
+        transparent
+    );
+    backdrop-filter: blur(16px);
     box-shadow: 0 4px 12px rgba(0, 0, 0, 0.02);
 
     display: flex;
@@ -106,6 +117,8 @@
     flex: 1;
     min-height: 0;
     overflow-y: auto;
+    overscroll-behavior: contain;
+    scrollbar-gutter: stable;
 }
 
 .loading-state {
@@ -168,4 +181,28 @@
 ::ng-deep .results-grid {
     @include grid.content-grid;
     padding-bottom: 1rem;
+}
+
+@media (max-width: 640px) {
+    .search-content {
+        padding-inline: 12px;
+    }
+
+    .header {
+        padding-top: 14px;
+        gap: 12px;
+
+        .header-top {
+            align-items: flex-start;
+            gap: 10px;
+        }
+
+        .header-left {
+            gap: 8px;
+        }
+
+        .header-right {
+            gap: 4px;
+        }
+    }
 }

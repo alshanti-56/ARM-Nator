@@ -15,7 +15,7 @@ import { MatDialog } from '@angular/material/dialog';
 import { MatIcon } from '@angular/material/icon';
 import { MatMenuModule } from '@angular/material/menu';
 import { MatTooltip } from '@angular/material/tooltip';
-import { Router } from '@angular/router';
+import { ActivatedRoute, Router } from '@angular/router';
 import { TranslatePipe, TranslateService } from '@ngx-translate/core';
 import {
     PortalCategorySortMode,
@@ -61,6 +61,7 @@ interface WorkspaceCategoryLike {
     styleUrl: './workspace-context-panel.component.scss',
 })
 export class WorkspaceContextPanelComponent {
+    private readonly activatedRoute = inject(ActivatedRoute);
     private readonly router = inject(Router);
     private readonly xtreamStore = inject(XtreamStore);
     private readonly stalkerStore = inject(StalkerStore);
@@ -391,10 +392,22 @@ export class WorkspaceContextPanelComponent {
                         categoryId,
                     ],
                     {
-                        queryParamsHandling: 'preserve',
+                        queryParams: {
+                            page: null,
+                        },
+                        queryParamsHandling: 'merge',
                         replaceUrl: true,
                     }
                 );
+            } else {
+                void this.router.navigate([], {
+                    relativeTo: this.activatedRoute,
+                    queryParams: {
+                        page: null,
+                    },
+                    queryParamsHandling: 'merge',
+                    replaceUrl: true,
+                });
             }
             return;
         }

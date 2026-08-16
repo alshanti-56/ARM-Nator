@@ -3,7 +3,6 @@ import {
   Component,
   DestroyRef,
   ElementRef,
-  HostListener,
   computed,
   effect,
   inject,
@@ -17,18 +16,11 @@ import { MatIcon } from "@angular/material/icon";
 import { MatMenuModule } from "@angular/material/menu";
 import { MatPaginatorModule, PageEvent } from "@angular/material/paginator";
 import { MatTooltipModule } from "@angular/material/tooltip";
-import { TranslatePipe } from "@ngx-translate/core";
-import { ResizableDirective } from "@arm-nator/ui/components";
+import { GridListComponent } from "@arm-nator/providers/shared/ui";
 import {
-  GridListComponent,
-  PortalEmptyStateComponent,
-} from "@arm-nator/providers/shared/ui";
-import {
-  LiveLayoutSidebarStateService,
   PORTAL_PLAYER,
   PortalChannelSortMode,
   getPortalChannelSortModeLabel,
-  isTypingInInput,
   isWorkspaceLayoutRoute,
   persistPortalChannelSortMode,
   queryParamSignal,
@@ -40,16 +32,31 @@ import {
   FavoritesService,
   XtreamStore,
 } from "@arm-nator/providers/xtream/data-access";
-import { MatProgressSpinnerModule } from "@angular/material/progress-spinner";
 import { type PlaybackFallbackRequest } from "@arm-nator/player/ui";
 import { ResolvedPortalPlayback } from "@arm-nator/shared/interfaces";
 
-import { PortalChannelsListComponent } from "../portal-channels-list/portal-channels-list.component";
+import {
+  PortalChannelsListComponent,
+  type XtreamChannelListItem,
+} from "../portal-channels-list/portal-channels-list.component";
 import { ActivatedRoute, NavigationEnd, Router } from "@angular/router";
 import { RuntimeCapabilitiesService, SettingsStore } from "@arm-nator/services";
 import { LiveStreamAutoOpenStateService } from "./live-stream-auto-open-state.service";
 
 const LIVE_CHANNEL_SORT_STORAGE_KEY = "xtream-live-channel-sort-mode";
+const LIVE_VIEW_MODE_STORAGE_KEY = "xtream-live-view-mode";
+
+type LiveViewMode = "grid" | "list";
+
+function restoreLiveViewMode(): LiveViewMode {
+  if (typeof localStorage === "undefined") {
+    return "grid";
+  }
+
+  return localStorage.getItem(LIVE_VIEW_MODE_STORAGE_KEY) === "list"
+    ? "list"
+    : "grid";
+}
 
 interface XtreamLiveChannelItem {
   readonly added?: string;
@@ -72,13 +79,9 @@ interface XtreamLiveChannelItem {
     MatIcon,
     MatMenuModule,
     MatPaginatorModule,
-    MatProgressSpinnerModule,
     MatTooltipModule,
     GridListComponent,
     PortalChannelsListComponent,
-    PortalEmptyStateComponent,
-    ResizableDirective,
-    TranslatePipe,
   ],
   changeDetection: ChangeDetectionStrategy.OnPush,
 })
@@ -92,9 +95,6 @@ export class LiveStreamLayoutComponent implements OnInit {
   private readonly runtime = inject(RuntimeCapabilitiesService);
   private readonly settingsStore = inject(SettingsStore);
   private readonly portalPlayer = inject(PORTAL_PLAYER);
-  private readonly liveSidebarStateService = inject(
-    LiveLayoutSidebarStateService,
-  );
   private readonly liveAutoOpenState = inject(LiveStreamAutoOpenStateService);
 
   readonly categories = this.xtreamStore.getCategoriesBySelectedType;
@@ -103,6 +103,7 @@ export class LiveStreamLayoutComponent implements OnInit {
     this.xtreamStore.selectedTypeContentLoading;
   readonly selectedCategoryId = this.xtreamStore.selectedCategoryId;
   readonly liveChannelSortMode = signal<PortalChannelSortMode>("server");
+  readonly liveViewMode = signal<LiveViewMode>(restoreLiveViewMode());
   readonly isElectron = this.runtime.isElectron;
   readonly isWorkspaceLayout = isWorkspaceLayoutRoute(this.route);
   private readonly routeSearchTerm = queryParamSignal(
@@ -117,9 +118,6 @@ export class LiveStreamLayoutComponent implements OnInit {
   );
   readonly workspaceSearchTerm = computed(() =>
     this.isWorkspaceLayout ? this.routeSearchTerm() : "",
-  );
-  readonly showLiveChannelSidebar = computed(
-    () => !!this.selectedCategoryId() || !!this.workspaceSearchTerm(),
   );
   private readonly pendingAutoOpenLiveItemId =
     this.liveAutoOpenState.pendingItemId;
@@ -136,17 +134,13 @@ export class LiveStreamLayoutComponent implements OnInit {
     const item = selectedItem as XtreamLiveChannelItem;
     return item.xtream_id ? item : null;
   });
-  readonly isSidebarCollapsed = this.liveSidebarStateService.isCollapsed;
   readonly liveChannelSortLabel = computed(() =>
     getPortalChannelSortModeLabel(this.liveChannelSortMode()),
   );
   readonly liveRootPageSizeOptions = [10, 25, 50, 100];
   readonly liveRootItems = computed(
     () =>
-      this.xtreamStore.getPaginatedContent() as unknown as Record<
-        string,
-        unknown
-      >[],
+      this.xtreamStore.getPaginatedContent() as unknown as XtreamChannelListItem[],
   );
   readonly liveRootItemCount = computed(
     () => this.xtreamStore.selectItemsFromSelectedCategory().length,
@@ -179,18 +173,11 @@ export class LiveStreamLayoutComponent implements OnInit {
   readonly usesEmbeddedPlayer = computed(() =>
     this.portalPlayer.isEmbeddedPlayer(true),
   );
-  readonly activePlayback = signal<ResolvedPortalPlayback | null>(null);
-  readonly activeStreamUrl = computed(
-    () => this.activePlayback()?.streamUrl ?? "",
-  );
   favorites = new Map<number, boolean>();
 
   constructor() {
     effect(() => {
-      if (
-        this.xtreamStore.selectedContentType() !== "live" ||
-        this.showLiveChannelSidebar()
-      ) {
+      if (this.xtreamStore.selectedContentType() !== "live") {
         return;
       }
 
@@ -279,7 +266,6 @@ export class LiveStreamLayoutComponent implements OnInit {
       thumbnail: item.poster_url ?? item.stream_icon ?? null,
       isLive: true,
     };
-    this.activePlayback.set(playback);
     if (this.usesEmbeddedPlayer()) {
       const channels = this.getAllLiveStreams();
       const index = channels.findIndex(
@@ -314,10 +300,15 @@ export class LiveStreamLayoutComponent implements OnInit {
     persistPortalChannelSortMode(LIVE_CHANNEL_SORT_STORAGE_KEY, mode);
   }
 
+  setLiveViewMode(mode: LiveViewMode): void {
+    this.liveViewMode.set(mode);
+    localStorage.setItem(LIVE_VIEW_MODE_STORAGE_KEY, mode);
+  }
+
   onLiveRootPageChange(event: PageEvent): void {
     this.xtreamStore.setPage(event.pageIndex);
     this.xtreamStore.setLimit(event.pageSize);
-    this.scrollLiveRootGridToTop();
+    this.scrollLiveContentToTop();
 
     void this.router.navigate([], {
       relativeTo: this.route,
@@ -331,22 +322,6 @@ export class LiveStreamLayoutComponent implements OnInit {
 
   onLiveRootItemClick(item: unknown): void {
     this.playLive(item as XtreamLiveChannelItem);
-  }
-
-  toggleSidebar(): void {
-    this.liveSidebarStateService.toggle();
-  }
-
-  @HostListener("document:keydown", ["$event"])
-  handleSidebarShortcut(event: KeyboardEvent): void {
-    if (
-      (event.metaKey || event.ctrlKey) &&
-      event.key.toLowerCase() === "b" &&
-      !isTypingInInput(event)
-    ) {
-      event.preventDefault();
-      this.toggleSidebar();
-    }
   }
 
   returnToLivePlayback(): void {
@@ -374,11 +349,13 @@ export class LiveStreamLayoutComponent implements OnInit {
     return Number.isInteger(page) && page > 0 ? page - 1 : 0;
   }
 
-  private scrollLiveRootGridToTop(): void {
-    const gridList = this.hostElement.nativeElement.querySelector(
-      "app-grid-list",
+  private scrollLiveContentToTop(): void {
+    const scrollTarget = this.hostElement.nativeElement.querySelector(
+      this.liveViewMode() === "list"
+        ? "app-portal-channels-list .scroll-viewport-portals"
+        : "app-grid-list",
     ) as HTMLElement | null;
-    gridList?.scrollTo?.({ top: 0 });
+    scrollTarget?.scrollTo?.({ top: 0 });
   }
 
   private getVisibleChannels(): XtreamLiveChannelItem[] {

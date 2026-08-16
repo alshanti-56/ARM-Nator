@@ -36,7 +36,12 @@
                             </div>
                         }
                         @if (showCloseButton()) {
-                            <button mat-icon-button (click)="onCloseClick()">
+                            <button
+                                type="button"
+                                mat-icon-button
+                                [attr.aria-label]="'CLOSE' | translate"
+                                (click)="onCloseClick()"
+                            >
                                 <mat-icon>close</mat-icon>
                             </button>
                         }

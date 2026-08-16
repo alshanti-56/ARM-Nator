@@ -19,6 +19,23 @@
       </div>
 
       @if (!isYouTube()) {
+        <mat-menu #engineMenu="matMenu">
+          @for (engine of engineAvailability(); track engine.id) {
+            <button
+              mat-menu-item
+              type="button"
+              [disabled]="!engine.available"
+              [attr.title]="engine.available ? null : engine.detail"
+              (click)="switchEngine(engine.id)"
+            >
+              <mat-icon>{{
+                isEngineActive(engine.id) ? "radio_button_checked" : "radio_button_unchecked"
+              }}</mat-icon>
+              <span>{{ engine.labelKey | translate }}</span>
+            </button>
+          }
+        </mat-menu>
+
         <nav class="workspace-player__engines" aria-label="Player engine">
           @for (engine of engineAvailability(); track engine.id) {
             <button
@@ -37,6 +54,18 @@
             </button>
           }
         </nav>
+
+        <button
+          class="workspace-player__engine-menu-trigger"
+          mat-icon-button
+          type="button"
+          [matMenuTriggerFor]="engineMenu"
+          matTooltip="Player engine"
+          matTooltipPosition="above"
+          aria-label="Player engine"
+        >
+          <mat-icon>tune</mat-icon>
+        </button>
 
         <div class="workspace-player__health">
           <span matTooltip="Resolution" matTooltipPosition="above">{{
@@ -75,6 +104,19 @@
             (click)="state.restart()"
           >
             <mat-icon>restart_alt</mat-icon>
+          </button>
+          <button
+            class="workspace-player__media-action"
+            mat-icon-button
+            type="button"
+            data-test-id="workspace-player-copy-url"
+            [cdkCopyToClipboard]="state.playback()?.streamUrl ?? ''"
+            [disabled]="!state.playback()?.streamUrl"
+            matTooltip="Copy playback URL"
+            matTooltipPosition="above"
+            aria-label="Copy playback URL"
+          >
+            <mat-icon>content_copy</mat-icon>
           </button>
         }
         @if (isMini()) {

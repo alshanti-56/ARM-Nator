@@ -33,6 +33,7 @@ import { routes } from './app.routes';
 import { ElectronService } from './services/electron.service';
 import { ExternalPlaybackService } from './services/external-playback.service';
 import { PlayerService } from './services/player.service';
+import { installWebElectronBridge } from './services/web-electron-bridge';
 import {
     AppPortalNavigationActionsService,
     providePortalNavigationActions,
@@ -87,6 +88,11 @@ export function getInitialLanguage(): string {
     }
     return 'en';
 }
+
+// Electron exposes the native bridge from preload. A normal browser does not,
+// so install a compatible HTTP-backed bridge before Angular creates services
+// that talk to the database or Xtream provider.
+installWebElectronBridge();
 
 export const appConfig: ApplicationConfig = {
     providers: [

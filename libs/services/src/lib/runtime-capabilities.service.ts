@@ -19,7 +19,12 @@ export class RuntimeCapabilitiesService {
         return false;
     }
     get isElectron(): boolean {
-        return !!this.electronBridge;
+        const platform = this.electronBridge?.['platform'];
+        return Boolean(platform && platform !== 'web');
+    }
+
+    get supportsGlobalSearch(): boolean {
+        return this.hasElectronMethod('dbGlobalSearch');
     }
 
     get platform(): string | undefined {

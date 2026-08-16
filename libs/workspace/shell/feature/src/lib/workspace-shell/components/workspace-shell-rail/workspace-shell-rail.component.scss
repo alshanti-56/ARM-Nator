@@ -18,6 +18,7 @@
     app-region: drag;
     overflow-y: auto;
     overflow-x: hidden;
+    overscroll-behavior: contain;
     scrollbar-width: none;
     --rail-link-color: color-mix(in srgb, var(--app-on-surface) 65%, transparent);
     --rail-link-hover-color: var(--app-on-surface);
@@ -41,6 +42,7 @@
 .app-rail a {
     width: 44px;
     height: 44px;
+    flex: 0 0 44px;
     border-radius: 14px;
     position: relative;
     display: inline-flex;
@@ -65,6 +67,14 @@
 .app-rail a:hover {
     color: var(--rail-link-hover-color);
     background: var(--rail-link-hover-bg);
+    transform: translateY(-2px) scale(1.03);
+    box-shadow: 0 12px 24px -18px var(--app-selection-glow);
+}
+
+.app-rail a:focus-visible {
+    outline: 2px solid var(--app-selection-color);
+    outline-offset: 2px;
+    box-shadow: var(--app-motion-focus-shadow);
 }
 
 .app-rail a.is-active,
@@ -211,10 +221,18 @@
 @media (max-width: 640px) {
     .app-rail {
         flex-direction: row;
-        justify-content: space-between;
+        align-items: center;
+        justify-content: flex-start;
+        gap: 4px;
         padding: 6px 10px;
         border-right: none;
         border-bottom: 1px solid var(--mat-sys-outline-variant);
+        overflow-x: auto;
+        overflow-y: hidden;
+
+        &::-webkit-scrollbar {
+            display: none;
+        }
 
         .brand {
             margin-bottom: 0;
@@ -228,7 +246,9 @@
     }
 
     .rail-context-region {
+        flex: 0 0 auto;
         width: auto;
+        max-width: none;
         flex-direction: row;
         margin: 0;
         padding: 2px 4px;
@@ -246,7 +266,9 @@
     }
 
     .rail-footer {
+        flex: 0 0 auto;
         margin-top: 0;
+        margin-left: auto;
         flex-direction: row;
     }
 }

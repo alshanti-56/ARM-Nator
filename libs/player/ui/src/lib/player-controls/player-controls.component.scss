@@ -165,6 +165,11 @@
     display: flex;
     align-items: center;
     gap: 8px;
+    width: max-content;
+}
+
+.player-controls__bottom {
+    display: contents;
 }
 
 .player-controls__timeline {
@@ -220,7 +225,11 @@
 .player-controls__buffer {
     display: inline-flex;
     align-items: center;
+    justify-content: center;
     flex-shrink: 0;
+    box-sizing: border-box;
+    width: 68px;
+    min-width: 68px;
     min-height: 24px;
     padding: 0 7px;
     border: 1px solid rgba(255, 255, 255, 0.12);
@@ -544,5 +553,58 @@
     .player-controls__track-popover {
         right: 0;
         left: auto;
+    }
+}
+
+// Mini players can be narrow even when the application window is wide. Use
+// the player host's container width instead of the viewport so the timeline
+// never collapses underneath the transport and action controls.
+@container player-controls (max-width: 560px) {
+    .player-controls__bar {
+        grid-template-columns: minmax(0, 1fr);
+        grid-template-areas:
+            "bottom";
+        gap: 4px;
+        min-height: 0;
+        // Two rows no longer need the extra scrim space used by the old
+        // three-row mini-player layout.
+        padding: 12px 12px 8px;
+    }
+
+    .player-controls__bottom {
+        display: grid;
+        grid-area: bottom;
+        grid-template-columns: max-content minmax(0, 1fr) max-content;
+        grid-template-areas:
+            "timeline timeline timeline"
+            "transport . actions";
+        align-items: center;
+        gap: 4px;
+        min-width: 0;
+    }
+
+    .player-controls__transport {
+        grid-area: transport;
+        justify-self: start;
+        gap: 4px;
+    }
+
+    .player-controls__timeline {
+        grid-area: timeline;
+        width: 100%;
+    }
+
+    .player-controls__actions {
+        grid-area: actions;
+        flex: 1 1 auto;
+        justify-content: flex-end;
+        min-width: 0;
+        flex-wrap: nowrap;
+        gap: 4px;
+    }
+
+    .player-controls__time {
+        gap: 8px;
+        font-size: 0.72rem;
     }
 }

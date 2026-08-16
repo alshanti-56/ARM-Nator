@@ -1,3 +1,5 @@
+@use 'motion' as motion;
+
 @mixin play-button-copy($meta-color: currentColor) {
     &__copy {
         display: inline-flex;
@@ -46,6 +48,7 @@
     border: 1px solid rgba(255, 255, 255, 0.12);
     border-radius: 16px;
     cursor: pointer;
+    @include motion.interactive-surface(-2px);
     transition: all 0.2s ease;
 
     &:hover {

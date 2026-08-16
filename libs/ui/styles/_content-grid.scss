@@ -5,6 +5,8 @@
 //   @include grid.content-grid;
 //   @include grid.content-card;
 
+@use 'motion' as motion;
+
 @mixin content-grid(
     $min-width: var(--cover-grid-min-width, 148px),
     $gap: var(--cover-gap, 16px)
@@ -18,12 +20,7 @@
     cursor: pointer;
     border-radius: 10px;
     overflow: hidden;
-    transition: transform 0.2s ease, box-shadow 0.2s ease;
-
-    &:hover {
-        transform: translateY(-3px);
-        box-shadow: 0 6px 16px rgba(0, 0, 0, 0.12);
-    }
+    @include motion.interactive-surface(-3px);
 }
 
 @mixin thumbnail-wrapper {
@@ -90,13 +87,21 @@
     background: rgba(0, 0, 0, 0.5);
     width: 28px;
     height: 28px;
+    min-width: 28px;
     padding: 0;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    box-sizing: border-box;
+    line-height: 1;
 
     &:hover {
         background: rgba(0, 0, 0, 0.8);
     }
 
     mat-icon {
+        display: block;
+        margin: 0;
         color: white;
         font-size: 18px;
         width: 18px;

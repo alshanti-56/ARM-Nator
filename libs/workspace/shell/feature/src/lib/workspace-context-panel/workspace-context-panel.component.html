@@ -88,7 +88,7 @@
             <mat-icon class="context-search__icon">search</mat-icon>
             <input
                 #searchInput
-                type="search"
+                type="text"
                 spellcheck="false"
                 [value]="categorySearchTerm()"
                 (input)="onSearchInput($event)"
@@ -104,6 +104,7 @@
                     type="button"
                     mat-icon-button
                     class="context-search__clear"
+                    [attr.aria-label]="'CLEAR' | translate"
                     (click)="clearCategorySearch()"
                 >
                     <mat-icon>close</mat-icon>

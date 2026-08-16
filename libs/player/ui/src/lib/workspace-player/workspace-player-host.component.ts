@@ -1,3 +1,4 @@
+import { ClipboardModule } from "@angular/cdk/clipboard";
 import {
   ChangeDetectionStrategy,
   Component,
@@ -10,6 +11,7 @@ import {
 } from "@angular/core";
 import { MatButtonModule } from "@angular/material/button";
 import { MatIconModule } from "@angular/material/icon";
+import { MatMenuModule } from "@angular/material/menu";
 import { MatTooltipModule } from "@angular/material/tooltip";
 import { TranslatePipe } from "@ngx-translate/core";
 import {
@@ -137,8 +139,10 @@ function formatHwdecLabel(hwdec: string | undefined): string {
 @Component({
   selector: "app-workspace-player-host",
   imports: [
+    ClipboardModule,
     MatButtonModule,
     MatIconModule,
+    MatMenuModule,
     MatTooltipModule,
     TranslatePipe,
     WebPlayerViewComponent,

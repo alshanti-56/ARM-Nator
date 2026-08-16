@@ -25,6 +25,7 @@ export interface PlaylistMethodOption {
     icon: string;
     labelKey: string;
     subKey: string;
+    contentKeys: readonly string[];
 }
 
 type AddPlaylistMethod = 'xtream' | 'stalker';
@@ -56,16 +57,26 @@ export class AddPlaylistDialogComponent {
 
     readonly methodOptions: PlaylistMethodOption[] = [
         {
-            value: 'xtream',
-            icon: 'vpn_key',
-            labelKey: 'HOME.ADD_PLAYLIST.METHOD_XTREAM_LABEL',
-            subKey: 'HOME.ADD_PLAYLIST.METHOD_XTREAM_SUB',
-        },
-        {
             value: 'stalker',
             icon: 'router',
-            labelKey: 'HOME.ADD_PLAYLIST.METHOD_STALKER_LABEL',
-            subKey: 'HOME.ADD_PLAYLIST.METHOD_STALKER_SUB',
+            labelKey: 'HOME.PLAYLISTS.FEATURE_STALKER',
+            subKey: 'HOME.PLAYLISTS.SOURCE_STALKER_NEEDS',
+            contentKeys: [
+                'HOME.PLAYLISTS.CONTENT_LIVE',
+                'HOME.PLAYLISTS.CONTENT_VOD',
+                'HOME.PLAYLISTS.CONTENT_SERIES',
+            ],
+        },
+        {
+            value: 'xtream',
+            icon: 'cloud',
+            labelKey: 'HOME.PLAYLISTS.FEATURE_XTREAM',
+            subKey: 'HOME.PLAYLISTS.SOURCE_XTREAM_NEEDS',
+            contentKeys: [
+                'HOME.PLAYLISTS.CONTENT_LIVE',
+                'HOME.PLAYLISTS.CONTENT_VOD',
+                'HOME.PLAYLISTS.CONTENT_SERIES',
+            ],
         },
     ];
 

@@ -36,6 +36,7 @@
         (focusin)="onBarFocusIn()"
         (focusout)="onBarFocusOut($event)"
     >
+        <div class="player-controls__bottom">
         <div class="player-controls__transport">
             <button
                 mat-icon-button
@@ -602,6 +603,7 @@
                     }}</mat-icon>
                 </button>
             }
+        </div>
         </div>
 
         @if (menus.settingsOpen()) {

@@ -81,6 +81,19 @@ export interface SearchFilter {
         width: 30px;
         height: 30px;
         min-width: 30px;
+        padding: 0;
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        line-height: 1;
+        color: #ffffff;
+
+        mat-icon {
+          display: block;
+          margin: 0;
+          color: inherit;
+          opacity: 1;
+        }
       }
     `,
   ],

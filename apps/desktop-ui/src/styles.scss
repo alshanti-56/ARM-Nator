@@ -12,6 +12,14 @@
 // ─── Third-party ─────────────────────────────────────────────────────────────
 @import 'material-design-icons-iconfont/dist/material-design-icons.css';
 
+@font-face {
+    font-family: 'ARM-Nator Custom Icons';
+    font-style: normal;
+    font-weight: 400;
+    font-display: block;
+    src: url('assets/fonts/arm-custom-icons.ttf') format('truetype');
+}
+
 // ─── Bundled Fonts ────────────────────────────────────────────────────────────
 @import '@fontsource/dm-sans/400.css';
 @import '@fontsource/dm-sans/500.css';

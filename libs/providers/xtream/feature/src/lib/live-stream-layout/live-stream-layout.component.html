@@ -1,128 +1,111 @@
-@let streamUrl = activeStreamUrl();
+<div class="content-container">
+    <div class="live-all-items-content category-content-layout">
+            <div class="category-content-header">
+                <div class="category-meta">
+                    <h2 class="category-title">
+                        {{ selectedCategoryInfo()?.name ?? 'All Items' }}
+                    </h2>
+                    <div class="category-subtitle">
+                        {{ liveRootSubtitle() }}
+                    </div>
+                </div>
 
-@if (showLiveChannelSidebar()) {
-    <div
-        class="sidebar"
-        [class.sidebar-collapsed]="isSidebarCollapsed()"
-        appResizable
-        [minWidth]="250"
-        [maxWidth]="600"
-        [defaultWidth]="400"
-        storageKey="live-channels-sidebar-width"
-    >
-        <div class="sidebar-header">
-            <div class="category-heading">
-                <h2 class="category-title">
-                    {{ selectedCategoryInfo()?.name ?? 'All Items' }}
-                </h2>
-                @if (selectedCategoryInfo()?.count) {
-                    <span class="category-count">{{
-                        selectedCategoryInfo()?.count
-                    }}</span>
+                <div class="category-header-actions">
+                    <button
+                        mat-icon-button
+                        type="button"
+                        [matMenuTriggerFor]="channelSortMenu"
+                        [matTooltip]="'Sort: ' + liveChannelSortLabel()"
+                        aria-label="Sort channels"
+                    >
+                        <mat-icon>sort_by_alpha</mat-icon>
+                    </button>
+                    <mat-menu #channelSortMenu="matMenu">
+                        <button
+                            mat-menu-item
+                            (click)="setLiveChannelSortMode('server')"
+                        >
+                            <span>Server Order</span>
+                            @if (liveChannelSortMode() === 'server') {
+                                <mat-icon>check</mat-icon>
+                            }
+                        </button>
+                        <button
+                            mat-menu-item
+                            (click)="setLiveChannelSortMode('name-asc')"
+                        >
+                            <span>Name A-Z</span>
+                            @if (liveChannelSortMode() === 'name-asc') {
+                                <mat-icon>check</mat-icon>
+                            }
+                        </button>
+                        <button
+                            mat-menu-item
+                            (click)="setLiveChannelSortMode('name-desc')"
+                        >
+                            <span>Name Z-A</span>
+                            @if (liveChannelSortMode() === 'name-desc') {
+                                <mat-icon>check</mat-icon>
+                            }
+                        </button>
+                    </mat-menu>
+
+                    <div
+                        class="view-toggle"
+                        role="group"
+                        aria-label="Live content view"
+                    >
+                        <button
+                            mat-icon-button
+                            type="button"
+                            class="view-toggle-button"
+                            [class.is-active]="liveViewMode() === 'grid'"
+                            [attr.aria-pressed]="liveViewMode() === 'grid'"
+                            matTooltip="Grid view"
+                            aria-label="Grid view"
+                            (click)="setLiveViewMode('grid')"
+                        >
+                            <mat-icon>grid_view</mat-icon>
+                        </button>
+                        <button
+                            mat-icon-button
+                            type="button"
+                            class="view-toggle-button"
+                            [class.is-active]="liveViewMode() === 'list'"
+                            [attr.aria-pressed]="liveViewMode() === 'list'"
+                            matTooltip="List view"
+                            aria-label="List view"
+                            (click)="setLiveViewMode('list')"
+                        >
+                            <mat-icon>view_list</mat-icon>
+                        </button>
+                    </div>
+                </div>
+
+                @if (showLiveRootPaginator()) {
+                    <mat-paginator
+                        [pageIndex]="liveRootPageIndex()"
+                        [length]="liveRootItemCount()"
+                        [pageSize]="liveRootLimit()"
+                        [pageSizeOptions]="liveRootPageSizeOptions"
+                        (page)="onLiveRootPageChange($event)"
+                        aria-label="Select page"
+                    />
                 }
             </div>
-            <button
-                mat-icon-button
-                [matMenuTriggerFor]="channelSortMenu"
-                [matTooltip]="'Sort: ' + liveChannelSortLabel()"
-                aria-label="Sort channels"
-            >
-                <mat-icon>sort_by_alpha</mat-icon>
-            </button>
-            <button
-                mat-icon-button
-                type="button"
-                [attr.aria-label]="'LAYOUT.HIDE_CHANNELS_LIST' | translate"
-                [matTooltip]="'LAYOUT.TOGGLE_SIDEBAR_TOOLTIP' | translate"
-                [attr.aria-pressed]="isSidebarCollapsed()"
-                (click)="toggleSidebar()"
-            >
-                <mat-icon>chevron_left</mat-icon>
-            </button>
-            <mat-menu #channelSortMenu="matMenu">
-                <button
-                    mat-menu-item
-                    (click)="setLiveChannelSortMode('server')"
-                >
-                    <span>Server Order</span>
-                    @if (liveChannelSortMode() === 'server') {
-                        <mat-icon>check</mat-icon>
-                    }
-                </button>
-                <button
-                    mat-menu-item
-                    (click)="setLiveChannelSortMode('name-asc')"
-                >
-                    <span>Name A-Z</span>
-                    @if (liveChannelSortMode() === 'name-asc') {
-                        <mat-icon>check</mat-icon>
-                    }
-                </button>
-                <button
-                    mat-menu-item
-                    (click)="setLiveChannelSortMode('name-desc')"
-                >
-                    <span>Name Z-A</span>
-                    @if (liveChannelSortMode() === 'name-desc') {
-                        <mat-icon>check</mat-icon>
-                    }
-                </button>
-            </mat-menu>
-        </div>
-        <app-portal-channels-list
-            [sortMode]="liveChannelSortMode()"
-            [searchTermInput]="workspaceSearchTerm()"
-            (playClicked)="playLive($event)"
-            (playbackRequested)="playLive($event, true)"
-        />
-    </div>
-}
-<div class="content-container">
-    @if (isSidebarCollapsed()) {
-        <button
-            mat-icon-button
-            type="button"
-            class="sidebar-restore"
-            [attr.aria-label]="'LAYOUT.SHOW_CHANNELS_LIST' | translate"
-            [matTooltip]="'LAYOUT.TOGGLE_SIDEBAR_TOOLTIP' | translate"
-            [attr.aria-pressed]="isSidebarCollapsed()"
-            (click)="toggleSidebar()"
-        >
-            <mat-icon>chevron_right</mat-icon>
-        </button>
-    }
-    @if (streamUrl) {
 
-    } @else if (!showLiveChannelSidebar()) {
-        @if (isSelectedTypeContentLoading()) {
-            <div class="live-loading-content">
-                <app-portal-channels-list
-                    [sortMode]="liveChannelSortMode()"
-                    [searchTermInput]="workspaceSearchTerm()"
-                    (playClicked)="playLive($event)"
-                    (playbackRequested)="playLive($event, true)"
-                />
-            </div>
-        } @else {
-            <div class="live-all-items-content category-content-layout">
-                <div class="category-content-header">
-                    <div class="category-meta">
-                        <h2 class="category-title">All Items</h2>
-                        <div class="category-subtitle">
-                            {{ liveRootSubtitle() }}
-                        </div>
-                    </div>
-                    @if (showLiveRootPaginator()) {
-                        <mat-paginator
-                            [pageIndex]="liveRootPageIndex()"
-                            [length]="liveRootItemCount()"
-                            [pageSize]="liveRootLimit()"
-                            [pageSizeOptions]="liveRootPageSizeOptions"
-                            (page)="onLiveRootPageChange($event)"
-                            aria-label="Select page"
-                        />
-                    }
+            @if (isSelectedTypeContentLoading()) {
+                <div class="live-loading-content">
+                    <app-portal-channels-list
+                        class="live-main-items-list"
+                        [channelsOverride]="liveRootItems()"
+                        [sortMode]="liveChannelSortMode()"
+                        [searchTermInput]="workspaceSearchTerm()"
+                        (playClicked)="playLive($event)"
+                        (playbackRequested)="playLive($event, true)"
+                    />
                 </div>
+            } @else if (liveViewMode() === 'grid') {
                 <app-grid-list
                     class="live-all-items-grid app-scrollbar"
                     [isLoading]="isSelectedTypeContentLoading()"
@@ -137,12 +120,15 @@
                     [type]="'live'"
                     (itemClicked)="onLiveRootItemClick($event)"
                 />
-            </div>
-        }
-    } @else {
-        <app-portal-empty-state
-            icon="live_tv"
-            [message]="'CHANNELS.SELECT_CHANNEL_PLAYBACK' | translate"
-        />
-    }
+            } @else {
+                <app-portal-channels-list
+                    class="live-main-items-list"
+                    [channelsOverride]="liveRootItems()"
+                    [sortMode]="liveChannelSortMode()"
+                    [searchTermInput]="workspaceSearchTerm()"
+                    (playClicked)="playLive($event)"
+                    (playbackRequested)="playLive($event, true)"
+                />
+            }
+    </div>
 </div>

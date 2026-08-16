@@ -80,7 +80,7 @@ export class WorkspaceShellSearchService {
 
         if (route.kind === 'global-search') {
             const hasSearchablePlaylists =
-                this.runtime.isElectron &&
+                this.runtime.supportsGlobalSearch &&
                 this.routeState
                     .playlists()
                     .some(isWorkspaceGlobalSearchablePlaylist);

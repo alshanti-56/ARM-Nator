@@ -8,6 +8,7 @@
         </div>
         <div class="bulk-actions">
             <button
+                type="button"
                 mat-stroked-button
                 (click)="selectAll()"
                 [disabled]="allSelected()"
@@ -16,6 +17,7 @@
                 {{ 'CHANNELS.GROUP_MANAGEMENT.SELECT_ALL' | translate }}
             </button>
             <button
+                type="button"
                 mat-stroked-button
                 (click)="deselectAll()"
                 [disabled]="selectedCount() === 0"
@@ -28,8 +30,8 @@
 
     <label class="search-inline">
         <mat-icon class="search-inline__icon">search</mat-icon>
-        <input
-            type="search"
+            <input
+            type="text"
             spellcheck="false"
             [value]="searchTerm()"
             (input)="searchTerm.set($any($event.target).value)"
@@ -42,6 +44,7 @@
                 type="button"
                 mat-icon-button
                 class="search-inline__clear"
+                [attr.aria-label]="'CLEAR' | translate"
                 (click)="clearSearch()"
             >
                 <mat-icon>close</mat-icon>
@@ -76,10 +79,10 @@
 </mat-dialog-content>
 
 <mat-dialog-actions align="end">
-    <button mat-button (click)="cancel()">
+    <button type="button" mat-button (click)="cancel()">
         {{ 'CLOSE' | translate }}
     </button>
-    <button mat-flat-button color="primary" (click)="save()">
+    <button type="button" mat-flat-button color="primary" (click)="save()">
         {{ 'CHANNELS.GROUP_MANAGEMENT.SAVE' | translate }}
     </button>
 </mat-dialog-actions>

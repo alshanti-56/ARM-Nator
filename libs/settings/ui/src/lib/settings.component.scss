@@ -20,6 +20,9 @@
     flex-direction: column;
     gap: 16px;
     align-items: stretch;
+    width: 100%;
+    min-width: 0;
+    box-sizing: border-box;
     max-width: 920px;
     margin: 0 auto;
     padding-bottom: calc(
@@ -59,6 +62,8 @@
 
 .settings-content {
     min-width: 0;
+    width: 100%;
+    box-sizing: border-box;
     display: flex;
     flex-direction: column;
     gap: 16px;
@@ -183,6 +188,7 @@
     align-items: center;
     gap: 12px;
     min-height: 40px;
+    min-width: 0;
 
     mat-form-field,
     .w-full {
@@ -525,6 +531,7 @@
 // Now the bar acts as a proper footer: spans the column, separator line
 // on top, sits flush with the bottom edge while still sticking on scroll.
 .action-bar {
+    box-sizing: border-box;
     position: sticky;
     bottom: calc(
         var(--settings-action-bar-offset) + var(--settings-safe-bottom)
@@ -533,6 +540,8 @@
     margin-right: 0;
     z-index: 100;
     display: flex;
+    width: 100%;
+    min-width: 0;
     justify-content: flex-end;
     align-items: center;
     gap: 12px;
