@@ -46,8 +46,8 @@ export class AppWorkspaceShellActionsService implements WorkspaceShellActions {
         void import('@arm-nator/providers/xtream/feature').then(
             ({ AccountInfoComponent }) => {
                 this.dialog.open(AccountInfoComponent, {
-                    width: '80%',
-                    maxWidth: '1200px',
+                    width: '760px',
+                    maxWidth: '92vw',
                     maxHeight: '90vh',
                     data,
                 });

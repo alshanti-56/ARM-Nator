@@ -615,6 +615,8 @@
     },
     "UPDATE_AVAILABLE": "Update available",
     "REFRESH": "Refresh",
+    "COPY": "Copy",
+    "COPIED": "Copied",
     "XTREAM": {
         "PLAY": "Play",
         "OPENING_PLAYER": "Opening player...",
@@ -696,6 +698,8 @@
         },
         "ACCOUNT_INFO": {
             "TITLE": "Account Information",
+            "ACCOUNT": "Account",
+            "SERVER": "Server",
             "USER_INFO": "User Information",
             "STATUS": "Status",
             "USERNAME": "Username",
@@ -707,6 +711,8 @@
             "NO": "No",
             "ALLOWED_FORMATS": "Allowed Formats",
             "SERVER_INFO": "Server Information",
+            "HOST": "Host",
+            "PROVIDER_MESSAGE": "Provider message",
             "LIVE_TV": "Live TV",
             "MOVIES": "Movies",
             "TV_SERIES": "TV Series",

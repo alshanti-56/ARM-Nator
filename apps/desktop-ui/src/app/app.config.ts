@@ -5,7 +5,9 @@ import {
 } from '@angular/common/http';
 import {
     ApplicationConfig,
+    inject,
     importProvidersFrom,
+    provideAppInitializer,
     provideZoneChangeDetection,
 } from '@angular/core';
 import { MAT_FORM_FIELD_DEFAULT_OPTIONS } from '@angular/material/form-field';
@@ -15,7 +17,11 @@ import { provideEffects } from '@ngrx/effects';
 import { provideRouterStore, routerReducer } from '@ngrx/router-store';
 import { provideStore } from '@ngrx/store';
 import { provideStoreDevtools } from '@ngrx/store-devtools';
-import { TranslateLoader, TranslateModule } from '@ngx-translate/core';
+import {
+    TranslateLoader,
+    TranslateModule,
+    TranslateService,
+} from '@ngx-translate/core';
 import { TranslateHttpLoader } from '@ngx-translate/http-loader';
 import { PlaylistEffects, playlistReducer } from '@arm-nator/providers/shared/playlist-state';
 import { NgxIndexedDBModule } from 'ngx-indexed-db';
@@ -27,7 +33,7 @@ import {
 import { PLAYLIST_PLAYER_ACTIONS } from '@arm-nator/providers/shared/playlist-util';
 import { provideXtreamDataSource } from '@arm-nator/providers/xtream/data-access';
 import { DataService } from '@arm-nator/services';
-import { dbConfig } from '@arm-nator/shared/interfaces';
+import { dbConfig, Language } from '@arm-nator/shared/interfaces';
 import { AppConfig } from '../environments/environment';
 import { routes } from './app.routes';
 import { ElectronService } from './services/electron.service';
@@ -114,13 +120,19 @@ export const appConfig: ApplicationConfig = {
                 loadingText: 'This item is actually loading...',
             }),
             TranslateModule.forRoot({
-                defaultLanguage: getInitialLanguage(),
+                // Always resolve missing keys from English, regardless of
+                // the user's active language.
+                defaultLanguage: Language.ENGLISH,
+                useDefaultLang: true,
                 loader: {
                     provide: TranslateLoader,
                     useFactory: HttpLoaderFactory,
                     deps: [HttpClient],
                 },
             })
+        ),
+        provideAppInitializer(() =>
+            inject(TranslateService).use(getInitialLanguage())
         ),
         {
             provide: DataService,

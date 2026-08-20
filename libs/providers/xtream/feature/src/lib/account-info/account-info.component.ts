@@ -5,6 +5,7 @@ import {
   inject,
   signal,
 } from "@angular/core";
+import { ClipboardModule } from "@angular/cdk/clipboard";
 import { MatButtonModule } from "@angular/material/button";
 import { MAT_DIALOG_DATA, MatDialogModule } from "@angular/material/dialog";
 import { MatIconModule } from "@angular/material/icon";
@@ -32,6 +33,7 @@ interface AccountStat {
 interface AccountDetailRow {
   labelKey: string;
   value: string;
+  copyValue?: string;
   mono?: boolean;
   tone?: "accent" | "positive" | "warning";
   translateValue?: boolean;
@@ -44,7 +46,13 @@ interface AccountPort {
 
 @Component({
   selector: "app-account-info",
-  imports: [MatButtonModule, MatDialogModule, MatIconModule, TranslatePipe],
+  imports: [
+    ClipboardModule,
+    MatButtonModule,
+    MatDialogModule,
+    MatIconModule,
+    TranslatePipe,
+  ],
   templateUrl: "./account-info.component.html",
   styleUrl: "./account-info.component.scss",
   changeDetection: ChangeDetectionStrategy.OnPush,
@@ -87,6 +95,16 @@ export class AccountInfoComponent {
   readonly serverHost = computed(
     () => this.accountInfo()?.server_info?.url || "-",
   );
+  readonly accountTitle = computed(() =>
+    this.serverHost() !== "-" ? this.serverHost() : this.playlistLabel(),
+  );
+  readonly accountUsername = computed(
+    () =>
+      this.accountInfo()?.user_info?.username ||
+      this.currentPlaylist()?.username ||
+      "-",
+  );
+  readonly copyFeedback = signal(false);
   readonly activeConnections = computed(() =>
     this.parseNumber(this.accountInfo()?.user_info?.active_cons),
   );
@@ -137,12 +155,6 @@ export class AccountInfoComponent {
   });
   readonly heroStats = computed<AccountStat[]>(() => [
     {
-      icon: "bolt",
-      labelKey: "XTREAM.ACCOUNT_INFO.ACTIVE_CONNECTIONS",
-      value: this.activeConnectionsLabel(),
-      meter: this.connectionUsagePercent(),
-    },
-    {
       icon: "live_tv",
       labelKey: "XTREAM.ACCOUNT_INFO.LIVE_TV",
       value: this.formatOptionalCount(this.data.liveStreamsCount),
@@ -160,6 +172,12 @@ export class AccountInfoComponent {
       value: this.formatOptionalCount(this.data.seriesCount),
       meter: null,
     },
+    {
+      icon: "bolt",
+      labelKey: "XTREAM.ACCOUNT_INFO.ACTIVE_CONNECTIONS",
+      value: this.activeConnectionsLabel(),
+      meter: this.connectionUsagePercent(),
+    },
   ]);
   readonly userDetails = computed<AccountDetailRow[]>(() => [
     {
@@ -169,7 +187,8 @@ export class AccountInfoComponent {
     },
     {
       labelKey: "XTREAM.ACCOUNT_INFO.USERNAME",
-      value: this.accountInfo()?.user_info?.username || "-",
+      value: this.accountUsername(),
+      copyValue: this.accountUsername(),
       mono: true,
     },
     {
@@ -196,8 +215,9 @@ export class AccountInfoComponent {
   ]);
   readonly serverDetails = computed<AccountDetailRow[]>(() => [
     {
-      labelKey: "XTREAM.ACCOUNT_INFO.URL",
+      labelKey: "XTREAM.ACCOUNT_INFO.HOST",
       value: this.accountInfo()?.server_info?.url || "-",
+      copyValue: this.serverHost(),
       mono: true,
     },
     {
@@ -221,6 +241,7 @@ export class AccountInfoComponent {
 
   async reload(): Promise<void> {
     const playlist = this.currentPlaylist();
+    this.copyFeedback.set(false);
 
     if (!playlist?.serverUrl || !playlist.username || !playlist.password) {
       this.loadState.set("error");
@@ -244,6 +265,11 @@ export class AccountInfoComponent {
       this.accountInfo.set(null);
       this.loadState.set("error");
     }
+  }
+
+  notifyCopied(): void {
+    this.copyFeedback.set(true);
+    setTimeout(() => this.copyFeedback.set(false), 1800);
   }
 
   private formatUnixDate(timestamp?: string): string {

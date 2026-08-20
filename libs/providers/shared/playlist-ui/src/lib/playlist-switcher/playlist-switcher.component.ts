@@ -126,9 +126,16 @@ export class PlaylistSwitcherComponent {
         const query = this.searchQuery().toLowerCase().trim();
         const filters = this.playlistTypeFilters();
         const allPlaylists = this.playlists();
+        const availableTypes = new Set(
+            allPlaylists.map((playlist) => this.getPlaylistFilterType(playlist))
+        );
+        const multipleTypesAvailable = availableTypes.size > 1;
         const filteredByType = allPlaylists.filter((playlist) => {
             const playlistType = this.getPlaylistFilterType(playlist);
-            return filters[playlistType];
+            // Type filters are hidden when only one type exists. Ignore any
+            // stale persisted toggle in that state so it cannot hide every
+            // playlist with no visible way to recover the list.
+            return !multipleTypesAvailable || filters[playlistType];
         });
         const filtered = query
             ? filteredByType.filter(
