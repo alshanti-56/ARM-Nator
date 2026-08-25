@@ -6,7 +6,7 @@ refinement tools, and plays streams through several local and browser-based
 engines.
 
 This document describes the current repository rather than a historical
-roadmap. The package version in this checkout is `0.30.0`.
+roadmap. The package version in this checkout is `0.31.0`.
 
 ## What is available now
 
