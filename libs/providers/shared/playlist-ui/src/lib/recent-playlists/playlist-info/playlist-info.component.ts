@@ -1,5 +1,5 @@
 import { DatePipe } from '@angular/common';
-import { Component, inject } from '@angular/core';
+import { Component, inject, signal } from '@angular/core';
 import {
     FormControl,
     ReactiveFormsModule,
@@ -19,12 +19,19 @@ import { MatSnackBar } from '@angular/material/snack-bar';
 import { Store } from '@ngrx/store';
 import { TranslatePipe, TranslateService } from '@ngx-translate/core';
 import { PlaylistActions } from '@arm-nator/providers/shared/playlist-state';
+import { XtreamApiService } from '@arm-nator/providers/xtream/data-access';
 import { DatabaseService, RuntimeCapabilitiesService } from '@arm-nator/services';
 import {
+    buildXtreamServerUrl,
     normalizeXtreamServerUrl,
     Playlist,
     PlaylistMeta,
 } from '@arm-nator/shared/interfaces';
+
+interface PlaylistServerPort {
+    labelKey: string;
+    value: string;
+}
 
 @Component({
     selector: 'app-playlist-info',
@@ -80,6 +87,7 @@ export class PlaylistInfoComponent {
     private snackBar = inject(MatSnackBar);
     private translate = inject(TranslateService);
     private runtime = inject(RuntimeCapabilitiesService);
+    private xtreamApiService = inject(XtreamApiService);
     private dialogRef = inject(MatDialogRef<PlaylistInfoComponent>, {
         optional: true,
     });
@@ -95,9 +103,41 @@ export class PlaylistInfoComponent {
     /** Form group with playlist details */
     playlistDetails!: UntypedFormGroup;
 
+    readonly availableServerPorts = signal<PlaylistServerPort[]>([]);
+    readonly isLoadingServerPorts = signal(false);
+
     constructor() {
         this.playlist = this.playlistData;
         this.createForm();
+        void this.loadServerDetails();
+    }
+
+    get hasXtreamCredentials(): boolean {
+        return Boolean(
+            this.playlist.serverUrl &&
+                this.playlist.username &&
+                this.playlist.password
+        );
+    }
+
+    get availablePortsDisplay(): string {
+        if (this.isLoadingServerPorts()) {
+            return this.translate.instant(
+                'HOME.PLAYLISTS.INFO_DIALOG.AVAILABLE_PORTS_LOADING'
+            );
+        }
+
+        const ports = this.availableServerPorts();
+        if (ports.length === 0) {
+            return '-';
+        }
+
+        return ports
+            .map(
+                (port) =>
+                    `${this.translate.instant(port.labelKey)} ${port.value}`
+            )
+            .join(' · ');
     }
 
     /**
@@ -130,9 +170,70 @@ export class PlaylistInfoComponent {
             }),
             autoRefresh: new FormControl(this.playlist.autoRefresh),
             serverUrl: new FormControl(this.playlist.serverUrl),
+            portalUrl: new FormControl(this.playlist.portalUrl),
             username: new FormControl(this.playlist.username),
             password: new FormControl(this.playlist.password),
         });
+    }
+
+    private async loadServerDetails(): Promise<void> {
+        if (!this.hasXtreamCredentials) {
+            return;
+        }
+
+        this.isLoadingServerPorts.set(true);
+        try {
+            const accountInfo = await this.xtreamApiService.getAccountInfo({
+                serverUrl: this.playlist.serverUrl as string,
+                username: this.playlist.username as string,
+                password: this.playlist.password as string,
+            });
+            const serverInfo = accountInfo.server_info;
+            const serverUrlControl = this.playlistDetails.get('serverUrl');
+            const currentServerUrl = String(serverUrlControl?.value ?? '');
+            const currentProtocol = /^https?:/i
+                .exec(currentServerUrl)?.[0]
+                ?.slice(0, -1)
+                .toLowerCase();
+            const isHttps =
+                (currentProtocol || serverInfo.server_protocol)
+                    ?.trim()
+                    .toLowerCase() === 'https';
+            const activePort = isHttps
+                ? serverInfo.https_port || serverInfo.port
+                : serverInfo.port || serverInfo.https_port;
+            const serverUrl = buildXtreamServerUrl(
+                currentServerUrl || serverInfo.url,
+                serverInfo.server_protocol,
+                activePort
+            );
+
+            if (serverUrlControl && serverUrl !== currentServerUrl) {
+                serverUrlControl.setValue(serverUrl, { emitEvent: false });
+                serverUrlControl.markAsDirty();
+            }
+
+            this.availableServerPorts.set(
+                [
+                    {
+                        labelKey: 'XTREAM.ACCOUNT_INFO.HTTP_PORT',
+                        value: serverInfo.port,
+                    },
+                    {
+                        labelKey: 'XTREAM.ACCOUNT_INFO.HTTPS_PORT',
+                        value: serverInfo.https_port,
+                    },
+                    {
+                        labelKey: 'XTREAM.ACCOUNT_INFO.RTMP_PORT',
+                        value: serverInfo.rtmp_port,
+                    },
+                ].filter((port) => Boolean(port.value?.trim()))
+            );
+        } catch (error) {
+            console.warn('Failed to load Xtream server ports:', error);
+        } finally {
+            this.isLoadingServerPorts.set(false);
+        }
     }
 
     async saveChanges(playlist: PlaylistMeta): Promise<void> {

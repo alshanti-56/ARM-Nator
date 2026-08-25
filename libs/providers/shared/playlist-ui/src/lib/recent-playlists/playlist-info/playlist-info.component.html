@@ -19,6 +19,27 @@
                 }}</mat-label>
                 <input matInput formControlName="serverUrl" />
             </mat-form-field>
+            @if (hasXtreamCredentials) {
+                <mat-form-field class="w-full">
+                    <mat-label>{{
+                        'HOME.PLAYLISTS.INFO_DIALOG.AVAILABLE_PORTS'
+                            | translate
+                    }}</mat-label>
+                    <input
+                        matInput
+                        [value]="availablePortsDisplay"
+                        readonly
+                    />
+                </mat-form-field>
+            }
+        }
+        @if (playlist.portalUrl) {
+            <mat-form-field class="w-full">
+                <mat-label>{{
+                    'HOME.STALKER_PORTAL.SERVER_URL' | translate
+                }}</mat-label>
+                <input matInput formControlName="portalUrl" />
+            </mat-form-field>
         }
         @if (playlist.username) {
             <mat-form-field class="w-full">

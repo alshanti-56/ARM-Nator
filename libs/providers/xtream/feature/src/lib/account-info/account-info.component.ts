@@ -18,6 +18,7 @@ import {
 import { createLogger } from "@arm-nator/providers/shared/util";
 import {
   resolveXtreamPortalStatus,
+  buildXtreamServerUrl,
   type XtreamAccountInfoDialogData,
 } from "@arm-nator/shared/interfaces";
 
@@ -92,9 +93,23 @@ export class AccountInfoComponent {
       "-"
     );
   });
-  readonly serverHost = computed(
-    () => this.accountInfo()?.server_info?.url || "-",
-  );
+  readonly serverHost = computed(() => {
+    const serverInfo = this.accountInfo()?.server_info;
+    if (!serverInfo) {
+      return "-";
+    }
+
+    const activePort =
+      serverInfo.server_protocol?.toLowerCase() === "https"
+        ? serverInfo.https_port || serverInfo.port
+        : serverInfo.port || serverInfo.https_port;
+
+    return buildXtreamServerUrl(
+      serverInfo.url,
+      serverInfo.server_protocol,
+      activePort,
+    );
+  });
   readonly accountTitle = computed(() =>
     this.serverHost() !== "-" ? this.serverHost() : this.playlistLabel(),
   );
@@ -102,6 +117,12 @@ export class AccountInfoComponent {
     () =>
       this.accountInfo()?.user_info?.username ||
       this.currentPlaylist()?.username ||
+      "-",
+  );
+  readonly accountPassword = computed(
+    () =>
+      this.accountInfo()?.user_info?.password ||
+      this.currentPlaylist()?.password ||
       "-",
   );
   readonly copyFeedback = signal(false);
@@ -137,8 +158,7 @@ export class AccountInfoComponent {
   );
   readonly ports = computed<AccountPort[]>(() => {
     const serverInfo = this.accountInfo()?.server_info;
-
-    return [
+    const ports = [
       {
         labelKey: "XTREAM.ACCOUNT_INFO.HTTP_PORT",
         value: serverInfo?.port || "-",
@@ -152,6 +172,8 @@ export class AccountInfoComponent {
         value: serverInfo?.rtmp_port || "-",
       },
     ];
+
+    return ports.filter((port) => port.value !== "-");
   });
   readonly heroStats = computed<AccountStat[]>(() => [
     {
@@ -181,9 +203,10 @@ export class AccountInfoComponent {
   ]);
   readonly userDetails = computed<AccountDetailRow[]>(() => [
     {
-      labelKey: "XTREAM.ACCOUNT_INFO.STATUS",
-      value: this.accountInfo()?.user_info?.status || "-",
-      tone: this.isActive() ? "positive" : undefined,
+      labelKey: "XTREAM.ACCOUNT_INFO.SERVER",
+      value: this.serverHost(),
+      copyValue: this.serverHost(),
+      mono: true,
     },
     {
       labelKey: "XTREAM.ACCOUNT_INFO.USERNAME",
@@ -191,6 +214,14 @@ export class AccountInfoComponent {
       copyValue: this.accountUsername(),
       mono: true,
     },
+    {
+      labelKey: "XTREAM.ACCOUNT_INFO.PASSWORD",
+      value: this.accountPassword(),
+      copyValue: this.accountPassword(),
+      mono: true,
+    },
+  ]);
+  readonly statusDetails = computed<AccountDetailRow[]>(() => [
     {
       labelKey: "XTREAM.ACCOUNT_INFO.ACTIVE_CONNECTIONS",
       value: this.activeConnectionsLabel(),
@@ -211,14 +242,6 @@ export class AccountInfoComponent {
         : "XTREAM.ACCOUNT_INFO.NO",
       translateValue: true,
       tone: this.isTrial() ? "warning" : undefined,
-    },
-  ]);
-  readonly serverDetails = computed<AccountDetailRow[]>(() => [
-    {
-      labelKey: "XTREAM.ACCOUNT_INFO.HOST",
-      value: this.accountInfo()?.server_info?.url || "-",
-      copyValue: this.serverHost(),
-      mono: true,
     },
     {
       labelKey: "XTREAM.ACCOUNT_INFO.PROTOCOL",

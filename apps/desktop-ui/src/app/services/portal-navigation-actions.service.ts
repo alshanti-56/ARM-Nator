@@ -16,10 +16,21 @@ export class AppPortalNavigationActionsService
     private readonly xtreamStore = inject(XtreamStore);
 
     openAccountInfo(): void {
+        const playlist = this.xtreamStore.currentPlaylist();
         const data = {
             vodStreamsCount: this.xtreamStore.vodStreams().length,
             liveStreamsCount: this.xtreamStore.liveStreams().length,
             seriesCount: this.xtreamStore.serialStreams().length,
+            playlist: playlist
+                ? {
+                      id: playlist.id,
+                      name: playlist.name,
+                      title: playlist.title,
+                      serverUrl: playlist.serverUrl,
+                      username: playlist.username,
+                      password: playlist.password,
+                  }
+                : undefined,
         };
 
         void import('@arm-nator/providers/xtream/feature').then(

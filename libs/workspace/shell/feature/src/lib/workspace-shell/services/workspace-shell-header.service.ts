@@ -81,9 +81,10 @@ export class WorkspaceShellHeaderService {
       this.routeState.currentRoute().kind !== "tool" &&
       Boolean(this.routeState.activePlaylist()),
   );
-  readonly canOpenAccountInfo = computed(() =>
-    Boolean(this.routeState.activePlaylist()?.serverUrl),
-  );
+  readonly canOpenAccountInfo = computed(() => {
+    const playlist = this.routeState.activePlaylist();
+    return Boolean(playlist?.serverUrl && playlist.username && playlist.password);
+  });
   readonly canRefreshPlaylist = computed(
     () =>
       this.routeState.currentRoute().kind !== "tool" &&
@@ -198,14 +199,25 @@ export class WorkspaceShellHeaderService {
   }
 
   openAccountInfo(): void {
-    if (!this.canOpenAccountInfo()) {
+    const playlist = this.routeState.activePlaylist();
+    if (!playlist?.serverUrl || !playlist.username || !playlist.password) {
       return;
     }
+
+    const title = playlist.title || playlist.filename || playlist._id;
 
     const data: WorkspaceAccountInfoData = {
       vodStreamsCount: this.xtreamStore.vodStreams().length,
       liveStreamsCount: this.xtreamStore.liveStreams().length,
       seriesCount: this.xtreamStore.serialStreams().length,
+      playlist: {
+        id: playlist._id,
+        name: title,
+        title,
+        serverUrl: playlist.serverUrl,
+        username: playlist.username,
+        password: playlist.password,
+      },
     };
     this.workspaceActions.openAccountInfo(data);
   }

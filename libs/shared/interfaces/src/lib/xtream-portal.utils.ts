@@ -19,12 +19,66 @@ export interface XtreamCredentialsFromUrl {
 
 const XTREAM_API_ENDPOINT_PATTERN = /\/(?:get|player_api)\.php$/i;
 
+function getExplicitUrlPort(value: string): string | undefined {
+    const authority = /^https?:\/\/([^/?#]*)/i.exec(value.trim())?.[1];
+    if (!authority) {
+        return undefined;
+    }
+
+    const host = authority.startsWith('[')
+        ? authority.slice(0, authority.indexOf(']') + 1)
+        : authority;
+    const portSeparator = host === authority
+        ? authority.lastIndexOf(':')
+        : authority.indexOf(']:');
+    if (portSeparator < 0) {
+        return undefined;
+    }
+
+    const port = authority.slice(portSeparator + (host === authority ? 1 : 2));
+    return /^\d{1,5}$/.test(port) ? port : undefined;
+}
+
+/**
+ * Builds the server URL reported by an Xtream account response.
+ * Providers commonly return a bare host plus the active protocol and port
+ * as separate fields. Keep an explicit port in the displayed URL, including
+ * default ports such as :80 and :443.
+ */
+export function buildXtreamServerUrl(
+    value: string | undefined,
+    protocol: string | undefined,
+    port: string | undefined
+): string {
+    const trimmed = value?.trim() ?? '';
+    if (!trimmed) {
+        return '-';
+    }
+
+    const normalizedProtocol =
+        protocol?.trim().toLowerCase() === 'https' ? 'https' : 'http';
+    const candidate = /^[a-z][a-z\d+.-]*:\/\//i.test(trimmed)
+        ? trimmed
+        : `${normalizedProtocol}://${trimmed}`;
+    const normalizedPort = port?.trim() ?? '';
+
+    if (!/^\d{1,5}$/.test(normalizedPort) || getExplicitUrlPort(candidate)) {
+        return candidate;
+    }
+
+    const match = /^(https?:\/\/)(\[[^\]]+\]|[^/?#]+)(.*)$/i.exec(candidate);
+    return match
+        ? `${match[1]}${match[2]}:${normalizedPort}${match[3]}`
+        : candidate;
+}
+
 export function normalizeXtreamServerUrl(value: string): string {
     const trimmed = value.trim();
     if (!trimmed) {
         throw new Error('Xtream URL is required');
     }
 
+    const explicitPort = getExplicitUrlPort(trimmed);
     const url = new URL(trimmed);
     if (url.protocol !== 'http:' && url.protocol !== 'https:') {
         throw new Error('Only http and https Xtream URLs are supported');
@@ -40,7 +94,12 @@ export function normalizeXtreamServerUrl(value: string): string {
         ''
     );
 
-    return `${url.origin}${basePath}`;
+    const origin =
+        !url.port && explicitPort
+            ? `${url.origin}:${explicitPort}`
+            : url.origin;
+
+    return `${origin}${basePath}`;
 }
 
 export function extractXtreamCredentialsFromUrl(

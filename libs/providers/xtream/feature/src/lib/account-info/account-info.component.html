@@ -25,14 +25,6 @@
 
   <div class="account-dialog__header-actions">
     @if (accountInfo(); as info) {
-      <span
-        class="account-dialog__status"
-        [class.account-dialog__status--active]="isActive()"
-      >
-        <span class="account-dialog__status-dot" aria-hidden="true"></span>
-        {{ info.user_info.status || "-" }}
-      </span>
-
       @if (isTrial()) {
         <span class="account-dialog__trial">
           {{ "XTREAM.ACCOUNT_INFO.TRIAL_ACCOUNT" | translate }}
@@ -121,7 +113,7 @@
     </div>
   } @else if (accountInfo(); as info) {
     <div class="account-dialog__grid">
-      <section class="account-section">
+      <section class="account-section account-section--account">
         <div class="account-section__header">
           <div>
             <h3>{{ "XTREAM.ACCOUNT_INFO.ACCOUNT" | translate }}</h3>
@@ -131,6 +123,101 @@
 
         <dl class="account-detail-list">
           @for (row of userDetails(); track row.labelKey) {
+            <div
+              class="account-detail-row"
+              [class.account-detail-row--server]="
+                row.labelKey === 'XTREAM.ACCOUNT_INFO.SERVER'
+              "
+            >
+              <dt>{{ row.labelKey | translate }}</dt>
+              <dd>
+                <span
+                  [class.account-detail-row__value--mono]="row.mono"
+                  [class.account-detail-row__value--accent]="
+                    row.tone === 'accent'
+                  "
+                  [class.account-detail-row__value--positive]="
+                    row.tone === 'positive'
+                  "
+                  [class.account-detail-row__value--warning]="
+                    row.tone === 'warning'
+                  "
+                >
+                  @if (row.translateValue) {
+                    {{ row.value | translate }}
+                  } @else {
+                    {{ row.value }}
+                  }
+                </span>
+
+                @if (row.copyValue && row.copyValue !== "-") {
+                  <button
+                    mat-button
+                    type="button"
+                    class="account-copy"
+                    [attr.aria-label]="'COPY' | translate"
+                    [cdkCopyToClipboard]="row.copyValue || ''"
+                    (cdkCopyToClipboardCopied)="notifyCopied()"
+                  >
+                    <mat-icon aria-hidden="true">content_copy</mat-icon>
+                    {{ "COPY" | translate }}
+                  </button>
+                }
+              </dd>
+            </div>
+          }
+        </dl>
+
+        <div class="account-chip-stack">
+          <div class="account-chip-section">
+            <p class="account-chip-section__label">
+              {{ "XTREAM.ACCOUNT_INFO.ALLOWED_FORMATS" | translate }}
+            </p>
+            <div class="account-chip-group">
+              @for (format of allowedFormats(); track format) {
+                <span class="account-chip">{{ format }}</span>
+              } @empty {
+                <span class="account-chip account-chip--muted">-</span>
+              }
+            </div>
+          </div>
+
+          <div class="account-chip-section">
+            <p class="account-chip-section__label">
+              {{ "XTREAM.ACCOUNT_INFO.PORTS" | translate }}
+            </p>
+            <div class="account-chip-group">
+              @for (port of ports(); track port.labelKey) {
+                <span class="account-chip account-chip--mono">
+                  {{ port.labelKey | translate }} {{ port.value }}
+                </span>
+              }
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <section class="account-section account-section--status">
+        <div class="account-section__header">
+          <div class="account-section__status-heading">
+            <h3>{{ "XTREAM.ACCOUNT_INFO.STATUS" | translate }}</h3>
+            @if (accountInfo(); as info) {
+              <span
+                class="account-dialog__status"
+                [class.account-dialog__status--active]="isActive()"
+              >
+                <span
+                  class="account-dialog__status-dot"
+                  aria-hidden="true"
+                ></span>
+                {{ info.user_info.status || "-" }}
+              </span>
+            }
+          </div>
+        </div>
+
+        <dl class="account-detail-list">
+          @for (row of statusDetails(); track row.labelKey) {
             <div class="account-detail-row">
               <dt>{{ row.labelKey | translate }}</dt>
               <dd>
@@ -170,66 +257,6 @@
           }
         </dl>
 
-        <div class="account-chip-section">
-          <p class="account-chip-section__label">
-            {{ "XTREAM.ACCOUNT_INFO.ALLOWED_FORMATS" | translate }}
-          </p>
-          <div class="account-chip-group">
-            @for (format of allowedFormats(); track format) {
-              <span class="account-chip">{{ format }}</span>
-            } @empty {
-              <span class="account-chip account-chip--muted">-</span>
-            }
-          </div>
-        </div>
-      </section>
-
-      <section class="account-section">
-        <div class="account-section__header">
-          <div>
-            <h3>{{ "XTREAM.ACCOUNT_INFO.SERVER" | translate }}</h3>
-            <p>{{ serverHost() }}</p>
-          </div>
-        </div>
-
-        <dl class="account-detail-list">
-          @for (row of serverDetails(); track row.labelKey) {
-            <div class="account-detail-row">
-              <dt>{{ row.labelKey | translate }}</dt>
-              <dd>
-                <span [class.account-detail-row__value--mono]="row.mono">
-                  {{ row.value }}
-                </span>
-
-                @if (row.copyValue && row.copyValue !== "-") {
-                  <button
-                    mat-button
-                    type="button"
-                    class="account-copy"
-                    [cdkCopyToClipboard]="row.copyValue || ''"
-                    (cdkCopyToClipboardCopied)="notifyCopied()"
-                  >
-                    <mat-icon aria-hidden="true">content_copy</mat-icon>
-                    {{ "COPY" | translate }}
-                  </button>
-                }
-              </dd>
-            </div>
-          }
-        </dl>
-
-        <div class="account-chip-section">
-          <p class="account-chip-section__label">
-            {{ "XTREAM.ACCOUNT_INFO.PORTS" | translate }}
-          </p>
-          <div class="account-chip-group">
-            @for (port of ports(); track port.labelKey) {
-              <span class="account-chip account-chip--mono">
-                {{ port.labelKey | translate }} {{ port.value }}
-              </span>
-            }
-          </div>
-        </div>
       </section>
     </div>
   }
