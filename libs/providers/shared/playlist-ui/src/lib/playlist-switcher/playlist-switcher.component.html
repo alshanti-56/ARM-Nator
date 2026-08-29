@@ -105,7 +105,7 @@
                     [class.selected]="isTypeFilterSelected('xtream')"
                     (click)="togglePlaylistTypeFilter('xtream', $event)"
                 >
-                    Xtream
+                    Xtream <span class="type-filter-count">{{ playlistTypeCounts().xtream }}</span>
                 </button>
             }
             @if (hasType('stalker')) {
@@ -115,7 +115,7 @@
                     [class.selected]="isTypeFilterSelected('stalker')"
                     (click)="togglePlaylistTypeFilter('stalker', $event)"
                 >
-                    Stalker
+                    Stalker <span class="type-filter-count">{{ playlistTypeCounts().stalker }}</span>
                 </button>
             }
         </div>

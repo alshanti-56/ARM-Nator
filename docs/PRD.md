@@ -1,13 +1,13 @@
 # ARM-Nator Product Requirements Document
 
 **Status:** Draft for product alignment
-**Product version:** 0.25.0
+**Product version:** 0.31.0
 **Date:** 2026-08-04
 **Owner:** ARM-Nator product team
 
 ## 1. Product summary
 
-ARM-Nator is a native macOS Apple Silicon IPTV and media workspace. It lets a user import M3U or Xtream sources, organize and search the resulting catalog, enrich content metadata, and play streams through the most appropriate local or browser-based engine.
+ARM-Nator is a native macOS Apple Silicon IPTV and media workspace. It lets a user connect Xtream or Stalker sources, organize and search the resulting catalog, enrich content metadata, and play streams through the most appropriate local or browser-based engine.
 
 The next product phase is focused on making the core experience dependable and easy to trust:
 
@@ -27,7 +27,7 @@ This PRD prioritizes reliability and clarity of the main user journey before add
 
 ### Primary goals
 
-1. Make source import predictable for M3U files, pasted text, URLs, and Xtream credentials.
+1. Make source connection predictable for Xtream credentials and Stalker portal details.
 2. Make large catalogs searchable, filterable, and navigable without blocking the desktop UI.
 3. Make playback failure understandable and recoverable.
 4. Preserve user state: favorites, recently viewed items, playback positions, settings, and source refresh behavior.
@@ -46,7 +46,6 @@ The following are explicitly out of scope for this phase:
 
 - DRM circumvention, decryption, or turning protected streams into clear streams.
 - A browser-only or PWA version of the product.
-- Stalker or other inactive source types.
 - A remote-control server, mobile companion, or multi-user backend.
 - Adding additional playback engines before the existing engines meet reliability targets.
 - Building a general-purpose web browser beyond the existing Electron browser workspace.
@@ -67,7 +66,7 @@ Needs:
 
 ### Secondary user: power user / source manager
 
-Maintains many M3U or Xtream sources and needs bulk testing, refresh, filtering, and source-level organization.
+Maintains many Xtream or Stalker sources and needs bulk testing, refresh, filtering, and source-level organization.
 
 Needs:
 
@@ -100,7 +99,7 @@ Needs:
 
 1. User opens ARM-Nator.
 2. User chooses Add Source.
-3. User selects M3U file, M3U text, M3U URL, or Xtream credentials.
+3. User selects Xtream credentials or Stalker portal details.
 4. App validates the input and shows a clear preview or connection result.
 5. App imports the source in the background and reports progress.
 6. User sees the source and its available categories.
@@ -126,12 +125,10 @@ Needs:
 
 ### Journey E: preparing global search
 
-1. User opens Sources and sees metadata coverage for each Xtream source.
-2. The app reports indexed items as `indexed / total`, where total includes movies and series in that source.
-3. User starts indexing for one source, or resumes a source with incomplete coverage.
-4. The app displays live progress and keeps the completed state visible after indexing finishes.
-5. If several sources are started, the app queues them and processes one source at a time to avoid overwhelming provider servers.
-6. User searches globally across all imported sources. Titles are available after import; metadata fields become progressively available as each source is indexed.
+1. User opens Sources and sees the imported Xtream and Stalker catalogs.
+2. User searches globally across all imported sources using the catalog fields already available locally.
+3. User opens a movie or series to request detailed provider metadata when needed.
+4. The app persists returned detail metadata so later searches can use it without contacting the provider on every keystroke.
 
 ### Journey D: troubleshooting playback
 
@@ -149,10 +146,8 @@ Needs:
 
 The product must support:
 
-- M3U file import.
-- M3U text import.
-- M3U URL import.
 - Xtream server URL, username, and password import.
+- Stalker portal URL and MAC address import.
 
 **FR-2. Validation**
 
@@ -180,7 +175,7 @@ The app must provide source-specific and global views for live TV, movies, serie
 
 Search must support title and relevant metadata, pagination or bounded result sets, case-insensitive matching, and predictable empty/error states.
 
-Global Search must query the local database across all Xtream and M3U sources. It must not make a provider request for every search keystroke. Search completeness for genre, cast, director, release date, and description must reflect the metadata coverage of each source.
+Global Search must query the local database across all Xtream and Stalker sources. It must not make a provider request for every search keystroke. Search completeness for genre, cast, director, release date, and description must reflect the metadata coverage of each source.
 
 **FR-8. Refinement**
 
@@ -188,15 +183,12 @@ Where metadata exists, users must be able to refine by category, genre, year, la
 
 **FR-9. Metadata enrichment**
 
-Provider metadata indexing and TMDB enrichment are separate capabilities:
+Xtream detail loading and TMDB enrichment are separate capabilities:
 
-- Xtream indexing retrieves detail metadata from the selected provider and stores searchable fields in the local catalog database.
-- The Sources page must expose per-Xtream-source state: not indexed, queued, indexing, ready, or indexed with failures.
-- The Sources page must provide indexed/total counts, progress, and a Start/Resume action for incomplete sources.
-- Completed records must be skipped on later runs. Failed records must use bounded retry behavior and must not force a full re-index.
-- Indexing must use a shared single-source queue across manual actions and automatic playlist-route indexing. A source action must never create a duplicate crawl.
-- M3U sources remain limited to metadata supplied by the M3U import; they do not use Xtream detail endpoints.
-- TMDB enrichment is optional and must not prevent a user from browsing, searching, or playing provider content. Enrichment failures must be retryable and visible as metadata failures, not playback failures.
+- The initial Xtream catalog import must remain fast and use the metadata supplied by the provider's catalog response.
+- Opening a movie or series may retrieve its detailed Xtream record and persist the returned provider metadata in the local catalog database.
+- The app must not automatically scan every movie or series for detail metadata in the background.
+- TMDB enrichment is optional, runs after a supported detail view is opened, and must not prevent a user from browsing, searching, or playing provider content. Enrichment failures must be retryable and visible as metadata failures, not playback failures.
 
 Enabling TMDB must not scan the entire catalog immediately. TMDB details are fetched on demand for supported detail views and cached locally. If the TMDB Trending dashboard rail is enabled, the app may fetch the weekly trending list and match it against the local catalog. Disabling TMDB stops new enrichment requests while preserving the cache until the user clears it.
 
@@ -208,7 +200,7 @@ Favorites, recently viewed items, playback positions, dashboard preferences, the
 
 **FR-11. Engine support**
 
-The product must support the currently active engines: ArtPlayer, HTML5, Embedded MPV, external MPV, and VLC, subject to runtime availability.
+The product must support the currently active engines: ArtPlayer, ArtPlayer2, HTML5, Embedded MPV, KSPlayer, external MPV, and VLC, subject to runtime availability.
 
 **FR-12. Engine availability**
 
@@ -268,9 +260,7 @@ Every privileged IPC handler must validate sender ownership, argument shape, URL
 
 - The renderer must remain responsive during imports, refreshes, database migrations, metadata enrichment, and credential testing.
 - Search should return the first usable result set within 500 ms for a typical local catalog and within 2 seconds for a large catalog under normal hardware conditions.
-- Metadata status on the Sources page should use aggregate database counts rather than loading every catalog row solely to render the page.
-- Provider detail requests must run outside the renderer’s blocking path, use bounded concurrency and request pacing, and process only one provider source at a time.
-- Metadata indexing must persist progress in batches so database writes and UI updates do not occur once per item.
+- Provider detail requests must run outside the renderer’s blocking path and must not be scheduled for every catalog item when a source is opened.
 - App launch should show the main shell before optional enrichment or diagnostics complete.
 - Playback start time should be measured separately for each engine and provider class.
 

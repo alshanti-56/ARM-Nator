@@ -2,8 +2,6 @@ import nx from '@nx/eslint-plugin';
 
 const legacyBareAliases = [
     'components',
-    'm3u-state',
-    'm3u-utils',
     'services',
     'shared-interfaces',
     'shared-portals',
@@ -93,7 +91,6 @@ export default [
                             sourceTag: 'domain:portal-shared',
                             onlyDependOnLibsWithTags: [
                                 'domain:portal-shared',
-                                'domain:m3u',
                                 'domain:playback',
                                 'domain:shared-contracts',
                                 'domain:shared-runtime',
@@ -104,23 +101,8 @@ export default [
                             ],
                         },
                         {
-                            sourceTag: 'domain:m3u',
-                            onlyDependOnLibsWithTags: [
-                                'domain:m3u',
-                                'domain:playback',
-                                'domain:portal-shared',
-                                'domain:shared-contracts',
-                                'domain:shared-runtime',
-                                'domain:shared-ui',
-                                'domain:providers-shared',
-                                'domain:player',
-                                'scope:shared',
-                            ],
-                        },
-                        {
                             sourceTag: 'domain:playlist-import',
                             onlyDependOnLibsWithTags: [
-                                'domain:m3u',
                                 'domain:playlist-import',
                                 'domain:playback',
                                 'domain:shared-contracts',
@@ -133,7 +115,6 @@ export default [
                         {
                             sourceTag: 'domain:playback',
                             onlyDependOnLibsWithTags: [
-                                'domain:m3u',
                                 'domain:playback',
                                 'domain:portal-shared',
                                 'domain:shared-contracts',
@@ -154,7 +135,6 @@ export default [
                         {
                             sourceTag: 'domain:shared-runtime',
                             onlyDependOnLibsWithTags: [
-                                'domain:m3u',
                                 'domain:shared-contracts',
                                 'domain:shared-runtime',
                                 'scope:shared',
@@ -163,7 +143,6 @@ export default [
                         {
                             sourceTag: 'domain:shared-ui',
                             onlyDependOnLibsWithTags: [
-                                'domain:m3u',
                                 'domain:playback',
                                 'domain:portal-shared',
                                 'domain:shared-contracts',
@@ -178,7 +157,6 @@ export default [
                             onlyDependOnLibsWithTags: [
                                 'domain:xtream',
                                 'domain:portal-shared',
-                                'domain:m3u',
                                 'domain:playback',
                                 'domain:shared-contracts',
                                 'domain:shared-runtime',
@@ -193,7 +171,6 @@ export default [
                             onlyDependOnLibsWithTags: [
                                 'domain:stalker',
                                 'domain:portal-shared',
-                                'domain:m3u',
                                 'domain:playback',
                                 'domain:shared-contracts',
                                 'domain:shared-runtime',
@@ -210,7 +187,6 @@ export default [
                                 'domain:portal-shared',
                                 'domain:xtream',
                                 'domain:stalker',
-                                'domain:m3u',
                                 'domain:playback',
                                 'domain:shared-contracts',
                                 'domain:shared-runtime',

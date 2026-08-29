@@ -1,4 +1,3 @@
-import { DatePipe } from '@angular/common';
 import { Component, inject, signal } from '@angular/core';
 import {
     FormControl,
@@ -8,7 +7,6 @@ import {
     Validators,
 } from '@angular/forms';
 import { MatButton } from '@angular/material/button';
-import { MatCheckboxModule } from '@angular/material/checkbox';
 import {
     MAT_DIALOG_DATA,
     MatDialogModule,
@@ -69,10 +67,8 @@ interface PlaylistServerPort {
 
         `,
     ],
-    providers: [DatePipe],
     imports: [
         MatButton,
-        MatCheckboxModule,
         MatDialogModule,
         MatInputModule,
         ReactiveFormsModule,
@@ -80,7 +76,6 @@ interface PlaylistServerPort {
     ],
 })
 export class PlaylistInfoComponent {
-    private datePipe = inject(DatePipe);
     private formBuilder = inject(UntypedFormBuilder);
     private store = inject(Store);
     private databaseService = inject(DatabaseService);
@@ -148,27 +143,10 @@ export class PlaylistInfoComponent {
             _id: this.playlist._id,
             title: new FormControl(this.playlist.title, Validators.required),
             userAgent: this.playlist.userAgent || '',
-            filename: new FormControl({
-                value: this.playlist.filename || '',
-                disabled: true,
-            }),
             count: new FormControl({
                 value: this.playlist.count,
                 disabled: true,
             }),
-            importDate: new FormControl({
-                value: this.datePipe.transform(this.playlist.importDate),
-                disabled: true,
-            }),
-            url: new FormControl({
-                value: this.playlist.url,
-                disabled: true,
-            }),
-            filePath: new FormControl({
-                value: this.playlist.filePath,
-                disabled: true,
-            }),
-            autoRefresh: new FormControl(this.playlist.autoRefresh),
             serverUrl: new FormControl(this.playlist.serverUrl),
             portalUrl: new FormControl(this.playlist.portalUrl),
             username: new FormControl(this.playlist.username),

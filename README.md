@@ -1,7 +1,7 @@
 # ARM-Nator
 
-ARM-Nator is a macOS Apple Silicon Electron media workspace. It imports M3U
-and Xtream sources, stores catalog data in SQLite, provides search and
+ARM-Nator is a macOS Apple Silicon Electron media workspace. It imports Xtream
+and Stalker sources, stores catalog data in SQLite, provides search and
 refinement tools, and plays streams through several local and browser-based
 engines.
 
@@ -10,27 +10,20 @@ roadmap. The package version in this checkout is `0.31.0`.
 
 ## What is available now
 
-- M3U imports from files, text, and URLs.
 - Xtream Code sources with movies, series, live TV, recently added, favorites,
   recently viewed, and global search views.
 - Stalker portal sources with MAC authentication, live TV, movies, series,
   episode details, and shared-player playback.
 - SQLite-backed catalog storage, indexed search, pagination, metadata
   enrichment, and case-insensitive refinement values.
-- Per-Xtream-source metadata indexing status on the Sources page, including
-  indexed/total counts, progress, queued work, and a Start indexing action.
-- Provider metadata indexing uses a bounded single-source queue, skips complete
-  records, and keeps failed records retryable without repeatedly re-indexing the
-  entire catalog.
-- Global Search searches the local database across Xtream and M3U sources;
-  title search is available after import while metadata search improves as
-  each Xtream source is indexed.
+- Global Search searches the local database across Xtream and Stalker sources;
+  title and provider-supplied metadata are available from the imported catalog.
 - Optional TMDB enrichment for on-demand detail views and the Dashboard
-  trending rail. TMDB enrichment is separate from provider metadata indexing
-  and does not scan the entire catalog when enabled.
+  trending rail. TMDB enrichment is separate from Xtream detail loading and
+  does not scan the entire catalog when enabled.
 - Release-year refinement that prefers release metadata and only falls back to
   an explicit or title-derived year when trusted release metadata is absent.
-- Playback through ArtPlayer, HTML5, Embedded MPV, external MPV, and VLC.
+- Playback through ArtPlayer, ArtPlayer2, HTML5, Embedded MPV, KSPlayer, external MPV, and VLC.
 - Shared playback controls for seeking, volume, speed, aspect ratio, tracks,
   subtitles, fullscreen, screenshots, and engine switching.
 - Playback diagnostics for resolution, container/format, video and audio
@@ -41,7 +34,7 @@ roadmap. The package version in this checkout is `0.31.0`.
 - Direct Play at `/workspace/tools/direct-play` for testing a URL, headers, and
   a selected player engine.
 - Credential/bulk testing at `/workspace/tools/credentials` for Xtream
-  credentials and M3U URLs.
+  credentials.
 - An Electron Browser workspace and a YouTube workspace, both backed by
   persistent Electron `WebContentsView` sessions.
 - YouTube ad filtering, SponsorBlock integration, an app mini-player, and
@@ -59,9 +52,9 @@ pnpm test
 pnpm build
 ```
 
-`pnpm test` runs the repository's Node test suites through the Nx
-`electron-backend:test` target. Production builds prepare the pinned Embedded MPV runtime
-automatically when it is not already staged. Runtime compilation requires
+`pnpm test` runs the repository's Node test suites through the shared test runner.
+Production builds prepare the pinned Embedded MPV runtime automatically when it is
+not already staged. Runtime compilation requires
 macOS on Apple Silicon plus `meson`, `ninja`, and `pkg-config`.
 
 For a faster iterative workflow, run `pnpm embedded-mpv:runtime` once and the
@@ -98,8 +91,8 @@ a downloadable media stream and may fail in a generic player engine.
 - Renderer: one Angular desktop application.
 - Main process: Electron services, typed IPC, SQLite access, workers, browser
   views, and native Embedded MPV integration.
-- Active source types: M3U file/text/URL, Xtream, and Stalker portal.
-- Active player engines: ArtPlayer, HTML5, Embedded MPV, external MPV, and VLC.
+- Active source types: Xtream and Stalker portal.
+- Active player engines: ArtPlayer, ArtPlayer2, HTML5, Embedded MPV, KSPlayer, external MPV, and VLC.
 - Browser and YouTube are Electron-hosted features, not generic browser-only
   routes.
 - PWA/browser-only runtime paths, the old Downloads feature, remote
@@ -110,7 +103,7 @@ a downloadable media stream and may fail in a generic player engine.
 | Route | Purpose |
 | --- | --- |
 | `/workspace/dashboard` | Configurable dashboard rails |
-| `/workspace/sources` | Source and playlist management, including per-source Xtream metadata indexing |
+| `/workspace/sources` | Source and playlist management |
 | `/workspace/stalker/:id/itv` | Stalker live TV categories and channels |
 | `/workspace/stalker/:id/vod` | Stalker movies and movie details |
 | `/workspace/stalker/:id/series` | Stalker series, seasons, and episodes |
@@ -120,7 +113,7 @@ a downloadable media stream and may fail in a generic player engine.
 | `/workspace/browser` | General Electron browser view |
 | `/workspace/youtube` | YouTube-focused browser view |
 | `/workspace/tools/direct-play` | Play a URL with a selected engine |
-| `/workspace/tools/credentials` | Test credentials and M3U sources in bulk |
+| `/workspace/tools/credentials` | Test Xtream credentials in bulk |
 | `/workspace/settings` | Application, player, source, and dashboard settings |
 
 Source-specific movie, series, live TV, recently added, and advanced-search
@@ -152,7 +145,7 @@ apps/
 └── electron-backend/            Electron main process, IPC, workers, and native code
 
 libs/
-├── providers/                   M3U, Xtream, and shared catalog features
+├── providers/                   Xtream, Stalker, and shared catalog features
 ├── workspace/                   Desktop shell, dashboard, and navigation
 ├── player/                      Player contracts, engines, controls, and diagnostics
 ├── database/                    SQLite schema and connection runtime
@@ -197,11 +190,8 @@ refinement, diagnostics, and offline UI state. It does not store poster image
 files as part of the catalog database; poster and backdrop values are URL
 metadata. SQLite access remains in Electron/main-process services.
 
-Xtream movie and series rows also track metadata enrichment status, attempt
-time, and retry time. The Sources page reads aggregate counts from SQLite so
-it does not load every catalog row merely to render indexing status. Metadata
-detail requests are performed through the provider API and persisted in paced
-batches; Global Search itself does not contact providers while the user types.
+Xtream movie and series detail metadata is persisted when it is fetched from the
+provider. Global Search itself does not contact providers while the user types.
 
 TMDB data is stored separately in `tmdb_metadata`. It is optional, cached
 locally, and fetched on demand for supported detail, person, season, hero, or
@@ -256,17 +246,15 @@ not open or copy the SQLite file in the browser. Set
 Native-only features such as MPV/VLC launching and Electron BrowserViews remain
 available only in the desktop app.
 
-When validating large Xtream catalogs, open `/workspace/sources` first. Start
-one source at a time, observe its indexed/total progress, and then verify
-Global Search against metadata fields such as cast, genre, director, and plot.
+When validating large Xtream catalogs, verify that the imported catalog loads
+quickly, then open representative movies and series to confirm that detailed
+provider metadata is fetched on demand and appears in Global Search afterward.
 
 ## Verification
 
 Useful targeted checks are:
 
 ```bash
-pnpm exec nx run providers-m3u-utils:lint
-pnpm exec nx run providers-m3u-utils:build
 pnpm exec nx run player-ui:lint
 pnpm exec nx run shared-interfaces:build
 pnpm build

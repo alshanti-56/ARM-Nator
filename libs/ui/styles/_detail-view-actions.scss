@@ -31,10 +31,8 @@
     }
 }
 
-// Secondary detail-view actions (Favorite, Download). Per UX audit: only Play
-// should read as the primary CTA, so these stay ghost/neutral. State accents
-// (favorite=red destructive, download=green completed) keep their semantic
-// meaning but ride on transparent fills so they never out-shout Play.
+// Secondary detail-view actions (Favorite and metadata). Per UX audit: only
+// Play should read as the primary CTA, so these stay ghost/neutral.
 @mixin secondary-action-button {
     display: inline-flex;
     align-items: center;

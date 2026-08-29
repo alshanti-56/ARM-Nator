@@ -3,7 +3,7 @@ import { tmpdir } from 'node:os';
 import { join, relative } from 'node:path';
 import ts from 'typescript';
 
-const PROJECT_SOURCE_ROOT = join(process.cwd(), 'libs/playback/util/src');
+const PROJECT_SOURCE_ROOT = join(process.cwd(), 'libs/player/util/src');
 const FORBIDDEN_IMPORT_PREFIXES = [
     '@angular/',
     '@iptvnator/ui/',
@@ -36,8 +36,8 @@ describe('playback util boundary', () => {
         ['import declaration', "import '@angular/core';", '@angular/core'],
         [
             're-export declaration',
-            "export * from '@arm-nator/ui/components';",
-            '@arm-nator/ui/components',
+            "export * from '@iptvnator/ui/components';",
+            '@iptvnator/ui/components',
         ],
         [
             'import type node',

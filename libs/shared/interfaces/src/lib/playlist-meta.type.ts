@@ -29,8 +29,6 @@ export type PlaylistMeta = Pick<
     | 'stalkerSerialNumber'
     | 'stalkerDeviceId1'
     | 'stalkerDeviceId2'
-    | 'stalkerDeviceId1'
-    | 'stalkerDeviceId2'
     | 'stalkerSignature1'
     | 'stalkerSignature2'
     | 'stalkerWatchdogTimeout'

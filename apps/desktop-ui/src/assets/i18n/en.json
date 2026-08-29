@@ -9,14 +9,6 @@
     "HOME": {
         "TITLE": "ARM-Nator",
         "SUBTITLE": "Please select a playlist from the list or add a new playlist",
-        "TABS": {
-            "RECENTLY_ADDED": "Recently added playlists",
-            "FILE_UPLOAD": "Add via file upload",
-            "URL_UPLOAD": "Add via URL",
-            "TEXT_IMPORT": "Import from text",
-            "XTREME_IMPORT": "Add Xtreme Code",
-            "STALKER_PORTAL_IMPORT": "Add Stalker Portal"
-        },
         "PLAYLISTS": {
             "NO_PLAYLISTS": "No playlists were added",
             "ADD_FIRST": "Please add your first playlist",
@@ -31,15 +23,12 @@
             "VALUE_PROP_LIVE": "Live TV",
             "VALUE_PROP_VOD": "Movies & Series",
             "VALUE_PROP_MULTISOURCE": "Multi-source library",
-            "VALUE_PROP_OFFLINE": "Offline downloads",
             "DASHBOARD_WELCOME_TAGLINE": "Your IPTV library, in one place.",
             "DASHBOARD_WELCOME_DESCRIPTION": "Browse your playlists, channels, movies, and series from one place.",
             "FEATURE_LIVE_TITLE": "Live TV",
             "FEATURE_LIVE_DESC": "Stream live channels with full schedule.",
             "FEATURE_VOD_TITLE": "Movies & Series",
             "FEATURE_VOD_DESC": "On-demand library with covers and details.",
-            "FEATURE_OFFLINE_TITLE": "Offline downloads",
-            "FEATURE_OFFLINE_DESC": "Save movies and episodes for later.",
             "SOURCES_WELCOME_TITLE": "Add your first playlist",
             "SOURCES_WELCOME_BODY": "Pick a source type below to get started.",
             "SOURCE_XTREAM_NEEDS": "Username, password and server URL from your provider.",
@@ -51,8 +40,6 @@
             "CONTENT_SERIES": "Series",
             "NO_RESULTS_TITLE": "No playlists found",
             "NO_RESULTS_DESCRIPTION": "No playlists match your search. Try adjusting your search terms or clear the filter to see all playlists.",
-            "ADDED_VIA_URL": "Added via URL upload. URL:",
-            "ADDED_VIA_FILE": "Added via file upload",
             "XTREAM_PLAYLIST": "Xtream playlist",
             "STALKER_PORTAL": "Stalker portal",
             "CHANNELS": "Channels",
@@ -64,28 +51,17 @@
             "INFO_DIALOG": {
                 "PLAYLIST_DETAILS": "Playlist details",
                 "TITLE": "Title",
-                "FROM_URL": "Added from the URL",
-                "IMPORT_DATE": "Import date",
                 "CHANNELS": "Number of channels",
                 "CLOSE": "Close",
                 "SAVE": "Save",
                 "USER_AGENT": "User agent",
-                "ORIGINAL_FILENAME": "Original filename",
-                "FILE_PATH": "File path",
-                "UPDATE_FAILED": "Last playlist update failed",
-                "AUTO_UPDATE": "Auto-update",
-                "AUTO_UPDATE_DESCRIPTION": "If the auto-refresh function is activated, the playlist will be updated automatically each time the app is started.",
                 "CUSTOM_USER_AGENT": "Some IPTV providers need a specific user-agent in order to play their playlist.",
                 "SERVER_URL": "Server URL",
                 "AVAILABLE_PORTS": "Available ports",
                 "AVAILABLE_PORTS_LOADING": "Checking server ports...",
                 "USERNAME": "Username",
                 "PASSWORD": "Password",
-                "MAC_ADDRESS": "Mac Address",
-                "PLAYLIST_EXPORT_SUCCESS": "Playlist was exported successfully.",
-                "PLAYLIST_EXPORT_ERROR": "Error: Playlist export failed.",
-                "COPY_URL": "Copy URL to clipboard",
-                "URL_COPIED": "URL copied to clipboard"
+                "MAC_ADDRESS": "Mac Address"
             },
             "REMOVE_DIALOG": {
                 "TITLE": "Remove playlist",
@@ -95,7 +71,6 @@
                 "DELETING_FAVORITES": "Removing favorites...",
                 "DELETING_RECENT": "Removing recently viewed...",
                 "DELETING_PROGRESS": "Removing playback progress...",
-                "DELETING_DOWNLOADS": "Removing downloads...",
                 "DELETING_CONTENT": "Removing cached content...",
                 "DELETING_CATEGORIES": "Removing categories...",
                 "DELETING_PLAYLIST": "Removing playlist record..."
@@ -118,47 +93,14 @@
             "MY_PLAYLISTS": "My playlists",
             "MY_PLAYLISTS_SUBTITLE": "all available playlists",
             "PLAYLIST_UPDATE_SUCCESS": "Success! The playlist was successfully updated.",
-            "PLAYLIST_UPDATE_FAILED": "Could not update the playlist. Please try again.",
-            "PLAYLIST_UPDATE_ERROR": "Error updating playlist details.",
-            "PLAYLIST_UPDATE_FILE_NOT_FOUND": "Playlist refresh failed. The local file is no longer available. Check the file path or re-import the playlist.",
-            "PLAYLIST_UPDATE_FILE_ACCESS_ERROR": "Playlist refresh failed. The app can no longer access the local file.",
-            "AUTO_REFRESH_UPDATE_SUCCESS": "Success! The playlists were successfully updated",
-            "AUTO_REFRESH_UPDATE_PARTIAL": "Playlist auto-refresh incomplete: {{updated}} of {{total}} playlists updated, {{failed}} failed.",
-            "AUTO_REFRESH_UPDATE_PARTIAL_WITH_SKIPPED": "Playlist auto-refresh incomplete: {{updated}} of {{total}} playlists updated, {{failed}} failed, {{skipped}} skipped (no URL or file path).",
-            "AUTO_REFRESH_UPDATE_FAILED": "Playlist auto-refresh failed. None of the {{total}} playlists could be updated.",
-            "AUTO_REFRESH_UPDATE_SKIPPED": "Playlist auto-refresh: {{updated}} of {{total}} playlists updated, {{skipped}} skipped (no URL or file path).",
-            "AUTO_REFRESH_ENABLED": "Auto-refresh enabled"
+            "PLAYLIST_UPDATE_FAILED": "Could not update the playlist. Please try again."
         },
         "ADD_PLAYLIST": {
             "PICK_METHOD": "Pick how you want to connect. You can rename it later.",
-            "METHOD_FILE_SUB": "Upload a playlist from your computer",
             "METHOD_XTREAM_LABEL": "Xtream credentials",
             "METHOD_XTREAM_SUB": "Connect with host, username and password",
             "METHOD_STALKER_LABEL": "Stalker portal",
-            "METHOD_STALKER_SUB": "MAC address and portal URL",
-            "METHOD_TEXT_SUB": "For one-off lists or when you only have text"
-        },
-        "FILE_UPLOAD": {
-            "OR": "or",
-            "CHOOSE_PLAYLIST": "click to browse",
-            "BROWSE": "Browse files",
-            "REJECTED": "File was rejected, unsupported file format {{filename}}."
-        },
-        "URL_UPLOAD": {
-            "ADD_PLAYLIST": "Add playlist",
-            "CORS_NOTE": "Note: In order to avoid CORS issues at this point the application uses a public CORS Proxy service. If you want to upload a playlist with sensitive data, it's more secure to import it from a file.",
-            "ERROR_FETCH_FAILED": "Failed to fetch the playlist. Please check the URL and try again.",
-            "ERROR_403": "Access denied (403): The server refused the request. The URL may require authentication or the playlist is restricted.",
-            "ERROR_404": "Playlist not found (404): The URL does not point to a valid playlist. Please check the URL.",
-            "ERROR_401": "Unauthorized (401): Authentication is required to access this playlist.",
-            "ERROR_INVALID_TLS": "Certificate for this playlist host is invalid.",
-            "ERROR_TLS_HOST_UNKNOWN": "Could not determine the playlist host. Please retry manually.",
-            "TRUST_TLS_HOST": "Trust host",
-            "TRUST_TLS_HOST_TITLE": "Trust invalid certificate?",
-            "TRUST_TLS_HOST_WARNING": "Only continue if you trust this playlist host. ARM-Nator will allow invalid TLS certificates for this host, but other hosts still require valid certificates."
-        },
-        "TEXT_IMPORT": {
-            "BUTTON_LABEL": "Import"
+            "METHOD_STALKER_SUB": "MAC address and portal URL"
         },
         "XTREAM_PLAYLIST": {
             "TITLE": "Playlist title",
@@ -206,9 +148,7 @@
         "PLAYLIST_TYPES": {
             "XTREAM": "Xtream",
             "STALKER": "Stalker"
-        },
-        "IMPORTED_AS_TEXT": "Imported as text",
-        "PARSING_ERROR": "Error: Parsing failed, not a valid playlist:"
+        }
     },
     "SETTINGS": {
         "TITLE": "Settings",
@@ -321,7 +261,6 @@
             "CONSEQUENCE_FAVORITES": "Favorites saved for these playlists",
             "CONSEQUENCE_RECENTLY_VIEWED": "Recently viewed history",
             "CONSEQUENCE_PLAYBACK": "Saved playback positions",
-            "CONSEQUENCE_DOWNLOADS": "Download history entries linked to those playlists",
             "CONSEQUENCE_XTREAM_CACHE": "Imported Xtream categories and locally cached content",
             "BACKUP_HINT": "Use Export first if you want a restorable backup before deleting.",
             "CONFIRM": "Delete everything"
@@ -505,7 +444,6 @@
         "TOGGLE_SIDEBAR_TOOLTIP": "Toggle channels list (⌘/Ctrl+B)"
     },
     "CHANNELS": {
-        "UPLOAD_OR_SELECT_OTHER_PLAYLIST": "Upload or select other playlist",
         "ALL_CHANNELS": "All channels",
         "GROUPS": "Groups",
         "MANAGE_GROUPS": "Manage groups",
@@ -536,7 +474,7 @@
         "TRY_DIFFERENT_SEARCH": "Try a different search term",
         "DETAILS_DIALOG": {
             "TITLE": "Channel details",
-            "DESCRIPTION": "Read-only metadata parsed from the playlist file.",
+            "DESCRIPTION": "Read-only metadata supplied by the provider.",
             "SUMMARY": "Summary",
             "TVG": "TVG metadata",
             "CATCHUP": "Catchup",
@@ -830,12 +768,7 @@
             "NO_RESULTS_FOR": "No results found for \"{{term}}\"",
             "GROUP_BY_PLAYLIST": "Group results by playlist",
             "VISIBLE_CATEGORIES_ONLY": "Visible categories only",
-            "LOADING_MORE_RESULTS": "Loading more results...",
-            "METADATA_SEARCH_IN_PROGRESS": "Search ready — metadata indexing in progress",
-            "METADATA_SEARCH_PROGRESS": "{{completed}} / {{total}} items indexed",
-            "METADATA_SEARCH_COMPLETE": "Search ready — metadata indexing complete",
-            "METADATA_SEARCH_FAILED": "{{count}} items could not be indexed.",
-            "DISMISS_METADATA_SEARCH_STATUS": "Dismiss metadata indexing status"
+            "LOADING_MORE_RESULTS": "Loading more results..."
         },
         "STREAM_URL_COPIED": "Stream URL copied to clipboard",
         "COPY_STREAM_URL": "Copy Stream URL",
@@ -882,49 +815,6 @@
         }
     },
     "INFORMATION": "Information",
-    "DOWNLOADS": {
-        "TITLE": "Downloads",
-        "DOWNLOAD": "Download",
-        "PLAY_LOCAL": "Play Local",
-        "EMPTY": "No downloads yet",
-        "EMPTY_HINT": "Download movies and episodes to watch offline",
-        "NO_PLAYLISTS_TITLE": "Add a playlist to start downloading",
-        "NO_PLAYLISTS_BODY": "Once you add a playlist, you can save movies and episodes here for offline playback.",
-        "NO_ITEMS_BODY": "Use the download button on any movie or episode to save it for offline playback.",
-        "NO_FILTER_MATCH": "No downloads match the current filter",
-        "NO_FILTER_MATCH_HINT": "Try a different search term",
-        "NOT_AVAILABLE": "Downloads not available",
-        "DESKTOP_ONLY": "This feature is only available in the desktop app",
-        "NO_FOLDER": "No download folder selected",
-        "CHANGE_FOLDER": "Change Folder",
-        "CLEAR_COMPLETED": "Clear Completed",
-        "CLEAR_COMPLETED_DIALOG": {
-            "TITLE": "Clear completed downloads",
-            "MESSAGE": "This removes completed, failed, and canceled entries from the current downloads view. It does not delete any files that were already downloaded to disk."
-        },
-        "SOURCE_PLAYLIST_MISSING": "This download can no longer open in the library because its source playlist was removed.",
-        "FILE_NOT_FOUND": "This downloaded file is no longer available on disk.",
-        "FILE_ACTION_ERROR": "The file action could not be completed.",
-        "ACTION_FAILED": "Action failed",
-        "PAUSE": "Pause",
-        "RESUME": "Resume",
-        "CANCEL": "Cancel",
-        "RETRY": "Retry",
-        "REMOVE": "Remove",
-        "PLAY": "Play",
-        "REVEAL": "Show in Folder",
-        "COPY_URL": "Copy download URL",
-        "URL_COPIED": "Download URL copied to clipboard",
-        "URL_COPY_FAILED": "Failed to copy URL to clipboard",
-        "STATUS": {
-            "QUEUED": "Queued",
-            "DOWNLOADING": "Downloading",
-            "COMPLETED": "Completed",
-            "FAILED": "Failed",
-            "CANCELED": "Canceled",
-            "PAUSED": "Paused"
-        }
-    },
     "BROWSER": {
         "TITLE": "Browser",
         "SUBTITLE": "Open a web page inside ARM-Nator",
@@ -1013,7 +903,6 @@
             "OPEN_DASHBOARD": "Open dashboard",
             "RAIL_SOURCES": "Sources",
             "OPEN_SOURCES": "Open sources",
-            "RAIL_GLOBAL_FAVORITES": "Favorites",
             "RAIL_GLOBAL_RECENT": "Recently viewed",
             "RAIL_GLOBAL_SEARCH": "Global search",
             "RAIL_DIRECT_PLAY": "Direct play",
@@ -1029,7 +918,6 @@
             "RAIL_SEARCH": "Advanced search",
             "RAIL_RECENT": "Recently viewed",
             "RAIL_FAVORITES": "Favorites",
-            "RAIL_DOWNLOADS": "Downloads",
             "EXTERNAL_PLAYBACK_CLOSE": "Close player",
             "RAIL_ALL_CHANNELS": "All channels",
             "RAIL_GROUPS": "Groups",
@@ -1045,16 +933,11 @@
             "OPEN_COMMAND_PALETTE": "Open command palette",
             "ADD_PLAYLIST_ALL": "Add playlist",
             "ADD_PLAYLIST": "Add playlist",
-            "OPEN_DOWNLOADS": "Open downloads",
             "OPEN_CONTEXT_ACTIONS": "Open section actions",
             "NO_SECTION_ACTIONS": "No actions for this section",
             "PLAYLIST_INFO": "Playlist info",
             "ACCOUNT_INFO": "Account info",
             "REFRESH_PLAYLIST": "Refresh playlist",
-            "CLEAR_COMPLETED_DOWNLOADS_ALL": "Clear completed downloads (all playlists)",
-            "CLEAR_COMPLETED_DOWNLOADS_ALL_ARIA": "Clear completed downloads for all playlists",
-            "CLEAR_COMPLETED_DOWNLOADS_THIS_PLAYLIST": "Clear completed downloads (this playlist)",
-            "CLEAR_COMPLETED_DOWNLOADS_THIS_PLAYLIST_ARIA": "Clear completed downloads for this playlist",
             "CLEAR_RECENTLY_VIEWED_SECTION": "Clear recently viewed",
             "CLEAR_RECENTLY_VIEWED_SECTION_ARIA": "Clear recently viewed for this section",
             "CLEAR_RECENTLY_VIEWED_TYPE": "Clear recently viewed {{type}}",
@@ -1073,11 +956,6 @@
             "SOURCES_AVAILABLE": "{{count}} sources available",
             "GO_TO_DASHBOARD": "Back to dashboard",
             "GO_TO_SOURCES": "Go to Sources",
-            "DROP_OVERLAY_TITLE": "Drop to add playlist",
-            "DROP_OVERLAY_REJECTED_UNSUPPORTED": "Unsupported file type",
-            "DROP_OVERLAY_REJECTED_EMPTY": "That file is empty",
-            "DROP_OVERLAY_REJECTED_READ_ERROR": "Could not read that file",
-            "DROP_IMPORT_SUCCESS": "Importing \"{{title}}\"…",
             "XTREAM_IMPORT_TITLE": "Syncing playlist",
             "XTREAM_IMPORT_REMOTE_BADGE": "Remote source",
             "XTREAM_IMPORT_LOCAL_BADGE": "Local library",
@@ -1098,8 +976,6 @@
                 "PLAYLIST_SEARCH_DESCRIPTION": "Open advanced playlist search",
                 "OPEN_GLOBAL_FAVORITES_LABEL": "Open global favorites",
                 "OPEN_GLOBAL_FAVORITES_DESCRIPTION": "Navigate to aggregated favorites",
-                "OPEN_DOWNLOADS_LABEL": "Open downloads",
-                "OPEN_DOWNLOADS_DESCRIPTION": "Navigate to downloads view",
                 "OPEN_GLOBAL_RECENT_LABEL": "Open recently viewed",
                 "OPEN_GLOBAL_RECENT_DESCRIPTION": "Open global recently viewed page",
                 "OPEN_SETTINGS_LABEL": "Open settings",
@@ -1149,15 +1025,7 @@
             "STALKER_PLAYLISTS": "Stalker Playlists",
             "ALL_PLAYLISTS": "All Playlists",
             "PLAYLIST_COUNT_ONE": "1 playlist",
-            "PLAYLIST_COUNT_OTHER": "{{count}} playlists",
-            "METADATA_NO_CONTENT": "No movie or series content",
-            "METADATA_INDEXING": "Metadata indexing",
-            "METADATA_QUEUED": "Queued for metadata indexing",
-            "METADATA_READY": "Search metadata ready",
-            "METADATA_NOT_INDEXED": "Metadata not indexed",
-            "START_INDEXING": "Start indexing",
-            "STOP_INDEXING": "Stop indexing",
-            "METADATA_STOPPING": "Stopping metadata indexing"
+            "PLAYLIST_COUNT_OTHER": "{{count}} playlists"
         },
         "CONTEXT": {
             "CATEGORIES": "Categories",
@@ -1221,8 +1089,7 @@
                 "CLOSE_PLAYER_POPOVERS": "Close embedded MPV popovers",
                 "COMMAND_PALETTE_NAVIGATION": "Move command palette selection",
                 "COMMAND_PALETTE_RUN": "Run selected command palette item",
-                "CLOSE_DIALOGS": "Close dialog or dismiss overlay",
-                "DOWNLOADS_OPEN_ITEM": "Open focused download item in the library"
+                "CLOSE_DIALOGS": "Close dialog or dismiss overlay"
             }
         },
         "GLOBAL_FAVORITES": {

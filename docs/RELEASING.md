@@ -4,9 +4,9 @@ Releases are created by GitHub Actions when a semantic-version tag is pushed.
 The tag must match the version in `package.json`.
 
 ```sh
-git tag -a v0.25.0 -m "Release v0.25.0"
+git tag -a v0.31.0 -m "Release v0.31.0"
 git push origin main
-git push origin v0.25.0
+git push origin v0.31.0
 ```
 
 To rerun a failed release without moving its tag, run the workflow manually

@@ -80,8 +80,8 @@
     color: var(--apd-heading);
     min-width: 0;
     // Locks every card to the same height regardless of which has the
-    // longest subtitle. Without this the URL card (short text) collapses
-    // and the Xtream card (longer text) pushes tall — selection
+    // longest subtitle. Without this the shorter card collapses
+    // and the longer card pushes tall — selection
     // states then look visually inconsistent.
     min-height: 148px;
     transition:
@@ -228,27 +228,6 @@
         padding-top: 8px;
     }
 
-    app-text-import .mat-mdc-form-field-infix {
-        min-height: auto;
-    }
-
-    app-text-import .mat-mdc-form-field {
-        min-height: 180px;
-    }
-
-    .cors-note {
-        margin: 6px 0 0;
-        padding: 10px 12px;
-        border-radius: 8px;
-        background: color-mix(
-            in srgb,
-            var(--apd-surface-raised) 50%,
-            transparent
-        );
-        color: var(--apd-muted);
-        font-size: 11.5px;
-        line-height: 1.45;
-    }
 }
 
 .apd-actions {

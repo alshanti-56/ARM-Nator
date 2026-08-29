@@ -173,6 +173,16 @@ export class PlaylistSwitcherComponent {
         }
         return types;
     });
+    readonly playlistTypeCounts = computed(() => {
+        const counts: Record<PlaylistFilterType, number> = {
+            xtream: 0,
+            stalker: 0,
+        };
+        for (const playlist of this.playlists()) {
+            counts[this.getPlaylistFilterType(playlist)] += 1;
+        }
+        return counts;
+    });
     readonly showTypeFilters = computed(
         () => this.availablePlaylistTypes().size > 1
     );
