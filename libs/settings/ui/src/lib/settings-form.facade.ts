@@ -41,7 +41,10 @@ export class SettingsFormFacade {
    */
   hydrateFromStore(): void {
     const currentSettings = this.settingsStore.getSettings();
-    this.form.patchValue(currentSettings);
+    this.form.patchValue({
+      ...currentSettings,
+      language: Language.ENGLISH,
+    });
     this.syncDashboardControlsEnabledState(
       currentSettings.showDashboard ?? true,
     );
@@ -105,7 +108,7 @@ export class SettingsFormFacade {
   /** Applies the saved language/theme and resets the dirty state */
   applySavedSettings(): void {
     this.form.markAsPristine();
-    this.translate.use(this.form.value.language ?? Language.ENGLISH);
+    this.translate.use(Language.ENGLISH);
     this.settingsService.changeTheme(
       this.form.value.theme ?? Theme.SystemTheme,
     );

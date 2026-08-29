@@ -32,13 +32,15 @@
                         language of languageEnum() | keyvalue;
                         track language
                     ) {
-                        <mat-option
-                            [value]="language.value"
-                            [attr.data-test-id]="language.value"
-                            >{{
-                                'LANGUAGES.' + language.key | translate
-                            }}</mat-option
-                        >
+                        @if (language.value === 'en') {
+                            <mat-option
+                                [value]="language.value"
+                                [attr.data-test-id]="language.value"
+                                >{{
+                                    'LANGUAGES.' + language.key | translate
+                                }}</mat-option
+                            >
+                        }
                     }
                 </mat-select>
             </mat-form-field>

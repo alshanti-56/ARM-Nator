@@ -1,6 +1,10 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
-import { parseStalkerCredentials } from './stalker-credential-parser';
+import {
+  createStalkerCredentialKey,
+  normalizeStalkerPortalUrl,
+  parseStalkerCredentials,
+} from './stalker-credential-parser';
 
 test('parses Panel/Mac/Expires blocks and normalizes values', () => {
   const result = parseStalkerCredentials([
@@ -12,8 +16,8 @@ test('parses Panel/Mac/Expires blocks and normalizes values', () => {
   assert.deepEqual(result.candidates[0] && {
     portalUrl: result.candidates[0].portalUrl,
     macAddress: result.candidates[0].macAddress,
-    expiryText: result.candidates[0].expiryText,
-  }, { portalUrl: 'http://xpone.nl/c', macAddress: '00:1A:79:19:4F:83', expiryText: 'Unlimited (9999 Days)' });
+  }, { portalUrl: 'http://xpone.nl/c', macAddress: '00:1A:79:19:4F:83' });
+  assert.equal('expiryText' in (result.candidates[0] ?? {}), false);
 });
 
 test('reports malformed blocks and duplicates', () => {
@@ -25,4 +29,29 @@ test('reports malformed blocks and duplicates', () => {
   assert.equal(result.candidates.length, 1);
   assert.equal(result.duplicates.length, 1);
   assert.equal(result.invalidEntries.length, 1);
+});
+
+test('preserves basic-auth credentials and canonicalizes a root portal', () => {
+  const result = parseStalkerCredentials([
+    'Panel: https://user:Secret@portal.test///?tenant=one#fragment',
+    'Mac: 00:1A:79:12:34:56',
+  ].join('\n'));
+
+  assert.equal(result.invalidEntries.length, 0);
+  assert.equal(result.candidates[0]?.portalUrl, 'https://user:Secret@portal.test');
+  assert.equal(
+    result.candidates[0]?.normalizedKey,
+    createStalkerCredentialKey('https://user:Secret@portal.test/', '00:1A:79:12:34:56')
+  );
+  assert.equal(normalizeStalkerPortalUrl('https://portal.test/'), 'https://portal.test');
+});
+
+test('does not collapse basic-auth passwords that differ only by case', () => {
+  const result = parseStalkerCredentials([
+    'Panel: https://user:Secret@portal.test/c', 'Mac: 001A79123456',
+    'Panel: https://user:secret@portal.test/c', 'Mac: 001A79123456',
+  ].join('\n'));
+
+  assert.equal(result.candidates.length, 2);
+  assert.equal(result.duplicates.length, 0);
 });

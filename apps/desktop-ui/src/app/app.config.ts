@@ -53,35 +53,14 @@ export function HttpLoaderFactory(http: HttpClient): TranslateHttpLoader {
 }
 
 /**
- * Synchronously read the user's preferred language from localStorage so the
- * very first render uses the right locale instead of flashing English first
- * and re-rendering once the IDB-backed settings finish loading.
+ * Synchronously read the user's preferred language from localStorage. English
+ * is currently the only bundled application locale.
  *
  * The hint is written by AppComponent.initSettings() whenever the saved
- * settings resolve, so first-ever boots fall back to English (no hint
- * present yet) and every subsequent boot uses the saved language.
+ * settings resolve, so first-ever boots and unsupported saved preferences
+ * fall back to English.
  */
-const SUPPORTED_LANGS = new Set([
-    'ar',
-    'ary',
-    'by',
-    'de',
-    'el',
-    'en',
-    'es',
-    'fr',
-    'hu',
-    'it',
-    'ja',
-    'ko',
-    'nl',
-    'pl',
-    'pt',
-    'ru',
-    'tr',
-    'zh',
-    'zhtw',
-]);
+const SUPPORTED_LANGS = new Set(['en']);
 export const PREFERRED_LANGUAGE_STORAGE_KEY = 'arm-nator:preferred-language';
 export function getInitialLanguage(): string {
     try {

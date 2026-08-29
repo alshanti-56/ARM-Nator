@@ -16,7 +16,7 @@ import {
     StalkerVodSource,
 } from '@arm-nator/providers/stalker/data-access';
 import { PlaybackPositionData } from '@arm-nator/shared/interfaces';
-import { PortalInlinePlayerComponent } from '@arm-nator/ui/components';
+import { PortalInlinePlayerComponent } from '@arm-nator/player/ui';
 import { TmdbEnrichmentService } from '@arm-nator/services';
 import { EMPTY, of } from 'rxjs';
 import { FavoritesButtonComponent } from '../stalker-favorites-button/stalker-favorites-button.component';

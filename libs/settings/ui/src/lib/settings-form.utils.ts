@@ -70,7 +70,7 @@ export function createSettingsFromFormValue(
     playerUpNextRail: value.playerUpNextRail ?? true,
     streamFormat: value.streamFormat ?? StreamFormat.AutoStreamFormat,
     openStreamOnDoubleClick: value.openStreamOnDoubleClick ?? false,
-    language: value.language ?? Language.ENGLISH,
+    language: Language.ENGLISH,
     showCaptions: value.showCaptions ?? false,
     showDashboard: value.showDashboard ?? true,
     dashboardRails: normalizeDashboardRailsSettings(value.dashboardRails),

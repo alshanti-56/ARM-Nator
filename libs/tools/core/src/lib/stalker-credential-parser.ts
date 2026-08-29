@@ -6,7 +6,6 @@ export interface StalkerCredentialCandidate {
   readonly originalText: string;
   readonly portalUrl: string;
   readonly macAddress: string;
-  readonly expiryText?: string;
   readonly normalizedKey: string;
 }
 
@@ -30,13 +29,38 @@ function id(): string {
   return globalThis.crypto?.randomUUID?.() ?? `${Date.now()}-${Math.random()}`;
 }
 
-function normalizePortal(raw: string): string | null {
+export function normalizeStalkerPortalUrl(raw: string): string | null {
   try {
     const url = new URL(raw.trim());
     if (url.protocol !== 'http:' && url.protocol !== 'https:') return null;
-    return `${url.protocol}//${url.host}${url.pathname.replace(/\/+$/, '') || '/'}`;
+    url.search = '';
+    url.hash = '';
+    url.pathname = url.pathname.replace(/\/+$/, '') || '/';
+    return url.href.replace(/\/+$/, '');
   } catch {
     return null;
+  }
+}
+
+export function createStalkerCredentialKey(
+  portalUrl: string,
+  macAddress: string
+): string {
+  const normalizedPortal = normalizeStalkerPortalUrl(portalUrl) ?? portalUrl.trim();
+  try {
+    const url = new URL(normalizedPortal);
+    return JSON.stringify([
+      'stalker',
+      url.protocol.toLowerCase(),
+      url.hostname.toLowerCase(),
+      url.port,
+      url.pathname.replace(/\/+$/, ''),
+      url.username,
+      url.password,
+      macAddress.toUpperCase(),
+    ]);
+  } catch {
+    return `stalker|${normalizedPortal.toLowerCase()}|${macAddress.toUpperCase()}`;
   }
 }
 
@@ -56,15 +80,17 @@ export function parseStalkerCredentials(rawInput: string, limit = 100): StalkerP
       index += 1;
       continue;
     }
-    const portalUrl = normalizePortal(panelMatch[1]);
+    const portalUrl = normalizeStalkerPortalUrl(panelMatch[1]);
     const macAddress = normalizeStalkerMacAddress(macMatch[1]);
     const expiryMatch = lines[index + 2]?.match(EXPIRY);
+    // Keep the optional source line in originalText for traceability only.
+    // Expiry is authoritative only when returned by portal validation.
     const originalText = [lines[index], lines[index + 1], ...(expiryMatch ? [lines[index + 2]] : [])].join('\n');
     if (!portalUrl) invalidEntries.push({ id: id(), text: originalText, reason: 'Invalid portal URL.' });
     else if (!macAddress) invalidEntries.push({ id: id(), text: originalText, reason: 'Invalid MAC address.' });
     else if (candidates.length >= limit) invalidEntries.push({ id: id(), text: originalText, reason: `Only the first ${limit} unique entries are accepted.` });
     else {
-      const candidate: StalkerCredentialCandidate = { id: id(), type: 'stalker', originalText, portalUrl, macAddress, ...(expiryMatch ? { expiryText: expiryMatch[1].trim() } : {}), normalizedKey: `stalker|${portalUrl.toLowerCase()}|${macAddress}` };
+      const candidate: StalkerCredentialCandidate = { id: id(), type: 'stalker', originalText, portalUrl, macAddress, normalizedKey: createStalkerCredentialKey(portalUrl, macAddress) };
       if (seen.has(candidate.normalizedKey)) duplicates.push(candidate); else { seen.add(candidate.normalizedKey); candidates.push(candidate); }
     }
     index += expiryMatch ? 3 : 2;

@@ -62,7 +62,7 @@ import {
     getSeriesPlaybackNavigation,
     type SeriesPlaybackEpisodeState,
     type UpNextRailItem,
-} from '@arm-nator/ui/components';
+} from '@arm-nator/player/ui';
 import {
     type PlaybackFallbackRequest,
     PortalInlinePlayerComponent,

@@ -76,6 +76,7 @@ const RENDER_CHUNK = 50;
             [isLoading]="loading()"
             [items]="visibleGridItems()"
             [searchTerm]="searchTerm()"
+            [showPaginator]="false"
             [variant]="'logo'"
             [type]="'live'"
             (itemClicked)="onItemClicked($event)"

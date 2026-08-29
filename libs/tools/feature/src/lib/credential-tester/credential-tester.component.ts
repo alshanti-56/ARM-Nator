@@ -28,6 +28,7 @@ import {
     type CredentialTestProgress,
     parseIptvCredentials,
     parseStalkerCredentials,
+    createStalkerCredentialKey,
     type StalkerCredentialCandidate,
     STALKER_TEST_FAILURE_STATUSES,
     type StalkerTestResult,
@@ -72,7 +73,7 @@ function createStalkerTestResultsCsv(
         result.candidate.portalUrl,
         result.candidate.macAddress,
         result.tokenMode,
-        result.candidate.expiryText,
+        result.expiresAt ?? result.accountInfo?.expireDate,
         result.responseTimeMs,
         result.accountInfo?.login,
         result.accountInfo?.tariffPlanName,
@@ -333,9 +334,13 @@ export class CredentialTesterComponent implements OnDestroy {
     }
 
     stalkerExpiryText(result: StalkerTestResult): string {
+        if (result.status === 'pending' || result.status === 'testing') {
+            return 'Checking…';
+        }
         const expiry = result.expiresAt ?? result.accountInfo?.expireDate;
         if (expiry && expiry > 0) return new Date(expiry * 1000).toLocaleDateString();
-        return result.candidate.expiryText ?? '—';
+        if (result.status === 'working') return 'Not reported';
+        return 'Not checked';
     }
 
     private async runStalkerTests(ids: readonly string[]): Promise<void> {
@@ -423,6 +428,10 @@ export class CredentialTesterComponent implements OnDestroy {
             return true;
         });
         if (!unique.length) {
+            this.savedStalkerIds.update((ids) => new Set([
+                ...ids,
+                ...working.map((result) => result.id),
+            ]));
             this.snackBar.open('All working Stalker sources already exist.', undefined, { duration: 4000 });
             return;
         }
@@ -430,6 +439,10 @@ export class CredentialTesterComponent implements OnDestroy {
         try {
             await firstValueFrom(this.playlistsService.addManyPlaylists(playlists));
             this.store.dispatch(PlaylistActions.addManyPlaylists({ playlists }));
+            this.savedStalkerIds.update((ids) => new Set([
+                ...ids,
+                ...working.map((result) => result.id),
+            ]));
             this.snackBar.open(`Saved ${playlists.length} working Stalker source${playlists.length === 1 ? '' : 's'}${working.length !== unique.length ? `; ${working.length - unique.length} already existed` : ''}.`, undefined, { duration: 5000 });
         } catch {
             this.snackBar.open('Could not save working Stalker sources.', undefined, { duration: 5000 });
@@ -506,7 +519,7 @@ export class CredentialTesterComponent implements OnDestroy {
     }
 
     private stalkerSourceKey(candidate: StalkerCredentialCandidate): string {
-        return `stalker|${candidate.portalUrl.toLowerCase()}|${candidate.macAddress.toUpperCase()}`;
+        return createStalkerCredentialKey(candidate.portalUrl, candidate.macAddress);
     }
 
     private existingStalkerSourceKeys(): Set<string> {
@@ -514,7 +527,7 @@ export class CredentialTesterComponent implements OnDestroy {
             const portalUrl = playlist.portalUrl;
             const macAddress = playlist.macAddress;
             if (portalUrl && macAddress) {
-                keys.push(`stalker|${portalUrl.replace(/\/+$/, '').toLowerCase()}|${macAddress.toUpperCase()}`);
+                keys.push(createStalkerCredentialKey(portalUrl, macAddress));
             }
             return keys;
         }, []));
