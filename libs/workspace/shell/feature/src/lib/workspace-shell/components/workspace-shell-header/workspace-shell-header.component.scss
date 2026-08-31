@@ -6,9 +6,9 @@
 .workspace-header {
     display: flex;
     align-items: center;
-    gap: 12px;
-    height: 56px;
-    padding: 0 24px;
+    gap: clamp(8px, 1.1vw, 12px);
+    height: clamp(52px, 4vw, 56px);
+    padding: 0 clamp(10px, 2.2vw, 24px);
     border-bottom: 1px solid var(--mat-sys-outline-variant);
     background: var(--app-header-bg, var(--mat-sys-surface-container-low));
     app-region: drag;
@@ -21,7 +21,7 @@
 }
 
 .playlist-switcher {
-    width: min(260px, 32vw);
+    width: clamp(160px, 30vw, 260px);
     flex-shrink: 0;
     app-region: no-drag;
 }
@@ -29,8 +29,8 @@
 .search-field {
     container: workspace-search / inline-size;
     flex: 1;
-    min-width: 160px;
-    max-width: 560px;
+    min-width: clamp(120px, 12vw, 160px);
+    max-width: min(560px, 48vw);
     height: 36px;
     border-radius: 10px;
     border: 1px solid var(--app-search-border, var(--mat-sys-outline-variant));
@@ -264,12 +264,12 @@
 
 @media (max-width: 780px) {
     .workspace-header {
-        padding-inline: 10px;
-        gap: 10px;
+        padding-inline: clamp(8px, 2.2vw, 10px);
+        gap: clamp(8px, 1.5vw, 10px);
     }
 
     .playlist-switcher {
-        width: 190px;
+        width: clamp(150px, 26vw, 220px);
     }
 
     .header-actions {

@@ -12,7 +12,7 @@
     gap: 6px;
     height: 100%;
     padding: 12px;
-    width: 300px;
+    width: clamp(220px, 24vw, 300px);
     min-width: 0;
     min-height: 0;
     overflow: hidden;

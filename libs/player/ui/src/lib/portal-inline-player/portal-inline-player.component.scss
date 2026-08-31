@@ -5,8 +5,8 @@
 
 .player-shell {
     display: grid;
-    gap: 14px;
-    padding: 18px;
+    gap: clamp(10px, 1.5vw, 14px);
+    padding: clamp(10px, 1.4vw, 18px);
     margin-top: 8px;
     border-radius: 18px;
     border: 1px solid rgba(20, 20, 20, 0.08);
@@ -94,8 +94,8 @@
     // There is no global border-box reset, so the rail modifier's padding
     // would otherwise widen the stage past its container and get clipped.
     box-sizing: border-box;
-    min-height: 320px;
-    max-height: min(70vh, 720px);
+    min-height: clamp(220px, 30vw, 320px);
+    max-height: min(70vh, clamp(360px, 52vw, 720px));
     aspect-ratio: 16 / 9;
     border-radius: 14px;
     background: #000;
@@ -120,11 +120,11 @@
 // flexible gap between player and rail on very wide stages).
 .player-shell__viewport--with-rail {
     justify-content: space-between;
-    gap: 18px;
+    gap: clamp(12px, 1.6vw, 18px);
     // Insets the docked player and the rail from the stage edges; the player
     // keeps sizing itself as the largest 16:9 box fitting the (now smaller)
     // content height.
-    padding: 12px;
+    padding: clamp(8px, 1vw, 12px);
 }
 
 .player-shell__rail {
@@ -174,7 +174,7 @@
 
 @media (max-width: 900px) {
     .player-shell {
-        padding: 14px;
+        padding: clamp(10px, 1.55vw, 14px);
     }
 
     .player-shell__title-row {
@@ -186,7 +186,7 @@
     }
 
     .player-shell__viewport {
-        min-height: 220px;
+        min-height: clamp(200px, 30vw, 260px);
     }
 }
 

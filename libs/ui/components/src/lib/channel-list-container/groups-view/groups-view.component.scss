@@ -20,9 +20,9 @@
 }
 
 .groups-nav-panel {
-    width: 208px;
-    min-width: 164px;
-    max-width: 320px;
+    width: clamp(180px, 20vw, 208px);
+    min-width: clamp(156px, 16vw, 164px);
+    max-width: clamp(240px, 30vw, 320px);
     flex-shrink: 0;
     min-height: 0;
     display: flex;

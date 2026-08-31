@@ -11,7 +11,8 @@
     gap: 2px;
     height: 100%;
     box-sizing: border-box;
-    padding: 16px 8px 10px;
+    padding: clamp(12px, 1.3vw, 16px) clamp(6px, 0.7vw, 8px)
+        clamp(8px, 1vw, 10px);
     border-right: 1px solid
         var(--app-rail-border, var(--mat-sys-outline-variant));
     background: var(--app-rail-bg, var(--mat-sys-surface-container-low));

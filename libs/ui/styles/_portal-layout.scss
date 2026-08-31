@@ -20,9 +20,9 @@
     // ─── Sidebar ─────────────────────────────────────────────────────────────
     .sidebar {
         // Width controlled by the resizable directive at runtime
-        width: 400px;
-        min-width: 250px;
-        max-width: 600px;
+        width: clamp(280px, 28vw, 400px);
+        min-width: clamp(220px, 22vw, 250px);
+        max-width: clamp(420px, 42vw, 600px);
         border-right: 1px solid var(--app-separator);
         display: flex;
         flex-direction: column;

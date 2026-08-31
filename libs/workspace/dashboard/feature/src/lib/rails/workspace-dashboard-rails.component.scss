@@ -1,6 +1,7 @@
 :host {
     display: block;
-    padding: 24px 28px 40px;
+    padding: clamp(16px, 2.4vw, 24px) clamp(16px, 2.4vw, 28px)
+        clamp(28px, 3.4vw, 40px);
     box-sizing: border-box;
     min-height: 100%;
 }
@@ -18,7 +19,7 @@
     margin: 0 auto;
     display: flex;
     flex-direction: column;
-    gap: 32px;
+    gap: clamp(24px, 2.8vw, 32px);
     min-width: 0;
 }
 
@@ -40,8 +41,8 @@
     position: relative;
     display: grid;
     grid-template-columns: minmax(0, var(--hero-poster-width)) minmax(0, 1fr);
-    gap: 20px;
-    padding: 16px;
+    gap: clamp(14px, 1.7vw, 20px);
+    padding: clamp(12px, 1.4vw, 16px);
     text-decoration: none;
     color: inherit;
     border-radius: 18px;
@@ -59,7 +60,7 @@
     // Tighter than v0.21 (was 160px). Matches the v0.22 mockup's 150px
     // poster intent, freeing space for the progress + remaining label
     // without growing total hero height.
-    --hero-poster-width: 140px;
+    --hero-poster-width: clamp(120px, 12vw, 140px);
 
     &:hover {
         transform: translateY(-2px);
@@ -544,29 +545,30 @@
 // ── Responsive ──────────────────────────────────────────────────────────────
 @media (max-width: 720px) {
     :host {
-        padding: 16px 16px 32px;
+        padding: clamp(14px, 2.4vw, 16px) clamp(14px, 2.4vw, 16px)
+            clamp(28px, 4.8vw, 32px);
     }
 
     .rails-page {
-        gap: 24px;
+        gap: clamp(20px, 3.2vw, 24px);
     }
 
     .hero {
-        --hero-poster-width: 120px;
+        --hero-poster-width: clamp(112px, 16vw, 128px);
         grid-template-columns: var(--hero-poster-width) minmax(0, 1fr);
-        gap: 14px;
-        padding: 14px;
+        gap: clamp(12px, 1.8vw, 14px);
+        padding: clamp(12px, 1.8vw, 14px);
     }
 
     // Skeleton hero mirrors real hero at this breakpoint.
     .rails-page__skeleton-hero {
-        grid-template-columns: 120px minmax(0, 1fr);
-        gap: 14px;
-        padding: 14px;
+        grid-template-columns: var(--hero-poster-width, clamp(112px, 16vw, 128px)) minmax(0, 1fr);
+        gap: clamp(12px, 1.8vw, 14px);
+        padding: clamp(12px, 1.8vw, 14px);
     }
 
     .rails-page__skeleton-hero-poster {
-        width: 120px;
+        width: var(--hero-poster-width, clamp(112px, 16vw, 128px));
     }
 
     .rails-page__skeleton-card {
