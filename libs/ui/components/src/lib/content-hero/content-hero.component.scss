@@ -526,6 +526,26 @@
     }
 }
 
+@media (max-width: 520px) {
+    :host {
+        --poster-width: min(180px, 42vw);
+    }
+
+    .hero__content {
+        flex-direction: column;
+        align-items: stretch;
+        padding: 40px 16px 32px;
+    }
+
+    .poster {
+        align-self: center;
+    }
+
+    .details {
+        width: 100%;
+    }
+}
+
 // ============================================================================
 // Animations
 // ============================================================================
@@ -568,6 +588,6 @@ ngx-skeleton-loader {
 .poster {
     // ... existing styles ...
     // Ensure poster container has height/ratio for skeleton
-    min-height: 330px; // Fallback
+    min-height: min(330px, calc(var(--poster-width) * 1.5));
     aspect-ratio: 2 / 3;
 }

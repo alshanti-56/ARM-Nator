@@ -325,3 +325,30 @@
         padding-inline-end: 0;
     }
 }
+
+@media (max-width: 720px) {
+    :host {
+        overflow: auto;
+    }
+
+    .groups-view-layout {
+        flex-direction: column;
+        overflow: auto;
+    }
+
+    .groups-nav-panel {
+        box-sizing: border-box;
+        width: 100%;
+        min-width: 0;
+        max-width: none;
+        max-height: min(38vh, 260px);
+        flex: 0 0 auto;
+        border-right: 0;
+        border-bottom: 1px solid var(--app-separator);
+    }
+
+    .groups-content-panel {
+        width: 100%;
+        flex: 1 1 auto;
+    }
+}

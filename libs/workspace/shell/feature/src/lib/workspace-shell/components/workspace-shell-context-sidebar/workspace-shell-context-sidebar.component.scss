@@ -57,3 +57,22 @@
     min-height: 0;
     overflow: hidden;
 }
+
+@media (max-width: 640px) {
+    .context-panel {
+        box-sizing: border-box;
+        width: 100% !important;
+        max-width: 100%;
+        min-width: 0 !important;
+        height: auto;
+        max-height: min(42vh, 300px);
+        padding: 10px 12px;
+        border-right: 0;
+        border-bottom: 1px solid var(--mat-sys-outline-variant);
+        overflow: hidden;
+    }
+
+    .context-panel .resize-handle {
+        display: none;
+    }
+}

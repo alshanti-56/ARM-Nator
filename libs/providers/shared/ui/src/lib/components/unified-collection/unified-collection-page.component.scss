@@ -92,6 +92,27 @@ app-unified-live-tab {
     flex-direction: row;
 }
 
+@media (max-width: 640px) {
+    .collection-header {
+        flex-wrap: wrap;
+        padding: 8px 12px;
+        gap: 8px;
+    }
+
+    .collection-title {
+        min-width: 0;
+        flex: 1 1 auto;
+    }
+
+    .collection-header-toggles {
+        width: 100%;
+        margin-left: 0;
+        justify-content: flex-start;
+        flex-wrap: wrap;
+        gap: 8px;
+    }
+}
+
 .empty-state {
     display: flex;
     flex-direction: column;

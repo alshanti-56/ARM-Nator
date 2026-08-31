@@ -118,3 +118,26 @@
         @include mat.form-field-density(-5);
     }
 }
+
+@media (max-width: 720px) {
+    :host {
+        flex-direction: column;
+        overflow: auto;
+    }
+
+    :host > .sidebar {
+        box-sizing: border-box;
+        width: 100%;
+        min-width: 0;
+        max-width: none;
+        max-height: min(42vh, 320px);
+        flex: 0 0 auto;
+        border-right: 0;
+        border-bottom: 1px solid var(--app-separator);
+    }
+
+    .main-content {
+        width: 100%;
+        min-height: 0;
+    }
+}

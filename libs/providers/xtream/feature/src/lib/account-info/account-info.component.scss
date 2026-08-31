@@ -623,4 +623,13 @@
   .account-dialog__action-buttons button {
     flex: 1;
   }
+
+  .account-detail-row--server dd {
+    flex-wrap: wrap;
+  }
+
+  .account-detail-row--server dd > span {
+    overflow-wrap: anywhere;
+    white-space: normal;
+  }
 }

@@ -289,19 +289,32 @@
 
 @media (max-width: 640px) {
     .workspace-header {
-        flex-wrap: nowrap;
+        display: grid;
+        grid-template-columns: minmax(0, 1fr) auto;
+        grid-template-areas:
+            'playlist trailing'
+            'search leading';
+        align-items: center;
+        min-height: 56px;
+        height: auto;
+        padding: 6px 10px;
+        gap: 6px 8px;
+        overflow: visible;
     }
 
     .playlist-switcher {
-        width: 140px;
-        min-width: 140px;
-        flex: 0 0 140px;
+        grid-area: playlist;
+        width: min(100%, 220px);
+        min-width: 0;
+        flex: 0 1 auto;
     }
 
     .search-field {
-        width: min(260px, 58vw);
-        min-width: 170px;
-        flex: 0 0 min(260px, 58vw);
+        grid-area: search;
+        width: 100%;
+        min-width: 0;
+        max-width: none;
+        flex: 1 1 auto;
 
         .search-chip--status {
             display: none;
@@ -309,8 +322,26 @@
     }
 
     .header-actions--trailing {
+        grid-area: trailing;
         margin-left: 0;
         padding-left: 4px;
         border-left: 0;
+    }
+
+    .header-actions--leading {
+        grid-area: leading;
+        justify-content: flex-end;
+        min-width: 0;
+        max-width: 100%;
+        overflow-x: auto;
+        scrollbar-width: none;
+
+        &::-webkit-scrollbar {
+            display: none;
+        }
+    }
+
+    .workspace-header.is-settings-route {
+        grid-template-areas: 'leading trailing';
     }
 }

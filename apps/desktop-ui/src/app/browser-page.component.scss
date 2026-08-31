@@ -191,3 +191,33 @@
         display: none;
     }
 }
+
+@media (max-width: 640px) {
+    .browser-page {
+        padding: 12px 14px 16px;
+        gap: 10px;
+    }
+
+    .browser-page__header {
+        min-height: 0;
+    }
+
+    .browser-page__heading h1 {
+        font-size: 18px;
+    }
+
+    .browser-page__heading p {
+        display: none;
+    }
+
+    .browser-page__address {
+        margin-left: 0;
+    }
+
+    .browser-page__error {
+        flex-direction: column;
+        align-items: center;
+        padding: 18px;
+        text-align: center;
+    }
+}

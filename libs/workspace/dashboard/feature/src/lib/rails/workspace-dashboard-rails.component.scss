@@ -578,3 +578,30 @@
         font-size: 1.3rem;
     }
 }
+
+@media (max-width: 480px) {
+    :host {
+        padding-inline: 12px;
+    }
+
+    .hero,
+    .rails-page__skeleton-hero {
+        grid-template-columns: minmax(0, 1fr);
+        gap: 12px;
+        padding: 12px;
+    }
+
+    .hero {
+        --hero-poster-width: min(180px, 48vw);
+    }
+
+    .hero__poster,
+    .rails-page__skeleton-hero-poster {
+        width: var(--hero-poster-width, min(180px, 48vw));
+        justify-self: center;
+    }
+
+    .hero__body {
+        width: 100%;
+    }
+}

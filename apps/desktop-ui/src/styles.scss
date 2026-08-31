@@ -109,6 +109,12 @@ body.frameless-platform .workspace-header {
     padding-right: 150px;
 }
 
+@media (max-width: 640px) {
+    body.frameless-platform .workspace-header {
+        padding-right: 10px;
+    }
+}
+
 // ─── Base ─────────────────────────────────────────────────────────────────────
 // Native UI (scrollbars, form controls, popups) must follow the app theme,
 // not the OS preference. Chromium colors unstyled/native scrollbars from the
@@ -198,12 +204,18 @@ textarea,
 }
 
 .scroll-viewport-portals {
-    min-height: calc(100vh - 170px) !important;
+    min-height: 0 !important;
     overflow-x: hidden !important;
 }
 
 .mat-drawer-inner-container {
     overflow: hidden !important;
+}
+
+@media (max-width: 720px) {
+    .mat-drawer-inner-container {
+        overflow: auto !important;
+    }
 }
 
 .cdk-overlay-backdrop {

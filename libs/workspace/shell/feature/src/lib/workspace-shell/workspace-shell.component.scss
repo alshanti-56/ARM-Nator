@@ -76,7 +76,7 @@ app-workspace-shell-context-sidebar {
 @media (max-width: 640px) {
     .workspace-shell {
         grid-template-columns: 1fr;
-        grid-template-rows: 52px 56px minmax(0, 1fr) auto;
+        grid-template-rows: 52px auto minmax(0, 1fr) auto;
     }
 
     app-workspace-shell-rail {
@@ -92,6 +92,23 @@ app-workspace-shell-context-sidebar {
     .workspace-body {
         grid-column: 1;
         grid-row: 3;
+        display: flex;
+        flex-direction: column;
+        overflow: auto;
+
+        app-workspace-shell-context-sidebar {
+            flex: 0 0 auto;
+            width: 100%;
+            max-height: min(42vh, 300px);
+            overflow: hidden;
+        }
+
+        .workspace-content {
+            flex: 1 1 auto;
+            width: 100%;
+            min-height: 0;
+            border-radius: 16px 0 0 0;
+        }
     }
 
     .workspace-now-playing {

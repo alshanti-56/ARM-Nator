@@ -125,4 +125,28 @@
             width: 100% !important;
         }
     }
+
+    @media (max-width: 720px) {
+        :host {
+            flex-direction: column;
+            overflow: auto;
+        }
+
+        .sidebar {
+            box-sizing: border-box;
+            width: 100%;
+            min-width: 0;
+            max-width: none;
+            max-height: min(42vh, 320px);
+            flex: 0 0 auto;
+            border-right: 0;
+            border-bottom: 1px solid var(--app-separator);
+        }
+
+        .content-container {
+            flex: 1 1 auto;
+            width: 100%;
+            min-height: 0;
+        }
+    }
 }

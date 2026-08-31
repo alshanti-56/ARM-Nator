@@ -2,9 +2,11 @@
     display: flex;
     gap: 10px;
     flex-direction: column;
-    overflow: hidden !important;
-    min-width: 480px;
-    max-width: 600px;
+    box-sizing: border-box;
+    overflow: auto !important;
+    width: min(600px, calc(100vw - 32px));
+    min-width: 0;
+    max-width: calc(100vw - 32px);
     max-height: 85vh !important;
 }
 
@@ -153,4 +155,14 @@
     text-align: center;
     color: var(--mat-sys-on-surface-variant);
     font-size: 0.8125rem;
+}
+
+@media (max-width: 480px) {
+    .mat-mdc-dialog-content {
+        gap: 8px;
+    }
+
+    .groups-list {
+        min-height: 140px;
+    }
 }

@@ -256,3 +256,43 @@
         white-space: nowrap;
     }
 }
+
+@media (max-width: 600px) {
+    .actor-view {
+        padding: 16px 16px 32px;
+    }
+
+    .actor-view__header {
+        flex-direction: column;
+        align-items: center;
+        gap: 16px;
+        margin-bottom: 24px;
+        text-align: center;
+    }
+
+    .actor-view__photo {
+        width: min(140px, 42vw);
+        height: auto;
+        aspect-ratio: 2 / 3;
+    }
+
+    .actor-view__meta {
+        width: 100%;
+    }
+
+    .actor-view__meta h1 {
+        font-size: 1.55rem;
+    }
+
+    .actor-view__grid {
+        grid-template-columns: repeat(auto-fill, minmax(120px, 1fr));
+        gap: 16px 12px;
+    }
+
+    .actor-view__filter {
+        display: flex;
+        justify-content: center;
+        margin: 12px 0 0;
+        flex-wrap: wrap;
+    }
+}

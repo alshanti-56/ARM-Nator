@@ -128,6 +128,23 @@
     justify-self: end;
 }
 
+@media (max-width: 720px) {
+    .groups-loading-layout {
+        flex-direction: column;
+        overflow: auto;
+    }
+
+    .groups-loading-nav {
+        box-sizing: border-box;
+        width: 100%;
+        min-width: 0;
+        max-width: none;
+        max-height: min(38vh, 260px);
+        flex: 0 0 auto;
+        border-bottom: 1px solid var(--app-separator);
+    }
+}
+
 .groups-loading-content {
     flex: 1;
     min-width: 0;

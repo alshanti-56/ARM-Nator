@@ -1,5 +1,6 @@
 ::ng-deep .mat-mdc-dialog-content {
-    overflow: hidden !important;
+    overflow: auto !important;
+    min-width: 0;
 }
 
 .mat-mdc-dialog-content {
@@ -161,9 +162,25 @@
 
 :host ::ng-deep {
     .mat-mdc-dialog-content {
-        min-width: 480px;
-        max-width: 600px;
+        box-sizing: border-box;
+        width: min(600px, calc(100vw - 32px));
+        min-width: 0;
+        max-width: calc(100vw - 32px);
         max-height: 85vh !important;
+    }
+}
+
+@media (max-width: 480px) {
+    .mat-mdc-dialog-content {
+        gap: 8px;
+    }
+
+    .loading-container {
+        padding: 24px 12px;
+    }
+
+    .categories-list {
+        min-height: 140px;
     }
 }
 
