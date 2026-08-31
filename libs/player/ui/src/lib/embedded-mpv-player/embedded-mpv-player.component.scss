@@ -75,8 +75,17 @@
 // from clipping the sheet's top edge. The height cap reserves a 10px top
 // clearance while preserving the bottom clearance above the controls.
 .embedded-mpv-player--settings-open > app-player-settings-panel {
-    height: min(620px, calc(100vh - 120px));
-    max-height: min(620px, calc(100% - 120px), calc(100vh - 210px));
+    // The shared panel is normally mounted inside the control strip, where
+    // its `bottom: calc(100% - 16px)` anchor is relative to that strip. MPV
+    // and KS mount it directly under the full player instead, so that same
+    // anchor would place the sheet at the player's top and let overflow:hidden
+    // clip it. Anchor the direct-child sheet above the actual controls area.
+    bottom: calc(var(--embedded-mpv-controls-height) + 40px);
+    // Match the shared-control sheet's height cap to the player box rather
+    // than the application viewport. This keeps the top edge in the same
+    // visual place as ArtPlayer while still leaving room for the controls.
+    height: min(520px, max(140px, calc(100% - 176px)));
+    max-height: none;
 }
 
 .embedded-mpv-player__loader {

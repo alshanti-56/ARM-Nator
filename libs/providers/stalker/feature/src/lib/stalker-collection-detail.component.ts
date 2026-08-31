@@ -13,12 +13,10 @@ import { MatSnackBar } from '@angular/material/snack-bar';
 import { TranslateService } from '@ngx-translate/core';
 import { PortalDetailShellComponent } from '@arm-nator/ui/components';
 import {
-    buildStalkerStateItem,
     createLogger,
     PORTAL_EXTERNAL_PLAYBACK,
     PORTAL_PLAYBACK_POSITIONS,
     PORTAL_PLAYER,
-    toStalkerCategoryId,
     UnifiedCollectionItem,
 } from '@arm-nator/providers/shared/util';
 import {
@@ -404,19 +402,33 @@ export class StalkerCollectionDetailComponent {
     }
 
     private resolveStalkerItem(item: UnifiedCollectionItem): StalkerPortalItem {
-        return buildStalkerStateItem(
-            item.stalkerItem as StalkerPortalItem | undefined,
-            {
-                id:
-                    item.stalkerId ??
-                    item.uid.split('::')[item.uid.split('::').length - 1] ??
-                    item.uid,
-                title: item.name,
-                type: item.contentType,
-                category_id: item.categoryId,
-                poster_url: item.posterUrl ?? item.logo ?? undefined,
-            }
-        ) as StalkerPortalItem;
+        const rawItem = item.stalkerItem as StalkerPortalItem | undefined;
+        const categoryId =
+            rawItem?.category_id ??
+            item.categoryId ??
+            toStalkerCategoryId(item.contentType);
+
+        if (rawItem) {
+            return {
+                ...(rawItem as Record<string, unknown>),
+                category_id: categoryId,
+            } as StalkerPortalItem;
+        }
+
+        const uidParts = item.uid.split('::');
+        const id = item.stalkerId ?? uidParts[uidParts.length - 1] ?? item.uid;
+        const title = item.name || '';
+        const poster = item.posterUrl ?? item.logo ?? undefined;
+
+        return {
+            id: String(id),
+            title,
+            name: title,
+            o_name: title,
+            category_id: categoryId,
+            cover: poster,
+            logo: poster,
+        };
     }
 
     private resolveDetailMode(
@@ -538,4 +550,11 @@ function captureStalkerCollectionPlaybackOwner(
             contentId,
         }),
     });
+}
+
+function toStalkerCategoryId(value: unknown): 'vod' | 'series' | 'itv' {
+    const normalized = String(value ?? '').toLowerCase();
+    if (normalized === 'series') return 'series';
+    if (normalized === 'itv' || normalized === 'live') return 'itv';
+    return 'vod';
 }

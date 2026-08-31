@@ -146,6 +146,7 @@ describe('StalkerCatalogDetailComponent provider presentation', () => {
             })
             .compileComponents();
         fixture = TestBed.createComponent(StalkerCatalogDetailComponent);
+        fixture.detectChanges();
     });
 
     afterEach(() => {
@@ -154,6 +155,7 @@ describe('StalkerCatalogDetailComponent provider presentation', () => {
 
     it('passes provider-only mode to the matching regular VOD', async () => {
         fixture.componentRef.setInput('providerOnly', true);
+        fixture.detectChanges();
         await fixture.whenStable();
 
         const child = fixture.debugElement.query(
@@ -176,6 +178,7 @@ describe('StalkerCatalogDetailComponent provider presentation', () => {
             cmd: '/media/99',
             info: { name: 'Another movie' },
         });
+        fixture.detectChanges();
         await fixture.whenStable();
 
         const child = fixture.debugElement.query(
@@ -206,6 +209,7 @@ describe('StalkerCatalogDetailComponent provider presentation', () => {
                 cmd: '/media/42',
                 info: { name: 'Portal series' },
             });
+            fixture.detectChanges();
             await fixture.whenStable();
 
             const child = fixture.debugElement.query(
