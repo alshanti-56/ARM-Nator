@@ -47,6 +47,7 @@ roadmap. The package version in this checkout is `0.31.0`.
 The repository provides standard validation commands:
 
 ```bash
+pnpm verify:environment
 pnpm lint
 pnpm test
 pnpm build
@@ -56,6 +57,11 @@ pnpm build
 Production builds prepare the pinned Embedded MPV runtime automatically when it is
 not already staged. Runtime compilation requires
 macOS on Apple Silicon plus `meson`, `ninja`, and `pkg-config`.
+The production `build` and `package` lifecycle hooks verify the pinned
+environment and rebuild Electron-native dependencies for Electron 41 before
+they run. Development reuses the native player artifacts already present in
+`apps/electron-backend/native/build/Release/` so normal renderer restarts do
+not rebuild Swift, Metal, and MPV toolchains.
 
 For a faster iterative workflow, run `pnpm embedded-mpv:runtime` once and the
 subsequent native builds reuse the staged runtime under
@@ -223,7 +229,10 @@ apps/electron-backend/native/build/Release/
 
 ```bash
 pnpm install --frozen-lockfile
+pnpm verify:environment
 pnpm dev                  # Electron + Angular watch mode
+pnpm dev:native            # Refresh Electron + MPV + KSPlayer native artifacts
+pnpm rebuild:native        # Rebuild better-sqlite3 after Electron/dependency changes
 pnpm build                # Production desktop build
 pnpm package              # Ad-hoc-signed macOS arm64 package
 pnpm embedded-mpv:runtime # Stage/verify the vendored MPV runtime

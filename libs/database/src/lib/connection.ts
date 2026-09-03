@@ -890,7 +890,7 @@ export async function initDatabase(
     if (db) return db;
     if (initPromise) return initPromise;
 
-    initPromise = (async () => {
+    const initialization = (async () => {
         const filePath = getDatabasePath();
         sqlite = new Database(filePath, {
             readonly,
@@ -933,6 +933,22 @@ export async function initDatabase(
         db = database;
         return database;
     })();
+
+    // Do not permanently poison the singleton after an ABI, permission, or
+    // migration failure. A later retry (for example after the native module
+    // has been rebuilt) must be able to open a fresh connection.
+    initPromise = initialization.catch((error) => {
+        try {
+            sqlite?.close();
+        } catch {
+            // The original initialization error is more useful than a close
+            // failure while unwinding a partially opened connection.
+        }
+        sqlite = null;
+        db = null;
+        initPromise = null;
+        throw error;
+    });
 
     return initPromise;
 }

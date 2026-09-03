@@ -44,6 +44,7 @@ import {
 import { createMpegTsConfig } from "../web-video-support/mpegts-live-recovery";
 import { syncOnlineSubtitleTrack } from "../web-video-support/online-subtitle-track";
 import { ProgressiveVodProxySession } from "../web-video-support/progressive-vod-proxy-session";
+import { MpegTsProxySession } from "../web-video-support/mpegts-proxy-session";
 import { HtmlVideoElementSession } from "./html-video-element-session";
 import { HtmlVideoLiveController } from "./html-video-live-controller";
 import {
@@ -116,6 +117,7 @@ export class HtmlVideoPlayerComponent implements OnInit, OnChanges, OnDestroy {
     getVideo: () => this.videoPlayer.nativeElement,
     getSourceUrl: () => this.channel?.url,
     isLive: () => this.isLive(),
+    getSourceKind: () => this.controlsSource?.kind ?? null,
     restartMpegTs: () => this.restartMpegTsAfterDisconnect(),
     bindControlsSource: (source) => this.bindControlsSource(source),
     play: () => this.handlePlayOperation(),
@@ -131,6 +133,8 @@ export class HtmlVideoPlayerComponent implements OnInit, OnChanges, OnDestroy {
   private controlsBridge: HtmlVideoPlayerControlsBridge | null = null;
   private videoSession: HtmlVideoElementSession | null = null;
   private readonly progressiveVodProxy = new ProgressiveVodProxySession();
+  private readonly mpegTsProxy = new MpegTsProxySession();
+  private mpegTsRequestHeaders: Record<string, string> = {};
   private sourceGeneration = 0;
 
   ngOnInit() {
@@ -244,7 +248,38 @@ export class HtmlVideoPlayerComponent implements OnInit, OnChanges, OnDestroy {
       } else if (shouldUseMpegTs(extension) && mpegts.isSupported()) {
         debugHtmlPlayer("Using mpegts.js for TS stream:", channel.name, url);
         this.mpegtsUrl = url;
-        this.openMpegTsPlayer(url);
+        this.mpegTsRequestHeaders = this.getRequestHeaders(channel);
+        const currentGeneration = sourceGeneration;
+        void this.mpegTsProxy
+          .load(
+            url,
+            this.mpegTsRequestHeaders,
+            () =>
+              currentGeneration === this.sourceGeneration &&
+              this.mpegtsUrl === url,
+          )
+          .then((playbackUrl) => {
+            if (
+              currentGeneration !== this.sourceGeneration ||
+              this.mpegtsUrl !== url
+            ) {
+              return;
+            }
+            this.openMpegTsPlayer(playbackUrl, url);
+          })
+          .catch((error: unknown) => {
+            if (
+              currentGeneration !== this.sourceGeneration ||
+              this.mpegtsUrl !== url
+            ) {
+              return;
+            }
+            this.liveController.handleMpegTsError(url, {
+              type: "network",
+              details: "MPEG-TS proxy initialization failed.",
+              info: error,
+            });
+          });
       } else if (shouldUseHls(extension) && Hls.isSupported()) {
         debugHtmlPlayer("Using hls.js for stream:", channel.name, url);
         this.liveController.openHls(url);
@@ -265,9 +300,7 @@ export class HtmlVideoPlayerComponent implements OnInit, OnChanges, OnDestroy {
               { setSource },
               url,
               {
-                "User-Agent": channel.http?.["user-agent"],
-                Referer: channel.http?.referrer,
-                Origin: channel.http?.origin,
+                ...this.getRequestHeaders(channel),
               },
               () => this.sourceGeneration === sourceGeneration,
             )
@@ -310,8 +343,10 @@ export class HtmlVideoPlayerComponent implements OnInit, OnChanges, OnDestroy {
 
   private destroyMpegtsPlayer(preserveRecovery = false): void {
     if (!preserveRecovery) {
+      this.mpegTsProxy.release();
       this.liveController.resetMpegTsRecovery();
       this.mpegtsUrl = "";
+      this.mpegTsRequestHeaders = {};
     }
     const player = this.mpegtsPlayer;
     this.mpegtsPlayer = null;
@@ -324,15 +359,22 @@ export class HtmlVideoPlayerComponent implements OnInit, OnChanges, OnDestroy {
     player.destroy();
   }
 
-  private openMpegTsPlayer(url: string): void {
+  private openMpegTsPlayer(url: string, sourceUrl = url): void {
     const isLive = this.isLive();
+    const directHeaders =
+      this.mpegTsProxy.currentUrl === url
+        ? undefined
+        : this.mpegTsRequestHeaders;
     const player = mpegts.createPlayer(
       {
         type: "mpegts",
         isLive,
         url,
       },
-      createMpegTsConfig(isLive),
+      {
+        ...createMpegTsConfig(isLive),
+        ...(directHeaders ? { headers: directHeaders } : {}),
+      },
     );
     this.mpegtsPlayer = player;
     player.attachMediaElement(this.videoPlayer.nativeElement);
@@ -343,7 +385,11 @@ export class HtmlVideoPlayerComponent implements OnInit, OnChanges, OnDestroy {
         if (this.mpegtsPlayer !== player) {
           return;
         }
-        this.liveController.handleMpegTsError(url, { type, details, info });
+        this.liveController.handleMpegTsError(sourceUrl, {
+          type,
+          details,
+          info,
+        });
       },
     );
     player.load();
@@ -361,7 +407,7 @@ export class HtmlVideoPlayerComponent implements OnInit, OnChanges, OnDestroy {
       return;
     }
     this.destroyMpegtsPlayer(true);
-    this.openMpegTsPlayer(url);
+    this.openMpegTsPlayer(this.mpegTsProxy.currentUrl ?? url, url);
   }
 
   private getShakaSession(): ShakaVideoSession {
@@ -414,5 +460,25 @@ export class HtmlVideoPlayerComponent implements OnInit, OnChanges, OnDestroy {
       getIsLive: () => this.isLive(),
     });
     return this.videoSession;
+  }
+
+  private getRequestHeaders(channel: Channel): Record<string, string> {
+    const headers = { ...(channel.http.headers ?? {}) };
+    const channelHeaders = {
+      "User-Agent": channel.http["user-agent"],
+      Referer: channel.http.referrer,
+      Origin: channel.http.origin,
+    };
+    for (const [name, value] of Object.entries(channelHeaders)) {
+      if (
+        value &&
+        !Object.keys(headers).some(
+          (existing) => existing.toLowerCase() === name.toLowerCase(),
+        )
+      ) {
+        headers[name] = value;
+      }
+    }
+    return headers;
   }
 }

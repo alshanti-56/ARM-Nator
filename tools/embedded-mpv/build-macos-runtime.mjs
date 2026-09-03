@@ -9,8 +9,7 @@ const rawArgs = process.argv.slice(2);
 const args = rawArgs[0] === '--' ? rawArgs.slice(1) : rawArgs;
 const [rawPrefix] = args;
 const arch = 'arm64';
-const macosDeploymentTarget =
-    process.env.MACOSX_DEPLOYMENT_TARGET ??= '26.0';
+const macosDeploymentTarget = (process.env.MACOSX_DEPLOYMENT_TARGET ??= '26.0');
 const workspaceRoot = process.cwd();
 
 const sourcePackages = [
@@ -20,47 +19,47 @@ const sourcePackages = [
         url: 'https://download.savannah.gnu.org/releases/freetype/freetype-2.13.3.tar.xz',
         downloadUrls: [
             'https://download.savannah.gnu.org/releases/freetype/freetype-2.13.3.tar.xz',
-            'https://downloads.sourceforge.net/project/freetype/freetype2/2.13.3/freetype-2.13.3.tar.xz',
+            'https://downloads.sourceforge.net/project/freetype/freetype2/2.13.3/freetype-2.13.3.tar.xz'
         ],
-        license: 'FreeType License or GPL-2.0-or-later',
+        license: 'FreeType License or GPL-2.0-or-later'
     },
     {
         id: 'fribidi',
         version: '1.0.16',
         url: 'https://github.com/fribidi/fribidi/releases/download/v1.0.16/fribidi-1.0.16.tar.xz',
-        license: 'LGPL-2.1-or-later',
+        license: 'LGPL-2.1-or-later'
     },
     {
         id: 'harfbuzz',
         version: '8.5.0',
         url: 'https://github.com/harfbuzz/harfbuzz/releases/download/8.5.0/harfbuzz-8.5.0.tar.xz',
-        license: 'MIT',
+        license: 'MIT'
     },
     {
         id: 'libass',
         version: '0.17.3',
         url: 'https://github.com/libass/libass/releases/download/0.17.3/libass-0.17.3.tar.xz',
-        license: 'ISC',
+        license: 'ISC'
     },
     {
         id: 'ffmpeg',
         version: '8.1',
         url: 'https://ffmpeg.org/releases/ffmpeg-8.1.tar.xz',
-        license: 'LGPL-compatible configuration',
+        license: 'LGPL-compatible configuration'
     },
     {
         id: 'libplacebo',
         version: '7.360.1',
         tag: 'v7.360.1',
         gitUrl: 'https://github.com/haasn/libplacebo.git',
-        license: 'LGPL-2.1-or-later',
+        license: 'LGPL-2.1-or-later'
     },
     {
         id: 'mpv',
         version: '0.41.0',
         url: 'https://github.com/mpv-player/mpv/archive/refs/tags/v0.41.0.tar.gz',
-        license: 'LGPL-compatible configuration with -Dgpl=false',
-    },
+        license: 'LGPL-compatible configuration with -Dgpl=false'
+    }
 ];
 
 if (process.platform !== 'darwin') {
@@ -78,7 +77,7 @@ if (!rawPrefix) {
         [
             'Usage: node tools/embedded-mpv/build-macos-runtime.mjs <output-prefix>',
             '',
-            'Builds a pinned LGPL-compatible macOS arm64 libmpv runtime from source.',
+            'Builds a pinned LGPL-compatible macOS arm64 libmpv runtime from source.'
         ].join('\n')
     );
     process.exit(1);
@@ -91,10 +90,11 @@ const buildRoot = path.resolve(
 );
 const archiveRoot = path.join(buildRoot, 'archives');
 const sourceRoot = path.join(buildRoot, 'sources');
-const packageById = new Map(sourcePackages.map((source) => [source.id, source]));
+const packageById = new Map(
+    sourcePackages.map((source) => [source.id, source])
+);
 const parallelism =
-    process.env.MAKEFLAGS?.match(/-j\s*(\d+)/)?.[1] ??
-    String(os.cpus().length);
+    process.env.MAKEFLAGS?.match(/-j\s*(\d+)/)?.[1] ?? String(os.cpus().length);
 
 const ffmpegConfigureFlags = [
     `--prefix=${prefix}`,
@@ -103,13 +103,16 @@ const ffmpegConfigureFlags = [
     '--disable-doc',
     '--disable-debug',
     '--disable-programs',
+    '--enable-ffmpeg',
+    '--disable-ffplay',
+    '--disable-ffprobe',
     '--disable-autodetect',
     '--disable-gpl',
     '--disable-nonfree',
     '--enable-pic',
     '--enable-securetransport',
     '--enable-audiotoolbox',
-    '--enable-videotoolbox',
+    '--enable-videotoolbox'
 ];
 
 const mpvMesonFlags = [
@@ -149,7 +152,7 @@ const mpvMesonFlags = [
     '-Dswift-build=enabled',
     '-Dvideotoolbox-gl=enabled',
     '-Dvideotoolbox-pl=disabled',
-    '-Dplain-gl=enabled',
+    '-Dplain-gl=enabled'
 ];
 
 function log(message) {
@@ -162,7 +165,7 @@ function run(command, commandArgs, options = {}) {
         cwd: options.cwd ?? workspaceRoot,
         env: options.env ?? buildEnv(),
         stdio: 'inherit',
-        ...options,
+        ...options
     });
 
     if (result.status !== 0) {
@@ -176,7 +179,7 @@ function run(command, commandArgs, options = {}) {
 
 function commandExists(command) {
     const result = spawnSync('sh', ['-lc', `command -v ${command}`], {
-        stdio: 'ignore',
+        stdio: 'ignore'
     });
     return result.status === 0;
 }
@@ -184,7 +187,7 @@ function commandExists(command) {
 function buildEnv() {
     const pkgConfigDirs = [
         path.join(prefix, 'lib', 'pkgconfig'),
-        path.join(prefix, 'share', 'pkgconfig'),
+        path.join(prefix, 'share', 'pkgconfig')
     ].join(path.delimiter);
 
     return {
@@ -202,7 +205,7 @@ function buildEnv() {
             .join(' '),
         LDFLAGS: [`-L${path.join(prefix, 'lib')}`, process.env.LDFLAGS]
             .filter(Boolean)
-            .join(' '),
+            .join(' ')
     };
 }
 
@@ -214,9 +217,11 @@ function ensureTools() {
         'meson',
         'ninja',
         'pkg-config',
-        'git',
+        'git'
     ];
-    const missing = requiredCommands.filter((command) => !commandExists(command));
+    const missing = requiredCommands.filter(
+        (command) => !commandExists(command)
+    );
 
     if (missing.length > 0) {
         throw new Error(`Missing required build tools: ${missing.join(', ')}`);
@@ -248,9 +253,11 @@ function archiveIsValid(archivePath) {
         return false;
     }
 
-    return spawnSync('tar', ['-tf', archivePath], {
-        stdio: 'ignore',
-    }).status === 0;
+    return (
+        spawnSync('tar', ['-tf', archivePath], {
+            stdio: 'ignore'
+        }).status === 0
+    );
 }
 
 function runCapture(command, commandArgs, options = {}) {
@@ -259,7 +266,7 @@ function runCapture(command, commandArgs, options = {}) {
         env: options.env ?? buildEnv(),
         encoding: 'utf8',
         stdio: 'pipe',
-        ...options,
+        ...options
     });
 
     if (result.status !== 0) {
@@ -285,7 +292,7 @@ function cloneGitSource(sourcePackage) {
         '--branch',
         sourcePackage.tag,
         sourcePackage.gitUrl,
-        packageSourcePath,
+        packageSourcePath
     ]);
     run(
         'git',
@@ -299,13 +306,13 @@ function cloneGitSource(sourcePackage) {
             '3rdparty/jinja',
             '3rdparty/markupsafe',
             '3rdparty/fast_float',
-            '3rdparty/Vulkan-Headers',
+            '3rdparty/Vulkan-Headers'
         ],
         { cwd: packageSourcePath }
     );
 
     sourcePackage.gitCommit = runCapture('git', ['rev-parse', 'HEAD'], {
-        cwd: packageSourcePath,
+        cwd: packageSourcePath
     });
     sourcePackage.submodules = runCapture(
         'git',
@@ -316,7 +323,7 @@ function cloneGitSource(sourcePackage) {
             '3rdparty/jinja',
             '3rdparty/markupsafe',
             '3rdparty/fast_float',
-            '3rdparty/Vulkan-Headers',
+            '3rdparty/Vulkan-Headers'
         ],
         { cwd: packageSourcePath }
     )
@@ -338,8 +345,9 @@ function downloadSources() {
         const archivePath = archivePathFor(sourcePackage);
         if (!archiveIsValid(archivePath)) {
             fs.rmSync(archivePath, { force: true });
-            const downloadUrls =
-                sourcePackage.downloadUrls ?? [sourcePackage.url];
+            const downloadUrls = sourcePackage.downloadUrls ?? [
+                sourcePackage.url
+            ];
             let lastError;
 
             for (const downloadUrl of downloadUrls) {
@@ -354,7 +362,7 @@ function downloadSources() {
                         '5',
                         '-o',
                         archivePath,
-                        downloadUrl,
+                        downloadUrl
                     ]);
                     lastError = undefined;
                     break;
@@ -380,7 +388,7 @@ function downloadSources() {
             '-C',
             packageSourcePath,
             '--strip-components',
-            '1',
+            '1'
         ]);
         sourcePackage.sha256 = sha256File(archivePath);
     }
@@ -389,7 +397,7 @@ function downloadSources() {
 function configureMakeInstall(packageId, configureArgs) {
     const packageSourcePath = sourcePathFor(packageId);
     run('./configure', [`--prefix=${prefix}`, ...configureArgs], {
-        cwd: packageSourcePath,
+        cwd: packageSourcePath
     });
     run('make', [`-j${parallelism}`], { cwd: packageSourcePath });
     run('make', ['install'], { cwd: packageSourcePath });
@@ -408,7 +416,7 @@ function mesonInstall(packageId, mesonArgs) {
             '--libdir=lib',
             '--buildtype=release',
             '--default-library=shared',
-            ...mesonArgs,
+            ...mesonArgs
         ],
         { cwd: packageSourcePath }
     );
@@ -433,14 +441,14 @@ function buildRuntime() {
         '-Dintrospection=disabled',
         '-Ddocs=disabled',
         '-Dutilities=disabled',
-        '-Dbenchmark=disabled',
+        '-Dbenchmark=disabled'
     ]);
     configureMakeInstall('libass', [
         '--enable-shared',
         '--disable-static',
         '--disable-fontconfig',
         '--enable-coretext',
-        '--disable-libunibreak',
+        '--disable-libunibreak'
     ]);
 
     const ffmpegSourcePath = sourcePathFor('ffmpeg');
@@ -462,7 +470,7 @@ function buildRuntime() {
         '-Dbench=false',
         '-Dfuzz=false',
         '-Dunwind=disabled',
-        '-Dxxhash=disabled',
+        '-Dxxhash=disabled'
     ]);
     mesonInstall('mpv', mpvMesonFlags);
 }
@@ -493,7 +501,7 @@ function validateRuntimeLinks() {
     for (const dylibPath of listDylibs(libDir)) {
         const result = spawnSync('otool', ['-L', dylibPath], {
             encoding: 'utf8',
-            stdio: 'pipe',
+            stdio: 'pipe'
         });
         if (result.status !== 0) {
             errors.push(`Unable to inspect ${dylibPath}: ${result.stderr}`);
@@ -521,7 +529,9 @@ function validateRuntimeLinks() {
                     dependencyPath.startsWith(prefixValue)
                 )
             ) {
-                errors.push(`${dylibPath} links to forbidden ${dependencyPath}`);
+                errors.push(
+                    `${dylibPath} links to forbidden ${dependencyPath}`
+                );
                 continue;
             }
 
@@ -533,7 +543,9 @@ function validateRuntimeLinks() {
 
     if (errors.length > 0) {
         throw new Error(
-            ['Embedded MPV runtime link validation failed.', ...errors].join('\n')
+            ['Embedded MPV runtime link validation failed.', ...errors].join(
+                '\n'
+            )
         );
     }
 }
@@ -544,16 +556,14 @@ function sourceMetadata(packageId) {
         version: sourcePackage.version,
         sourceUrl: sourcePackage.url ?? sourcePackage.gitUrl,
         ...(sourcePackage.tag ? { sourceTag: sourcePackage.tag } : {}),
-        ...(sourcePackage.sha256
-            ? { sourceSha256: sourcePackage.sha256 }
-            : {}),
+        ...(sourcePackage.sha256 ? { sourceSha256: sourcePackage.sha256 } : {}),
         ...(sourcePackage.gitCommit
             ? { sourceGitCommit: sourcePackage.gitCommit }
             : {}),
         ...(sourcePackage.submodules
             ? { sourceSubmodules: sourcePackage.submodules }
             : {}),
-        license: sourcePackage.license,
+        license: sourcePackage.license
     };
 }
 
@@ -565,7 +575,7 @@ function writeManifest() {
         macosDeploymentTarget,
         buildHost: {
             platform: process.platform,
-            arch: process.arch,
+            arch: process.arch
         },
         packages: Object.fromEntries(
             sourcePackages.map((sourcePackage) => [
@@ -585,23 +595,24 @@ function writeManifest() {
                     ...(sourcePackage.submodules
                         ? { sourceSubmodules: sourcePackage.submodules }
                         : {}),
-                    license: sourcePackage.license,
-                },
+                    license: sourcePackage.license
+                }
             ])
         ),
         ffmpeg: {
             ...sourceMetadata('ffmpeg'),
-            licensePolicy: 'LGPL, built without --enable-gpl and --enable-nonfree',
-            configureFlags: ffmpegConfigureFlags,
+            licensePolicy:
+                'LGPL, built without --enable-gpl and --enable-nonfree',
+            configureFlags: ffmpegConfigureFlags
         },
         mpv: {
             ...sourceMetadata('mpv'),
             licensePolicy:
                 'LGPL-compatible libmpv, built with -Dlibmpv=true -Dgpl=false',
-            mesonFlags: mpvMesonFlags,
+            mesonFlags: mpvMesonFlags
         },
         sourceDistribution:
-            'Attach the downloaded source archives, the libplacebo git checkout metadata, this manifest, and any local patches with the macOS binary release.',
+            'Attach the downloaded source archives, the libplacebo git checkout metadata, this manifest, and any local patches with the macOS binary release.'
     };
 
     fs.writeFileSync(

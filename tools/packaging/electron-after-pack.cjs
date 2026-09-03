@@ -93,7 +93,10 @@ function copyEmbeddedMpvNativeOutput(resourceDir, projectDir) {
 
     fs.rmSync(destinationDir, { recursive: true, force: true });
     fs.cpSync(sourceDir, destinationDir, { recursive: true });
-
+    const ffmpegPath = path.join(destinationDir, 'ffmpeg');
+    if (fs.existsSync(ffmpegPath)) {
+        fs.chmodSync(ffmpegPath, 0o755);
+    }
 }
 
 module.exports = async function afterPackHook(params) {
@@ -120,10 +123,10 @@ module.exports = async function afterPackHook(params) {
 
     const errors = [
         ...validatePackagedEmbeddedMpv(resourceDir, {
-        platform: 'darwin',
-        required: true,
-        foreignArch: false,
-        executableName: params.packager.executableName
+            platform: 'darwin',
+            required: true,
+            foreignArch: false,
+            executableName: params.packager.executableName
         }),
         ...validatePackagedKSPlayerMetal(resourceDir, {
             platform: 'darwin',

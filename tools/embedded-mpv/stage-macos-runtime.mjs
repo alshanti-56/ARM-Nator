@@ -20,7 +20,8 @@ if (!sourcePrefix) {
             'The prefix must contain:',
             '- include/mpv/client.h',
             '- lib/libmpv.2.dylib or lib/libmpv.dylib',
-            '- all non-system dylib dependencies required by libmpv',
+            '- bin/ffmpeg',
+            '- all non-system dylib dependencies required by libmpv'
         ].join('\n')
     );
     process.exit(1);
@@ -35,8 +36,10 @@ const destinationRoot = path.join(
 );
 const destinationIncludeDir = path.join(destinationRoot, 'include');
 const destinationLibDir = path.join(destinationRoot, 'lib');
+const destinationBinDir = path.join(destinationRoot, 'bin');
 const sourceIncludeDir = path.join(normalizedPrefix, 'include');
 const sourceLibDir = path.join(normalizedPrefix, 'lib');
+const sourceFfmpegPath = path.join(normalizedPrefix, 'bin', 'ffmpeg');
 
 function assertExists(filePath, message) {
     if (!fs.existsSync(filePath)) {
@@ -118,6 +121,7 @@ try {
     if (!findLibMpv(sourceLibDir)) {
         throw new Error(`Missing libmpv dylib in ${sourceLibDir}`);
     }
+    assertExists(sourceFfmpegPath, 'Missing FFmpeg relay executable');
 
     // Replace the whole generated runtime so files from an older renderer
     // configuration (for example Vulkan ICD metadata) cannot survive a
@@ -132,33 +136,40 @@ try {
     copyDirectory(sourceLibDir, destinationLibDir, (_sourcePath, entry) => {
         return entry.isDirectory() || entry.name.endsWith('.dylib');
     });
+    fs.mkdirSync(destinationBinDir, { recursive: true });
+    fs.copyFileSync(sourceFfmpegPath, path.join(destinationBinDir, 'ffmpeg'));
+    fs.chmodSync(path.join(destinationBinDir, 'ffmpeg'), 0o755);
 
     const externalManifest =
-        readJsonIfExists(path.join(normalizedPrefix, 'runtime-manifest.json')) ??
-        {};
+        readJsonIfExists(
+            path.join(normalizedPrefix, 'runtime-manifest.json')
+        ) ?? {};
     const manifest = {
         ...externalManifest,
         origin: 'vendored-lgpl',
         arch,
         stagedAt: new Date().toISOString(),
         ffmpeg: {
-            licensePolicy: 'LGPL, built without --enable-gpl and --enable-nonfree',
+            licensePolicy:
+                'LGPL, built without --enable-gpl and --enable-nonfree',
             ...externalManifest.ffmpeg,
             configureFlags:
                 externalManifest.ffmpeg?.configureFlags ??
-                'Record the exact FFmpeg configure flags used to build this runtime.',
+                'Record the exact FFmpeg configure flags used to build this runtime.'
         },
         mpv: {
-            licensePolicy: 'LGPL-compatible libmpv, built with -Dlibmpv=true -Dgpl=false',
+            licensePolicy:
+                'LGPL-compatible libmpv, built with -Dlibmpv=true -Dgpl=false',
             ...externalManifest.mpv,
             mesonFlags:
                 externalManifest.mpv?.mesonFlags ??
-                'Record the exact mpv Meson flags used to build this runtime.',
+                'Record the exact mpv Meson flags used to build this runtime.'
         },
         dylibs: listDylibs(destinationLibDir),
+        binaries: ['bin/ffmpeg'],
         sourceDistribution:
             externalManifest.sourceDistribution ??
-            'Publish exact source archives and local patches with the macOS binary release.',
+            'Publish exact source archives and local patches with the macOS binary release.'
     };
 
     fs.writeFileSync(

@@ -26,6 +26,7 @@ function runtimeExists() {
         ['libmpv.2.dylib', 'libmpv.dylib'].some((name) =>
             fs.existsSync(path.join(runtimeRoot, 'lib', name))
         ) &&
+        fs.existsSync(path.join(runtimeRoot, 'bin', 'ffmpeg')) &&
         fs.existsSync(path.join(runtimeRoot, 'runtime-manifest.json'))
     );
 }

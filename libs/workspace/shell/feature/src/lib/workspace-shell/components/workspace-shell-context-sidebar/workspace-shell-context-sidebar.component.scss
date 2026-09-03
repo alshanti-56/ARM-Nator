@@ -5,6 +5,7 @@
 }
 
 .context-panel {
+    box-sizing: border-box;
     border-right: 1px solid var(--mat-sys-outline-variant);
     background: var(--app-rail-bg, var(--mat-sys-surface-container-low));
     display: flex;

@@ -75,6 +75,8 @@ export class WebPlayerViewComponent {
   streamUrl = input.required<string>();
   title = input("");
   playback = input<ResolvedPortalPlayback | null>(null);
+  /** When true, the host owns retry so it can mint a fresh provider URL. */
+  retryWithPlaybackContext = input(false);
   startTime = input<number>(0);
   volume = input<number>(1);
   playerOverride = input<VideoPlayer | null>(null);
@@ -89,6 +91,7 @@ export class WebPlayerViewComponent {
   }>();
   readonly externalFallbackRequested = output<PlaybackFallbackRequest>();
   readonly playbackDiagnosticChange = output<PlaybackDiagnostic | null>();
+  readonly playbackRetryRequested = output<void>();
   readonly runtimeSnapshotChange = output<PlayerRuntimeSnapshot>();
   readonly playbackEnded = output<void>();
   readonly previousEpisodeRequested = output<void>();
@@ -110,6 +113,7 @@ export class WebPlayerViewComponent {
 
   channel!: Channel;
   readonly reloadToken = signal(0);
+  readonly playerMounted = signal(true);
   readonly playbackDiagnostic = signal<PlaybackDiagnostic | null>(null);
   readonly visiblePlaybackDiagnostic = computed(() =>
     this.selectedPlayer() === VideoPlayer.EmbeddedMpv ||
@@ -174,7 +178,21 @@ export class WebPlayerViewComponent {
     return { primary: title, secondary: null };
   });
 
+  private lastReloadGeneration: number | null = null;
+
   constructor() {
+    effect(() => {
+      const generation = this.reloadGeneration();
+      if (this.lastReloadGeneration === null) {
+        this.lastReloadGeneration = generation;
+        return;
+      }
+      if (generation !== this.lastReloadGeneration) {
+        this.lastReloadGeneration = generation;
+        this.remountPlayer();
+      }
+    });
+
     effect(() => {
       // Track player changes so stale browser diagnostics are cleared on switch.
       this.selectedPlayer();
@@ -185,11 +203,13 @@ export class WebPlayerViewComponent {
       this.setChannel(playback);
 
       const userAgent =
-        playback.userAgent ?? this.getHeaderValue(playback.headers, "User-Agent");
+        playback.userAgent ??
+        this.getHeaderValue(playback.headers, "User-Agent");
       const referer =
         playback.referer ?? this.getHeaderValue(playback.headers, "Referer");
       if (userAgent || referer) {
-        void window.electron?.setUserAgent(userAgent, referer, playback.streamUrl)
+        void window.electron
+          ?.setUserAgent(userAgent, referer, playback.streamUrl)
           .catch(() => undefined);
       }
     });
@@ -229,6 +249,7 @@ export class WebPlayerViewComponent {
           playback.origin ??
           this.getHeaderValue(playback.headers, "Origin") ??
           "",
+        headers: playback.headers,
       },
       radio: "false",
       drm: playback.drm,
@@ -263,12 +284,14 @@ export class WebPlayerViewComponent {
   }
 
   retryPlayback(): void {
-    const playback = this.resolvedPlayback();
-
     this.playbackDiagnostic.set(null);
     this.playbackDiagnosticChange.emit(null);
-    this.reloadToken.update((value) => value + 1);
-    this.setChannel(playback);
+    if (this.retryWithPlaybackContext()) {
+      this.playbackRetryRequested.emit();
+      return;
+    }
+
+    this.remountPlayer();
   }
 
   readonly getDiagnosticTitleKey = getDiagnosticTitleKey;
@@ -295,5 +318,11 @@ export class WebPlayerViewComponent {
       (key) => key.toLowerCase() === name.toLowerCase(),
     );
     return matchingKey ? headers[matchingKey] : undefined;
+  }
+
+  private remountPlayer(): void {
+    this.reloadToken.update((value) => value + 1);
+    this.playerMounted.set(false);
+    window.setTimeout(() => this.playerMounted.set(true), 0);
   }
 }

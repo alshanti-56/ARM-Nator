@@ -20,7 +20,6 @@ import {
     GlobalRecentlyAddedKind,
 } from '@arm-nator/services';
 import {
-    Playlist,
     PortalAddedItem,
     PortalActivityItem,
     PlaylistMeta,

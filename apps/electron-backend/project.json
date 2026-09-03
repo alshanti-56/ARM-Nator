@@ -107,6 +107,49 @@
                 }
             }
         },
+        "build-dev": {
+            "dependsOn": [
+                "electron-backend:build-worker"
+            ],
+            "executor": "nx-electron:build",
+            "outputs": [
+                "{options.outputPath}"
+            ],
+            "inputs": [
+                "default",
+                "^default",
+                "{workspaceRoot}/apps/electron-backend/native/build/Release/**"
+            ],
+            "options": {
+                "outputPath": "dist/apps/electron-backend",
+                "main": "apps/electron-backend/src/main.ts",
+                "tsConfig": "apps/electron-backend/tsconfig.app.json",
+                "webpackConfig": "tools/webpack/electron-dev.config.cjs",
+                "assets": [
+                    "apps/electron-backend/src/assets",
+                    {
+                        "glob": "**/*",
+                        "input": "apps/electron-backend/native/build/Release",
+                        "output": "native",
+                        "ignore": [
+                            ".deps/**",
+                            "obj.target/**",
+                            "**/.deps/**",
+                            "**/obj.target/**",
+                            "obj/**",
+                            "**/obj/**",
+                            "**/*.pdb",
+                            "**/*.iobj",
+                            "**/*.ipdb",
+                            "**/*.ilk",
+                            "**/*.exp",
+                            "**/*.lib",
+                            "**/*.dll.a"
+                        ]
+                    }
+                ]
+            }
+        },
         "serve": {
             "executor": "nx:run-commands",
             "options": {
@@ -121,6 +164,16 @@
             "executor": "nx-electron:execute",
             "options": {
                 "buildTarget": "electron-backend:build",
+                "waitUntilTargets": [
+                    "desktop-ui:serve"
+                ]
+            }
+        },
+        "serve-electron-dev": {
+            "executor": "nx-electron:execute",
+            "options": {
+                "buildTarget": "electron-backend:build-dev",
+                "inspect": false,
                 "waitUntilTargets": [
                     "desktop-ui:serve"
                 ]

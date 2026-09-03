@@ -1,11 +1,16 @@
 import { InjectionToken } from '@angular/core';
-import type { XtreamAccountInfoDialogData } from '@arm-nator/shared/interfaces';
+import type {
+    StalkerAccountInfoDialogData,
+    XtreamAccountInfoDialogData,
+} from '@arm-nator/shared/interfaces';
 
 export type WorkspacePlaylistType =
     | 'xtream'
     | 'stalker';
 
-export type WorkspaceAccountInfoData = XtreamAccountInfoDialogData;
+export type WorkspaceAccountInfoData =
+    | XtreamAccountInfoDialogData
+    | StalkerAccountInfoDialogData;
 
 export interface WorkspaceShellActions {
     openAddPlaylistDialog(type?: WorkspacePlaylistType): void;

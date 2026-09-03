@@ -1,69 +1,20 @@
-@if (selectedPlayer() === "embedded-mpv" || selectedPlayer() === "ksplayer") {
-  <app-embedded-mpv-player
-    [playback]="resolvedPlayback()"
-    [mediaTitle]="resolvedMediaTitle()"
-    [seriesNavigation]="seriesNavigation()"
-    [backend]="
-      selectedPlayer() === 'ksplayer' ? 'ksplayer-metal' : 'embedded-mpv'
-    "
-    (timeUpdate)="timeUpdate.emit($event)"
-    (runtimeSnapshotChange)="runtimeSnapshotChange.emit($event)"
-    (playbackEnded)="playbackEnded.emit()"
-    (previousEpisodeRequested)="previousEpisodeRequested.emit()"
-    (nextEpisodeRequested)="nextEpisodeRequested.emit()"
-  />
-} @else if (selectedPlayer() === "html5") {
-  <app-html-video-player
-    [channel]="$any(channel)"
-    [mediaTitle]="resolvedMediaTitle()"
-    [volume]="volume()"
-    [showCaptions]="showCaptions()"
-    [isLive]="resolvedIsLive()"
-    [interactionEnabled]="playbackInteractionEnabled()"
-    [startTime]="startTime()"
-    [seriesNavigation]="seriesNavigation()"
-    [onlineSubtitleUrl]="resolvedPlayback().subtitleUrl ?? ''"
-    [onlineSubtitleLabel]="
-      resolvedPlayback().subtitleLabel ?? 'Online subtitle'
-    "
-    [onlineSubtitleLanguage]="resolvedPlayback().subtitleLanguage ?? 'und'"
-    (timeUpdate)="timeUpdate.emit($event)"
-    (runtimeSnapshotChange)="runtimeSnapshotChange.emit($event)"
-    (playbackIssue)="handlePlaybackIssue($event)"
-    (playbackEnded)="playbackEnded.emit()"
-    (previousEpisodeRequested)="previousEpisodeRequested.emit()"
-    (nextEpisodeRequested)="nextEpisodeRequested.emit()"
-  />
-} @else if (selectedPlayer() === "artplayer2") {
-  @defer (on immediate) {
-    <app-art-player2
-      [channel]="$any(channel)"
+@if (playerMounted()) {
+  @if (selectedPlayer() === "embedded-mpv" || selectedPlayer() === "ksplayer") {
+    <app-embedded-mpv-player
+      [playback]="resolvedPlayback()"
       [mediaTitle]="resolvedMediaTitle()"
-      [volume]="volume()"
-      [showCaptions]="showCaptions()"
-      [isLive]="resolvedIsLive()"
-      [interactionEnabled]="playbackInteractionEnabled()"
-      [startTime]="startTime()"
-      [requestHeaders]="resolvedPlayback().headers ?? {}"
       [seriesNavigation]="seriesNavigation()"
-      [onlineSubtitleUrl]="resolvedPlayback().subtitleUrl ?? ''"
-      [onlineSubtitleLabel]="
-        resolvedPlayback().subtitleLabel ?? 'Online subtitle'
+      [backend]="
+        selectedPlayer() === 'ksplayer' ? 'ksplayer-metal' : 'embedded-mpv'
       "
-      [onlineSubtitleLanguage]="resolvedPlayback().subtitleLanguage ?? 'und'"
       (timeUpdate)="timeUpdate.emit($event)"
       (runtimeSnapshotChange)="runtimeSnapshotChange.emit($event)"
-      (playbackIssue)="handlePlaybackIssue($event)"
       (playbackEnded)="playbackEnded.emit()"
       (previousEpisodeRequested)="previousEpisodeRequested.emit()"
       (nextEpisodeRequested)="nextEpisodeRequested.emit()"
     />
-  } @placeholder {
-    <div class="web-player-defer-placeholder" aria-hidden="true"></div>
-  }
-} @else {
-  @defer (on immediate) {
-    <app-art-player
+  } @else if (selectedPlayer() === "html5") {
+    <app-html-video-player
       [channel]="$any(channel)"
       [mediaTitle]="resolvedMediaTitle()"
       [volume]="volume()"
@@ -84,8 +35,59 @@
       (previousEpisodeRequested)="previousEpisodeRequested.emit()"
       (nextEpisodeRequested)="nextEpisodeRequested.emit()"
     />
-  } @placeholder {
-    <div class="web-player-defer-placeholder" aria-hidden="true"></div>
+  } @else if (selectedPlayer() === "artplayer2") {
+    @defer (on immediate) {
+      <app-art-player2
+        [channel]="$any(channel)"
+        [mediaTitle]="resolvedMediaTitle()"
+        [volume]="volume()"
+        [showCaptions]="showCaptions()"
+        [isLive]="resolvedIsLive()"
+        [interactionEnabled]="playbackInteractionEnabled()"
+        [startTime]="startTime()"
+        [requestHeaders]="resolvedPlayback().headers ?? {}"
+        [seriesNavigation]="seriesNavigation()"
+        [onlineSubtitleUrl]="resolvedPlayback().subtitleUrl ?? ''"
+        [onlineSubtitleLabel]="
+          resolvedPlayback().subtitleLabel ?? 'Online subtitle'
+        "
+        [onlineSubtitleLanguage]="resolvedPlayback().subtitleLanguage ?? 'und'"
+        (timeUpdate)="timeUpdate.emit($event)"
+        (runtimeSnapshotChange)="runtimeSnapshotChange.emit($event)"
+        (playbackIssue)="handlePlaybackIssue($event)"
+        (playbackEnded)="playbackEnded.emit()"
+        (previousEpisodeRequested)="previousEpisodeRequested.emit()"
+        (nextEpisodeRequested)="nextEpisodeRequested.emit()"
+      />
+    } @placeholder {
+      <div class="web-player-defer-placeholder" aria-hidden="true"></div>
+    }
+  } @else {
+    @defer (on immediate) {
+      <app-art-player
+        [channel]="$any(channel)"
+        [mediaTitle]="resolvedMediaTitle()"
+        [volume]="volume()"
+        [showCaptions]="showCaptions()"
+        [isLive]="resolvedIsLive()"
+        [interactionEnabled]="playbackInteractionEnabled()"
+        [startTime]="startTime()"
+        [seriesNavigation]="seriesNavigation()"
+        [onlineSubtitleUrl]="resolvedPlayback().subtitleUrl ?? ''"
+        [onlineSubtitleLabel]="
+          resolvedPlayback().subtitleLabel ?? 'Online subtitle'
+        "
+        [onlineSubtitleLanguage]="resolvedPlayback().subtitleLanguage ?? 'und'"
+        (timeUpdate)="timeUpdate.emit($event)"
+        (runtimeSnapshotChange)="runtimeSnapshotChange.emit($event)"
+        (playbackIssue)="handlePlaybackIssue($event)"
+        (playbackEnded)="playbackEnded.emit()"
+        (previousEpisodeRequested)="previousEpisodeRequested.emit()"
+        (nextEpisodeRequested)="nextEpisodeRequested.emit()"
+      />
+    } @placeholder {
+      <div class="web-player-defer-placeholder" aria-hidden="true"></div>
+    }
   }
 }
 

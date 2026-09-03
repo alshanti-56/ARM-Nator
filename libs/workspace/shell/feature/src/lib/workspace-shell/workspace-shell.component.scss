@@ -33,7 +33,11 @@ app-workspace-shell-header {
     grid-column: 2;
     grid-row: 2;
     display: grid;
-    grid-template-columns: minmax(220px, min(300px, 24vw)) minmax(0, 1fr);
+    // Let the resizable context sidebar determine the first track. The
+    // sidebar width is applied to its nested panel by appResizable; keeping
+    // this track content-sized makes the main grid reflow as the divider is
+    // dragged instead of leaving the content column at a fixed width.
+    grid-template-columns: minmax(0, max-content) minmax(0, 1fr);
     min-height: 0;
     min-width: 0;
     overflow: hidden;

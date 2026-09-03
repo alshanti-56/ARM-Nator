@@ -1,4 +1,3 @@
-/* eslint-disable max-lines */
 import { inject, Injectable, signal } from '@angular/core';
 import { Router } from '@angular/router';
 import { Store } from '@ngrx/store';

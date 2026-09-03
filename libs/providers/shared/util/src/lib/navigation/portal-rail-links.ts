@@ -106,7 +106,20 @@ export function buildPortalRailLinks(
                     section: 'series',
                 },
             ],
-            secondary: [],
+            secondary: [
+                {
+                    icon: 'new_releases',
+                    tooltip: 'Recently added (this portal)',
+                    path: [...root, 'recently-added'],
+                    section: 'recently-added',
+                },
+                {
+                    icon: 'search',
+                    tooltip: 'Search (this portal)',
+                    path: [...root, 'search'],
+                    section: 'search',
+                },
+            ],
         };
     }
 

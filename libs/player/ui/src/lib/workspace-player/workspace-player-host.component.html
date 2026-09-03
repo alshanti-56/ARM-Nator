@@ -29,7 +29,9 @@
               (click)="switchEngine(engine.id)"
             >
               <mat-icon>{{
-                isEngineActive(engine.id) ? "radio_button_checked" : "radio_button_unchecked"
+                isEngineActive(engine.id)
+                  ? "radio_button_checked"
+                  : "radio_button_unchecked"
               }}</mat-icon>
               <span>{{ engine.labelKey | translate }}</span>
             </button>
@@ -175,12 +177,14 @@
           [streamUrl]="playback.streamUrl"
           [title]="playback.title"
           [playback]="playback"
+          [retryWithPlaybackContext]="!!state.context()?.onRetry"
           [playerOverride]="state.engine()"
           [seriesNavigation]="playbackNavigation()"
           [reloadGeneration]="state.reloadGeneration()"
           (timeUpdate)="onTimeUpdate($event)"
           (runtimeSnapshotChange)="onRuntimeSnapshot($event)"
           (playbackDiagnosticChange)="state.onDiagnostic($event)"
+          (playbackRetryRequested)="state.restart()"
           (playbackEnded)="state.onEnded()"
           (previousEpisodeRequested)="state.previous()"
           (nextEpisodeRequested)="state.next()"

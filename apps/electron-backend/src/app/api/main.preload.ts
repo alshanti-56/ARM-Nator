@@ -454,6 +454,10 @@ const electronApi: ElectronBridgeApi = {
         ipcRenderer.invoke('CREATE_PROGRESSIVE_VOD_PROXY_SESSION', url, headers),
     releaseProgressiveVodProxySession: (sessionId: string) =>
         ipcRenderer.invoke('RELEASE_PROGRESSIVE_VOD_PROXY_SESSION', sessionId),
+    createMpegTsProxySession: (url: string, headers?: Record<string, string>) =>
+        ipcRenderer.invoke('CREATE_MPEGTS_PROXY_SESSION', url, headers),
+    releaseMpegTsProxySession: (sessionId: string) =>
+        ipcRenderer.invoke('RELEASE_MPEGTS_PROXY_SESSION', sessionId),
     getPlayerEngineAvailability: (): Promise<PlayerEngineAvailability[]> =>
         ipcRenderer.invoke('GET_PLAYER_ENGINE_AVAILABILITY'),
     closeExternalPlayerSession: (sessionId: string) =>

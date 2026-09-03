@@ -5,6 +5,7 @@ import {
     KsPlayerMetalControls,
     PlayerPictureSettings,
     PlayerSubtitleSettings,
+    ResolvedPortalPlayback,
 } from '@arm-nator/shared/interfaces';
 
 type ElectronBridge = Window['electron'];
@@ -15,6 +16,7 @@ export interface EmbeddedMpvCommandContext {
     readonly backend?: Signal<EmbeddedMpvBackend>;
     readonly sessionId: Signal<string | null>;
     readonly session: WritableSignal<EmbeddedMpvSession | null>;
+    readonly playback?: Signal<ResolvedPortalPlayback | null>;
     readonly supportedControls?: Signal<KsPlayerMetalControls | null>;
 }
 
@@ -32,13 +34,32 @@ export class EmbeddedMpvCommandRunner {
         if (!id || !session || !electron || !this.supports('pause')) {
             return;
         }
+        const playback = this.ctx.playback?.() ?? null;
+        const resumeLiveAtEdge =
+            session.status === 'paused' &&
+            playback !== null &&
+            this.isLivePlayback(playback);
         if (this.backend() === 'ksplayer-metal') {
+            if (resumeLiveAtEdge && playback) {
+                await this.run(id, async () => {
+                    await electron.loadKsPlayerMetalPlayback(id, playback);
+                    return electron.setKsPlayerMetalPaused(id, false);
+                });
+                return;
+            }
             await this.run(id, () =>
                 electron.setKsPlayerMetalPaused(id, session.status !== 'paused')
             );
             return;
         }
         if (!electron.setEmbeddedMpvPaused) {
+            return;
+        }
+        if (resumeLiveAtEdge && playback) {
+            await this.run(id, async () => {
+                await electron.loadEmbeddedMpvPlayback(id, playback);
+                return electron.setEmbeddedMpvPaused(id, false);
+            });
             return;
         }
         await this.run(id, () =>
@@ -272,6 +293,13 @@ export class EmbeddedMpvCommandRunner {
             return true;
         }
         return this.ctx.supportedControls?.()?.[control] === true;
+    }
+
+    private isLivePlayback(playback: ResolvedPortalPlayback): boolean {
+        if (typeof playback.isLive === 'boolean') {
+            return playback.isLive;
+        }
+        return !playback.contentInfo;
     }
 
     private backend(): EmbeddedMpvBackend {

@@ -189,6 +189,7 @@ function adHocSignBinary(binaryPath) {
 
 function copyRuntimeToNativeBuild({
     runtimeLibDir,
+    runtimeFfmpegPath,
     outputLibDir,
     runtimeOrigin,
     runtimeManifest
@@ -196,6 +197,9 @@ function copyRuntimeToNativeBuild({
     const libMpvPath = findLibMpv(runtimeLibDir);
     if (!libMpvPath) {
         throw new Error(`Unable to find libmpv in ${runtimeLibDir}.`);
+    }
+    if (!runtimeFfmpegPath || !fs.existsSync(runtimeFfmpegPath)) {
+        throw new Error(`Unable to find FFmpeg at ${runtimeFfmpegPath}.`);
     }
 
     fs.rmSync(outputLibDir, { recursive: true, force: true });
@@ -222,12 +226,18 @@ function copyRuntimeToNativeBuild({
         adHocSignBinary(dylibPath);
     }
 
+    const outputFfmpegPath = path.join(path.dirname(outputLibDir), 'ffmpeg');
+    copyFile(runtimeFfmpegPath, outputFfmpegPath);
+    patchBinaryDependencies(outputFfmpegPath, outputLibDir, '@loader_path/lib');
+    adHocSignBinary(outputFfmpegPath);
+
     const manifest = {
         origin: runtimeOrigin,
         platform: 'darwin',
         targetArch: 'arm64',
         generatedAt: new Date().toISOString(),
         libDir: 'lib',
+        ffmpegBinary: 'ffmpeg',
         runtimeFiles: listDylibs(outputLibDir).map((filePath) =>
             path.basename(filePath)
         ),
@@ -292,6 +302,7 @@ function validatePackagedEmbeddedMpv(resourceDir, options = {}) {
         'native'
     );
     const addonPath = path.join(nativeDir, 'embedded_mpv.node');
+    const ffmpegPath = path.join(nativeDir, 'ffmpeg');
     const manifestPath = path.join(nativeDir, 'embedded-mpv-runtime.json');
     const libDir = path.join(nativeDir, 'lib');
     const errors = [];
@@ -304,9 +315,16 @@ function validatePackagedEmbeddedMpv(resourceDir, options = {}) {
             'macOS arm64 package validation requires an Apple Silicon Mac.'
         );
     }
-    for (const artifact of [addonPath, manifestPath]) {
+    for (const artifact of [addonPath, ffmpegPath, manifestPath]) {
         if (!fs.existsSync(artifact)) {
             errors.push(`Missing embedded MPV artifact: ${artifact}`);
+        }
+    }
+    if (fs.existsSync(ffmpegPath)) {
+        try {
+            fs.accessSync(ffmpegPath, fs.constants.X_OK);
+        } catch {
+            errors.push(`Bundled FFmpeg is not executable: ${ffmpegPath}`);
         }
     }
     if (!findLibMpv(libDir)) {
@@ -342,6 +360,7 @@ function validatePackagedEmbeddedMpv(resourceDir, options = {}) {
     errors.push(
         ...validateNoForbiddenRuntimeLinks([
             addonPath,
+            ffmpegPath,
             ...listDylibs(libDir)
         ])
     );

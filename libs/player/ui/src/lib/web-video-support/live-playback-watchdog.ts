@@ -6,6 +6,11 @@ const MINIMUM_PROGRESS_SECONDS = 0.05;
 export interface LivePlaybackWatchdogConfig {
   readonly isLive: () => boolean;
   readonly onNoProgress: (reason: string) => void;
+  /**
+   * Allow slow media engines to parse and buffer their first decodable frame
+   * before applying the normal short rebuffer timeout.
+   */
+  readonly startupGraceMs?: number;
   readonly onPlaying?: () => void;
   readonly onUnstable?: () => void;
   readonly onUserPause?: () => void;
@@ -22,6 +27,8 @@ export class LivePlaybackWatchdog {
   private timer: ReturnType<typeof setInterval> | undefined;
   private lastCurrentTime = 0;
   private lastProgressAt = 0;
+  private startedAt = 0;
+  private hasEverProgressed = false;
   private unstableSince = 0;
   private userPausedIntent = false;
 
@@ -44,12 +51,12 @@ export class LivePlaybackWatchdog {
 
   private readonly handleEnded = (): void => {
     if (this.config?.isLive() && !this.userPausedIntent) {
-      this.config.onNoProgress('Live playback ended unexpectedly.');
+      this.config.onNoProgress("Live playback ended unexpectedly.");
     }
   };
 
-  notifyPlaybackIntent(intent: 'play' | 'pause'): void {
-    this.userPausedIntent = intent === 'pause';
+  notifyPlaybackIntent(intent: "play" | "pause"): void {
+    this.userPausedIntent = intent === "pause";
     if (this.userPausedIntent) {
       this.config?.onUserPause?.();
     }
@@ -61,7 +68,9 @@ export class LivePlaybackWatchdog {
     this.video = video;
     this.config = config;
     this.lastCurrentTime = video.currentTime;
-    this.lastProgressAt = Date.now();
+    this.startedAt = Date.now();
+    this.lastProgressAt = this.startedAt;
+    this.hasEverProgressed = false;
     video.addEventListener("playing", this.handlePlaying);
     video.addEventListener("timeupdate", this.handleTimeUpdate);
     video.addEventListener("waiting", this.handleUnstable);
@@ -87,6 +96,8 @@ export class LivePlaybackWatchdog {
     this.config = null;
     this.lastCurrentTime = 0;
     this.lastProgressAt = 0;
+    this.startedAt = 0;
+    this.hasEverProgressed = false;
     this.unstableSince = 0;
     this.userPausedIntent = false;
   }
@@ -112,6 +123,13 @@ export class LivePlaybackWatchdog {
     }
 
     if (this.observeProgress()) {
+      return;
+    }
+
+    if (
+      !this.hasEverProgressed &&
+      Date.now() - this.startedAt < (config.startupGraceMs ?? 0)
+    ) {
       return;
     }
 
@@ -163,6 +181,7 @@ export class LivePlaybackWatchdog {
 
   private markProgress(): void {
     this.unstableSince = 0;
+    this.hasEverProgressed = true;
     if (this.video) {
       this.lastCurrentTime = this.video.currentTime;
     }

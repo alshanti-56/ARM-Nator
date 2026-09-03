@@ -38,6 +38,7 @@ import {
   ArtPlayer2VodTransport,
   type ArtPlayer2VodSourceMode,
 } from "./art-player2-vod-transport";
+import { seekVideoToLiveEdge } from "../web-video-support/live-edge-resume";
 
 type ArtplayerWithHls = Artplayer & { hls?: Hls };
 
@@ -102,6 +103,7 @@ export class ArtPlayer2Component implements OnInit, OnChanges, OnDestroy {
   private lastObservedTime = 0;
   private stallTimer: number | null = null;
   private resumeAfterStall = false;
+  private resumeAtLiveEdgePending = false;
   private sourceGeneration = 0;
   private destroyed = false;
   readonly bufferReadout = signal("Buffer —");
@@ -162,6 +164,7 @@ export class ArtPlayer2Component implements OnInit, OnChanges, OnDestroy {
     this.vodFallbackInFlight = false;
     this.lastObservedTime = 0;
     this.resumeAfterStall = false;
+    this.resumeAtLiveEdgePending = false;
 
     if (!this.isLive() && !isHls) {
       const source = await this.vodTransport.prepare(
@@ -321,7 +324,15 @@ export class ArtPlayer2Component implements OnInit, OnChanges, OnDestroy {
       this.clearStallTimer();
       this.emitRuntimeSnapshot(video);
     };
+    const onPlay: EventListener = () => {
+      if (!this.isLive() || !this.resumeAtLiveEdgePending) {
+        return;
+      }
+      this.resumeAtLiveEdgePending = false;
+      seekVideoToLiveEdge(video, this.hls?.liveSyncPosition);
+    };
     const onPause: EventListener = () => {
+      this.resumeAtLiveEdgePending = this.isLive();
       this.emitRuntimeSnapshot(video);
     };
     const onEnded: EventListener = () => {
@@ -335,6 +346,7 @@ export class ArtPlayer2Component implements OnInit, OnChanges, OnDestroy {
       ["error", onError],
       ["waiting", onWaiting],
       ["stalled", onStalled],
+      ["play", onPlay],
       ["playing", onPlaying],
       ["pause", onPause],
       ["ended", onEnded],
@@ -379,6 +391,7 @@ export class ArtPlayer2Component implements OnInit, OnChanges, OnDestroy {
     this.vodTransport.release();
     this.vodSource = null;
     this.vodFallbackInFlight = false;
+    this.resumeAtLiveEdgePending = false;
   }
 
   private destroyHls(): void {

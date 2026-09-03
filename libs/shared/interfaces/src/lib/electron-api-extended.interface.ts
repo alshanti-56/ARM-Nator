@@ -245,6 +245,8 @@ export interface ElectronBridgeApi extends ElectronBridgeKsPlayerMetalApi {
     releaseHlsProxySession: (sessionId: string) => Promise<void>;
     createProgressiveVodProxySession: (url: string, headers?: Record<string, string>) => Promise<{ id: string; url: string }>;
     releaseProgressiveVodProxySession: (sessionId: string) => Promise<void>;
+    createMpegTsProxySession: (url: string, headers?: Record<string, string>) => Promise<{ id: string; url: string }>;
+    releaseMpegTsProxySession: (sessionId: string) => Promise<void>;
     getPlayerEngineAvailability: () => Promise<PlayerEngineAvailability[]>;
     updateSettings: (settings: Partial<Settings>) => Promise<void>;
     getAiSettings: () => Promise<ElectronBridgeAiSettings>;

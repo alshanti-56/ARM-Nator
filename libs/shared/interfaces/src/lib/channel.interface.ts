@@ -22,6 +22,8 @@ export interface Channel {
         referrer: string;
         'user-agent': string;
         origin: string;
+        /** Additional provider headers kept for authenticated playback. */
+        headers?: Record<string, string>;
     };
     radio: string;
     drm?: ChannelDrm;

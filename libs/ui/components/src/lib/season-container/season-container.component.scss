@@ -1,4 +1,5 @@
 .seasons-section {
+    container: season-content / inline-size;
     width: 100%;
     margin-top: 24px;
 }
@@ -9,12 +10,12 @@
     justify-content: space-between;
     margin-bottom: 20px;
     min-height: 32px;
-    gap: 16px;
+    gap: clamp(8px, 2cqi, 16px);
 
     &__left {
         display: flex;
         align-items: center;
-        gap: 16px;
+        gap: clamp(8px, 2cqi, 16px);
         flex: 1;
     }
 
@@ -91,7 +92,7 @@
     gap: 14px;
     width: min(100%, 520px);
     margin: 0 auto;
-    padding: 32px 28px;
+    padding: clamp(20px, 4cqi, 32px) clamp(16px, 4cqi, 28px);
     border: 1px solid rgba(255, 255, 255, 0.08);
     border-radius: 16px;
     background:
@@ -146,9 +147,12 @@
 // Grid Layout
 .episodes-grid {
     display: grid;
-    gap: 12px;
+    gap: clamp(8px, 1.6cqi, 12px);
     width: 100%;
-    grid-template-columns: repeat(auto-fill, minmax(160px, 1fr));
+    grid-template-columns: repeat(
+        auto-fill,
+        minmax(min(100%, clamp(132px, 22cqi, 176px)), 1fr)
+    );
 }
 
 app-season-tabs {

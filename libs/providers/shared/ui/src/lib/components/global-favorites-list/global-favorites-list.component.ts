@@ -141,7 +141,7 @@ export class GlobalFavoritesListComponent {
     });
   }
 
-  hasChannelContextMenu(channel: UnifiedFavoriteChannel): boolean {
+  hasChannelContextMenu(): boolean {
     return this.mode() === "recent";
   }
 

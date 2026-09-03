@@ -43,6 +43,26 @@ export class AppWorkspaceShellActionsService implements WorkspaceShellActions {
     }
 
     openAccountInfo(data: WorkspaceAccountInfoData): void {
+        const playlist = data.playlist;
+        if (
+            playlist &&
+            'macAddress' in playlist &&
+            'portalUrl' in playlist &&
+            Boolean(playlist.macAddress && playlist.portalUrl)
+        ) {
+            void import('@arm-nator/providers/stalker/feature').then(
+                ({ StalkerAccountInfoComponent }) => {
+                    this.dialog.open(StalkerAccountInfoComponent, {
+                        width: '760px',
+                        maxWidth: '92vw',
+                        maxHeight: '90vh',
+                        data,
+                    });
+                }
+            );
+            return;
+        }
+
         void import('@arm-nator/providers/xtream/feature').then(
             ({ AccountInfoComponent }) => {
                 this.dialog.open(AccountInfoComponent, {

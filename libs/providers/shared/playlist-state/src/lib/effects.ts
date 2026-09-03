@@ -7,7 +7,6 @@ import { Store } from "@ngrx/store";
 import { StorageMap } from "@ngx-pwa/local-storage";
 import { TranslateService } from "@ngx-translate/core";
 import {
-  EMPTY,
   filter,
   firstValueFrom,
   map,

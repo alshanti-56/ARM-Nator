@@ -13,12 +13,17 @@
     "tv"
   ],
   "scripts": {
-    "dev": "nx serve electron-backend",
+    "dev": "node tools/dev-electron.mjs",
+    "verify:environment": "node tools/verify-environment.mjs",
+    "rebuild:native": "electron-builder install-app-deps --platform darwin --arch arm64",
+    "predev": "node tools/verify-environment.mjs && node tools/ensure-dev-native.mjs",
+    "dev:native": "pnpm verify:environment && pnpm rebuild:native && pnpm exec nx run electron-backend:build-native-players",
+    "prebuild": "pnpm verify:environment && pnpm rebuild:native",
     "build": "nx run-many -t build --projects=desktop-ui,electron-backend --configuration=production",
     "lint": "nx run-many -t lint --all",
     "test": "node tools/testing/run-node-tests.mjs",
     "test:angular": "node tools/testing/run-angular-tests.mjs",
-    "prepackage": "pnpm embedded-mpv:runtime && pnpm ksplayer-metal:build",
+    "prepackage": "pnpm verify:environment && pnpm rebuild:native && pnpm embedded-mpv:runtime && pnpm ksplayer-metal:build",
     "package": "ARM_NATOR_ADHOC_SIGN=1 nx run electron-backend:package --configuration=production",
     "embedded-mpv:runtime": "node tools/embedded-mpv/ensure-macos-runtime.mjs",
     "embedded-mpv:build": "nx run electron-backend:build-embedded-mpv",
@@ -29,6 +34,10 @@
     "clean": "rm -rf dist tmp apps/electron-backend/native/build"
   },
   "private": true,
+  "engines": {
+    "node": "22.23.1",
+    "pnpm": "10.33.0"
+  },
   "os": [
     "darwin"
   ],

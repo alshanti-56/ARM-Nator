@@ -14,6 +14,7 @@ import {
     isCodecFailure,
     isDrmOrEncryptionFailure,
     isEarlyEofFailure,
+    extractHttpStatusCode,
     isNetworkFailure,
     normalizeErrorDetails,
 } from './playback-error-patterns.util';
@@ -35,7 +36,7 @@ const NETWORK_ERROR_CODE = 2;
 
 export function classifyNativePlaybackIssue(
     error: NativePlaybackErrorInput | MediaError | null | undefined,
-    metadata: PlaybackSourceMetadata
+    metadata: PlaybackSourceMetadata,
 ): PlaybackDiagnostic {
     const nativeErrorCode = error?.code;
     const nativeErrorMessage = error?.message || undefined;
@@ -89,7 +90,7 @@ export function classifyNativePlaybackIssue(
 
 export function classifyHlsPlaybackIssue(
     error: HlsPlaybackErrorInput,
-    metadata: PlaybackSourceMetadata
+    metadata: PlaybackSourceMetadata,
 ): PlaybackDiagnostic {
     const details = normalizeErrorDetails(error);
     const lowerDetails = details.toLowerCase();
@@ -147,11 +148,31 @@ export function classifyHlsPlaybackIssue(
 
 export function classifyMpegTsPlaybackIssue(
     error: MpegTsPlaybackErrorInput,
-    metadata: PlaybackSourceMetadata
+    metadata: PlaybackSourceMetadata,
 ): PlaybackDiagnostic {
     const details = normalizeErrorDetails(error);
     const lowerDetails = details.toLowerCase();
     const lowerType = (error.type ?? '').toLowerCase();
+    const httpStatus = extractHttpStatusCode(error.type, details, error.info);
+
+    // Some IPTV/Stalker providers use non-standard 4xx statuses (for
+    // example 456/458) to reject a stream. Retrying the same short-lived URL
+    // cannot repair that response and only delays the useful diagnostic.
+    if (
+        httpStatus !== null &&
+        httpStatus >= 400 &&
+        httpStatus < 500 &&
+        httpStatus !== 408 &&
+        httpStatus !== 425 &&
+        httpStatus !== 429
+    ) {
+        return createPlaybackDiagnostic({
+            code: DiagnosticCode.ProviderRejected,
+            source: DiagnosticSource.MpegTs,
+            metadata,
+            details: `HTTP ${httpStatus}${details ? ` — ${details}` : ''}`,
+        });
+    }
 
     if (isEarlyEofFailure(lowerDetails)) {
         return createPlaybackDiagnostic({
@@ -209,7 +230,7 @@ export function classifyMpegTsPlaybackIssue(
 }
 
 export function classifyUnsupportedHlsManifestCodecs(
-    metadata: PlaybackSourceMetadata
+    metadata: PlaybackSourceMetadata,
 ): PlaybackDiagnostic | null {
     if (!hasCodecs(metadata) || typeof MediaSource === 'undefined') {
         return null;

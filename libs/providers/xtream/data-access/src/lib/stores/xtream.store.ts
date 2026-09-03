@@ -1,11 +1,9 @@
-/* eslint-disable max-lines */
 import { computed, inject } from "@angular/core";
 import {
   patchState,
   signalStore,
   withComputed,
   withMethods,
-  withState,
 } from "@ngrx/signals";
 import {
   CatalogMetadataRecord,

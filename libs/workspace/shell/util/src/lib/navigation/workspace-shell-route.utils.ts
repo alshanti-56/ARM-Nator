@@ -131,11 +131,17 @@ function resolvePortalSearchMode(
       : "none";
   }
 
-  if (
-    context.provider === "stalker" &&
-    STALKER_CATEGORY_CONTEXT_SECTIONS.has(section)
-  ) {
-    return "local-filter";
+  if (context.provider === "stalker") {
+    if (section === "search") {
+      return "remote-search";
+    }
+
+    if (
+      section === "recently-added" ||
+      STALKER_CATEGORY_CONTEXT_SECTIONS.has(section)
+    ) {
+      return "local-filter";
+    }
   }
 
   return "none";

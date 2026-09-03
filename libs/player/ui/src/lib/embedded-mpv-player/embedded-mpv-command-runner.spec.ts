@@ -67,6 +67,69 @@ test('dispatches transport commands to KSPlayer Metal only', async () => {
     assert.deepEqual(calls, ['ks-pause', 'ks-seek', 'ks-volume']);
 });
 
+test('reloads paused live KSPlayer Metal playback before resuming', async () => {
+    const calls: string[] = [];
+    const pausedSession = { ...session, status: 'paused' as const };
+    installBridge({
+        loadKsPlayerMetalPlayback: async () => {
+            calls.push('load');
+        },
+        setKsPlayerMetalPaused: async () => {
+            calls.push('resume');
+            return { ...session, updatedAt: new Date().toISOString() };
+        },
+    });
+
+    const runner = new EmbeddedMpvCommandRunner({
+        backend: signal('ksplayer-metal'),
+        sessionId: signal('session-1'),
+        session: signal(pausedSession),
+        playback: signal({
+            streamUrl: 'https://example.invalid/live.m3u8',
+            title: 'Live fixture',
+            isLive: true,
+        }),
+        supportedControls: signal({ pause: true }),
+    });
+
+    await runner.togglePaused();
+
+    assert.deepEqual(calls, ['load', 'resume']);
+});
+
+test('reloads paused live embedded MPV playback before resuming', async () => {
+    const calls: string[] = [];
+    const pausedSession = {
+        ...session,
+        backend: 'embedded-mpv' as const,
+        status: 'paused' as const,
+    };
+    installBridge({
+        loadEmbeddedMpvPlayback: async () => {
+            calls.push('load');
+        },
+        setEmbeddedMpvPaused: async () => {
+            calls.push('resume');
+            return { ...session, updatedAt: new Date().toISOString() };
+        },
+    });
+
+    const runner = new EmbeddedMpvCommandRunner({
+        backend: signal('embedded-mpv'),
+        sessionId: signal('session-1'),
+        session: signal(pausedSession),
+        playback: signal({
+            streamUrl: 'https://example.invalid/live.ts',
+            title: 'Live fixture',
+            isLive: true,
+        }),
+    });
+
+    await runner.togglePaused();
+
+    assert.deepEqual(calls, ['load', 'resume']);
+});
+
 test('unsupported KSPlayer Metal controls are strict no-ops', async () => {
     const calls: string[] = [];
     installBridge({

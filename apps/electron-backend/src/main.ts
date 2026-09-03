@@ -118,6 +118,23 @@ export default class Main {
         // IPC handlers call getDatabase() lazily and share the same promise.
         await initDatabase();
 
+        // Touch the worker before declaring startup healthy. This catches a
+        // stale Electron-native SQLite binary at launch instead of allowing
+        // the renderer to appear empty until its first database request.
+        try {
+            await databaseWorkerClient.request(
+                'DB_GET_APP_PLAYLIST_METAS',
+                {},
+            );
+        } catch (error) {
+            const message = error instanceof Error ? error.message : String(error);
+            const startupError = new Error(
+                `Database worker initialization failed: ${message}`,
+            );
+            (startupError as Error & { cause?: unknown }).cause = error;
+            throw startupError;
+        }
+
         await startWebApi();
 
         if (isStartupTraceEnabled()) {
@@ -163,7 +180,12 @@ if (!hasSingleInstanceLock) {
             if (isStartupTraceEnabled()) {
                 trace('startup', 'app.whenReady');
             }
-            await Main.bootstrapAppEvents();
+            try {
+                await Main.bootstrapAppEvents();
+            } catch (error) {
+                console.error('ARM-Nator startup failed:', error);
+                app.quit();
+            }
         });
 
         app.on('before-quit', () => {
@@ -179,3 +201,4 @@ if (!hasSingleInstanceLock) {
         });
     });
 }
+// trigger rebuild

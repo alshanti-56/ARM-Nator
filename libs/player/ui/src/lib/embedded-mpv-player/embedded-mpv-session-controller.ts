@@ -66,6 +66,9 @@ export class EmbeddedMpvSessionController {
     readonly activeBackend = signal<EmbeddedMpvBackend>('embedded-mpv');
     readonly supportedControls = signal<KsPlayerMetalControls | null>(null);
     readonly sessionActive = signal(false);
+    private readonly activePlayback = signal<ResolvedPortalPlayback | null>(
+        null
+    );
 
     private readonly stalledTracker = new EmbeddedMpvStalledTracker();
     readonly stalled = this.stalledTracker.stalled;
@@ -74,6 +77,7 @@ export class EmbeddedMpvSessionController {
         backend: this.activeBackend,
         sessionId: this.sessionId,
         session: this.session,
+        playback: this.activePlayback,
         supportedControls: this.supportedControls,
     });
 
@@ -149,6 +153,7 @@ export class EmbeddedMpvSessionController {
         this.sessionActive.set(false);
         this.session.set(null);
         this.sessionId.set(null);
+        this.activePlayback.set(null);
         this.activeBackend.set(this.configuredBackend);
         this.support.set(null);
         this.supportedControls.set(null);
@@ -172,6 +177,7 @@ export class EmbeddedMpvSessionController {
         const previousCleanup = this.pendingCleanup;
         this.sessionActive.set(true);
         this.activeBackend.set(requestedBackend);
+        this.activePlayback.set(playback);
 
         let ksCleanupPromise: Promise<void> | null = null;
         const cleanupKsSession = (
@@ -411,6 +417,9 @@ export class EmbeddedMpvSessionController {
             activeSessionId = null;
             this.sessionId.set(null);
             this.session.set(null);
+            if (this.activePlayback() === playback) {
+                this.activePlayback.set(null);
+            }
 
             if (id) {
                 const electron = this.getElectronBridge();

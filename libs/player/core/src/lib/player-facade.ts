@@ -14,6 +14,8 @@ export interface PlayerOpenContext {
   readonly onNext?: () => void;
   readonly onEnded?: () => void;
   readonly onClosed?: () => void;
+  /** Re-resolve a short-lived provider URL before retrying playback. */
+  readonly onRetry?: (signal: AbortSignal) => void | Promise<void>;
   readonly onTimeUpdate?: (event: {
     currentTime: number;
     duration: number;

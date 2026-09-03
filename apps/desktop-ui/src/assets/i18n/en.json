@@ -134,7 +134,13 @@
             "URL_VALIDATION_ERROR": "Should be a valid url with protocol (e.g. http://example.com/c or https://example.com/stalker_portal/c)",
             "CREDENTIALS_HINT": "Optional login details, if your provider requires them.",
             "ADD": "Add portal",
-            "VALIDATING": "Validating portal..."
+            "VALIDATING": "Validating portal...",
+            "LOGIN_REQUIRED": "This portal requires a username and password.",
+            "LOGIN_REJECTED": "The portal rejected the supplied username or password.",
+            "DEVICE_CONFLICT": "The portal rejected this device identity. Check the MAC, serial number, or device IDs.",
+            "PORTAL_REFUSED": "The portal refused the connection.",
+            "AUTH_FAILED": "Could not authenticate with this portal.",
+            "PORTAL_MESSAGE": "The portal returned an additional error message."
         },
         "FILTER_BY_NAME": "Filter by name",
         "FILTER_AND_SORT": "Filter & Sort",
@@ -405,6 +411,10 @@
         "NETWORK_ERROR": {
             "TITLE": "The stream could not be loaded",
             "DESCRIPTION": "The player reported a network or provider loading error. Check the stream URL, headers, or provider availability."
+        },
+        "PROVIDER_REJECTED": {
+            "TITLE": "The provider rejected this stream",
+            "DESCRIPTION": "The IPTV provider returned a stream-rejection status. The URL or account may be expired, unavailable, or over its connection limit; reopen the channel to request a fresh link."
         },
         "BROWSER_ACCESS_ERROR": {
             "TITLE": "The browser player could not access this stream",

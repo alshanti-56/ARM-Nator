@@ -6,6 +6,11 @@ import {
 } from "node:http";
 import { randomBytes } from "node:crypto";
 import { Readable } from "node:stream";
+import {
+  MpegTsRemuxStartupError,
+  relayMpegTsWithFfmpeg,
+} from "./mpegts-remux-relay";
+import { resolveMpegTsRemuxerPath } from "./mpegts-remux-runtime";
 
 const SESSION_IDLE_MS = 15 * 60_000;
 const SESSION_SWEEP_MS = 60_000;
@@ -14,6 +19,7 @@ const HLS_CONTENT_TYPE = /(?:application|audio)\/(?:vnd\.apple\.|x-)?mpegurl/i;
 const PROGRESSIVE_VOD_PREFETCH_BYTES = 25 * 1024 * 1024;
 const PROGRESSIVE_VOD_MAX_CACHE_BYTES = PROGRESSIVE_VOD_PREFETCH_BYTES * 2;
 const PROGRESSIVE_VOD_MAX_CACHEABLE_REQUEST_BYTES = 2 * 1024 * 1024;
+const MPEGTS_UPSTREAM_IDLE_MS = 3_000;
 
 export interface HlsProxySession {
   id: string;
@@ -26,6 +32,11 @@ export interface HlsProxySessionInput {
 }
 
 export interface ProgressiveVodProxySession {
+  id: string;
+  url: string;
+}
+
+export interface MpegTsProxySession {
   id: string;
   url: string;
 }
@@ -50,13 +61,17 @@ type ProgressiveVodCache = {
 type ByteRangeRequest = { start: number; end: number | null };
 type ByteRange = { start: number; end: number };
 type ProxySession = {
-  kind: "hls" | "progressive-vod";
+  kind: "hls" | "progressive-vod" | "mpegts";
   headers: Record<string, string>;
   resources: Map<string, ProxyResource>;
   resourceIds: Map<string, string>;
   requests: Set<AbortController>;
   lastUsedAt: number;
 };
+
+export interface HlsPlaybackProxyServiceOptions {
+  readonly mpegTsRemuxerPath?: string | null;
+}
 
 /**
  * Read an upstream range only while it remains within the proxy's bounded
@@ -116,7 +131,40 @@ function opaqueId(bytes = 24): string {
 export function sanitizeHlsProxyHeaders(
   headers: Record<string, string> | undefined,
 ): Record<string, string> {
-  const accepted = new Set(["user-agent", "referer", "origin"]);
+  return sanitizeProxyHeaders(
+    headers,
+    new Set(["user-agent", "referer", "origin"]),
+  );
+}
+
+/**
+ * Retain the headers needed by raw MPEG-TS providers, including Stalker
+ * session credentials. These values stay in the Electron main process and
+ * are never sent by the renderer to the provider directly.
+ */
+export function sanitizeMpegTsProxyHeaders(
+  headers: Record<string, string> | undefined,
+): Record<string, string> {
+  return sanitizeProxyHeaders(
+    headers,
+    new Set([
+      "accept",
+      "authorization",
+      "cookie",
+      "icy-metadata",
+      "origin",
+      "referer",
+      "sn",
+      "user-agent",
+      "x-user-agent",
+    ]),
+  );
+}
+
+function sanitizeProxyHeaders(
+  headers: Record<string, string> | undefined,
+  accepted: ReadonlySet<string>,
+): Record<string, string> {
   const result: Record<string, string> = {};
   for (const [name, value] of Object.entries(headers ?? {})) {
     const normalizedName = name.toLowerCase();
@@ -335,12 +383,17 @@ export class HlsPlaybackProxyService {
   private serverStartup: Promise<void> | null = null;
   private shuttingDown = false;
   private shutdownPromise: Promise<void> | null = null;
+  private readonly mpegTsRemuxerPath: string | null;
   private readonly sweepTimer = setInterval(
     () => this.sweepExpiredSessions(),
     SESSION_SWEEP_MS,
   );
 
-  constructor() {
+  constructor(options: HlsPlaybackProxyServiceOptions = {}) {
+    this.mpegTsRemuxerPath =
+      options.mpegTsRemuxerPath === undefined
+        ? resolveMpegTsRemuxerPath()
+        : options.mpegTsRemuxerPath;
     this.sweepTimer.unref();
   }
 
@@ -352,6 +405,12 @@ export class HlsPlaybackProxyService {
     input: HlsProxySessionInput,
   ): Promise<ProgressiveVodProxySession> {
     return this.createProxySession("progressive-vod", input);
+  }
+
+  async createMpegTsSession(
+    input: HlsProxySessionInput,
+  ): Promise<MpegTsProxySession> {
+    return this.createProxySession("mpegts", input);
   }
 
   private async createProxySession(
@@ -374,7 +433,10 @@ export class HlsPlaybackProxyService {
     const rootId = opaqueId(16);
     const session: ProxySession = {
       kind,
-      headers: sanitizeHlsProxyHeaders(input.headers),
+      headers:
+        kind === "mpegts"
+          ? sanitizeMpegTsProxyHeaders(input.headers)
+          : sanitizeHlsProxyHeaders(input.headers),
       resources: new Map([
         [rootId, { url: input.url, root: true, fallbackUrl: input.url }],
       ]),
@@ -383,7 +445,8 @@ export class HlsPlaybackProxyService {
       lastUsedAt: Date.now(),
     };
     this.sessions.set(id, session);
-    const route = kind === "hls" ? "hls" : "media";
+    const route =
+      kind === "hls" ? "hls" : kind === "progressive-vod" ? "media" : "stream";
     return {
       id,
       url: `http://127.0.0.1:${this.port}/${route}/${id}/${rootId}`,
@@ -491,7 +554,7 @@ export class HlsPlaybackProxyService {
     }
 
     const match = request.url?.match(
-      /^(\/hls|\/media)\/([a-f0-9]{48})\/([a-f0-9]{32})$/,
+      /^(\/hls|\/media|\/stream)\/([a-f0-9]{48})\/([a-f0-9]{32})$/,
     );
     if (!match) {
       response.writeHead(404).end();
@@ -500,7 +563,12 @@ export class HlsPlaybackProxyService {
     const [, route, sessionId, resourceId] = match;
     const session = this.sessions.get(sessionId);
     const resource = session?.resources.get(resourceId);
-    const expectedKind = route === "/hls" ? "hls" : "progressive-vod";
+    const expectedKind =
+      route === "/hls"
+        ? "hls"
+        : route === "/media"
+          ? "progressive-vod"
+          : "mpegts";
     if (!session || !resource || session.kind !== expectedKind) {
       response.writeHead(404).end();
       return;
@@ -516,6 +584,16 @@ export class HlsPlaybackProxyService {
         session.kind === "progressive-vod"
           ? parseByteRange(request.headers.range)
           : null;
+      if (session.kind === "mpegts") {
+        await this.handleMpegTsStreamRequest(
+          request,
+          response,
+          session,
+          resource,
+          controller,
+        );
+        return;
+      }
       if (requestedRange && request.method === "GET") {
         await this.waitForProgressiveVodPrefetch(resource, requestedRange);
         if (
@@ -864,6 +942,168 @@ export class HlsPlaybackProxyService {
     };
   }
 
+  /**
+   * Keep one renderer response and one FFmpeg output muxer alive while the
+   * authenticated upstream is reopened behind it. The relay drops partial TS
+   * packets at connection boundaries; FFmpeg regenerates timing, PSI tables,
+   * and continuity counters before bytes reach mpegts.js. If the portable
+   * remuxer is unavailable, preserve EOF and let the renderer's watchdog use
+   * its clean-remount fallback.
+   */
+  private async handleMpegTsStreamRequest(
+    request: IncomingMessage,
+    response: ServerResponse,
+    session: ProxySession,
+    resource: ProxyResource,
+    controller: AbortController,
+  ): Promise<void> {
+    const upstream = await fetch(resource.url, {
+      method: request.method,
+      headers: this.upstreamHeaders(session.headers, request.headers.range),
+      redirect: "follow",
+      signal: controller.signal,
+    });
+    if (request.method === "HEAD" || !upstream.body) {
+      copyResponseHeaders(upstream, response, false);
+      response.writeHead(upstream.status);
+      response.end();
+      return;
+    }
+
+    if (upstream.ok && this.mpegTsRemuxerPath) {
+      try {
+        const relayResult = await relayMpegTsWithFfmpeg({
+          ffmpegPath: this.mpegTsRemuxerPath,
+          firstUpstream: upstream,
+          reopenUpstream: (signal) =>
+            fetch(resource.url, {
+              method: request.method,
+              headers: this.upstreamHeaders(
+                session.headers,
+                request.headers.range,
+              ),
+              redirect: "follow",
+              signal,
+            }),
+          output: response,
+          signal: controller.signal,
+          onActivity: () => {
+            session.lastUsedAt = Date.now();
+          },
+          onStarted: () => {
+            response.setHeader("Content-Type", "video/mp2t");
+            response.removeHeader("Content-Length");
+            response.removeHeader("Content-Range");
+            response.writeHead(200);
+          },
+          onUpstreamConnected: (connection) => {
+            if (connection > 1) {
+              console.info(
+                `[MPEG-TS relay] Reopened upstream connection ${connection}.`,
+              );
+            }
+          },
+        });
+        if (relayResult.stderr) {
+          const summary = `[MPEG-TS relay] FFmpeg exited after ${relayResult.upstreamConnections} upstream connection(s), produced=${relayResult.outputBytes} byte(s), delivered=${relayResult.rendererBytes} byte(s), rendererDisconnected=${relayResult.rendererDisconnected}`;
+          if (
+            relayResult.rendererDisconnected &&
+            relayResult.rendererBytes > 0
+          ) {
+            const diagnosticLines = relayResult.stderr
+              .split(/\r?\n/)
+              .filter(Boolean).length;
+            console.info(
+              `${summary}; recovered ${diagnosticLines} provider-stream warning line(s).`,
+            );
+          } else {
+            console.warn(`${summary}: ${relayResult.stderr}`);
+          }
+        }
+        if (!response.writableEnded && !response.destroyed) {
+          response.end();
+        }
+        return;
+      } catch (error) {
+        if (!(error instanceof MpegTsRemuxStartupError)) {
+          throw error;
+        }
+        // The upstream body is untouched when process startup fails, so the
+        // raw EOF-preserving fallback can still serve this request.
+      }
+    }
+
+    copyResponseHeaders(upstream, response, false);
+    response.writeHead(upstream.status);
+    await this.pipeMpegTsBody(upstream.body, response, session);
+    if (!response.writableEnded && !response.destroyed) {
+      response.end();
+    }
+  }
+
+  private pipeMpegTsBody(
+    upstreamBody: ReadableStream<Uint8Array>,
+    response: ServerResponse,
+    session: ProxySession,
+  ): Promise<number> {
+    const body = Readable.fromWeb(upstreamBody as never);
+    return new Promise<number>((resolve, reject) => {
+      let streamedBytes = 0;
+      let settled = false;
+      let idleTimer: ReturnType<typeof setTimeout> | undefined;
+
+      const cleanup = () => {
+        if (idleTimer !== undefined) {
+          clearTimeout(idleTimer);
+          idleTimer = undefined;
+        }
+        body.off("data", onData);
+        body.off("end", onEnd);
+        body.off("error", onError);
+        response.off("error", onError);
+        response.off("close", onClose);
+      };
+      const finish = (error?: Error) => {
+        if (settled) return;
+        settled = true;
+        cleanup();
+        if (error) reject(error);
+        else resolve(streamedBytes);
+      };
+      const onData = (chunk: Buffer | Uint8Array | string) => {
+        streamedBytes += Buffer.byteLength(chunk);
+        session.lastUsedAt = Date.now();
+        armIdleTimer();
+      };
+      const onEnd = () => finish();
+      const onError = (error: Error) => finish(error);
+      const onIdle = () => {
+        body.unpipe(response);
+        body.destroy();
+        finish();
+      };
+      const armIdleTimer = () => {
+        if (idleTimer !== undefined) {
+          clearTimeout(idleTimer);
+        }
+        idleTimer = setTimeout(onIdle, MPEGTS_UPSTREAM_IDLE_MS);
+      };
+      const onClose = () => {
+        body.unpipe(response);
+        body.destroy();
+        finish();
+      };
+
+      body.on("data", onData);
+      body.once("end", onEnd);
+      body.once("error", onError);
+      response.once("error", onError);
+      response.once("close", onClose);
+      armIdleTimer();
+      body.pipe(response, { end: false });
+    });
+  }
+
   private async waitForProgressiveVodPrefetch(
     resource: ProxyResource,
     requestedRange: ByteRangeRequest,
@@ -1070,7 +1310,9 @@ export class HlsPlaybackProxyService {
   private sweepExpiredSessions(): void {
     const oldestAllowed = Date.now() - SESSION_IDLE_MS;
     for (const [id, session] of this.sessions) {
-      if (session.lastUsedAt < oldestAllowed) this.releaseSession(id);
+      if (session.requests.size === 0 && session.lastUsedAt < oldestAllowed) {
+        this.releaseSession(id);
+      }
     }
   }
 }

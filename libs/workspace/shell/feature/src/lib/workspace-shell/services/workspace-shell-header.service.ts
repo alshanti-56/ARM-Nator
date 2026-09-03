@@ -4,7 +4,7 @@ import { Router } from "@angular/router";
 import { Store } from "@ngrx/store";
 import { toSignal } from "@angular/core/rxjs-interop";
 import { TranslateService } from "@ngx-translate/core";
-import { firstValueFrom, startWith } from "rxjs";
+import { startWith } from "rxjs";
 import {
   PlaylistInfoComponent,
   PlaylistRefreshActionService,
@@ -15,8 +15,6 @@ import {
 } from "@arm-nator/providers/shared/util";
 import { XtreamStore } from "@arm-nator/providers/xtream/data-access";
 import { PlaylistsService } from "@arm-nator/services";
-import { PlaylistActions } from "@arm-nator/providers/shared/playlist-state";
-import { PlaylistMeta } from "@arm-nator/shared/interfaces";
 import {
   WorkspaceAccountInfoData,
   WorkspacePortalContext,
@@ -24,11 +22,14 @@ import {
   WorkspacePlaylistType,
 } from "@arm-nator/workspace/shell/util";
 import {
+  isStalkerAccountPlaylist,
+  isXtreamAccountPlaylist,
+} from "@arm-nator/shared/interfaces";
+import {
   CLEAR_RECENTLY_VIEWED_ARIA,
   CLEAR_RECENTLY_VIEWED_TOOLTIP,
   WorkspaceHeaderBulkAction,
 } from "./helpers/workspace-shell-constants";
-import { bumpRefreshQueryParam } from "./helpers/workspace-shell-route-utils";
 import { WorkspaceShellRouteStateService } from "./workspace-shell-route-state.service";
 
 @Injectable()
@@ -83,7 +84,11 @@ export class WorkspaceShellHeaderService {
   );
   readonly canOpenAccountInfo = computed(() => {
     const playlist = this.routeState.activePlaylist();
-    return Boolean(playlist?.serverUrl && playlist.username && playlist.password);
+    return Boolean(
+      playlist &&
+        (isXtreamAccountPlaylist(playlist) ||
+          isStalkerAccountPlaylist(playlist)),
+    );
   });
   readonly canRefreshPlaylist = computed(
     () =>
@@ -200,7 +205,16 @@ export class WorkspaceShellHeaderService {
 
   openAccountInfo(): void {
     const playlist = this.routeState.activePlaylist();
-    if (!playlist?.serverUrl || !playlist.username || !playlist.password) {
+    if (!playlist) {
+      return;
+    }
+
+    if (isStalkerAccountPlaylist(playlist)) {
+      this.workspaceActions.openAccountInfo({ playlist });
+      return;
+    }
+
+    if (!isXtreamAccountPlaylist(playlist)) {
       return;
     }
 

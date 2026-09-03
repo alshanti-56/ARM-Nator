@@ -25,19 +25,21 @@
     overflow: hidden;
     width: 100%;
     container-type: inline-size;
+    --live-catalog-grid-min-width: var(--live-channel-grid-min-width, 148px);
+    --live-catalog-grid-gap: var(--cover-gap, 16px);
 }
 
 .category-content-header {
     @include panel.standard-panel-header($sticky: true);
-    display: grid;
-    grid-template-columns: minmax(0, 1fr) auto;
+    display: flex;
+    flex-wrap: wrap;
     align-items: center;
-    gap: 8px 12px;
-    padding: 8px 14px;
+    gap: clamp(6px, 0.8cqi, 10px) clamp(8px, 1.2cqi, 14px);
 }
 
 .category-meta {
     @include panel.standard-panel-meta();
+    flex: 1 1 clamp(180px, 24cqi, 360px);
     min-width: 0;
 }
 
@@ -53,6 +55,7 @@
     display: flex;
     align-items: center;
     gap: 4px;
+    flex: 0 1 auto;
     flex-shrink: 0;
 }
 
@@ -86,8 +89,9 @@
 }
 
 mat-paginator {
-    grid-column: 1 / -1;
-    width: 100%;
+    flex: 1 1 clamp(240px, 30cqi, 360px);
+    min-width: min(100%, 240px);
+    max-width: 100%;
     background: transparent !important;
     flex-shrink: 0;
     --mat-paginator-container-size: 40px;
@@ -96,16 +100,36 @@ mat-paginator {
         var(--mat-sys-on-surface-variant)
     );
     --mat-paginator-disabled-icon-color: rgba(255, 255, 255, 0.18);
+
+    ::ng-deep .mat-mdc-paginator-container {
+        min-width: 0;
+        padding: 0;
+        flex-wrap: wrap;
+        justify-content: flex-end;
+    }
+
+    ::ng-deep .mat-mdc-paginator-page-size,
+    ::ng-deep .mat-mdc-paginator-range-label {
+        margin-inline: 0 8px;
+    }
 }
 
 app-grid-list.live-all-items-grid {
-    --cover-grid-min-width: var(--live-channel-grid-min-width, 148px);
+    --cover-grid-min-width: clamp(
+        calc(var(--live-catalog-grid-min-width) * 0.78),
+        20cqi,
+        var(--live-catalog-grid-min-width)
+    );
+    --cover-gap: clamp(10px, 1.6cqi, var(--live-catalog-grid-gap));
 
     display: block;
     flex: 1;
     min-height: 0;
+    min-width: 0;
     overflow-y: auto;
-    padding: 16px 20px 20px;
+    overflow-x: hidden;
+    padding: clamp(12px, 1.6cqi, 16px) clamp(12px, 2.4cqi, 20px)
+        clamp(16px, 2.4cqi, 20px);
     scrollbar-width: thin;
     scrollbar-color: color-mix(in srgb, var(--app-muted-color) 55%, transparent)
         transparent;
@@ -118,18 +142,24 @@ app-portal-channels-list.live-main-items-list {
     width: 100%;
     overflow: hidden;
     border-right: 0;
-    padding: 8px 12px 16px;
+    padding: clamp(6px, 1.2cqi, 8px) clamp(8px, 1.8cqi, 12px)
+        clamp(12px, 2.4cqi, 16px);
     box-sizing: border-box;
 }
 
-@container (max-width: 560px) {
+@container (max-width: 420px) {
     .category-content-header {
-        grid-template-columns: minmax(0, 1fr);
+        gap: 6px 8px;
+        padding-inline: 12px;
     }
 
     .category-header-actions {
         justify-content: space-between;
         width: 100%;
+    }
+
+    mat-paginator {
+        flex-basis: 100%;
     }
 }
 

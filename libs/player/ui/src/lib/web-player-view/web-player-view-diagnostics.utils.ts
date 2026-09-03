@@ -15,7 +15,7 @@ export function getDiagnosticTitleKey(issue: PlaybackDiagnostic): string {
 
 export function getDiagnosticDescriptionKey(
     issue: PlaybackDiagnostic,
-    supportsManagedExternalPlayers: boolean
+    supportsManagedExternalPlayers: boolean,
 ): string {
     void supportsManagedExternalPlayers;
     return `${getDiagnosticTranslationBase(issue)}.DESCRIPTION`;
@@ -35,7 +35,7 @@ export function getDiagnosticCodecHint(issue: PlaybackDiagnostic): string {
 }
 
 export function getDiagnosticDetails(
-    issue: PlaybackDiagnostic
+    issue: PlaybackDiagnostic,
 ): readonly PlaybackDiagnosticDetail[] {
     return [
         {
@@ -91,6 +91,8 @@ function getDiagnosticTranslationBase(issue: PlaybackDiagnostic): string {
             return 'PLAYBACK_DIAGNOSTICS.MEDIA_DECODE_ERROR';
         case PlaybackDiagnosticCode.NetworkError:
             return 'PLAYBACK_DIAGNOSTICS.NETWORK_ERROR';
+        case PlaybackDiagnosticCode.ProviderRejected:
+            return 'PLAYBACK_DIAGNOSTICS.PROVIDER_REJECTED';
         case PlaybackDiagnosticCode.BrowserAccessError:
             return 'PLAYBACK_DIAGNOSTICS.BROWSER_ACCESS_ERROR';
         case PlaybackDiagnosticCode.DrmOrEncryption:

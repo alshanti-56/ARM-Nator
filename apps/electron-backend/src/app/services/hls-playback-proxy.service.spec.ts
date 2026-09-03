@@ -1,11 +1,13 @@
 import assert from "node:assert/strict";
 import { createServer, type Server } from "node:http";
 import test from "node:test";
+import { rendererAppPort } from "../constants";
 import {
   HlsPlaybackProxyService,
   resolveHlsProxyTarget,
   rewriteHlsManifest,
   sanitizeHlsProxyHeaders,
+  sanitizeMpegTsProxyHeaders,
 } from "./hls-playback-proxy.service";
 
 async function listen(server: Server): Promise<string> {
@@ -49,6 +51,28 @@ test("HLS proxy only retains safe provider headers", () => {
       "X-Injected": "bad\r\nvalue",
     }),
     { "user-agent": "Provider/1.0", referer: "https://provider.example/" },
+  );
+});
+
+test("MPEG-TS proxy retains authenticated provider headers without hop-by-hop headers", () => {
+  assert.deepEqual(
+    sanitizeMpegTsProxyHeaders({
+      Cookie: "mac=secret",
+      Authorization: "Bearer secret",
+      "X-User-Agent": "MAG200",
+      SN: "serial",
+      Accept: "*/*",
+      Range: "bytes=0-",
+      Connection: "keep-alive",
+      "X-Injected": "bad\r\nvalue",
+    }),
+    {
+      cookie: "mac=secret",
+      authorization: "Bearer secret",
+      "x-user-agent": "MAG200",
+      sn: "serial",
+      accept: "*/*",
+    },
   );
 });
 
@@ -447,12 +471,12 @@ test("HLS proxy scopes resources to a session, forwards headers, emits CORS, and
       },
     });
     const manifest = await fetch(session.url, {
-      headers: { Origin: "http://localhost:4200" },
+      headers: { Origin: `http://localhost:${rendererAppPort}` },
     });
     assert.equal(manifest.status, 200);
     assert.equal(
       manifest.headers.get("access-control-allow-origin"),
-      "http://localhost:4200",
+      `http://localhost:${rendererAppPort}`,
     );
     const body = await manifest.text();
     assert.ok(!body.includes("tokenized"));
@@ -465,7 +489,7 @@ test("HLS proxy scopes resources to a session, forwards headers, emits CORS, and
     const chunkUrl = chunkUrls[0];
     assert.ok(chunkUrl);
     const chunk = await fetch(chunkUrl, {
-      headers: { Origin: "http://localhost:4200", Range: "bytes=0-2" },
+      headers: { Origin: `http://localhost:${rendererAppPort}`, Range: "bytes=0-2" },
     });
     assert.equal(chunk.status, 206);
     assert.equal(await chunk.text(), "ts!");
@@ -490,6 +514,167 @@ test("HLS proxy scopes resources to a session, forwards headers, emits CORS, and
   } finally {
     await proxy.shutdown();
     await close(upstream);
+  }
+});
+
+test("MPEG-TS proxy forwards Stalker credentials and streams the raw response", async () => {
+  const observed: Record<string, string | undefined>[] = [];
+  const upstream = createServer((request, response) => {
+    observed.push({
+      cookie: request.headers.cookie,
+      authorization: request.headers.authorization,
+      userAgent: request.headers["user-agent"],
+      xUserAgent: request.headers["x-user-agent"],
+      serial: request.headers.sn,
+      range: request.headers.range,
+    });
+    response.writeHead(200, {
+      "content-type": "video/mp2t",
+      "transfer-encoding": "chunked",
+    });
+    response.write("ts");
+    setTimeout(() => response.end("!"), 5);
+  });
+  const upstreamUrl = await listen(upstream);
+  const proxy = new HlsPlaybackProxyService({ mpegTsRemuxerPath: null });
+  try {
+    const session = await proxy.createMpegTsSession({
+      url: upstreamUrl,
+      headers: {
+        Cookie: "mac=secret",
+        Authorization: "Bearer secret",
+        "User-Agent": "MAG200",
+        "X-User-Agent": "MAG200",
+        SN: "serial",
+      },
+    });
+    const response = await fetch(session.url, {
+      headers: {
+        Origin: `http://localhost:${rendererAppPort}`,
+        Range: "bytes=0-",
+      },
+    });
+    assert.equal(response.status, 200);
+    assert.equal(
+      response.headers.get("access-control-allow-origin"),
+      `http://localhost:${rendererAppPort}`,
+    );
+    const reader = response.body?.getReader();
+    assert.ok(reader);
+    let body = "";
+    while (body.length < 3) {
+      const chunk = await reader.read();
+      assert.equal(chunk.done, false);
+      body += new TextDecoder().decode(chunk.value);
+    }
+    await reader.cancel();
+    assert.equal(body, "ts!");
+    assert.deepEqual(observed[0], {
+      cookie: "mac=secret",
+      authorization: "Bearer secret",
+      userAgent: "MAG200",
+      xUserAgent: "MAG200",
+      serial: "serial",
+      range: "bytes=0-",
+    });
+    proxy.releaseSession(session.id);
+    assert.equal((await fetch(session.url)).status, 404);
+  } finally {
+    await proxy.shutdown();
+    await close(upstream);
+  }
+});
+
+test("MPEG-TS proxy preserves EOF and opens a fresh upstream on the next request", async () => {
+  let requests = 0;
+  const upstream = createServer((_request, response) => {
+    requests += 1;
+    response.writeHead(200, { "content-type": "video/mp2t" });
+    response.end(`part-${requests}\n`);
+  });
+  const upstreamUrl = await listen(upstream);
+  const proxy = new HlsPlaybackProxyService({ mpegTsRemuxerPath: null });
+  try {
+    const session = await proxy.createMpegTsSession({ url: upstreamUrl });
+    const first = await fetch(session.url, {
+      headers: { Origin: `http://localhost:${rendererAppPort}` },
+    });
+    assert.equal(first.status, 200);
+    assert.equal(await first.text(), "part-1\n");
+    const second = await fetch(session.url, {
+      headers: { Origin: `http://localhost:${rendererAppPort}` },
+    });
+    assert.equal(second.status, 200);
+    assert.equal(await second.text(), "part-2\n");
+    assert.equal(requests, 2);
+  } finally {
+    await proxy.shutdown();
+    await close(upstream);
+  }
+});
+
+test("MPEG-TS proxy ends an upstream that stops producing bytes", async () => {
+  let requests = 0;
+  const upstream = createServer((_request, response) => {
+    requests += 1;
+    response.writeHead(200, { "content-type": "video/mp2t" });
+    if (requests === 1) {
+      response.write("part-1\n");
+      return;
+    }
+    response.end(`part-${requests}\n`);
+  });
+  const upstreamUrl = await listen(upstream);
+  const proxy = new HlsPlaybackProxyService({ mpegTsRemuxerPath: null });
+  try {
+    const session = await proxy.createMpegTsSession({ url: upstreamUrl });
+    const first = await fetch(session.url, {
+      headers: { Origin: `http://localhost:${rendererAppPort}` },
+    });
+    assert.equal(first.status, 200);
+    assert.equal(await first.text(), "part-1\n");
+    const second = await fetch(session.url, {
+      headers: { Origin: `http://localhost:${rendererAppPort}` },
+    });
+    assert.equal(second.status, 200);
+    assert.equal(await second.text(), "part-2\n");
+    assert.equal(requests, 2);
+  } finally {
+    await proxy.shutdown();
+    await close(upstream);
+  }
+});
+
+test("playback proxy does not sweep a session with an active request", async () => {
+  const proxy = new HlsPlaybackProxyService();
+  try {
+    const created = await proxy.createMpegTsSession({
+      url: "http://127.0.0.1:1/live.ts",
+    });
+    const internals = proxy as unknown as {
+      sessions: Map<
+        string,
+        {
+          lastUsedAt: number;
+          requests: Set<AbortController>;
+        }
+      >;
+      sweepExpiredSessions(): void;
+    };
+    const session = internals.sessions.get(created.id);
+    assert.ok(session);
+    session.lastUsedAt = 0;
+    const activeRequest = new AbortController();
+    session.requests.add(activeRequest);
+
+    internals.sweepExpiredSessions();
+    assert.equal(proxy.sessionCount, 1);
+
+    session.requests.delete(activeRequest);
+    internals.sweepExpiredSessions();
+    assert.equal(proxy.sessionCount, 0);
+  } finally {
+    await proxy.shutdown();
   }
 });
 
@@ -554,7 +739,7 @@ test("progressive VOD proxy preserves browser ranges and prefetches the next ran
       url: `${upstreamUrl}/movie.mp4`,
     });
     const response = await fetch(session.url, {
-      headers: { Origin: "http://localhost:4200", Range: "bytes=0-65535" },
+      headers: { Origin: `http://localhost:${rendererAppPort}`, Range: "bytes=0-65535" },
     });
     assert.equal(response.status, 206);
     assert.equal(
@@ -565,7 +750,7 @@ test("progressive VOD proxy preserves browser ranges and prefetches the next ran
     assert.equal((await response.arrayBuffer()).byteLength, 65536);
 
     const next = await fetch(session.url, {
-      headers: { Origin: "http://localhost:4200", Range: "bytes=65536-131071" },
+      headers: { Origin: `http://localhost:${rendererAppPort}`, Range: "bytes=65536-131071" },
     });
     assert.equal(next.status, 206);
     assert.equal(
@@ -625,14 +810,14 @@ test("progressive VOD re-resolves one-request redirect tokens for later ranges",
       url: `${upstreamUrl}/movie.mp4`,
     });
     const first = await fetch(session.url, {
-      headers: { Origin: "http://localhost:4200", Range: "bytes=0-65535" },
+      headers: { Origin: `http://localhost:${rendererAppPort}`, Range: "bytes=0-65535" },
     });
     assert.equal(first.status, 206);
     await first.arrayBuffer();
 
     const second = await fetch(session.url, {
       headers: {
-        Origin: "http://localhost:4200",
+        Origin: `http://localhost:${rendererAppPort}`,
         Range: "bytes=9000000-9065535",
       },
     });
@@ -680,7 +865,7 @@ test("progressive VOD proxy widens a rejected narrow upstream range but returns 
       url: `${upstreamUrl}/movie.mp4`,
     });
     const response = await fetch(session.url, {
-      headers: { Origin: "http://localhost:4200", Range: "bytes=0-65535" },
+      headers: { Origin: `http://localhost:${rendererAppPort}`, Range: "bytes=0-65535" },
     });
     assert.equal(response.status, 206);
     assert.equal(
@@ -726,7 +911,7 @@ test("progressive VOD proxy converts open-ended browser ranges into finite cache
       url: `${upstreamUrl}/movie.mp4`,
     });
     const response = await fetch(session.url, {
-      headers: { Origin: "http://localhost:4200", Range: "bytes=65536-" },
+      headers: { Origin: `http://localhost:${rendererAppPort}`, Range: "bytes=65536-" },
     });
     assert.equal(response.status, 206);
     assert.equal(
@@ -735,26 +920,22 @@ test("progressive VOD proxy converts open-ended browser ranges into finite cache
     );
     assert.equal(response.headers.get("content-length"), null);
     assert.equal((await response.arrayBuffer()).byteLength, prefetchBytes);
-    assert.equal(
-      observedRanges[0],
-      `bytes=65536-${65536 + prefetchBytes - 1}`,
-    );
+    assert.equal(observedRanges[0], `bytes=65536-${65536 + prefetchBytes - 1}`);
 
     const overlap = await fetch(session.url, {
-      headers: { Origin: "http://localhost:4200", Range: "bytes=70000-" },
+      headers: { Origin: `http://localhost:${rendererAppPort}`, Range: "bytes=70000-" },
     });
     assert.equal(overlap.status, 206);
     const overlapRange = overlap.headers.get("content-range") ?? "";
-    const overlapMatch = new RegExp(
-      `^bytes 70000-(\\d+)/${totalBytes}$`,
-    ).exec(overlapRange);
+    const overlapMatch = new RegExp(`^bytes 70000-(\\d+)/${totalBytes}$`).exec(
+      overlapRange,
+    );
     assert.ok(overlapMatch);
     const overlapEnd = Number(overlapMatch[1]);
     assert.ok(
-      [
-        65536 + prefetchBytes - 1,
-        65536 + prefetchBytes * 2 - 1,
-      ].includes(overlapEnd),
+      [65536 + prefetchBytes - 1, 65536 + prefetchBytes * 2 - 1].includes(
+        overlapEnd,
+      ),
     );
     assert.equal(
       (await overlap.arrayBuffer()).byteLength,
@@ -762,7 +943,7 @@ test("progressive VOD proxy converts open-ended browser ranges into finite cache
     );
 
     const tail = await fetch(session.url, {
-      headers: { Origin: "http://localhost:4200", Range: "bytes=50000000-" },
+      headers: { Origin: `http://localhost:${rendererAppPort}`, Range: "bytes=50000000-" },
     });
     assert.equal(tail.status, 206);
     assert.equal(
@@ -804,7 +985,7 @@ test("progressive VOD proxy rejects an upstream range larger than its cache budg
       url: `${upstreamUrl}/movie.mp4`,
     });
     const response = await fetch(session.url, {
-      headers: { Origin: "http://localhost:4200", Range: "bytes=0-65535" },
+      headers: { Origin: `http://localhost:${rendererAppPort}`, Range: "bytes=0-65535" },
     });
     assert.equal(response.status, 502);
     await response.arrayBuffer();

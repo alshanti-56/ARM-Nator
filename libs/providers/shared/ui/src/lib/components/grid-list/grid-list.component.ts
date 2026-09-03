@@ -23,6 +23,7 @@ import {
   WatchedBadgeComponent,
 } from "@arm-nator/ui/components";
 import { PlaylistErrorViewComponent } from "../playlist-error-view/playlist-error-view.component";
+import { GridReflowMotionDirective } from "./grid-reflow-motion.directive";
 
 interface GridListItem {
   id?: number | string;
@@ -84,7 +85,7 @@ function normalizeArtworkUrl(value: string | undefined): string | undefined {
 
 @Component({
   selector: "app-grid-list",
-  template: `<div class="grid-list__grid">
+  template: `<div class="grid-list__grid" gridReflowMotion>
       @if (isLoading()) {
         @for (row of skeletonRows(); track row) {
           <div class="grid-skeleton-card" aria-hidden="true">
@@ -104,73 +105,82 @@ function normalizeArtworkUrl(value: string | undefined): string | undefined {
       } @else {
         @for (item of items(); track $index) {
           @let i = $any(item);
-          <mat-card
-            [class.grid-card--logo]="variant() === 'logo'"
-            (click)="itemClicked.emit(item)"
+          <div
+            class="grid-card-motion"
+            data-grid-card
+            [attr.data-grid-key]="gridItemKey(i, $index)"
           >
-            @let poster = resolvePoster(i);
-            <div class="card-thumbnail-container">
-              @if (poster && !hasArtworkFailed(poster)) {
-                <img
-                  class="stream-icon"
-                  [src]="poster"
-                  (error)="onImageError($event, poster)"
-                  loading="lazy"
-                  alt="logo"
-                />
-              } @else if (shouldRenderArtworkPlaceholder(poster)) {
-                <div class="stream-icon-placeholder" aria-hidden="true">
-                  <mat-icon>{{ getPlaceholderIcon() }}</mat-icon>
-                </div>
-              } @else {
-                <img
-                  class="stream-icon"
-                  src="./assets/images/default-poster.png"
-                  loading="lazy"
-                  alt="logo"
-                />
-              }
-              @if (i.progress && i.progress > 0) {
-                <app-progress-capsule [progress]="i.progress" />
-              }
-              @if (i.isWatched) {
-                <app-watched-badge [isWatched]="true" icon="check_circle" />
-              } @else if (i.hasSeriesProgress) {
-                <app-watched-badge [isWatched]="true" icon="remove_red_eye" />
-              }
-            </div>
-            @let rating = resolveRating(i);
-            @if (rating) {
-              <div
-                class="rating"
-                [matTooltip]="'XTREAM.IMDB_RATING' | translate"
-              >
-                <mat-icon>star</mat-icon>{{ rating }}
-              </div>
-            }
-            <mat-card-actions>
-              <div class="title">
-                {{ channelTitle(i) }}
-              </div>
-              @if (type() === "vod" || type() === "series") {
-                @let year = resolveYear(i);
-                @let genre = resolveGenre(i);
-                @if (year || genre) {
-                  <div class="metadata" [title]="genre ?? ''">
-                    @if (year) {
-                      <span>{{ year }}</span>
-                    }
-                    @if (year && genre) {
-                      <span aria-hidden="true">·</span>
-                    }
-                    @if (genre) {
-                      <span>{{ genre }}</span>
-                    }
+            <mat-card
+              [class.grid-card--logo]="variant() === 'logo'"
+              (click)="itemClicked.emit(item)"
+            >
+              @let poster = resolvePoster(i);
+              <div class="card-thumbnail-container">
+                @if (poster && !hasArtworkFailed(poster)) {
+                  <img
+                    class="stream-icon"
+                    [src]="poster"
+                    (error)="onImageError($event, poster)"
+                    loading="lazy"
+                    alt="logo"
+                  />
+                } @else if (shouldRenderArtworkPlaceholder(poster)) {
+                  <div class="stream-icon-placeholder" aria-hidden="true">
+                    <mat-icon>{{ getPlaceholderIcon() }}</mat-icon>
                   </div>
+                } @else {
+                  <img
+                    class="stream-icon"
+                    src="./assets/images/default-poster.png"
+                    loading="lazy"
+                    alt="logo"
+                  />
                 }
+                @if (i.progress && i.progress > 0) {
+                  <app-progress-capsule [progress]="i.progress" />
+                }
+                @if (i.isWatched) {
+                  <app-watched-badge [isWatched]="true" icon="check_circle" />
+                } @else if (i.hasSeriesProgress) {
+                  <app-watched-badge
+                    [isWatched]="true"
+                    icon="remove_red_eye"
+                  />
+                }
+              </div>
+              @let rating = resolveRating(i);
+              @if (rating) {
+                <div
+                  class="rating"
+                  [matTooltip]="'XTREAM.IMDB_RATING' | translate"
+                >
+                  <mat-icon>star</mat-icon>{{ rating }}
+                </div>
               }
-            </mat-card-actions>
-          </mat-card>
+              <mat-card-actions>
+                <div class="title">
+                  {{ channelTitle(i) }}
+                </div>
+                @if (type() === "vod" || type() === "series") {
+                  @let year = resolveYear(i);
+                  @let genre = resolveGenre(i);
+                  @if (year || genre) {
+                    <div class="metadata" [title]="genre ?? ''">
+                      @if (year) {
+                        <span>{{ year }}</span>
+                      }
+                      @if (year && genre) {
+                        <span aria-hidden="true">·</span>
+                      }
+                      @if (genre) {
+                        <span>{{ genre }}</span>
+                      }
+                    </div>
+                  }
+                }
+              </mat-card-actions>
+            </mat-card>
+          </div>
         } @empty {
           <div class="grid-empty-state">
             @if (hasActiveSearch()) {
@@ -219,6 +229,7 @@ function normalizeArtworkUrl(value: string | undefined): string | undefined {
     MatPaginatorModule,
     ProgressCapsuleComponent,
     WatchedBadgeComponent,
+    GridReflowMotionDirective,
   ],
   changeDetection: ChangeDetectionStrategy.OnPush,
 })
@@ -239,6 +250,7 @@ export class GridListComponent {
   readonly pageSizeOptions = input<number[]>([]);
   readonly variant = input<"poster" | "logo">("poster");
   readonly type = input<"vod" | "series" | "live" | string>("");
+
   protected readonly resolveRating = resolveGridRating;
   protected readonly resolveYear = (item: GridListItem): number | null =>
     catalogYear(item);
@@ -262,6 +274,15 @@ export class GridListComponent {
       this.isLiveGrid() && this.settingsStore.stripCountryPrefix?.(),
     );
     return stripped || "No name";
+  };
+
+  protected readonly gridItemKey = (
+    item: GridListItem,
+    index: number,
+  ): string => {
+    const identity =
+      item.id ?? item.xtream_id ?? item.stream_id ?? item.series_id ?? "item";
+    return `${String(identity)}-${index}`;
   };
 
   readonly skeletonRows = computed(() => {

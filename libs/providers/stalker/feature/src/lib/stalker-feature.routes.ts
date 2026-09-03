@@ -64,6 +64,16 @@ export function createStalkerRoutes(): Route[] {
                     data: { contentType: 'series' },
                     loadComponent: loadStalkerLiveStreamLayoutComponent,
                 },
+                {
+                    path: 'recently-added',
+                    data: { contentType: 'vod', recentlyAdded: true },
+                    loadComponent: loadStalkerLiveStreamLayoutComponent,
+                },
+                {
+                    path: 'search',
+                    data: { contentType: 'vod', searchRoute: true },
+                    loadComponent: loadStalkerLiveStreamLayoutComponent,
+                },
             ],
         },
     ];

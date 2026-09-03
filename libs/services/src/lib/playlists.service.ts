@@ -20,7 +20,6 @@ import {
     PlaylistRecentlyViewedItem,
     PlaylistUpdateState,
     StalkerPortalItem,
-    normalizeDate,
 } from '@arm-nator/shared/interfaces';
 import { PLAYLIST_DELETE_CLEANUP } from './playlist-delete-cleanup.token';
 import { RuntimeCapabilitiesService } from './runtime-capabilities.service';

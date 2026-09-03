@@ -8,6 +8,7 @@ export const PlaybackDiagnosticCode = {
     UnsupportedCodec: 'unsupported-codec',
     MediaDecodeError: 'media-decode-error',
     NetworkError: 'network-error',
+    ProviderRejected: 'provider-rejected',
     BrowserAccessError: 'browser-access-error',
     DrmOrEncryption: 'drm-or-encryption',
     UnknownPlaybackError: 'unknown-playback-error',

@@ -4,7 +4,7 @@ import type {
 } from './playback-diagnostics.model';
 
 export function normalizeErrorDetails(
-    error: HlsPlaybackErrorInput | MpegTsPlaybackErrorInput
+    error: HlsPlaybackErrorInput | MpegTsPlaybackErrorInput,
 ): string {
     const hlsError = 'error' in error ? error.error : undefined;
     const mpegTsInfo = 'info' in error ? error.info : undefined;
@@ -24,6 +24,44 @@ export function isNetworkFailure(type: string, details: string): boolean {
         details.includes('timeout') ||
         details.includes('status')
     );
+}
+
+/**
+ * Extract an upstream HTTP status from player error text or the optional
+ * engine payload. mpegts.js reports provider responses as
+ * `HttpStatusCodeInvalid {"code":456,...}` rather than exposing a dedicated
+ * status field, so keeping this parser at the diagnostics boundary lets the
+ * player distinguish a provider rejection from a transient transport fault.
+ */
+export function extractHttpStatusCode(
+    type: string | undefined,
+    details: string | undefined,
+    info?: unknown,
+): number | null {
+    const candidates: unknown[] = [type, details, info];
+
+    for (const candidate of candidates) {
+        const fromObject = readStatusFromObject(candidate);
+        if (fromObject !== null) {
+            return fromObject;
+        }
+
+        const text =
+            typeof candidate === 'string'
+                ? candidate
+                : stringifyErrorPayload(candidate);
+        const match = text.match(
+            /(?:httpstatus(?:code)?|status(?:code)?|\bcode)\D{0,16}([1-5]\d{2})\b/i,
+        );
+        if (match) {
+            const status = Number(match[1]);
+            if (status >= 100 && status <= 599) {
+                return status;
+            }
+        }
+    }
+
+    return null;
 }
 
 export function isBrowserAccessFailure(details: string): boolean {
@@ -85,6 +123,36 @@ function normalizeErrorPayload(payload: unknown): string {
     }
 
     return stringifyUnknown(payload);
+}
+
+function readStatusFromObject(value: unknown): number | null {
+    if (!value || typeof value !== 'object') {
+        return null;
+    }
+
+    const record = value as Record<string, unknown>;
+    for (const key of [
+        'status',
+        'statusCode',
+        'httpStatus',
+        'http_status',
+        'code',
+    ]) {
+        const numeric = Number(record[key]);
+        if (Number.isInteger(numeric) && numeric >= 100 && numeric <= 599) {
+            return numeric;
+        }
+    }
+
+    return null;
+}
+
+function stringifyErrorPayload(value: unknown): string {
+    try {
+        return JSON.stringify(value) ?? '';
+    } catch {
+        return String(value ?? '');
+    }
 }
 
 function stringifyUnknown(value: unknown): string {

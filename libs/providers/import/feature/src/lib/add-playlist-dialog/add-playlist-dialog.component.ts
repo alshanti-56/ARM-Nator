@@ -98,7 +98,7 @@ export class AddPlaylistDialogComponent {
                 this.xtreamImport()?.clearForm();
                 break;
             case 'stalker':
-                this.stalkerImport()?.form.reset();
+                this.stalkerImport()?.clearForm();
                 break;
         }
     }

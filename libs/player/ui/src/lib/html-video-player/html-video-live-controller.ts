@@ -16,6 +16,7 @@ import {
 } from "../playback-diagnostics/playback-diagnostics.util";
 import { LivePlaybackRecovery } from "../web-video-support/live-playback-recovery";
 import { LivePlaybackWatchdog } from "../web-video-support/live-playback-watchdog";
+import { seekVideoToLiveEdge } from "../web-video-support/live-edge-resume";
 import { isRecoverableMpegTsLiveFailure } from "../web-video-support/mpegts-live-recovery";
 import { VodPlaybackRecovery } from "../web-video-support/vod-playback-recovery";
 import type { WebVideoPlaybackIntent } from "../player-controls/web-video-controls.adapter";
@@ -28,6 +29,7 @@ export interface HtmlVideoLiveControllerConfig {
   readonly getVideo: () => HTMLVideoElement;
   readonly getSourceUrl: () => string | undefined;
   readonly isLive: () => boolean;
+  readonly getSourceKind: () => HtmlVideoControlsSource["kind"] | null;
   readonly restartMpegTs: () => void;
   readonly bindControlsSource: (source: HtmlVideoControlsSource) => void;
   readonly play: () => void;
@@ -186,6 +188,20 @@ export class HtmlVideoLiveController {
 
   handlePlaybackIntent(intent: WebVideoPlaybackIntent): void {
     this.watchdog.notifyPlaybackIntent(intent);
+    if (intent === "play" && this.config.isLive()) {
+      const sourceKind = this.config.getSourceKind();
+      if (sourceKind === "mpegts") {
+        // Let the shared adapter finish its video.play() call before replacing
+        // the old engine with a fresh live connection.
+        queueMicrotask(() => this.config.restartMpegTs());
+      } else {
+        seekVideoToLiveEdge(
+          this.config.getVideo(),
+          sourceKind === "hls" ? this.hls?.liveSyncPosition : null,
+        );
+      }
+      return;
+    }
     if (intent !== "pause") {
       return;
     }

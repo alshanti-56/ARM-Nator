@@ -1,4 +1,5 @@
 import type mpegts from "mpegts.js";
+import { extractHttpStatusCode } from "../playback-diagnostics/playback-error-patterns.util";
 export {
   LivePlaybackRecovery as MpegTsLiveRecovery,
   type LiveRecoveryScheduled as MpegTsRecoveryScheduled,
@@ -22,9 +23,10 @@ export function createMpegTsConfig(isLive: boolean): mpegts.Config {
     autoCleanupMaxBackwardDuration: 120,
     autoCleanupMinBackwardDuration: 30,
     fixAudioTimestampGap: true,
-    liveBufferLatencyChasing: true,
-    liveBufferLatencyMaxLatency: 20,
-    liveBufferLatencyMinRemain: 8,
+    // The Electron relay already paces corrected PCR in real time. Letting
+    // mpegts.js chase latency as well makes playback audibly/video-visibly
+    // accelerate while consuming the deliberate startup safety buffer.
+    liveBufferLatencyChasing: false,
   };
 }
 
@@ -34,7 +36,15 @@ export function isRecoverableMpegTsLiveFailure(
   info: unknown,
 ): boolean {
   const text = `${type} ${details} ${stringifyInfo(info)}`.toLowerCase();
-  if (/\b(?:401|403|404)\b/.test(text)) {
+  const status = extractHttpStatusCode(type, details, info);
+  if (
+    status !== null &&
+    status >= 400 &&
+    status < 500 &&
+    status !== 408 &&
+    status !== 425 &&
+    status !== 429
+  ) {
     return false;
   }
 

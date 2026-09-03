@@ -1,4 +1,3 @@
-/* eslint-disable max-lines */
 import { Router } from '@angular/router';
 import {
     PortalRailSection,

@@ -204,6 +204,20 @@ export class WorkspaceShellSearchService {
             return;
         }
 
+        if (effectiveContext.provider === 'stalker') {
+            void this.router.navigate(
+                [
+                    '/workspace',
+                    'stalker',
+                    effectiveContext.playlistId,
+                    'search',
+                ],
+                {
+                    queryParams: query ? { q: query } : {},
+                }
+            );
+        }
+
     }
 
     private translateText(

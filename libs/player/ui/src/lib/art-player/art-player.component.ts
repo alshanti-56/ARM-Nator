@@ -142,22 +142,16 @@ export class ArtPlayerComponent implements OnInit, OnDestroy, OnChanges {
     this.playbackIssue.emit(null);
     const channel = this.channel();
     const sourceUrl = channel.url;
+    const requestHeaders = this.getRequestHeaders(channel);
     const sourceSession = new ArtPlayerSourceSession({
       controlsAdapter: this.controlsAdapter,
       isLive: () => this.isLive(),
       showCaptions: () => this.showCaptions(),
       emitPlaybackIssue: (issue) => this.playbackIssue.emit(issue),
       getDrm: () => this.channel().drm,
-      hlsRequestHeaders: {
-        'User-Agent': channel.http['user-agent'],
-        Referer: channel.http.referrer,
-        Origin: channel.http.origin,
-      },
-      mediaRequestHeaders: {
-        'User-Agent': channel.http['user-agent'],
-        Referer: channel.http.referrer,
-        Origin: channel.http.origin,
-      },
+      hlsRequestHeaders: requestHeaders,
+      mediaRequestHeaders: requestHeaders,
+      mpegTsRequestHeaders: requestHeaders,
     });
     this.sourceSession = sourceSession;
 
@@ -243,5 +237,25 @@ export class ArtPlayerComponent implements OnInit, OnDestroy, OnChanges {
       return 1;
     }
     return Math.max(0, Math.min(1, numericValue));
+  }
+
+  private getRequestHeaders(channel: Channel): Record<string, string> {
+    const headers = { ...(channel.http.headers ?? {}) };
+    const channelHeaders = {
+      'User-Agent': channel.http['user-agent'],
+      Referer: channel.http.referrer,
+      Origin: channel.http.origin,
+    };
+    for (const [name, value] of Object.entries(channelHeaders)) {
+      if (
+        value &&
+        !Object.keys(headers).some(
+          (existing) => existing.toLowerCase() === name.toLowerCase(),
+        )
+      ) {
+        headers[name] = value;
+      }
+    }
+    return headers;
   }
 }

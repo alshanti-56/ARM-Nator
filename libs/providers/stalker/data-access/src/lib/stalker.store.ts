@@ -1,5 +1,6 @@
 import { computed, Injectable, signal } from '@angular/core';
 import { DataService } from '@arm-nator/services';
+import { createLogger } from '@arm-nator/providers/shared/util';
 import {
     PlaylistMeta,
     ResolvedPortalPlayback,
@@ -13,6 +14,12 @@ import {
     isCrossOriginStalkerStream,
     STALKER_STREAM_USER_AGENT,
 } from './stalker-live-playback.utils';
+import {
+    resolveStalkerStaticPlaybackUrl,
+    resolveStalkerPlaybackUrl,
+} from './stores/utils';
+import { StalkerAuthApi } from './stalker-auth.api';
+import { getStalkerPortalIdentityFromPlaylist } from './stalker-identity.utils';
 
 export type StalkerContentType = 'itv' | 'vod' | 'series';
 export type StalkerCatalogRow = StalkerItvChannel & Record<string, unknown>;
@@ -38,6 +45,7 @@ export class StalkerStore {
     private authenticationKey = '';
     private requestVersion = 0;
     private page = 1;
+    private itvLoadedAt = 0;
     private readonly totalItems = signal(0);
     private readonly searchPhraseState = signal('');
     private loadingPromise: Promise<void> | null = null;
@@ -56,13 +64,20 @@ export class StalkerStore {
     readonly isSeriesEpisodesLoading = signal(false);
     readonly loadError = signal<string | null>(null);
     readonly hasMoreContent = computed(
-        () => this.getPaginatedContent().length < this.totalItems()
+        () => this.getPaginatedContent().length < this.totalItems(),
     );
 
     readonly totalContentItems = this.totalItems.asReadonly();
     readonly searchPhrase = this.searchPhraseState.asReadonly();
 
-    constructor(private readonly data: DataService) {}
+    private readonly authApi: StalkerAuthApi;
+
+    constructor(private readonly data: DataService) {
+        this.authApi = new StalkerAuthApi(
+            data,
+            createLogger('StalkerStore'),
+        );
+    }
 
     setCurrentPlaylist(playlist?: PlaylistMeta): void {
         if (playlist?._id === this.currentPlaylist()?._id) {
@@ -76,6 +91,7 @@ export class StalkerStore {
         this.tokenIdentity = '';
         this.authenticationPromise = null;
         this.authenticationKey = '';
+        this.itvLoadedAt = 0;
         this.currentPlaylist.set(playlist);
         this.resetContent();
         this.loadError.set(null);
@@ -154,6 +170,56 @@ export class StalkerStore {
         void this.loadContent();
     }
 
+    /**
+     * Re-read one ITV row before a manual playback retry. Many Stalker
+     * installations embed a short-lived `play_token` in the catalog `cmd`;
+     * replaying that same row after a 4xx response only replays the expired
+     * URL. Refreshing the complete ITV catalog is intentionally opt-in and
+     * only used by the retry path, never for ordinary channel clicks.
+     */
+    async refreshItvChannel(
+        item: StalkerCatalogRow,
+    ): Promise<StalkerCatalogRow | null> {
+        const playlist = this.currentPlaylist();
+        const itemId = String(item.id ?? item.stream_id ?? '').trim();
+        if (!playlist?.portalUrl || !playlist.macAddress || !itemId) {
+            return null;
+        }
+
+        try {
+            await this.authenticate(playlist);
+            const response = await this.request(playlist, 'get_all_channels', {
+                type: 'itv',
+            });
+            const refreshed = this.rowsFrom(response).find((row) =>
+                this.matchesEntity(row, itemId),
+            );
+            this.itvLoadedAt = Date.now();
+            if (!refreshed) {
+                return null;
+            }
+
+            const rows = this.getPaginatedContent();
+            const index = rows.findIndex((row) =>
+                this.matchesEntity(row, itemId),
+            );
+            if (index >= 0) {
+                const nextRows = [...rows];
+                nextRows[index] = refreshed;
+                this.getPaginatedContent.set(nextRows);
+            }
+            const selected = this.selectedItem();
+            if (selected && this.matchesEntity(selected, itemId)) {
+                this.selectedItem.set(refreshed);
+            }
+            return refreshed;
+        } catch {
+            // A retry should leave the existing player/error state intact if
+            // the catalog refresh itself cannot reach the portal.
+            return null;
+        }
+    }
+
     preloadSelectedContent(): void {
         void this.loadContent();
     }
@@ -171,7 +237,7 @@ export class StalkerStore {
 
     async loadContentItem(
         type: Exclude<StalkerContentType, 'itv'>,
-        itemId: string
+        itemId: string,
     ): Promise<StalkerCatalogRow | null> {
         const playlist = this.currentPlaylist();
         const normalizedItemId = itemId.trim();
@@ -179,7 +245,7 @@ export class StalkerStore {
 
         try {
             const cachedItem = this.getPaginatedContent().find((row) =>
-                this.matchesEntity(row, normalizedItemId)
+                this.matchesEntity(row, normalizedItemId),
             );
             if (cachedItem) {
                 this.setSelectedItem(cachedItem);
@@ -194,28 +260,25 @@ export class StalkerStore {
                     type,
                     category: this.selectedCategoryId() ?? '*',
                     p: 1,
-                }
+                },
             );
             let catalogItem = this.rowsFrom(catalogResponse).find((row) =>
-                this.matchesEntity(row, normalizedItemId)
+                this.matchesEntity(row, normalizedItemId),
             );
             const totalItems = Number(catalogResponse.js?.total_items ?? 0);
             const reportedPageSize = Number(
                 catalogResponse.js?.max_page_items ??
-                    this.rowsFrom(catalogResponse).length
+                    this.rowsFrom(catalogResponse).length,
             );
-            const pageSize = Number.isFinite(reportedPageSize) && reportedPageSize > 0
-                ? reportedPageSize
-                : Math.max(1, this.rowsFrom(catalogResponse).length);
+            const pageSize =
+                Number.isFinite(reportedPageSize) && reportedPageSize > 0
+                    ? reportedPageSize
+                    : Math.max(1, this.rowsFrom(catalogResponse).length);
             const maxPages = Math.min(
                 50,
-                totalItems > 0 ? Math.ceil(totalItems / pageSize) : 1
+                totalItems > 0 ? Math.ceil(totalItems / pageSize) : 1,
             );
-            for (
-                let page = 2;
-                !catalogItem && page <= maxPages;
-                page += 1
-            ) {
+            for (let page = 2; !catalogItem && page <= maxPages; page += 1) {
                 const nextPage = await this.request(
                     playlist,
                     'get_ordered_list',
@@ -223,11 +286,11 @@ export class StalkerStore {
                         type,
                         category: this.selectedCategoryId() ?? '*',
                         p: page,
-                    }
+                    },
                 );
                 const pageRows = this.rowsFrom(nextPage);
                 catalogItem = pageRows.find((row) =>
-                    this.matchesEntity(row, normalizedItemId)
+                    this.matchesEntity(row, normalizedItemId),
                 );
                 if (pageRows.length === 0) break;
             }
@@ -238,22 +301,23 @@ export class StalkerStore {
 
             // A regular-series detail request returns its seasons, not the
             // catalog item itself. Do not mistake a season row for the show.
-            const response = await this.request(
-                playlist,
-                'get_ordered_list',
-                {
-                    type,
-                    movie_id: this.portalMovieId(normalizedItemId),
-                    p: 1,
-                }
-            );
+            const response = await this.request(playlist, 'get_ordered_list', {
+                type,
+                movie_id: this.portalMovieId(normalizedItemId),
+                p: 1,
+            });
             const detailRows = this.rowsFrom(response);
-            const item = detailRows.find((row) =>
-                this.matchesEntity(row, normalizedItemId) &&
-                (type === 'vod' || !this.isSeasonRow(row))
-            ) ??
+            const item =
+                detailRows.find(
+                    (row) =>
+                        this.matchesEntity(row, normalizedItemId) &&
+                        (type === 'vod' || !this.isSeasonRow(row)),
+                ) ??
                 (type === 'series'
-                    ? this.createSeriesDeepLinkItem(detailRows, normalizedItemId)
+                    ? this.createSeriesDeepLinkItem(
+                          detailRows,
+                          normalizedItemId,
+                      )
                     : null);
             if (item) this.setSelectedItem(item);
             return item ?? null;
@@ -265,7 +329,7 @@ export class StalkerStore {
 
     async loadSeriesSeasons(
         item: StalkerCatalogRow,
-        requestType: 'series' | 'vod' = 'series'
+        requestType: 'series' | 'vod' = 'series',
     ): Promise<StalkerCatalogRow[]> {
         const playlist = this.currentPlaylist();
         if (!playlist) return [];
@@ -289,7 +353,7 @@ export class StalkerStore {
             const rows = this.rowsFrom(response);
             const result = this.filterRowsForParent(
                 rows.filter((row) => this.isSeasonRow(row)),
-                item
+                item,
             );
             this.seriesSeasons.set(result);
             return result;
@@ -308,7 +372,7 @@ export class StalkerStore {
     async loadSeriesEpisodes(
         item: StalkerCatalogRow,
         season: StalkerCatalogRow,
-        requestType: 'series' | 'vod' = 'series'
+        requestType: 'series' | 'vod' = 'series',
     ): Promise<StalkerCatalogRow[]> {
         const playlist = this.currentPlaylist();
         if (!playlist) return [];
@@ -319,10 +383,7 @@ export class StalkerStore {
         this.seriesEpisodes.set([]);
         this.isSeriesEpisodesLoading.set(true);
 
-        const regularEpisodes = this.createRegularSeriesEpisodes(
-            item,
-            season
-        );
+        const regularEpisodes = this.createRegularSeriesEpisodes(item, season);
         if (regularEpisodes) {
             if (this.isCurrentSeriesRequest(itemKey, requestVersion)) {
                 this.seriesEpisodes.set(regularEpisodes);
@@ -343,11 +404,9 @@ export class StalkerStore {
             }
 
             const episodes = this.filterRowsForParent(
-                this.rowsFrom(response).filter((row) =>
-                    this.isEpisodeRow(row)
-                ),
+                this.rowsFrom(response).filter((row) => this.isEpisodeRow(row)),
                 item,
-                seasonKey
+                seasonKey,
             );
             this.seriesEpisodes.set(episodes);
             return episodes;
@@ -363,50 +422,128 @@ export class StalkerStore {
         }
     }
 
-    async resolveItvPlayback(item: StalkerCatalogRow): Promise<ResolvedPortalPlayback> {
+    async resolveItvPlayback(
+        item: StalkerCatalogRow,
+        refreshStaleItv = false,
+    ): Promise<ResolvedPortalPlayback> {
         const playlist = this.currentPlaylist();
         if (!playlist?.portalUrl || !playlist.macAddress) {
             throw new Error('Stalker portal credentials are missing');
         }
 
-        const command = String(item.cmd ?? item['url'] ?? item.id ?? '').trim();
+        let playableItem = item;
+        let command = String(
+            playableItem.cmd ?? playableItem['url'] ?? playableItem.id ?? '',
+        ).trim();
         if (!command) {
             throw new Error('This item has no playable stream command');
         }
 
-        const episodeNumber = this.episodeNumber(item);
-        const response = await this.request(playlist, 'create_link', {
-            cmd: command,
-            type: this.selectedContentType() === 'series' ? 'vod' : this.selectedContentType(),
-            ...(episodeNumber === undefined ? {} : { series: episodeNumber }),
-        });
-        const streamUrl = String(response?.js?.cmd ?? response?.cmd ?? '').trim();
-        if (!streamUrl) {
-            throw new Error(response?.js?.error || 'The portal did not return a playback URL');
+        const episodeNumber = this.episodeNumber(playableItem);
+        let staticStreamUrl =
+            episodeNumber === undefined
+                ? resolveStalkerStaticPlaybackUrl(playableItem, command)
+                : null;
+
+        // Some Stalker portals put a five-second-ish `play_token` directly in
+        // every ITV catalog row even when both temporary-link flags are zero.
+        // The row is valid, but it can expire while the user browses. Refresh
+        // only tokenized ITV rows after the catalog has aged; ordinary static
+        // CDN commands and VOD/series playback keep the fast path.
+        if (
+            this.selectedContentType() === 'itv' &&
+            staticStreamUrl &&
+            refreshStaleItv &&
+            this.shouldRefreshItvPlayback(staticStreamUrl)
+        ) {
+            const refreshed = await this.refreshItvChannel(playableItem);
+            if (refreshed) {
+                playableItem = refreshed;
+                command = String(
+                    playableItem.cmd ??
+                        playableItem['url'] ??
+                        playableItem.id ??
+                        '',
+                ).trim();
+                staticStreamUrl = resolveStalkerStaticPlaybackUrl(
+                    playableItem,
+                    command,
+                );
+            }
+        }
+
+        let normalizedStreamUrl: string;
+        if (staticStreamUrl) {
+            // Ministra/Stalker rows normally contain a complete `cmd` and
+            // explicitly set both temporary-link flags to zero. Calling
+            // create_link for those rows is incorrect: several portals
+            // return a syntactically valid `play/live.php` URL with an empty
+            // `stream` query value, which can never play. Honor the portal's
+            // static-link decision and only mint when the row asks for it (or
+            // when the command is not independently playable).
+            // Catalog loading normally warms the session first, but ITV can
+            // also be opened from a persisted route before that request has
+            // completed. Warm same-host streams here so their MAC/token
+            // headers are present; keep this best-effort because a static CDN
+            // may be playable even while the portal handshake is offline.
+            if (!isCrossOriginStalkerStream(playlist, staticStreamUrl)) {
+                await this.authenticate(playlist).catch(() => undefined);
+            }
+            normalizedStreamUrl = staticStreamUrl;
+        } else {
+            const response = await this.request(playlist, 'create_link', {
+                cmd: command,
+                type:
+                    this.selectedContentType() === 'series'
+                        ? 'vod'
+                        : this.selectedContentType(),
+                disable_ad: '0',
+                download: '0',
+                JsHttpRequest: '1-xml',
+                ...(episodeNumber === undefined
+                    ? {}
+                    : { series: episodeNumber }),
+            });
+            const responseCommand = String(
+                response?.js?.cmd ?? response?.cmd ?? '',
+            ).trim();
+            if (!responseCommand) {
+                throw new Error(
+                    response?.js?.error ||
+                        'The portal did not return a playback URL',
+                );
+            }
+
+            normalizedStreamUrl = resolveStalkerPlaybackUrl(
+                playlist.portalUrl,
+                command,
+                responseCommand,
+            );
         }
 
         const effectivePlaylist = playlist;
-        const normalizedStreamUrl = this.normalizeStreamUrl(
-            streamUrl,
-            effectivePlaylist.portalUrl ?? playlist.portalUrl
-        );
         const headers = buildStalkerExternalPlaybackHeaders(
             effectivePlaylist,
             this.token,
-            normalizedStreamUrl
+            normalizedStreamUrl,
         );
         const crossOriginStream = isCrossOriginStalkerStream(
             effectivePlaylist,
-            normalizedStreamUrl
+            normalizedStreamUrl,
         );
         const portalOrigin = getStalkerPortalOrigin(effectivePlaylist);
-        const parentId = this.numericContentId(item);
+        const parentId = this.numericContentId(playableItem);
         const isEpisode = episodeNumber !== undefined;
 
         return {
             streamUrl: normalizedStreamUrl,
-            title: this.playbackTitle(item),
-            thumbnail: this.readString(item, 'cover', 'stream_icon', 'logo'),
+            title: this.playbackTitle(playableItem),
+            thumbnail: this.readString(
+                playableItem,
+                'cover',
+                'stream_icon',
+                'logo',
+            ),
             isLive: this.selectedContentType() === 'itv',
             userAgent:
                 headers['User-Agent'] ||
@@ -440,7 +577,9 @@ export class StalkerStore {
     private async loadContent(append = false): Promise<void> {
         const playlist = this.currentPlaylist();
         if (!playlist?.portalUrl || !playlist.macAddress) {
-            this.loadError.set('Stalker portal credentials are missing for this source.');
+            this.loadError.set(
+                'Stalker portal credentials are missing for this source.',
+            );
             return;
         }
 
@@ -471,51 +610,55 @@ export class StalkerStore {
     private async loadContentRequest(
         playlist: PlaylistMeta,
         append: boolean,
-        version: number
+        version: number,
     ): Promise<void> {
         await this.authenticate(playlist);
         const type = this.selectedContentType();
         const categories = await this.request(
             playlist,
             type === 'itv' ? 'get_genres' : 'get_categories',
-            { type }
+            { type },
         );
         const categoryRows = this.rowsFrom(categories).map((row) => ({
             category_id: String(row.id ?? row.category_id ?? '*'),
-            category_name: String(row.title ?? row['category_name'] ?? row.name ?? 'Uncategorized'),
+            category_name: String(
+                row.title ??
+                    row['category_name'] ??
+                    row.name ??
+                    'Uncategorized',
+            ),
             type,
             censored: Boolean(row['censored']),
         }));
 
         let response: StalkerResponse;
         if (type === 'itv') {
-            response = await this.request(playlist, 'get_all_channels', { type });
+            response = await this.request(playlist, 'get_all_channels', {
+                type,
+            });
             if (this.rowsFrom(response).length === 0) {
-                response = await this.request(
-                    playlist,
-                    'get_ordered_list',
-                    { type, p: 1, category: '*' }
-                );
+                response = await this.request(playlist, 'get_ordered_list', {
+                    type,
+                    p: 1,
+                    category: '*',
+                });
             }
         } else {
-            response = await this.request(
-                playlist,
-                'get_ordered_list',
-                {
-                    type,
-                    p: this.page,
-                    category: this.selectedCategoryId() ?? '*',
-                    ...(this.searchPhrase()
-                        ? { search: this.searchPhrase() }
-                        : {}),
-                }
-            );
+            response = await this.request(playlist, 'get_ordered_list', {
+                type,
+                p: this.page,
+                category: this.selectedCategoryId() ?? '*',
+                ...(this.searchPhrase() ? { search: this.searchPhrase() } : {}),
+            });
         }
 
         if (version !== this.requestVersion) return;
         const rows = this.rowsFrom(response);
         if (rows.length === 0) {
-            throw new Error(response?.js?.error || 'The Stalker portal returned no content.');
+            throw new Error(
+                response?.js?.error ||
+                    'The Stalker portal returned no content.',
+            );
         }
 
         this.getCategoryResource.set(categoryRows);
@@ -525,16 +668,19 @@ export class StalkerStore {
         this.totalItems.set(
             Number.isFinite(reportedTotal)
                 ? Math.max(reportedTotal, nextRows.length)
-                : nextRows.length
+                : nextRows.length,
         );
         this.getPaginatedContent.set(nextRows);
+        if (type === 'itv') {
+            this.itvLoadedAt = Date.now();
+        }
     }
 
     private request(
         playlist: PlaylistMeta,
         action: string,
         params: Record<string, string | number>,
-        token?: string
+        token?: string,
     ): Promise<StalkerResponse> {
         const requestToken =
             token ??
@@ -549,16 +695,16 @@ export class StalkerStore {
                     action !== 'get_profile' &&
                     isStalkerAuthorizationFailure(response)
                 ) {
-                    await this.authenticate(playlist);
+                    await this.authenticate(playlist, true);
                     return this.sendRequest(
                         playlist,
                         action,
                         params,
-                        this.currentTokenFor(playlist)
+                        this.currentTokenFor(playlist),
                     );
                 }
                 return response;
-            }
+            },
         );
     }
 
@@ -566,7 +712,7 @@ export class StalkerStore {
         playlist: PlaylistMeta,
         action: string,
         params: Record<string, string | number>,
-        token: string
+        token: string,
     ): Promise<StalkerResponse> {
         const portalUrl = playlist.portalUrl!.replace(/\/+$/, '');
         const url = portalUrl.endsWith('.php')
@@ -576,37 +722,81 @@ export class StalkerStore {
             this.data.sendIpcEvent(STALKER_REQUEST, {
                 url,
                 macAddress: playlist.macAddress,
-                serialNumber: playlist.stalkerSerialNumber || (playlist as any).serialNumber,
+                serialNumber:
+                    playlist.stalkerSerialNumber ||
+                    (playlist as any).serialNumber,
                 token,
                 params: { ...params, action },
-            })
+            }),
         );
     }
 
-    private rowsFrom(response: StalkerResponse | undefined): StalkerCatalogRow[] {
+    private rowsFrom(
+        response: StalkerResponse | undefined,
+    ): StalkerCatalogRow[] {
         const data = response?.js?.data;
         if (Array.isArray(data)) return data as StalkerCatalogRow[];
-        if (Array.isArray(response?.js)) return response.js as unknown as StalkerCatalogRow[];
+        if (Array.isArray(response?.js))
+            return response.js as unknown as StalkerCatalogRow[];
         return [];
     }
 
-    private async authenticate(playlist: PlaylistMeta): Promise<string> {
+    private async authenticate(
+        playlist: PlaylistMeta,
+        force = false,
+    ): Promise<string> {
         const key = `${playlist._id}:${this.playlistIdentity(playlist)}`;
         if (this.authenticationPromise && this.authenticationKey === key) {
             return this.authenticationPromise;
         }
 
+        // Playback and catalog requests share this in-memory session. A
+        // normal call must not perform a second handshake just because a
+        // player was opened after the catalog loaded; strict portals can
+        // invalidate the previous token when that happens. Only an explicit
+        // recovery path (or an authorization failure) may force a new one.
+        const cachedToken = this.currentTokenFor(playlist);
+        if (!force && cachedToken) {
+            return cachedToken;
+        }
+
+        if (force) {
+            this.token = '';
+            this.tokenPlaylistId = '';
+            this.tokenIdentity = '';
+        }
+
         this.authenticationKey = key;
         this.authenticationPromise = (async () => {
-            const auth = await this.request(playlist, 'handshake', { type: 'stb' }, '');
-            const token = String(auth?.js?.token ?? '');
-            if (!token) {
-                throw new Error(auth?.js?.error || 'Stalker authentication failed');
+            if (!playlist.portalUrl || !playlist.macAddress) {
+                throw new Error(
+                    'Stalker portal URL and MAC address are required',
+                );
             }
+
+            // Use the same complete handshake/profile flow as import and
+            // session repair. The old local handshake called get_profile with
+            // only `action`, which makes real Ministra portals return `js:false`
+            // and leaves every subsequent catalog request empty.
+            const auth = await this.authApi.authenticate(
+                playlist.portalUrl,
+                playlist.macAddress,
+                getStalkerPortalIdentityFromPlaylist(playlist),
+                {
+                    storedToken: force ? undefined : playlist.stalkerToken,
+                    credentials: {
+                        username: playlist.username,
+                        password: playlist.password,
+                    },
+                    skipProfileWhenReused:
+                        !force &&
+                        playlist.stalkerWatchdogTimeout !== undefined,
+                },
+            );
+            const token = auth.token;
             this.token = token;
             this.tokenPlaylistId = playlist._id;
             this.tokenIdentity = this.playlistIdentity(playlist);
-            await this.request(playlist, 'get_profile', {}, token);
             return token;
         })().finally(() => {
             this.authenticationPromise = null;
@@ -620,7 +810,9 @@ export class StalkerStore {
         return [
             playlist.portalUrl ?? '',
             playlist.macAddress ?? '',
-            playlist.stalkerSerialNumber ?? (playlist as any).serialNumber ?? '',
+            playlist.stalkerSerialNumber ??
+                (playlist as any).serialNumber ??
+                '',
         ]
             .map((value) => String(value).trim().toLowerCase())
             .join('|');
@@ -642,7 +834,7 @@ export class StalkerStore {
                           row.series_id ??
                           row.id ??
                           row.stream_id ??
-                          ''
+                          '',
                   );
         return raw.split(':')[0].trim();
     }
@@ -655,14 +847,17 @@ export class StalkerStore {
         return row ? this.portalMovieId(row) : '';
     }
 
-    private matchesEntity(row: StalkerCatalogRow, requestedId: string): boolean {
+    private matchesEntity(
+        row: StalkerCatalogRow,
+        requestedId: string,
+    ): boolean {
         const requested = this.portalMovieId(requestedId);
         return this.entityKey(row) === requested;
     }
 
     private isCurrentSeriesRequest(
         itemKey: string,
-        requestVersion: number
+        requestVersion: number,
     ): boolean {
         return (
             requestVersion === this.seriesRequestVersion &&
@@ -680,11 +875,11 @@ export class StalkerStore {
 
     private createSeriesDeepLinkItem(
         rows: StalkerCatalogRow[],
-        requestedId: string
+        requestedId: string,
     ): StalkerCatalogRow | null {
         const season = rows.find(
             (row) =>
-                this.matchesEntity(row, requestedId) && this.isSeasonRow(row)
+                this.matchesEntity(row, requestedId) && this.isSeasonRow(row),
         );
         if (!season) return null;
 
@@ -692,7 +887,7 @@ export class StalkerStore {
             season,
             'series_title',
             'series_name',
-            'o_name'
+            'o_name',
         );
         return {
             ...season,
@@ -713,7 +908,7 @@ export class StalkerStore {
 
     private createRegularSeriesEpisodes(
         item: StalkerCatalogRow,
-        season: StalkerCatalogRow
+        season: StalkerCatalogRow,
     ): StalkerCatalogRow[] | null {
         const rawEpisodes = season['series'];
         if (!Array.isArray(rawEpisodes)) {
@@ -733,7 +928,7 @@ export class StalkerStore {
                 const episodeNumber = Number(
                     source['episode_num'] ??
                         source['series_number'] ??
-                        rawEpisode
+                        rawEpisode,
                 );
                 return { source, episodeNumber };
             })
@@ -746,8 +941,12 @@ export class StalkerStore {
                     String(source['name'] ?? source['title'] ?? '').trim() ||
                     `Episode ${episodeNumber}`,
                 o_name:
-                    String(source['o_name'] ?? source['name'] ?? source['title'] ?? '').trim() ||
-                    `Episode ${episodeNumber}`,
+                    String(
+                        source['o_name'] ??
+                            source['name'] ??
+                            source['title'] ??
+                            '',
+                    ).trim() || `Episode ${episodeNumber}`,
                 cmd: command,
                 series_title: String(item['o_name'] ?? item.name ?? '').trim(),
                 series_id: parentId,
@@ -806,10 +1005,10 @@ export class StalkerStore {
 
     private episodeTrackingId(
         row: StalkerCatalogRow,
-        episodeNumber: number | undefined
+        episodeNumber: number | undefined,
     ): number {
         return this.stableNumericId(
-            `${this.portalMovieId(row)}:${this.seasonNumber(row) ?? 0}:${episodeNumber ?? 0}`
+            `${this.portalMovieId(row)}:${this.seasonNumber(row) ?? 0}:${episodeNumber ?? 0}`,
         );
     }
 
@@ -824,15 +1023,15 @@ export class StalkerStore {
     private filterRowsForParent(
         rows: StalkerCatalogRow[],
         item: StalkerCatalogRow,
-        seasonKey?: string
+        seasonKey?: string,
     ): StalkerCatalogRow[] {
         const parentId = this.portalMovieId(item);
         return rows.filter((row) => {
             const rowParent = String(
-                row['movie_id'] ?? row['series_id'] ?? row['video_id'] ?? ''
+                row['movie_id'] ?? row['series_id'] ?? row['video_id'] ?? '',
             ).trim();
             const rowSeason = String(
-                row['season_id'] ?? row['season'] ?? ''
+                row['season_id'] ?? row['season'] ?? '',
             ).trim();
             if (rowParent && this.portalMovieId(rowParent) !== parentId) {
                 return false;
@@ -844,18 +1043,22 @@ export class StalkerStore {
         });
     }
 
-    private normalizeStreamUrl(streamUrl: string, portalUrl: string): string {
-        const trimmed = streamUrl.trim();
-        const commandPrefix = trimmed.indexOf(' ');
-        const candidate =
-            commandPrefix > 0
-                ? trimmed.slice(commandPrefix + 1).trim()
-                : trimmed;
-        if (/^https?:\/\//i.test(candidate)) return candidate;
+    private shouldRefreshItvPlayback(streamUrl: string): boolean {
+        if (Date.now() - this.itvLoadedAt < 3500) {
+            return false;
+        }
+
         try {
-            return new URL(candidate, portalUrl).toString();
+            const query = new URL(streamUrl).searchParams;
+            return [
+                'play_token',
+                'playtoken',
+                'token',
+                'expires',
+                'expire',
+            ].some((key) => query.has(key));
         } catch {
-            return candidate;
+            return false;
         }
     }
 

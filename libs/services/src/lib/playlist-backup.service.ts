@@ -11,7 +11,6 @@ import {
     Playlist,
     PlaylistBackupEntry,
     PlaylistBackupManifestV1,
-    PlaylistBackupSettings,
     PLAYLIST_BACKUP_KIND,
     PLAYLIST_BACKUP_VERSION,
     XtreamBackupCategoryType,

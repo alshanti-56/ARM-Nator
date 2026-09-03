@@ -15,23 +15,24 @@
     flex-direction: column;
     overflow: hidden;
     container: category-content / inline-size;
+    --catalog-cover-grid-min-width: var(--cover-grid-min-width, 148px);
+    --catalog-cover-gap: var(--cover-gap, 16px);
 }
 
 // ─── Sticky header bar — styled like a widget header ─────────────────────────
 .category-content-header {
     @include panel.standard-panel-header($sticky: true);
-    display: grid;
-    grid-template-columns: minmax(0, 1fr) minmax(0, auto) auto auto;
-    grid-template-areas: 'meta refinements refine paginator';
+    display: flex;
+    flex-wrap: wrap;
     align-items: center;
-    justify-content: stretch;
-    gap: 8px 12px;
+    gap: clamp(6px, 0.8cqi, 10px) clamp(8px, 1.2cqi, 14px);
 }
 
 // ─── Category meta (title + subtitle) ────────────────────────────────────────
 .category-meta {
     @include panel.standard-panel-meta();
-    grid-area: meta;
+    flex: 1 1 clamp(180px, 22cqi, 340px);
+    min-width: min(100%, 180px);
     flex-direction: column;
     align-items: flex-start;
     gap: 2px;
@@ -51,15 +52,13 @@
 
 // ─── Refine controls — show current sort/filter state compactly ──────────────
 .active-refinements {
-    grid-area: refinements;
-    justify-self: end;
     display: flex;
     align-items: center;
     justify-content: flex-end;
     gap: 6px;
-    flex: 0 1 auto;
+    flex: 1 1 clamp(160px, 24cqi, 340px);
     min-width: 0;
-    max-width: min(430px, 36cqi);
+    max-width: min(430px, 38cqi);
     flex-wrap: wrap;
     app-region: no-drag;
 }
@@ -126,8 +125,7 @@
 }
 
 .refine-action {
-    grid-area: refine;
-    justify-self: end;
+    flex: 0 1 auto;
     padding: 0 12px;
     background: transparent;
     border: 1px solid rgba(255, 255, 255, 0.08);
@@ -167,11 +165,11 @@
 
 // ─── Paginator — flush right, no ghost background ────────────────────────────
 mat-paginator {
-    grid-area: paginator;
-    justify-self: end;
+    flex: 1 1 clamp(240px, 30cqi, 360px);
+    min-width: min(100%, 240px);
     max-width: 100%;
-    background: transparent !important;
     flex-shrink: 0;
+    background: transparent !important;
     // Shrink paginator text to fit header height comfortably
     --mat-paginator-container-size: 40px;
     --mat-paginator-enabled-icon-color: var(
@@ -179,21 +177,33 @@ mat-paginator {
         var(--mat-sys-on-surface-variant)
     );
     --mat-paginator-disabled-icon-color: rgba(255, 255, 255, 0.18);
+
+    ::ng-deep .mat-mdc-paginator-container {
+        min-width: 0;
+        padding: 0;
+        flex-wrap: wrap;
+        justify-content: flex-end;
+    }
+
+    ::ng-deep .mat-mdc-paginator-page-size,
+    ::ng-deep .mat-mdc-paginator-range-label {
+        margin-inline: 0 8px;
+    }
 }
 
-@container category-content (max-width: 920px) {
+@container category-content (max-width: 560px) {
     .category-content-header {
-        grid-template-columns: minmax(0, 1fr) auto auto;
-        grid-template-areas:
-            'meta paginator paginator'
-            'refinements refinements refine';
-        padding: 8px 16px;
-        min-height: unset;
+        gap: 6px 8px;
+        padding-inline: 12px;
+    }
+
+    .category-meta {
+        flex-basis: 100%;
+        min-width: 0;
     }
 
     .active-refinements {
-        justify-self: stretch;
-        flex: 1 1 auto;
+        flex: 1 1 0;
         justify-content: flex-start;
         max-width: none;
     }
@@ -202,38 +212,23 @@ mat-paginator {
         max-width: min(220px, 100%);
     }
 
-    .refine-action {
-        justify-self: end;
+    mat-paginator {
+        flex-basis: 100%;
+        justify-content: flex-start;
     }
 }
 
-@container category-content (max-width: 640px) {
-    .category-content-header {
-        grid-template-columns: minmax(0, 1fr) auto;
-        grid-template-areas:
-            'meta meta'
-            'refinements refine'
-            'paginator paginator';
-    }
-
-    .category-meta {
-        width: 100%;
-    }
-
-    .active-refinements {
-        width: 100%;
-    }
-
-    .refinement-chip {
-        max-width: min(220px, calc(100cqi - 160px));
-    }
-
+@container category-content (max-width: 420px) {
     .refine-action {
-        justify-self: end;
+        padding-inline: 9px;
+
+        > span:not(.refine-count) {
+            display: none;
+        }
     }
 
-    mat-paginator {
-        justify-self: start;
+    mat-paginator ::ng-deep .mat-mdc-paginator-container {
+        justify-content: flex-start;
     }
 }
 
@@ -241,9 +236,18 @@ mat-paginator {
 app-grid-list {
     flex: 1;
     min-height: 0;
+    min-width: 0;
     overflow-y: auto;
-    padding: 16px 20px 20px;
+    overflow-x: hidden;
+    padding: clamp(12px, 1.6cqi, 16px) clamp(12px, 2.4cqi, 20px)
+        clamp(16px, 2.4cqi, 20px);
     display: block;
+    --cover-grid-min-width: clamp(
+        calc(var(--catalog-cover-grid-min-width) * 0.78),
+        20cqi,
+        var(--catalog-cover-grid-min-width)
+    );
+    --cover-gap: clamp(10px, 1.6cqi, var(--catalog-cover-gap));
     scrollbar-width: thin;
     scrollbar-color: color-mix(in srgb, var(--app-muted-color) 55%, transparent)
         transparent;
@@ -261,6 +265,6 @@ app-grid-list {
     }
 
     app-grid-list {
-        padding: 12px 16px 16px;
+        padding-inline: clamp(10px, 2.5vw, 16px);
     }
 }

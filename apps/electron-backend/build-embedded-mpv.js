@@ -21,6 +21,7 @@ const nativeRoot = path.join(
 const outputDir = path.join(nativeRoot, 'build', 'Release');
 const outputLibDir = path.join(outputDir, 'lib');
 const outputFile = path.join(outputDir, 'embedded_mpv.node');
+const outputFfmpegFile = path.join(outputDir, 'ffmpeg');
 const manifestFile = path.join(outputDir, 'embedded-mpv-runtime.json');
 const unavailableMarkerFile = path.join(
     outputDir,
@@ -44,7 +45,7 @@ function log(message) {
 }
 
 function cleanOutput() {
-    for (const artifact of [outputFile, manifestFile]) {
+    for (const artifact of [outputFile, outputFfmpegFile, manifestFile]) {
         fs.rmSync(artifact, { force: true });
     }
     fs.rmSync(outputLibDir, { recursive: true, force: true });
@@ -82,14 +83,17 @@ function readRuntimeManifest(runtimeRoot) {
 function resolveRuntime() {
     const vendoredIncludeDir = path.join(vendoredRuntimeRoot, 'include');
     const vendoredLibDir = path.join(vendoredRuntimeRoot, 'lib');
+    const vendoredFfmpegPath = path.join(vendoredRuntimeRoot, 'bin', 'ffmpeg');
     if (
         fs.existsSync(path.join(vendoredIncludeDir, 'mpv', 'client.h')) &&
-        findLibMpv(vendoredLibDir)
+        findLibMpv(vendoredLibDir) &&
+        fs.existsSync(vendoredFfmpegPath)
     ) {
         return {
             origin: 'vendored-lgpl',
             includeDir: vendoredIncludeDir,
             libDir: vendoredLibDir,
+            ffmpegPath: vendoredFfmpegPath,
             manifest: readRuntimeManifest(vendoredRuntimeRoot)
         };
     }
@@ -127,12 +131,7 @@ function runNodeGyp(command, env) {
 function runNativeTarget(target, env) {
     const result = spawnSync(
         '/usr/bin/make',
-        [
-            '-C',
-            path.join(nativeRoot, 'build'),
-            'BUILDTYPE=Release',
-            target
-        ],
+        ['-C', path.join(nativeRoot, 'build'), 'BUILDTYPE=Release', target],
         {
             cwd: workspaceRoot,
             env,
@@ -173,6 +172,7 @@ function main() {
     try {
         const runtimeManifest = copyRuntimeToNativeBuild({
             runtimeLibDir: runtime.libDir,
+            runtimeFfmpegPath: runtime.ffmpegPath,
             outputLibDir,
             runtimeOrigin: runtime.origin,
             runtimeManifest: {
@@ -217,6 +217,7 @@ function main() {
         patchBinaryForBundledRuntime(outputFile, outputLibDir);
         const linkErrors = validateNoForbiddenRuntimeLinks([
             outputFile,
+            outputFfmpegFile,
             ...runtimeManifest.dylibs.map((name) =>
                 path.join(outputLibDir, name)
             )
