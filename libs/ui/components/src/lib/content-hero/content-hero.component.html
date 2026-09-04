@@ -114,7 +114,7 @@
                     <img
                         class="poster__image"
                         [src]="posterUrl()"
-                        (error)="onPosterError()"
+                        (error)="onPosterError($event)"
                         alt="Poster"
                     />
                 } @else {

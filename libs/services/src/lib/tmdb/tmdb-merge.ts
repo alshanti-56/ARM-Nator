@@ -182,7 +182,7 @@ export function mergeSerieInfoWithTmdb(
 
 export function mergeStalkerInfoWithTmdb(
     info: StalkerVodInfo,
-    details: TmdbTvDetails
+    details: TmdbDetails
 ): StalkerVodInfo {
     const merged = mergeSerieInfoWithTmdb(
         {
@@ -206,7 +206,7 @@ export function mergeStalkerInfoWithTmdb(
             tmdb_directors: info.tmdb_directors,
             tmdb_status: info.tmdb_status,
         },
-        details
+        details as TmdbTvDetails
     );
 
     return {
@@ -216,7 +216,7 @@ export function mergeStalkerInfoWithTmdb(
         director: merged.director,
         genre: merged.genre,
         releasedate: merged.releaseDate,
-        rating_imdb: merged.rating,
+        rating_imdb: String(merged.rating ?? info.rating_imdb ?? ''),
         movie_image: merged.cover,
         tmdb_id: merged.tmdb_id,
         ...(merged.backdrop_path[0]

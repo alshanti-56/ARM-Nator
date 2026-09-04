@@ -16,6 +16,68 @@
                         {{ contentLabel() }} · {{ contentCountLabel() }}
                     </span>
                 </div>
+                <div
+                    class="category-header-actions"
+                    aria-label="Content view"
+                >
+                    <button
+                        type="button"
+                        mat-button
+                        class="refine-action"
+                        [class.refine-action-active]="sortMode() !== 'server'"
+                        [matMenuTriggerFor]="refineMenu"
+                        [matTooltip]="'WORKSPACE.REFINE_ACTION' | translate"
+                        [attr.aria-label]="'WORKSPACE.REFINE_ACTION' | translate"
+                    >
+                        <mat-icon>tune</mat-icon>
+                        <span>{{ 'WORKSPACE.REFINE_ACTION' | translate }}</span>
+                    </button>
+                    <mat-menu #refineMenu="matMenu" class="refine-menu">
+                        <div class="refine-menu-section-title">
+                            {{ 'WORKSPACE.REFINE_SORT_SECTION' | translate }}
+                        </div>
+                        <button mat-menu-item (click)="setSortMode('server')">
+                            <span>{{ 'WORKSPACE.SORT_SERVER' | translate }}</span>
+                            @if (sortMode() === 'server') {
+                                <mat-icon>check</mat-icon>
+                            }
+                        </button>
+                        <button mat-menu-item (click)="setSortMode('name-asc')">
+                            <span>{{ 'WORKSPACE.SORT_NAME_ASC' | translate }}</span>
+                            @if (sortMode() === 'name-asc') {
+                                <mat-icon>check</mat-icon>
+                            }
+                        </button>
+                        <button mat-menu-item (click)="setSortMode('name-desc')">
+                            <span>{{ 'WORKSPACE.SORT_NAME_DESC' | translate }}</span>
+                            @if (sortMode() === 'name-desc') {
+                                <mat-icon>check</mat-icon>
+                            }
+                        </button>
+                    </mat-menu>
+                    <button
+                        mat-icon-button
+                        type="button"
+                        [class.is-active]="viewMode() === 'grid'"
+                        [attr.aria-pressed]="viewMode() === 'grid'"
+                        matTooltip="Grid view"
+                        aria-label="Grid view"
+                        (click)="setViewMode('grid')"
+                    >
+                        <mat-icon>grid_view</mat-icon>
+                    </button>
+                    <button
+                        mat-icon-button
+                        type="button"
+                        [class.is-active]="viewMode() === 'list'"
+                        [attr.aria-pressed]="viewMode() === 'list'"
+                        matTooltip="List view"
+                        aria-label="List view"
+                        (click)="setViewMode('list')"
+                    >
+                        <mat-icon>view_list</mat-icon>
+                    </button>
+                </div>
             </header>
 
             @if (loading() && gridItems().length === 0) {
@@ -33,16 +95,33 @@
                     <span>{{ error }}</span>
                 </div>
             } @else {
-                <app-grid-list
-                    class="stalker-grid app-scrollbar"
-                    [isLoading]="false"
-                    [items]="gridItems()"
-                    [searchTerm]="search()"
-                    [variant]="contentType() === 'itv' ? 'logo' : 'poster'"
-                    [type]="contentType()"
-                    [showPaginator]="false"
-                    (itemClicked)="playGridItem($event)"
-                />
+                @if (viewMode() === 'grid') {
+                    <app-grid-list
+                        class="stalker-grid app-scrollbar"
+                        [isLoading]="false"
+                        [items]="gridItems()"
+                        [searchTerm]="search()"
+                        [variant]="contentType() === 'itv' ? 'logo' : 'poster'"
+                        [type]="contentType()"
+                        [showPaginator]="false"
+                        (itemClicked)="playGridItem($event)"
+                    />
+                } @else {
+                    <div class="stalker-list app-scrollbar" role="list">
+                        @for (item of visibleChannels(); track item.id) {
+                            <app-channel-list-item
+                                role="listitem"
+                                [name]="listTitle(item)"
+                                [logo]="listLogo(item)"
+                                (clicked)="play(item)"
+                            />
+                        } @empty {
+                            <div class="stalker-list-empty">
+                                No items found
+                            </div>
+                        }
+                    </div>
+                }
                 @if (hasMoreVisibleChannels()) {
                     <button
                         class="load-more"

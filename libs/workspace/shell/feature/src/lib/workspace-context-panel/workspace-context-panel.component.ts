@@ -127,6 +127,51 @@ export class WorkspaceContextPanelComponent {
                 .filter((category) => String(category.category_id) !== '*'),
         ];
     });
+    readonly stalkerCategoryItemCounts = computed(() => {
+        const counts = new Map<number, number>();
+        const allCount = this.stalkerStore.totalContentItems();
+        const selectedCategory = this.stalkerStore.selectedCategoryId() ?? '*';
+
+        for (const category of this.stalkerStore.getCategoryResource()) {
+            const categoryId = Number(category.category_id);
+            const reportedCount = Number(category.count);
+            if (Number.isFinite(categoryId) && Number.isFinite(reportedCount)) {
+                counts.set(categoryId, Math.max(0, reportedCount));
+            }
+        }
+
+        if (selectedCategory === '*') {
+            // Some portals omit total_items for the unfiltered request. Once
+            // per-category totals arrive, their sum is a better all-items
+            // count than the first page length.
+            const categoryTotal = Array.from(counts.values()).reduce(
+                (total, count) => total + count,
+                0,
+            );
+            const resolvedAllCount = Math.max(allCount, categoryTotal);
+            if (resolvedAllCount > 0) {
+                // Number('*') is NaN, which is a valid Map key and is how the
+                // category view identifies the synthetic "All" row.
+                counts.set(Number.NaN, resolvedAllCount);
+            }
+        } else if (allCount > 0 && Number.isFinite(Number(selectedCategory))) {
+            counts.set(Number(selectedCategory), allCount);
+        }
+
+        // ITV portals return the complete channel list, so these counts are
+        // exact. For paged VOD/series responses this still gives useful
+        // counts for categories represented on the loaded pages.
+        for (const item of this.stalkerStore.getPaginatedContent()) {
+            const categoryId = Number(
+                item.tv_genre_id ?? item.category_id ?? item['genre_id'],
+            );
+            if (Number.isFinite(categoryId) && !counts.has(categoryId)) {
+                counts.set(categoryId, (counts.get(categoryId) ?? 0) + 1);
+            }
+        }
+
+        return counts;
+    });
     readonly stalkerSelectedCategoryId = computed(
         () => this.stalkerStore.selectedCategoryId() ?? '*'
     );

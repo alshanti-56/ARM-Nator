@@ -19,7 +19,10 @@ import {
   PLAYER_FACADE,
   isManagedExternalPlayer,
 } from "@arm-nator/player/core";
-import type { BrowserViewBounds } from "@arm-nator/shared/interfaces";
+import type {
+  BrowserViewBounds,
+  PlayerEngineAvailability,
+} from "@arm-nator/shared/interfaces";
 import { VideoPlayer } from "@arm-nator/shared/interfaces";
 import type { PlaybackFallbackRequest } from "../playback-diagnostics/playback-diagnostics.model";
 import type { SeriesPlaybackNavigation } from "../portal-inline-player/series-playback-navigation";
@@ -65,6 +68,7 @@ export function getWorkspacePlayerEngineAvailability(
   engine: VideoPlayer,
   embeddedMpvSupport: WorkspaceNativeSupport | null,
   ksPlayerMetalSupport: WorkspaceNativeSupport | null,
+  externalEngineAvailability: readonly PlayerEngineAvailability[] | null = null,
 ): WorkspacePlayerEngineAvailability {
   if (engine === VideoPlayer.EmbeddedMpv) {
     const available = embeddedMpvSupport?.supported === true;
@@ -85,6 +89,28 @@ export function getWorkspacePlayerEngineAvailability(
       detail: available
         ? (ksPlayerMetalSupport?.runtimePath ?? "Available")
         : (ksPlayerMetalSupport?.reason ?? "Checking KS Player support"),
+    };
+  }
+
+  if (isManagedExternalPlayer(engine)) {
+    if (externalEngineAvailability === null) {
+      return {
+        id: engine,
+        available: true,
+        detail: "Checking external player availability",
+      };
+    }
+
+    const availability = externalEngineAvailability.find(
+      (item) => item.engine === engine,
+    );
+    return {
+      id: engine,
+      available: availability?.available === true,
+      detail:
+        availability?.path ??
+        availability?.reason ??
+        "Optional external player is unavailable",
     };
   }
 
@@ -163,6 +189,9 @@ export class WorkspacePlayerHostComponent {
   private readonly ksPlayerMetalSupport = signal<WorkspaceNativeSupport | null>(
     null,
   );
+  private readonly externalEngineAvailability = signal<
+    readonly PlayerEngineAvailability[] | null
+  >(null);
   private readonly metalPlaybackFailure = signal<string | null>(null);
 
   readonly state = inject(WorkspacePlayerStateService);
@@ -174,6 +203,7 @@ export class WorkspacePlayerHostComponent {
         engine.id,
         this.embeddedMpvSupport(),
         this.ksPlayerMetalSupport(),
+        this.externalEngineAvailability(),
       ),
     })),
   );
@@ -255,6 +285,7 @@ export class WorkspacePlayerHostComponent {
 
   constructor() {
     this.loadNativeEngineSupport();
+    this.loadExternalEngineAvailability();
   }
 
   isEngineActive(engine: VideoPlayer): boolean {
@@ -274,10 +305,14 @@ export class WorkspacePlayerHostComponent {
     }
     this.metalPlaybackFailure.set(null);
     if (isManagedExternalPlayer(engine)) {
-      await this.player.openExternalPlayback(
-        playback,
-        engine === VideoPlayer.VLC ? "vlc" : "mpv",
-      );
+      try {
+        await this.player.openExternalPlayback(
+          playback,
+          engine === VideoPlayer.VLC ? "vlc" : "mpv",
+        );
+      } catch (error) {
+        this.markExternalEngineUnavailable(engine, this.getErrorMessage(error));
+      }
       this.state.close();
       return;
     }
@@ -317,7 +352,39 @@ export class WorkspacePlayerHostComponent {
       engine,
       this.embeddedMpvSupport(),
       this.ksPlayerMetalSupport(),
+      this.externalEngineAvailability(),
     );
+  }
+
+  private loadExternalEngineAvailability(): void {
+    const electron =
+      typeof window === "undefined" ? undefined : window.electron;
+    if (typeof electron?.getPlayerEngineAvailability !== "function") {
+      this.externalEngineAvailability.set([]);
+      return;
+    }
+
+    void electron
+      .getPlayerEngineAvailability()
+      .then((availability) => this.externalEngineAvailability.set(availability))
+      .catch(() => this.externalEngineAvailability.set([]));
+  }
+
+  private markExternalEngineUnavailable(
+    engine: VideoPlayer,
+    reason: string,
+  ): void {
+    this.externalEngineAvailability.update((current) => {
+      const next = current ? [...current] : [];
+      const existing = next.find((item) => item.engine === engine);
+      if (existing) {
+        existing.available = false;
+        existing.reason = reason;
+      } else {
+        next.push({ engine, available: false, reason });
+      }
+      return next;
+    });
   }
 
   private loadNativeEngineSupport(): void {

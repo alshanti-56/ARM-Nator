@@ -114,9 +114,31 @@
                     </button>
                     <mat-menu #refineMenu="matMenu" class="refine-menu">
                         @if (canSortContent()) {
-                            <div class="refine-menu-section-title">
-                                {{ 'WORKSPACE.REFINE_SORT_SECTION' | translate }}
-                            </div>
+                            <section class="refine-menu-section">
+                                <button
+                                    type="button"
+                                    class="refine-menu-section-toggle"
+                                    (click)="$event.stopPropagation(); toggleRefineSection('sort')"
+                                    [attr.aria-expanded]="sortSectionExpanded()"
+                                >
+                                    <mat-icon>sort</mat-icon>
+                                    <span class="refine-menu-section-label">
+                                        {{ 'WORKSPACE.REFINE_SORT_SECTION' | translate }}
+                                    </span>
+                                    <span
+                                        class="refine-menu-section-value refine-menu-section-value-active"
+                                    >
+                                        {{ activeSortLabelKey() | translate }}
+                                    </span>
+                                    <mat-icon class="refine-menu-section-chevron">
+                                        {{ sortSectionExpanded() ? 'expand_less' : 'expand_more' }}
+                                    </mat-icon>
+                                </button>
+                                <div
+                                    class="refine-menu-section-content"
+                                    [class.refine-menu-section-content-expanded]="sortSectionExpanded()"
+                                >
+                                    <div class="refine-menu-section-content-inner">
                             <button
                                 mat-menu-item
                                 (click)="setContentSortMode('date-desc')"
@@ -206,17 +228,44 @@
                                     }
                                 </button>
                             }
+                                    </div>
+                                </div>
+                            </section>
+                        }
+                        @if (canFilterByRating() || canFilterByGenre() || canFilterByYear()) {
+                            <div class="refine-menu-filter-group-label">
+                                {{ 'WORKSPACE.REFINE_FILTERS_GROUP' | translate }}
+                            </div>
                         }
                         @if (canFilterByRating()) {
-                            @if (canSortContent()) {
-                                <div class="refine-menu-divider"></div>
-                            }
-                            <div class="refine-menu-section-title">
-                                {{
-                                    'WORKSPACE.REFINE_RATING_SECTION'
-                                        | translate
-                                }}
-                            </div>
+                            <section class="refine-menu-section">
+                                <button
+                                    type="button"
+                                    class="refine-menu-section-toggle"
+                                    (click)="$event.stopPropagation(); toggleRefineSection('rating')"
+                                    [attr.aria-expanded]="ratingSectionExpanded()"
+                                >
+                                    <mat-icon>star</mat-icon>
+                                    <span class="refine-menu-section-label">
+                                        {{ 'WORKSPACE.REFINE_RATING_SECTION' | translate }}
+                                    </span>
+                                    <span
+                                        class="refine-menu-section-value"
+                                        [class.refine-menu-section-value-active]="minRating() !== null"
+                                    >
+                                        @if (minRating(); as rating) {
+                                            {{ rating }}.0+
+                                        }
+                                    </span>
+                                    <mat-icon class="refine-menu-section-chevron">
+                                        {{ ratingSectionExpanded() ? 'expand_less' : 'expand_more' }}
+                                    </mat-icon>
+                                </button>
+                                <div
+                                    class="refine-menu-section-content"
+                                    [class.refine-menu-section-content-expanded]="ratingSectionExpanded()"
+                                >
+                                    <div class="refine-menu-section-content-inner">
                             <button mat-menu-item (click)="setMinRating(null)">
                                 <span>{{
                                     'WORKSPACE.FILTER_RATING_ANY' | translate
@@ -238,13 +287,40 @@
                                         <mat-icon>check</mat-icon>
                                     }
                                 </button>
-                            }
+                                }
+                                    </div>
+                                </div>
+                            </section>
                         }
                         @if (canFilterByGenre()) {
-                            <div class="refine-menu-divider"></div>
-                            <div class="refine-menu-section-title">
-                                {{ 'WORKSPACE.REFINE_GENRE_SECTION' | translate }}
-                            </div>
+                            <section class="refine-menu-section">
+                                <button
+                                    type="button"
+                                    class="refine-menu-section-toggle"
+                                    (click)="$event.stopPropagation(); toggleRefineSection('genre')"
+                                    [attr.aria-expanded]="genreSectionExpanded()"
+                                >
+                                    <mat-icon>category</mat-icon>
+                                    <span class="refine-menu-section-label">
+                                        {{ 'WORKSPACE.REFINE_GENRE_SECTION' | translate }}
+                                    </span>
+                                    <span
+                                        class="refine-menu-section-value"
+                                        [class.refine-menu-section-value-active]="genreFilter() !== null"
+                                    >
+                                        @if (genreFilter(); as genre) {
+                                            {{ genre }}
+                                        }
+                                    </span>
+                                    <mat-icon class="refine-menu-section-chevron">
+                                        {{ genreSectionExpanded() ? 'expand_less' : 'expand_more' }}
+                                    </mat-icon>
+                                </button>
+                                <div
+                                    class="refine-menu-section-content"
+                                    [class.refine-menu-section-content-expanded]="genreSectionExpanded()"
+                                >
+                                    <div class="refine-menu-section-content-inner">
                             <button mat-menu-item (click)="setGenreFilter(null)">
                                 <span>{{ 'WORKSPACE.FILTER_GENRE_ANY' | translate }}</span>
                                 @if (genreFilter() === null) {
@@ -258,27 +334,76 @@
                                         <mat-icon>check</mat-icon>
                                     }
                                 </button>
-                            }
+                                }
+                                    </div>
+                                </div>
+                            </section>
                         }
                         @if (canFilterByYear()) {
-                            <div class="refine-menu-divider"></div>
-                            <div class="refine-menu-section-title">
-                                {{ 'WORKSPACE.REFINE_YEAR_SECTION' | translate }}
-                            </div>
+                            <section class="refine-menu-section">
+                                <button
+                                    type="button"
+                                    class="refine-menu-section-toggle"
+                                    (click)="$event.stopPropagation(); toggleRefineSection('year')"
+                                    [attr.aria-expanded]="yearSectionExpanded()"
+                                >
+                                    <mat-icon>calendar_today</mat-icon>
+                                    <span class="refine-menu-section-label">
+                                        {{ 'WORKSPACE.REFINE_YEAR_SECTION' | translate }}
+                                    </span>
+                                    <span
+                                        class="refine-menu-section-value"
+                                        [class.refine-menu-section-value-active]="yearFilter() !== null"
+                                    >
+                                        @if (yearFilter(); as year) {
+                                            {{ year }}
+                                        }
+                                    </span>
+                                    <mat-icon class="refine-menu-section-chevron">
+                                        {{ yearSectionExpanded() ? 'expand_less' : 'expand_more' }}
+                                    </mat-icon>
+                                </button>
+                                <div
+                                    class="refine-menu-section-content"
+                                    [class.refine-menu-section-content-expanded]="yearSectionExpanded()"
+                                >
+                                    <div class="refine-menu-section-content-inner">
                             <button mat-menu-item (click)="setYearFilter(null)">
                                 <span>{{ 'WORKSPACE.FILTER_YEAR_ANY' | translate }}</span>
                                 @if (yearFilter() === null) {
                                     <mat-icon>check</mat-icon>
                                 }
                             </button>
-                            @for (year of availableYears(); track year) {
-                                <button mat-menu-item (click)="setYearFilter(year)">
-                                    <span>{{ year }}</span>
-                                    @if (yearFilter() === year) {
-                                        <mat-icon>check</mat-icon>
-                                    }
+                            <div
+                                class="refine-year-input-row"
+                                (click)="$event.stopPropagation()"
+                            >
+                                <label for="refine-year-input">
+                                    {{ 'WORKSPACE.FILTER_YEAR_LABEL' | translate }}
+                                </label>
+                                <input
+                                    id="refine-year-input"
+                                    type="text"
+                                    inputmode="numeric"
+                                    maxlength="4"
+                                    autocomplete="off"
+                                    [value]="yearInput() || (yearFilter() ?? '')"
+                                    [placeholder]="'WORKSPACE.FILTER_YEAR_PLACEHOLDER' | translate"
+                                    [attr.aria-label]="'WORKSPACE.FILTER_YEAR_LABEL' | translate"
+                                    (input)="onYearInput($event)"
+                                    (keydown.enter)="applyYearFilter()"
+                                />
+                                <button
+                                    type="button"
+                                    mat-button
+                                    (click)="applyYearFilter()"
+                                >
+                                    {{ 'WORKSPACE.FILTER_YEAR_APPLY' | translate }}
                                 </button>
-                            }
+                            </div>
+                                    </div>
+                                </div>
+                            </section>
                         }
                     </mat-menu>
                 }

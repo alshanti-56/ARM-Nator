@@ -4,6 +4,7 @@ import { VideoPlayer } from "@arm-nator/shared/interfaces";
 import {
   getAvailablePlayerEngines,
   getPlayerEngine,
+  isBundledPlayerEngine,
 } from "./player-engine.registry";
 
 function playerIds(
@@ -59,4 +60,11 @@ test("keeps web and managed external engine ordering unchanged", () => {
       VideoPlayer.VLC,
     ],
   );
+});
+
+test("identifies bundled engines separately from optional external players", () => {
+  assert.equal(isBundledPlayerEngine(VideoPlayer.EmbeddedMpv), true);
+  assert.equal(isBundledPlayerEngine(VideoPlayer.KsPlayer), true);
+  assert.equal(isBundledPlayerEngine(VideoPlayer.MPV), false);
+  assert.equal(isBundledPlayerEngine(VideoPlayer.VLC), false);
 });

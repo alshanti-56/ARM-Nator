@@ -97,3 +97,9 @@ export function isInlinePlayer(player: VideoPlayer): boolean {
 export function isManagedExternalPlayer(player: VideoPlayer): boolean {
   return getPlayerEngine(player).kind === "managed-external";
 }
+
+/** Bundled native runtimes shipped with the desktop application. */
+export function isBundledPlayerEngine(player: VideoPlayer): boolean {
+  const kind = getPlayerEngine(player).kind;
+  return kind === "embedded-native" || kind === "ksplayer-metal";
+}

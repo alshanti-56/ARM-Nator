@@ -90,6 +90,22 @@ export class PlaylistItemComponent implements OnInit {
     }
 
     private async checkPortalStatus() {
+        if (this.sourceType === 'stalker') {
+            if (!this.item.portalUrl || !this.item.macAddress) {
+                return;
+            }
+            this.portalStatus =
+                await this.portalStatusService.checkStalkerPortalStatus(
+                    this.item.portalUrl,
+                    this.item.macAddress,
+                    {
+                        token: this.item.stalkerToken,
+                        serialNumber: this.item.stalkerSerialNumber,
+                    }
+                );
+            return;
+        }
+
         if (this.item.serverUrl && this.item.username && this.item.password) {
             this.portalStatus = await this.portalStatusService.checkPortalStatus(
                 this.item.serverUrl,

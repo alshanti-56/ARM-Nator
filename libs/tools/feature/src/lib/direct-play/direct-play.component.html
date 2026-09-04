@@ -1,4 +1,8 @@
-<section class="direct-play-page">
+<section
+  class="direct-play-page"
+  [class.direct-play-page--compact]="layoutMode() === 'compact'"
+  [class.direct-play-page--full]="layoutMode() === 'full'"
+>
   <header class="page-heading">
     <div>
       <span class="eyebrow">Playback tool</span>
@@ -13,6 +17,7 @@
       <button
         type="button"
         [class.is-active]="layoutMode() === 'compact'"
+        [attr.aria-pressed]="layoutMode() === 'compact'"
         (click)="setLayoutMode('compact')"
       >
         Compact
@@ -20,6 +25,7 @@
       <button
         type="button"
         [class.is-active]="layoutMode() === 'full'"
+        [attr.aria-pressed]="layoutMode() === 'full'"
         (click)="setLayoutMode('full')"
       >
         Full
@@ -87,7 +93,7 @@
               @for (engine of engineAvailability(); track engine.engine) {
                 <mat-option
                   [value]="engine.engine"
-                  [disabled]="engine.native && !engine.available"
+                  [disabled]="!engine.available"
                   [attr.aria-label]="
                     engine.available
                       ? engine.engine
@@ -96,7 +102,7 @@
                   [attr.title]="engine.available ? null : engine.detail"
                 >
                   {{ engine.engine }}
-                  @if (engine.native && !engine.available) {
+                  @if (!engine.available) {
                     (unavailable)
                   }
                 </mat-option>

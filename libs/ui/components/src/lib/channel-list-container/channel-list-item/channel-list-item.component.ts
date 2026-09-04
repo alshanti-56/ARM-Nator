@@ -22,6 +22,7 @@ import { applyChannelNameStrip } from "@arm-nator/providers/shared/util";
 })
 export class ChannelListItemComponent {
   private readonly logoFailed = signal(false);
+  private logoRetryCount = 0;
   private readonly settingsStore = inject(SettingsStore);
 
   readonly isDraggable = input(false);
@@ -54,6 +55,7 @@ export class ChannelListItemComponent {
   constructor() {
     effect(() => {
       this.logo();
+      this.logoRetryCount = 0;
       this.logoFailed.set(false);
     });
   }
@@ -95,10 +97,16 @@ export class ChannelListItemComponent {
   }
 
   onLogoError(event: Event): void {
+    const image = event.target as HTMLImageElement | null;
+    const source = image?.currentSrc || image?.src;
+    if (image && source && this.logoRetryCount === 0) {
+      this.logoRetryCount = 1;
+      const separator = source.includes("?") ? "&" : "?";
+      image.src = `${source}${separator}arm_nator_retry=${Date.now()}`;
+      return;
+    }
+
     this.logoFailed.set(true);
-    (event.target as HTMLImageElement | null)?.style.setProperty(
-      "display",
-      "none",
-    );
+    image?.style.setProperty("display", "none");
   }
 }

@@ -1,5 +1,6 @@
 import {
   CoverSize,
+  type PlayerEngineAvailability,
   StartupBehavior,
   Theme,
 } from "@arm-nator/shared/interfaces";
@@ -64,6 +65,7 @@ export interface SettingsPlayerAvailability {
   supportsEmbeddedMpv: boolean;
   supportsKsPlayerMetal: boolean;
   supportsManagedExternalPlayers: boolean;
+  externalPlayerAvailability?: readonly PlayerEngineAvailability[] | null;
 }
 
 /**
@@ -74,12 +76,30 @@ export function buildSettingsPlayerOptions({
   supportsEmbeddedMpv,
   supportsKsPlayerMetal,
   supportsManagedExternalPlayers,
+  externalPlayerAvailability,
 }: SettingsPlayerAvailability): SettingsPlayerOption[] {
   return getAvailablePlayerEngines({
     supportsEmbeddedMpv,
     supportsKsPlayerMetal,
     supportsManagedExternalPlayers,
-  }).map(({ id, labelKey }) => ({ id, labelKey }));
+  }).map(({ id, kind, labelKey }) => {
+    const option: SettingsPlayerOption = { id, labelKey };
+    if (
+      kind === "managed-external" &&
+      externalPlayerAvailability !== undefined &&
+      externalPlayerAvailability !== null
+    ) {
+      const availability = externalPlayerAvailability?.find(
+        (item) => item.engine === id,
+      );
+      option.available = availability?.available === true;
+      option.detail =
+        availability?.path ??
+        availability?.reason ??
+        "Optional external player is unavailable";
+    }
+    return option;
+  });
 }
 
 export function buildSettingsSectionNavItems(): SettingsSection[] {

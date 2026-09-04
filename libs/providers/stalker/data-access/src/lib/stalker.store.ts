@@ -1,5 +1,5 @@
-import { computed, Injectable, signal } from '@angular/core';
-import { DataService } from '@arm-nator/services';
+import { computed, inject, Injectable, signal } from '@angular/core';
+import { DataService, TmdbEnrichmentService } from '@arm-nator/services';
 import { createLogger } from '@arm-nator/providers/shared/util';
 import {
     PlaylistMeta,
@@ -7,6 +7,11 @@ import {
     STALKER_REQUEST,
 } from '@arm-nator/shared/interfaces';
 import { StalkerCategoryItem, StalkerItvChannel } from './models';
+import { StalkerVodSource } from './models/stalker-favorite-item.interface';
+import {
+    enrichStalkerSelectionWithTmdb,
+    stalkerSelectionMediaType,
+} from './stores/stalker-tmdb-enrichment';
 import { isStalkerAuthorizationFailure } from './stalker-response-classification';
 import {
     buildStalkerExternalPlaybackHeaders,
@@ -50,6 +55,9 @@ export class StalkerStore {
     private readonly searchPhraseState = signal('');
     private loadingPromise: Promise<void> | null = null;
     private seriesRequestVersion = 0;
+    private tmdbEnrichmentRequestVersion = 0;
+    private categoryCountRequestVersion = 0;
+    private categoryResourceType: StalkerContentType | null = null;
 
     readonly currentPlaylist = signal<PlaylistMeta | undefined>(undefined);
     readonly selectedContentType = signal<StalkerContentType>('itv');
@@ -71,6 +79,7 @@ export class StalkerStore {
     readonly searchPhrase = this.searchPhraseState.asReadonly();
 
     private readonly authApi: StalkerAuthApi;
+    private readonly tmdbEnrichment = inject(TmdbEnrichmentService);
 
     constructor(private readonly data: DataService) {
         this.authApi = new StalkerAuthApi(
@@ -85,6 +94,7 @@ export class StalkerStore {
         }
 
         this.requestVersion += 1;
+        this.categoryCountRequestVersion += 1;
         this.loadingPromise = null;
         this.token = '';
         this.tokenPlaylistId = '';
@@ -92,7 +102,9 @@ export class StalkerStore {
         this.authenticationPromise = null;
         this.authenticationKey = '';
         this.itvLoadedAt = 0;
+        this.categoryResourceType = null;
         this.currentPlaylist.set(playlist);
+        this.getCategoryResource.set([]);
         this.resetContent();
         this.loadError.set(null);
     }
@@ -104,6 +116,8 @@ export class StalkerStore {
         this.selectedContentType.set(type);
         this.selectedCategoryId.set(null);
         this.setSelectedItem(null);
+        this.categoryResourceType = null;
+        this.getCategoryResource.set([]);
         this.resetContent();
     }
 
@@ -127,6 +141,7 @@ export class StalkerStore {
     }
 
     setSelectedItem(item: StalkerCatalogRow | null): void {
+        const enrichmentVersion = ++this.tmdbEnrichmentRequestVersion;
         const previousKey = this.entityKey(this.selectedItem());
         const nextKey = this.entityKey(item);
         if (previousKey !== nextKey) {
@@ -135,6 +150,30 @@ export class StalkerStore {
             this.seriesEpisodes.set([]);
         }
         this.selectedItem.set(item);
+
+        // Best-effort TMDB enrichment is applied to the active Stalker
+        // selection so both movie and series detail views can render the same
+        // metadata, artwork, cast chips, recommendations, and trailers as
+        // Xtream. The callback writes directly to the signal to avoid
+        // re-entering this selection method and starting another lookup.
+        const contentType = this.selectedContentType();
+        if (
+            item &&
+            (contentType === 'vod' || contentType === 'series')
+        ) {
+            void enrichStalkerSelectionWithTmdb(
+                this,
+                this.tmdbEnrichment,
+                item as StalkerVodSource,
+                stalkerSelectionMediaType(item as StalkerVodSource, contentType),
+                (enriched) => {
+                    if (enrichmentVersion !== this.tmdbEnrichmentRequestVersion) {
+                        return;
+                    }
+                    this.selectedItem.set(enriched as StalkerCatalogRow);
+                },
+            );
+        }
     }
 
     clearSelectedItem(): void {
@@ -614,22 +653,39 @@ export class StalkerStore {
     ): Promise<void> {
         await this.authenticate(playlist);
         const type = this.selectedContentType();
-        const categories = await this.request(
-            playlist,
-            type === 'itv' ? 'get_genres' : 'get_categories',
-            { type },
-        );
-        const categoryRows = this.rowsFrom(categories).map((row) => ({
-            category_id: String(row.id ?? row.category_id ?? '*'),
-            category_name: String(
-                row.title ??
-                    row['category_name'] ??
-                    row.name ??
-                    'Uncategorized',
-            ),
-            type,
-            censored: Boolean(row['censored']),
-        }));
+        let categoryRows = this.getCategoryResource();
+        const shouldLoadCategories =
+            this.categoryResourceType !== type || categoryRows.length === 0;
+        if (shouldLoadCategories) {
+            const categories = await this.request(
+                playlist,
+                type === 'itv' ? 'get_genres' : 'get_categories',
+                { type },
+            );
+            categoryRows = this.rowsFrom(categories).map((row) => ({
+                category_id: String(row.id ?? row.category_id ?? '*'),
+                category_name: String(
+                    row.title ??
+                        row['category_name'] ??
+                        row.name ??
+                        'Uncategorized',
+                ),
+                type,
+                censored: Boolean(row['censored']),
+                ...(Number.isFinite(
+                    Number(row['count'] ?? row['total_items'] ?? row['items_count']),
+                )
+                    ? {
+                          count: Number(
+                              row['count'] ??
+                                  row['total_items'] ??
+                                  row['items_count'],
+                          ),
+                      }
+                    : {}),
+            }));
+            this.categoryResourceType = type;
+        }
 
         let response: StalkerResponse;
         if (type === 'itv') {
@@ -661,7 +717,6 @@ export class StalkerStore {
             );
         }
 
-        this.getCategoryResource.set(categoryRows);
         const reportedTotal = Number(response?.js?.total_items ?? rows.length);
         const existingRows = this.getPaginatedContent();
         const nextRows = append ? [...existingRows, ...rows] : rows;
@@ -671,8 +726,109 @@ export class StalkerStore {
                 : nextRows.length,
         );
         this.getPaginatedContent.set(nextRows);
+        const selectedCategory = this.selectedCategoryId();
+        const categoriesWithSelectedCount = categoryRows.map((category) =>
+            selectedCategory &&
+            selectedCategory !== '*' &&
+            String(category.category_id) === String(selectedCategory) &&
+            Number.isFinite(reportedTotal)
+                ? { ...category, count: reportedTotal }
+                : category,
+        );
+        if (shouldLoadCategories) {
+            this.getCategoryResource.set(categoriesWithSelectedCount);
+        } else if (
+            selectedCategory &&
+            selectedCategory !== '*' &&
+            Number.isFinite(reportedTotal)
+        ) {
+            const selectedId = String(selectedCategory);
+            this.getCategoryResource.set(
+                this.getCategoryResource().map((category) =>
+                    String(category.category_id) === selectedId
+                        ? { ...category, count: reportedTotal }
+                        : category,
+                ),
+            );
+        }
+        if (type !== 'itv' && shouldLoadCategories) {
+            void this.loadCategoryCounts(
+                playlist,
+                categoriesWithSelectedCount,
+                version,
+            );
+        }
         if (type === 'itv') {
             this.itvLoadedAt = Date.now();
+        }
+    }
+
+    private async loadCategoryCounts(
+        playlist: PlaylistMeta,
+        categories: StalkerCategoryItem[],
+        requestVersion: number,
+    ): Promise<void> {
+        const countVersion = ++this.categoryCountRequestVersion;
+        const pending = categories.filter(
+            (category) =>
+                String(category.category_id) !== '*' &&
+                !Number.isFinite(Number(category.count)),
+        );
+
+        for (let offset = 0; offset < pending.length; offset += 6) {
+            if (
+                requestVersion !== this.requestVersion ||
+                countVersion !== this.categoryCountRequestVersion
+            ) {
+                return;
+            }
+
+            const batch = pending.slice(offset, offset + 6);
+            const results = await Promise.all(
+                batch.map(async (category) => {
+                    try {
+                        const response = await this.request(
+                            playlist,
+                            'get_ordered_list',
+                            {
+                                type: this.selectedContentType(),
+                                p: 1,
+                                category: category.category_id,
+                                page_items: 1,
+                            },
+                        );
+                        const count = Number(response?.js?.total_items);
+                        return Number.isFinite(count)
+                            ? { id: category.category_id, count: Math.max(0, count) }
+                            : null;
+                    } catch {
+                        return null;
+                    }
+                }),
+            );
+
+            if (
+                requestVersion !== this.requestVersion ||
+                countVersion !== this.categoryCountRequestVersion
+            ) {
+                return;
+            }
+
+            const updates = results.filter(
+                (result): result is { id: string; count: number } =>
+                    result !== null,
+            );
+            if (updates.length > 0) {
+                const updateById = new Map(
+                    updates.map((update) => [String(update.id), update.count]),
+                );
+                this.getCategoryResource.set(
+                    this.getCategoryResource().map((category) => {
+                        const count = updateById.get(String(category.category_id));
+                        return count === undefined ? category : { ...category, count };
+                    }),
+                );
+            }
         }
     }
 

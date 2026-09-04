@@ -26,7 +26,7 @@ export interface StalkerVodSource {
     use_load_balancing?: unknown;
     is_series?: boolean | number | string | null | undefined;
     video_id?: string;
-    category_id?: string;
+    category_id?: string | number;
     title?: string;
     cover?: string;
     logo?: string;
@@ -40,6 +40,13 @@ export interface StalkerVodSource {
     year?: string;
     genre?: string;
     genres_str?: string;
+    country?: string;
+    duration?: string | number;
+    duration_secs?: string | number;
+    runtime?: string | number;
+    bitrate?: string | number;
+    container_extension?: string;
+    format?: string;
     rating_imdb?: string | number;
     rating_kinopoisk?: string | number;
     info?: Partial<StalkerVodInfo> | null;

@@ -3,46 +3,123 @@
         [title]="title()"
         [description]="description()"
         [posterUrl]="poster()"
+        [backdropUrl]="backdrop()"
         [isLoading]="detailLoading()"
         (backClicked)="goBack()"
     >
         <ng-template appDetailTags>
             @if (isSeries()) {
-                <span class="detail-tag">Series</span>
+                <span class="details__tag">Series</span>
             } @else {
-                <span class="detail-tag">Movie</span>
+                <span class="details__tag">Movie</span>
             }
             @if (year()) {
-                <span class="detail-tag">{{ year() }}</span>
+                <span class="details__tag">{{ year() }}</span>
             }
             @if (genre()) {
-                <span class="detail-tag">{{ genre() }}</span>
+                <span class="details__tag">{{ genre() }}</span>
             }
             @if (rating()) {
-                <span class="detail-tag detail-tag--rating">★ {{ rating() }}</span>
+                <span class="details__tag details__tag--rating">⭐ {{ rating() }}</span>
+            }
+            @if (country()) {
+                <span class="details__tag">{{ country() }}</span>
+            }
+            @if (tmdbId()) {
+                <span class="details__tag">TMDB {{ tmdbId() }}</span>
             }
         </ng-template>
 
         <ng-template appDetailMeta>
-            @if (actors()) {
-                <div class="detail-meta-item">
-                    <span class="detail-meta-label">Actors</span>
-                    <span>{{ actors() }}</span>
+            @if (actors() || tmdbCast().length) {
+                <div class="details__meta-item">
+                    <span class="label">{{ 'XTREAM.ACTORS' | translate }}</span>
+                    @if (tmdbCast().length) {
+                        <div class="details__cast-strip">
+                            @for (member of tmdbCast(); track member.tmdbPersonId ?? $index) {
+                                <span class="details__cast-chip" [title]="member.character ? member.name + ' — ' + member.character : member.name">
+                                    @if (member.profileUrl) {
+                                        <img class="details__cast-avatar" [src]="member.profileUrl" [alt]="member.name" loading="lazy" />
+                                    } @else {
+                                        <span class="details__cast-avatar details__cast-avatar--fallback">{{ member.name.charAt(0) }}</span>
+                                    }
+                                    <span class="details__cast-name">{{ member.name }}</span>
+                                </span>
+                            }
+                        </div>
+                    } @else {
+                        <span class="value">{{ actors() }}</span>
+                    }
                 </div>
             }
-            @if (director()) {
-                <div class="detail-meta-item">
-                    <span class="detail-meta-label">Director</span>
-                    <span>{{ director() }}</span>
+            @if (director() || tmdbDirectors().length) {
+                <div class="details__meta-item">
+                    <span class="label">{{ 'XTREAM.DIRECTOR' | translate }}</span>
+                    @if (tmdbDirectors().length) {
+                        <div class="details__cast-strip">
+                            @for (member of tmdbDirectors(); track member.tmdbPersonId ?? $index) {
+                                <span class="details__cast-chip" [title]="member.name">
+                                    @if (member.profileUrl) {
+                                        <img class="details__cast-avatar" [src]="member.profileUrl" [alt]="member.name" loading="lazy" />
+                                    } @else {
+                                        <span class="details__cast-avatar details__cast-avatar--fallback">{{ member.name.charAt(0) }}</span>
+                                    }
+                                    <span class="details__cast-name">{{ member.name }}</span>
+                                </span>
+                            }
+                        </div>
+                    } @else {
+                        <span class="value">{{ director() }}</span>
+                    }
+                </div>
+            }
+            @if (year()) {
+                <div class="details__meta-item">
+                    <span class="label">{{ 'XTREAM.RELEASE_DATE' | translate }}</span>
+                    <span class="value">{{ year() }}</span>
+                </div>
+            }
+            @if (runtime()) {
+                <div class="details__meta-item">
+                    <span class="label">{{ 'XTREAM.RUNTIME' | translate }}</span>
+                    <span class="value">{{ runtime() }}</span>
+                </div>
+            }
+            @if (bitrate()) {
+                <div class="details__meta-item">
+                    <span class="label">{{ 'XTREAM.BITRATE' | translate }}</span>
+                    <span class="value">{{ bitrate() }}</span>
+                </div>
+            }
+            @if (format()) {
+                <div class="details__meta-item">
+                    <span class="label">{{ 'XTREAM.FORMAT' | translate }}</span>
+                    <span class="value">{{ format() | uppercase }}</span>
+                </div>
+            }
+            @if (streamId()) {
+                <div class="details__meta-item">
+                    <span class="label">{{ 'XTREAM.STREAM_ID' | translate }}</span>
+                    <span class="value value--mono">{{ streamId() }}</span>
+                </div>
+            }
+            @if (tmdbId()) {
+                <div class="details__meta-item">
+                    <span class="label">{{ 'XTREAM.TMDB_ID' | translate }}</span>
+                    <span class="value value--mono">{{ tmdbId() }}</span>
                 </div>
             }
         </ng-template>
 
         <ng-template appDetailActions>
             @if (!isSeries()) {
-                <button class="detail-play-button" type="button" (click)="playMovie()">
-                    <mat-icon aria-hidden="true">play_arrow</mat-icon>
-                    <span>Play movie</span>
+                <button class="play-btn" type="button" (click)="playMovie()">
+                    <span class="play-btn__icon-shell" aria-hidden="true">
+                        <mat-icon class="play-btn__icon">play_arrow</mat-icon>
+                    </span>
+                    <span class="play-btn__copy">
+                        <span class="play-btn__label">Play movie</span>
+                    </span>
                 </button>
             }
         </ng-template>
@@ -95,6 +172,23 @@
                 }
             </section>
         }
+
+        <div detail-extras>
+            @if (trailerEmbedUrl(); as trailerUrl) {
+                <div class="youtube-trailer">
+                    <h3>{{ 'XTREAM.YOUTUBE_TRAILER' | translate }}</h3>
+                    <div class="trailer-wrapper">
+                        <iframe
+                            [src]="trailerUrl | safe"
+                            title="YouTube video player"
+                            allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share;"
+                            referrerpolicy="strict-origin-when-cross-origin"
+                            allowfullscreen
+                        ></iframe>
+                    </div>
+                </div>
+            }
+        </div>
     </app-portal-detail-shell>
 } @else {
     <app-portal-detail-shell

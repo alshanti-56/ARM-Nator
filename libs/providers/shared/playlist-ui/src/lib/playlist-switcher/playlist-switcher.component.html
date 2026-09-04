@@ -138,7 +138,7 @@
                     <mat-icon class="playlist-type-icon">
                         {{ getPlaylistIcon(playlist) }}
                     </mat-icon>
-                    @if (playlist.serverUrl) {
+                    @if (playlist.serverUrl || playlist.portalUrl) {
                         <span
                             class="status-dot"
                             [class]="getStatusClass(playlist._id)"

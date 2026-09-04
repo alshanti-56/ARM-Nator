@@ -141,6 +141,32 @@
   gap: 18px;
 }
 
+// Compact mode keeps the source form and basic playback information close
+// together while removing the verbose diagnostic panels from the page flow.
+.direct-play-page--compact {
+  .direct-play-layout {
+    grid-template-columns: minmax(0, 1fr);
+    max-width: 980px;
+  }
+
+  .setup-card,
+  .info-card {
+    padding: 20px 24px;
+  }
+
+  .section-heading {
+    margin-bottom: 18px;
+  }
+
+  .runtime-info,
+  .network-info,
+  .capability-strip,
+  .engine-status-card,
+  .diagnostics-card {
+    display: none;
+  }
+}
+
 .setup-card,
 .info-card,
 .player-card,

@@ -1,6 +1,8 @@
 export interface StalkerCategoryItem {
     category_id: string;
     category_name: string;
+    /** Optional item total reported by portals that include it in genres. */
+    count?: number;
     /**
      * Ministra "censored" genre flag (adult categories). Portals typically
      * exclude these channels from `get_all_channels`, so censored categories

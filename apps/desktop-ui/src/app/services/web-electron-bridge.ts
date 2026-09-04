@@ -303,6 +303,10 @@ function createWebBridge(): ElectronBridgeApi {
                     return (payload: unknown) => postJson('/xtream', payload);
                 }
 
+                if (property === 'stalkerRequest') {
+                    return (payload: unknown) => postJson('/stalker', payload);
+                }
+
                 if (property === 'onBrowserViewUpdate') {
                     return () => () => undefined;
                 }

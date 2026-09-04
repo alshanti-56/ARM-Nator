@@ -36,6 +36,10 @@ import { startWebApi, stopWebApi } from './app/services/web-api.service';
 
 app.setName('arm-nator');
 
+// The browser UI can run against the same database and provider proxy without
+// opening an Electron window. This mode is used by the browser-only dev flow.
+const webApiOnly = process.argv.includes('--web-api-only');
+
 const electronUserDataPath = getElectronUserDataPath();
 
 if (electronUserDataPath) {
@@ -86,6 +90,14 @@ export default class Main {
     static async bootstrapAppEvents() {
         if (isStartupTraceEnabled()) {
             trace('startup', 'bootstrap-events:start');
+        }
+
+        if (webApiOnly) {
+            await initDatabase();
+            await databaseWorkerClient.request('DB_GET_APP_PLAYLIST_METAS', {});
+            await startWebApi();
+            console.log('[web-api] Database API listening on http://127.0.0.1:4310/api');
+            return;
         }
 
         registerStaticHeaderShims();
@@ -171,9 +183,11 @@ if (!hasSingleInstanceLock) {
         window.focus();
     });
 
-    runEmbeddedMpvRuntimeDiagnosticOrContinue(process.argv, () => {
+    const bootstrap = () => {
         // bootstrap app
-        Main.bootstrapApp();
+        if (!webApiOnly) {
+            Main.bootstrapApp();
+        }
 
         // Bootstrap app events after Electron app is ready
         app.whenReady().then(async () => {
@@ -199,6 +213,13 @@ if (!hasSingleInstanceLock) {
             shutdownVlcSession();
             void databaseWorkerClient.shutdown();
         });
-    });
+    };
+
+    if (webApiOnly) {
+        // On macOS Electron remains alive without windows for the local API.
+        bootstrap();
+    } else {
+        runEmbeddedMpvRuntimeDiagnosticOrContinue(process.argv, bootstrap);
+    }
 }
 // trigger rebuild

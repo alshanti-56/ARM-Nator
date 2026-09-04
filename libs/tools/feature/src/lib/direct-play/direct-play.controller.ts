@@ -80,8 +80,8 @@ export class DirectPlayController implements OnDestroy {
   readonly nativeEngineMessage = signal<string | null>(null);
   readonly metalPlaybackFailure = signal<string | null>(null);
   readonly externalEngineAvailability = signal<
-    readonly PlayerEngineAvailability[]
-  >([]);
+    readonly PlayerEngineAvailability[] | null
+  >(null);
   readonly timeline = signal<readonly DiagnosticTimelineItem[]>([]);
   private diagnosticSequence = 0;
   private lastRuntimeStatus = "idle";
@@ -137,10 +137,13 @@ export class DirectPlayController implements OnDestroy {
     if (typeof electron?.getPlayerEngineAvailability === "function") {
       void electron
         .getPlayerEngineAvailability()
-        .then((availability) =>
-          this.externalEngineAvailability.set(availability),
-        )
-        .catch(() => undefined);
+        .then((availability) => {
+          this.externalEngineAvailability.set(availability);
+          this.applyPendingPreferredEngine();
+        })
+        .catch(() => this.externalEngineAvailability.set([]));
+    } else {
+      this.externalEngineAvailability.set([]);
     }
   }
 
@@ -159,15 +162,31 @@ export class DirectPlayController implements OnDestroy {
       this.ksPlayerMetalSupport(),
     ),
   );
-  readonly canLaunchSelectedEngine = computed(
-    () => this.selectedNativeEngineAccess().canLaunch,
-  );
+  readonly canLaunchSelectedEngine = computed(() => {
+    if (!this.selectedNativeEngineAccess().canLaunch) {
+      return false;
+    }
+    return (
+      this.engineAvailability().find(
+        (engine) => engine.engine === this.selectedEngine(),
+      )?.available ?? true
+    );
+  });
   readonly selectedNativeEngineMessage = computed(() => {
     const access = this.selectedNativeEngineAccess();
     if (access.native && !access.canSelect) {
       return this.unavailableNativeEngineMessage(
         this.selectedEngine(),
         access.detail,
+      );
+    }
+    const selected = this.engineAvailability().find(
+      (engine) => engine.engine === this.selectedEngine(),
+    );
+    if (selected && !selected.available) {
+      return this.unavailableEngineMessage(
+        this.selectedEngine(),
+        selected.detail,
       );
     }
     return this.nativeEngineMessage();
@@ -214,13 +233,17 @@ export class DirectPlayController implements OnDestroy {
       }
       if (engine.id === VideoPlayer.MPV || engine.id === VideoPlayer.VLC) {
         const availabilityEngine = engine.id;
-        const availability = this.externalEngineAvailability().find(
+        const externalAvailability = this.externalEngineAvailability();
+        const availability = externalAvailability?.find(
           (item) => item.engine === availabilityEngine,
         );
         return {
           engine: engine.id,
           native: false,
-          available: availability?.available ?? false,
+          available:
+            externalAvailability === null
+              ? true
+              : (availability?.available ?? false),
           detail:
             availability?.path ??
             availability?.reason ??
@@ -268,7 +291,7 @@ export class DirectPlayController implements OnDestroy {
     }
 
     const engine = this.selectedEngine();
-    if (!this.ensureNativeEngineAccess(engine, "launch")) {
+    if (!this.ensureEngineAccess(engine, "launch")) {
       return;
     }
 
@@ -318,6 +341,10 @@ export class DirectPlayController implements OnDestroy {
           this.selectedEngine(),
         );
       } catch (error) {
+        this.markExternalEngineUnavailable(
+          engine,
+          error instanceof Error ? error.message : "External player failed.",
+        );
         this.errorMessage.set(
           error instanceof Error ? error.message : "External player failed.",
         );
@@ -363,7 +390,7 @@ export class DirectPlayController implements OnDestroy {
 
   selectEngine(engine: VideoPlayer): boolean {
     this.pendingPreferredEngine = null;
-    if (!this.ensureNativeEngineAccess(engine, "selection")) {
+    if (!this.ensureEngineAccess(engine, "selection")) {
       return false;
     }
     this.selectedEngine.set(engine);
@@ -399,6 +426,10 @@ export class DirectPlayController implements OnDestroy {
         request.diagnostic.code,
       );
     } catch (error) {
+      this.markExternalEngineUnavailable(
+        request.player === "vlc" ? VideoPlayer.VLC : VideoPlayer.MPV,
+        error instanceof Error ? error.message : "External player failed.",
+      );
       this.errorMessage.set(
         error instanceof Error ? error.message : "External player failed.",
       );
@@ -605,7 +636,7 @@ export class DirectPlayController implements OnDestroy {
       return;
     }
     const engine = this.selectedEngine();
-    if (!this.ensureNativeEngineAccess(engine, "launch")) {
+    if (!this.ensureEngineAccess(engine, "launch")) {
       return;
     }
     await this.stopPlayback();
@@ -831,12 +862,25 @@ export class DirectPlayController implements OnDestroy {
       return;
     }
 
+    if (isManagedExternalPlayer(engine)) {
+      const availability = this.engineAvailability().find(
+        (item) => item.engine === engine,
+      );
+      if (availability?.available === false) {
+        this.pendingPreferredEngine = null;
+        this.nativeEngineMessage.set(
+          this.unavailableEngineMessage(engine, availability.detail),
+        );
+        return;
+      }
+    }
+
     this.pendingPreferredEngine = null;
     this.selectedEngine.set(engine);
     this.nativeEngineMessage.set(null);
   }
 
-  private ensureNativeEngineAccess(
+  private ensureEngineAccess(
     engine: VideoPlayer,
     action: "selection" | "launch",
   ): boolean {
@@ -845,21 +889,43 @@ export class DirectPlayController implements OnDestroy {
       this.embeddedSupport(),
       this.ksPlayerMetalSupport(),
     );
-    if (
-      !access.native ||
-      (action === "selection" ? access.canSelect : access.canLaunch)
-    ) {
-      return true;
+    if (access.native) {
+      if (action === "selection" ? access.canSelect : access.canLaunch) {
+        return true;
+      }
+
+      const message = this.unavailableNativeEngineMessage(
+        engine,
+        access.detail,
+      );
+      this.nativeEngineMessage.set(message);
+      if (action === "launch") {
+        this.errorMessage.set(message);
+        this.status.set("error");
+      }
+      this.recordEvent("warning", `${engine} ${action} blocked`, access.detail);
+      return false;
     }
 
-    const message = this.unavailableNativeEngineMessage(engine, access.detail);
-    this.nativeEngineMessage.set(message);
-    if (action === "launch") {
-      this.errorMessage.set(message);
-      this.status.set("error");
+    const external = this.engineAvailability().find(
+      (item) => item.engine === engine,
+    );
+    if (external?.available === false) {
+      const message = this.unavailableEngineMessage(engine, external.detail);
+      this.nativeEngineMessage.set(message);
+      if (action === "launch") {
+        this.errorMessage.set(message);
+        this.status.set("error");
+      }
+      this.recordEvent(
+        "warning",
+        `${engine} ${action} blocked`,
+        external.detail,
+      );
+      return false;
     }
-    this.recordEvent("warning", `${engine} ${action} blocked`, access.detail);
-    return false;
+
+    return true;
   }
 
   private isNativeSupportPending(engine: VideoPlayer): boolean {
@@ -874,6 +940,30 @@ export class DirectPlayController implements OnDestroy {
     detail: string | undefined,
   ): string {
     return `${engine} is unavailable: ${detail ?? "Native support is unavailable."}`;
+  }
+
+  private unavailableEngineMessage(
+    engine: VideoPlayer,
+    detail: string | undefined,
+  ): string {
+    return `${engine} is unavailable (optional external player): ${detail ?? "Install or configure the player in Settings."}`;
+  }
+
+  private markExternalEngineUnavailable(
+    engine: VideoPlayer,
+    reason: string,
+  ): void {
+    this.externalEngineAvailability.update((current) => {
+      const next = current ? [...current] : [];
+      const existing = next.find((item) => item.engine === engine);
+      if (existing) {
+        existing.available = false;
+        existing.reason = reason;
+      } else {
+        next.push({ engine, available: false, reason });
+      }
+      return next;
+    });
   }
 
   private getErrorMessage(error: unknown): string {

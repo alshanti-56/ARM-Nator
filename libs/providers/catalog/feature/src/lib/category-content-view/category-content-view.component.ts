@@ -7,6 +7,7 @@ import {
     ElementRef,
     inject,
     OnInit,
+    signal,
 } from '@angular/core';
 import { takeUntilDestroyed, toSignal } from '@angular/core/rxjs-interop';
 import { map } from 'rxjs/operators';
@@ -114,7 +115,9 @@ export class CategoryContentViewComponent implements OnInit {
         () => this.availableGenres().length > 0 && typeof this.catalog.setGenreFilter === 'function'
     );
     readonly canFilterByYear = computed(
-        () => this.availableYears().length > 0 && typeof this.catalog.setYearFilter === 'function'
+        () =>
+            this.supportsRatingSort() &&
+            typeof this.catalog.setYearFilter === 'function'
     );
     readonly genreFilter = computed(() =>
         this.canFilterByGenre() ? (this.catalog.genreFilter?.() ?? null) : null
@@ -122,6 +125,11 @@ export class CategoryContentViewComponent implements OnInit {
     readonly yearFilter = computed(() =>
         this.canFilterByYear() ? (this.catalog.yearFilter?.() ?? null) : null
     );
+    readonly yearInput = signal('');
+    readonly sortSectionExpanded = signal(true);
+    readonly ratingSectionExpanded = signal(false);
+    readonly genreSectionExpanded = signal(false);
+    readonly yearSectionExpanded = signal(false);
     readonly minRating = computed(() =>
         this.canFilterByRating() ? (this.catalog.minRating?.() ?? null) : null
     );
@@ -188,6 +196,40 @@ export class CategoryContentViewComponent implements OnInit {
 
     setYearFilter(value: number | null): void {
         this.catalog.setYearFilter?.(value);
+        this.yearInput.set(value === null ? '' : String(value));
+    }
+
+    onYearInput(event: Event): void {
+        const input = event.target as HTMLInputElement;
+        const value = input.value.replace(/\D/g, '').slice(0, 4);
+        input.value = value;
+        this.yearInput.set(value);
+    }
+
+    applyYearFilter(): void {
+        const value = this.yearInput().trim();
+        if (!value) {
+            this.setYearFilter(null);
+        } else if (value.length === 4) {
+            this.setYearFilter(Number(value));
+        }
+    }
+
+    toggleRefineSection(section: 'sort' | 'rating' | 'genre' | 'year'): void {
+        switch (section) {
+            case 'sort':
+                this.sortSectionExpanded.update((expanded) => !expanded);
+                break;
+            case 'rating':
+                this.ratingSectionExpanded.update((expanded) => !expanded);
+                break;
+            case 'genre':
+                this.genreSectionExpanded.update((expanded) => !expanded);
+                break;
+            case 'year':
+                this.yearSectionExpanded.update((expanded) => !expanded);
+                break;
+        }
     }
 
     ngOnInit(): void {

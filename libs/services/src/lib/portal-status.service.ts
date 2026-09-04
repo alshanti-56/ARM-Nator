@@ -2,6 +2,7 @@ import { Injectable, inject } from '@angular/core';
 import {
     normalizeXtreamServerUrl,
     resolveXtreamPortalStatus,
+    STALKER_REQUEST,
     XtreamPortalStatusResponseLike,
 } from '@arm-nator/shared/interfaces';
 import { DataService } from './data.service';
@@ -129,6 +130,73 @@ export class PortalStatusService {
     }
 
     /**
+     * Checks a Stalker portal with its read-only genre probe. Stalker portals
+     * do not expose Xtream account-info actions, so they need a separate
+     * transport and cache key.
+     */
+    async checkStalkerPortalStatus(
+        portalUrl: string,
+        macAddress: string,
+        options?: {
+            token?: string;
+            serialNumber?: string;
+            skipCache?: boolean;
+        }
+    ): Promise<PortalStatus> {
+        const connection = this.normalizeStalkerConnection(
+            portalUrl,
+            macAddress
+        );
+        if (!connection) {
+            return 'unavailable';
+        }
+
+        const cacheKey = this.buildStalkerCacheKey(
+            connection.portalUrl,
+            connection.macAddress,
+            options?.token,
+            options?.serialNumber
+        );
+        if (!options?.skipCache) {
+            const cached = this.cache.get(cacheKey);
+            if (
+                cached &&
+                Date.now() - cached.timestamp < PORTAL_STATUS_CACHE_TTL_MS
+            ) {
+                return cached.status;
+            }
+
+            const pending = this.inFlight.get(cacheKey);
+            if (pending) {
+                return pending;
+            }
+        }
+
+        const request = this.fetchStalkerPortalStatus(
+            connection.portalUrl,
+            connection.macAddress,
+            options?.token,
+            options?.serialNumber
+        )
+            .then((status) => {
+                this.cache.set(cacheKey, {
+                    status,
+                    timestamp: Date.now(),
+                });
+                return status;
+            })
+            .finally(() => {
+                this.inFlight.delete(cacheKey);
+            });
+
+        if (!options?.skipCache) {
+            this.inFlight.set(cacheKey, request);
+        }
+
+        return request;
+    }
+
+    /**
      * Synchronous read of the cached status for a credential triple.
      * Returns null if no entry exists or the entry has expired.
      */
@@ -173,6 +241,40 @@ export class PortalStatusService {
         password: string
     ): string {
         return `${serverUrl}|${username}|${password}`;
+    }
+
+    private buildStalkerCacheKey(
+        portalUrl: string,
+        macAddress: string,
+        token?: string,
+        serialNumber?: string
+    ): string {
+        return `stalker|${portalUrl}|${macAddress}|${token ?? ''}|${serialNumber ?? ''}`;
+    }
+
+    private normalizeStalkerConnection(
+        portalUrl: string,
+        macAddress: string
+    ): { portalUrl: string; macAddress: string } | null {
+        try {
+            const normalizedPortalUrl = portalUrl.trim();
+            const normalizedMacAddress = macAddress.trim();
+            if (!normalizedPortalUrl || !normalizedMacAddress) {
+                return null;
+            }
+
+            const parsed = new URL(normalizedPortalUrl);
+            if (parsed.protocol !== 'http:' && parsed.protocol !== 'https:') {
+                return null;
+            }
+
+            return {
+                portalUrl: normalizedPortalUrl,
+                macAddress: normalizedMacAddress,
+            };
+        } catch {
+            return null;
+        }
     }
 
     private normalizeConnection(
@@ -231,6 +333,31 @@ export class PortalStatusService {
         }
 
         return 'unavailable';
+    }
+
+    private async fetchStalkerPortalStatus(
+        portalUrl: string,
+        macAddress: string,
+        token?: string,
+        serialNumber?: string
+    ): Promise<PortalStatus> {
+        try {
+            await this.dataService.sendIpcEvent(STALKER_REQUEST, {
+                url: portalUrl,
+                macAddress,
+                token,
+                serialNumber,
+                params: {
+                    type: 'itv',
+                    action: 'get_genres',
+                    JsHttpRequest: '1-xml',
+                },
+                silent: true,
+            });
+            return 'active';
+        } catch {
+            return 'unavailable';
+        }
     }
 
     /**

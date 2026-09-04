@@ -1,1 +1,8 @@
+@if (bundledKsPlayerWarning(); as warning) {
+  <aside class="app-runtime-warning" role="alert">
+    <strong>{{ "PLAYER_RUNTIME.KSPLAYER_WARNING_TITLE" | translate }}</strong>
+    <span>{{ "PLAYER_RUNTIME.KSPLAYER_WARNING_DESCRIPTION" | translate }}</span>
+    <small>{{ warning }}</small>
+  </aside>
+}
 <router-outlet />

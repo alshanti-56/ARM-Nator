@@ -95,7 +95,25 @@ function nestedInfo(item: CatalogMetadataRecord): CatalogMetadataRecord | null {
 }
 
 function metadataText(value: unknown): string | undefined {
-  if (typeof value === "string") return value.trim() || undefined;
+  if (typeof value === "string") {
+    const trimmed = value.trim();
+    if (!trimmed) return undefined;
+
+    // Some Xtream-compatible panels serialize list metadata as a JSON array
+    // even though the field is declared as a string. Decode that shape so a
+    // provider-supplied genre is preserved without any detail request.
+    if (trimmed.startsWith("[")) {
+      try {
+        const parsed = JSON.parse(trimmed);
+        if (Array.isArray(parsed)) return metadataText(parsed);
+      } catch {
+        // Keep the original value when a panel uses a non-JSON bracketed
+        // label. It is still useful metadata and should not be discarded.
+      }
+    }
+
+    return trimmed;
+  }
   if (typeof value === "number" && Number.isFinite(value)) return String(value);
   if (!Array.isArray(value)) return undefined;
 
@@ -116,17 +134,38 @@ function metadataText(value: unknown): string | undefined {
   return values.length ? values.join(", ") : undefined;
 }
 
+function metadataSources(item: CatalogMetadataRecord): CatalogMetadataRecord[] {
+  const sources: CatalogMetadataRecord[] = [item];
+
+  // The standard player API uses `info` for get_vod_info. A number of
+  // Xtream-compatible panels also put the same fields directly in a bulk
+  // stream item under `movie_properties`/`movie_info`. Read those shapes too
+  // so list-provided genres are imported without per-title detail calls.
+  for (const key of [
+    "info",
+    "movie_properties",
+    "movieProperties",
+    "movie_info",
+    "vod_info",
+  ]) {
+    const value = item[key];
+    if (value && typeof value === "object" && !Array.isArray(value)) {
+      sources.push(value as CatalogMetadataRecord);
+    }
+  }
+
+  return sources;
+}
+
 function firstText(
   item: CatalogMetadataRecord,
   fields: readonly string[],
 ): string | undefined {
-  const info = nestedInfo(item);
-  for (const field of fields) {
-    const direct = metadataText(item[field]);
-    if (direct) return direct;
-
-    const nested = metadataText(info?.[field]);
-    if (nested) return nested;
+  for (const source of metadataSources(item)) {
+    for (const field of fields) {
+      const value = metadataText(source[field]);
+      if (value) return value;
+    }
   }
   return undefined;
 }

@@ -49,9 +49,9 @@ export function getDirectPlayNativeSupport(
 }
 
 /**
- * Native engines share one strict access decision so UI selection and launch
- * paths cannot disagree. Web and managed-external engines keep their existing
- * availability behavior and are deliberately not gated here.
+ * Bundled native engines share one strict access decision so UI selection and
+ * launch paths cannot disagree. Optional external engines are checked by the
+ * platform availability probe and gated separately by the controller.
  */
 export function getDirectPlayNativeEngineAccess(
   engine: VideoPlayer,

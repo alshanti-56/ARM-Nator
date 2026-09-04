@@ -9,6 +9,24 @@
 @tailwind components;
 @tailwind utilities;
 
+.app-runtime-warning {
+    display: grid;
+    gap: 4px;
+    padding: 12px 18px;
+    color: #3d2600;
+    background: #fff1c2;
+    border-bottom: 1px solid #d9a928;
+    font-size: 0.9rem;
+}
+
+.app-runtime-warning strong {
+    font-weight: 700;
+}
+
+.app-runtime-warning small {
+    opacity: 0.8;
+}
+
 // ─── Third-party ─────────────────────────────────────────────────────────────
 @import 'material-design-icons-iconfont/dist/material-design-icons.css';
 

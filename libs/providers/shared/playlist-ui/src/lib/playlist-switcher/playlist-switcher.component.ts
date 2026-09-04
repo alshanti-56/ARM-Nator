@@ -413,62 +413,59 @@ export class PlaylistSwitcherComponent {
         const controller = new AbortController();
         this.portalStatusAbortController = controller;
 
-        const xtreamPlaylists = playlists.filter(
-            (
-                playlist
-            ): playlist is PlaylistMeta & {
-                serverUrl: string;
-                username: string;
-                password: string;
-            } =>
-                Boolean(
-                    playlist.serverUrl && playlist.username && playlist.password
-                )
-        );
-        if (xtreamPlaylists.length === 0) {
+        const checkablePlaylists = playlists.filter((playlist) => {
+            const sourceType = this.getPlaylistFilterType(playlist);
+            return sourceType === 'xtream'
+                ? Boolean(
+                      playlist.serverUrl &&
+                          playlist.username &&
+                          playlist.password
+                  )
+                : Boolean(playlist.portalUrl && playlist.macAddress);
+        });
+        if (checkablePlaylists.length === 0) {
             return;
         }
 
-        // Hydrate from the shared service cache + mark uncached portals as
-        // 'checking' in a single signal write so the UI flips from blank →
-        // cached/checking dots in one render, not one per playlist.
+        // Mark all checkable portals as checking in one signal write. The
+        // shared service returns cached results immediately when available.
         const next = new Map(this.portalStatuses());
-        const toFetch: (PlaylistMeta & {
-            serverUrl: string;
-            username: string;
-            password: string;
-        })[] = [];
-        for (const playlist of xtreamPlaylists) {
-            const cached = this.portalStatusService.getCachedStatus(
-                playlist.serverUrl,
-                playlist.username,
-                playlist.password
-            );
-            if (cached !== null) {
-                next.set(playlist._id, cached);
-            } else {
-                next.set(playlist._id, 'checking');
-                toFetch.push(playlist);
-            }
-        }
+        checkablePlaylists.forEach((playlist) =>
+            next.set(playlist._id, 'checking')
+        );
         this.portalStatuses.set(next);
 
-        if (toFetch.length === 0) {
-            return;
-        }
-
         // Stream results: each portal's dot updates as soon as ITS request
-        // resolves, independent of the slowest one. Replaces the prior
-        // Promise.all that blocked all dots on the tail latency.
+        // resolves, independent of the slowest one.
         await Promise.all(
-            toFetch.map(async (playlist) => {
+            checkablePlaylists.map(async (playlist) => {
                 let status: PortalStatus;
                 try {
-                    status = await this.portalStatusService.checkPortalStatus(
-                        playlist.serverUrl,
-                        playlist.username,
-                        playlist.password
-                    );
+                    if (this.getPlaylistFilterType(playlist) === 'xtream') {
+                        const { serverUrl, username, password } = playlist;
+                        status =
+                            serverUrl && username && password
+                                ? await this.portalStatusService.checkPortalStatus(
+                                      serverUrl,
+                                      username,
+                                      password
+                                  )
+                                : 'unavailable';
+                    } else {
+                        const { portalUrl, macAddress } = playlist;
+                        status =
+                            portalUrl && macAddress
+                                ? await this.portalStatusService.checkStalkerPortalStatus(
+                                      portalUrl,
+                                      macAddress,
+                                      {
+                                          token: playlist.stalkerToken,
+                                          serialNumber:
+                                              playlist.stalkerSerialNumber,
+                                      }
+                                  )
+                                : 'unavailable';
+                    }
                 } catch {
                     status = 'unavailable';
                 }

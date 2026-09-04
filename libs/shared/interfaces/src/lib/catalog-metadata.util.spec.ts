@@ -4,6 +4,7 @@ import {
   catalogYear,
   collectCatalogGenres,
   hasCompleteXtreamSearchMetadata,
+  normalizeXtreamContentMetadata,
 } from "./catalog-metadata.util";
 
 test("prefers release metadata over a year embedded in the title", () => {
@@ -62,5 +63,29 @@ test("does not require a detail request to search fields already present", () =>
       cast: "Actor",
     }),
     false,
+  );
+});
+
+test("reads genre from provider-supplied nested bulk metadata", () => {
+  assert.equal(
+    normalizeXtreamContentMetadata({
+      name: "A movie",
+      movie_properties: { genre: "Action, Thriller" },
+    }).genre,
+    "Action, Thriller",
+  );
+});
+
+test("decodes a provider-supplied JSON genre array", () => {
+  assert.deepEqual(
+    collectCatalogGenres([{ genre: '["Action", "Drama"]' }]),
+    ["Action", "Drama"],
+  );
+});
+
+test("keeps provider categories separate from genres", () => {
+  assert.deepEqual(
+    collectCatalogGenres([{ category_name: "Action Movies" }]),
+    [],
   );
 });

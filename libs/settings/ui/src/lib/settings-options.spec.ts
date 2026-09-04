@@ -61,3 +61,29 @@ test("settings preserves web and external player ordering", () => {
     ],
   );
 });
+
+test("settings marks missing optional external players without removing them", () => {
+  const options = buildSettingsPlayerOptions({
+    supportsEmbeddedMpv: false,
+    supportsKsPlayerMetal: false,
+    supportsManagedExternalPlayers: true,
+    externalPlayerAvailability: [
+      { engine: VideoPlayer.MPV, available: false, reason: "mpv not found" },
+      { engine: VideoPlayer.VLC, available: true, path: "/Applications/VLC.app" },
+    ],
+  });
+
+  assert.deepEqual(
+    options.filter((option) => option.id === VideoPlayer.MPV)[0],
+    {
+      id: VideoPlayer.MPV,
+      labelKey: "SETTINGS.PLAYER_MPV",
+      available: false,
+      detail: "mpv not found",
+    },
+  );
+  assert.equal(
+    options.find((option) => option.id === VideoPlayer.VLC)?.available,
+    true,
+  );
+});

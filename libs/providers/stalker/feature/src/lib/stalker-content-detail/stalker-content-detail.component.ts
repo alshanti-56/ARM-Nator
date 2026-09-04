@@ -8,10 +8,13 @@ import {
     signal,
     untracked,
 } from '@angular/core';
+import { UpperCasePipe } from '@angular/common';
 import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
 import { ActivatedRoute, Router } from '@angular/router';
 import { combineLatest } from 'rxjs';
 import { MatIcon } from '@angular/material/icon';
+import { TranslateModule } from '@ngx-translate/core';
+import { SafePipe } from '@arm-nator/pipes';
 import {
     DetailActionsTemplateDirective,
     DetailMetaTemplateDirective,
@@ -29,6 +32,8 @@ import {
 import {
     isStalkerSeriesFlag,
     ResolvedPortalPlayback,
+    TmdbEnrichedCastMember,
+    youtubeEmbedUrl,
 } from '@arm-nator/shared/interfaces';
 
 type DetailContentType = Exclude<StalkerContentType, 'itv'>;
@@ -42,6 +47,9 @@ type DetailContentType = Exclude<StalkerContentType, 'itv'>;
         DetailTagsTemplateDirective,
         MatIcon,
         PortalDetailShellComponent,
+        SafePipe,
+        TranslateModule,
+        UpperCasePipe,
     ],
     templateUrl: './stalker-content-detail.component.html',
     styleUrls: ['./stalker-content-detail.component.scss'],
@@ -82,7 +90,27 @@ export class StalkerContentDetailComponent {
         this.readNestedText(this.item(), 'description', 'plot')
     );
     readonly poster = computed(() =>
-        this.readText(this.item(), 'cover', 'poster_url', 'logo', 'stream_icon')
+        this.resolveArtwork(
+            this.readNestedText(
+                this.item(),
+                'movie_image',
+                'cover',
+                'poster_url',
+                'logo',
+                'stream_icon',
+                'screenshot_uri'
+            )
+        )
+    );
+    readonly backdrop = computed(() =>
+        this.resolveArtwork(
+            this.readNestedText(
+                this.item(),
+                'tmdb_backdrop',
+                'backdrop',
+                'backdrop_url'
+            )
+        )
     );
     readonly year = computed(() =>
         this.readNestedText(this.item(), 'year', 'releasedate', 'release_date')
@@ -95,6 +123,27 @@ export class StalkerContentDetailComponent {
     );
     readonly actors = computed(() => this.readNestedText(this.item(), 'actors', 'cast'));
     readonly director = computed(() => this.readNestedText(this.item(), 'director'));
+    readonly country = computed(() => this.readNestedText(this.item(), 'country'));
+    readonly runtime = computed(() =>
+        this.readNestedText(this.item(), 'runtime', 'duration', 'duration_secs')
+    );
+    readonly bitrate = computed(() => this.readNestedText(this.item(), 'bitrate'));
+    readonly format = computed(() =>
+        this.readNestedText(this.item(), 'format', 'container_extension')
+    );
+    readonly streamId = computed(() =>
+        this.readText(this.item(), 'stream_id', 'movie_id', 'series_id', 'id')
+    );
+    readonly tmdbId = computed(() => this.readNestedText(this.item(), 'tmdb_id'));
+    readonly tmdbCast = computed<TmdbEnrichedCastMember[]>(
+        () => this.item()?.info?.tmdb_cast ?? []
+    );
+    readonly tmdbDirectors = computed<TmdbEnrichedCastMember[]>(
+        () => this.item()?.info?.tmdb_directors ?? []
+    );
+    readonly trailerEmbedUrl = computed(() =>
+        youtubeEmbedUrl(this.readNestedText(this.item(), 'tmdb_trailer'))
+    );
 
     constructor() {
         effect(() => {
@@ -294,5 +343,21 @@ export class StalkerContentDetailComponent {
             }
         }
         return '';
+    }
+
+    private resolveArtwork(value: unknown): string {
+        if (typeof value !== 'string' || !value.trim()) return '';
+
+        const artwork = value.trim();
+        if (/^(?:https?:|data:|blob:)/i.test(artwork)) return artwork;
+
+        const portalUrl = this.store.currentPlaylist()?.portalUrl;
+        if (!portalUrl) return artwork;
+
+        try {
+            return new URL(artwork, portalUrl).toString();
+        } catch {
+            return artwork;
+        }
     }
 }

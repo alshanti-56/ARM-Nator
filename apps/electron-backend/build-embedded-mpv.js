@@ -156,7 +156,15 @@ function assertMacOSAppleSiliconHost() {
 function main() {
     assertMacOSAppleSiliconHost();
     fs.mkdirSync(outputDir, { recursive: true });
-    fs.rmSync(distNativeDir, { recursive: true, force: true });
+    // Nx may leave a partially copied native tree behind after an interrupted
+    // build. Retry removal so stale bundles do not make the next build fail
+    // with ENOTEMPTY.
+    fs.rmSync(distNativeDir, {
+        recursive: true,
+        force: true,
+        maxRetries: 8,
+        retryDelay: 150
+    });
     cleanOutput();
 
     const runtime = resolveRuntime();

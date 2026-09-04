@@ -11,6 +11,13 @@ const releaseDirectory = path.join(
     'build',
     'Release'
 );
+const distNativeDirectory = path.join(
+    workspaceRoot,
+    'dist',
+    'apps',
+    'electron-backend',
+    'native'
+);
 
 // Development should consume the native players already built for the current
 // checkout. The full rebuild remains available through `pnpm dev:native` and
@@ -30,10 +37,26 @@ const missingArtifacts = requiredArtifacts.filter(
     (relativePath) => !fs.existsSync(path.join(releaseDirectory, relativePath))
 );
 
+function removeStaleDistNativeTree() {
+    if (!fs.existsSync(distNativeDirectory)) return;
+
+    console.log(
+        '[dev] Removing stale generated native output before rebuilding...'
+    );
+    fs.rmSync(distNativeDirectory, {
+        recursive: true,
+        force: true,
+        maxRetries: 8,
+        retryDelay: 150
+    });
+}
+
 if (missingArtifacts.length === 0) {
     console.log('[dev] Native player artifacts are present; skipping native rebuild.');
     process.exit(0);
 }
+
+removeStaleDistNativeTree();
 
 console.log(
     `[dev] Native player artifacts missing (${missingArtifacts.join(', ')}); building once...`

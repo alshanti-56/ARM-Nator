@@ -40,6 +40,7 @@ export class ContentHeroComponent {
 
     readonly backClicked = output<void>();
     readonly posterError = signal(false);
+    private posterRetryCount = 0;
 
     readonly descriptionEl = viewChild<ElementRef<HTMLElement>>('descriptionEl');
     readonly isDescriptionExpanded = signal(false);
@@ -48,6 +49,14 @@ export class ContentHeroComponent {
     private resizeObserver?: ResizeObserver;
 
     constructor() {
+        effect(() => {
+            // A detail shell is reused while navigating between items. Clear
+            // the previous item's image failure before trying the new URL.
+            this.posterUrl();
+            this.posterRetryCount = 0;
+            this.posterError.set(false);
+        });
+
         effect(() => {
             // Re-measure whenever description content or the element changes.
             this.description();
@@ -66,7 +75,16 @@ export class ContentHeroComponent {
         this.destroyRef.onDestroy(() => this.resizeObserver?.disconnect());
     }
 
-    onPosterError(): void {
+    onPosterError(event: Event): void {
+        const image = event.target as HTMLImageElement | null;
+        const source = image?.currentSrc || image?.src;
+        if (image && source && this.posterRetryCount === 0) {
+            this.posterRetryCount = 1;
+            const separator = source.includes('?') ? '&' : '?';
+            image.src = `${source}${separator}arm_nator_retry=${Date.now()}`;
+            return;
+        }
+
         this.posterError.set(true);
     }
 

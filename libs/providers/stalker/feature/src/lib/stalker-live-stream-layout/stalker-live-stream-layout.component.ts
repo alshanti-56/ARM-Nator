@@ -12,8 +12,13 @@ import { takeUntilDestroyed } from "@angular/core/rxjs-interop";
 import { ActivatedRoute } from "@angular/router";
 import { Router } from "@angular/router";
 import { combineLatest } from "rxjs";
+import { MatButtonModule } from "@angular/material/button";
 import { MatIcon } from "@angular/material/icon";
+import { MatMenuModule } from "@angular/material/menu";
+import { MatTooltipModule } from "@angular/material/tooltip";
+import { TranslatePipe } from "@ngx-translate/core";
 import { GridListComponent } from "@arm-nator/providers/shared/ui";
+import { ChannelListItemComponent } from "@arm-nator/ui/components";
 import {
   PORTAL_PLAYER,
   queryParamSignal,
@@ -25,13 +30,34 @@ import {
 import { ResolvedPortalPlayback } from "@arm-nator/shared/interfaces";
 
 type StalkerContentType = "itv" | "vod" | "series";
+type StalkerViewMode = "grid" | "list";
+type StalkerSortMode = "server" | "name-asc" | "name-desc";
 const INITIAL_RENDER_LIMIT = 50;
 const RENDER_CHUNK = 50;
+const STALKER_VIEW_MODE_STORAGE_KEY = "stalker-content-view-mode";
+
+function restoreStalkerViewMode(): StalkerViewMode {
+  if (typeof localStorage === "undefined") {
+    return "grid";
+  }
+
+  return localStorage.getItem(STALKER_VIEW_MODE_STORAGE_KEY) === "list"
+    ? "list"
+    : "grid";
+}
 
 @Component({
   selector: "app-stalker-live-stream-layout",
   standalone: true,
-  imports: [GridListComponent, MatIcon],
+  imports: [
+    ChannelListItemComponent,
+    GridListComponent,
+    MatButtonModule,
+    MatIcon,
+    MatMenuModule,
+    MatTooltipModule,
+    TranslatePipe,
+  ],
   templateUrl: "./stalker-live-stream-layout.component.html",
   styleUrls: ["./stalker-live-stream-layout.component.scss"],
   changeDetection: ChangeDetectionStrategy.OnPush,
@@ -44,6 +70,8 @@ export class StalkerLiveStreamLayoutComponent {
   private readonly portalPlayer = inject(PORTAL_PLAYER);
 
   readonly contentType = signal<StalkerContentType>("itv");
+  readonly viewMode = signal<StalkerViewMode>(restoreStalkerViewMode());
+  readonly sortMode = signal<StalkerSortMode>("server");
   readonly isRecentlyAdded = signal(false);
   readonly isSearchRoute = signal(false);
   readonly search = queryParamSignal(this.route, "q", (value) =>
@@ -66,7 +94,7 @@ export class StalkerLiveStreamLayoutComponent {
     const query = this.search().toLowerCase();
     const category = this.selectedCategory();
 
-    return this.channels().filter((item) => {
+    const filtered = this.channels().filter((item) => {
       const name = String(item.name ?? item.o_name ?? "").toLowerCase();
       const matchesSearch = !query || name.includes(query);
       const itemCategory = String(
@@ -75,6 +103,20 @@ export class StalkerLiveStreamLayoutComponent {
       const matchesCategory =
         !category || category === "*" || itemCategory === category;
       return matchesSearch && matchesCategory;
+    });
+
+    if (this.sortMode() === "server") {
+      return filtered;
+    }
+
+    return [...filtered].sort((left, right) => {
+      const leftName = this.listTitle(left).toLocaleLowerCase();
+      const rightName = this.listTitle(right).toLocaleLowerCase();
+      const result = leftName.localeCompare(rightName, undefined, {
+        numeric: true,
+        sensitivity: "base",
+      });
+      return this.sortMode() === "name-desc" ? -result : result;
     });
   });
 
@@ -132,22 +174,81 @@ export class StalkerLiveStreamLayoutComponent {
   readonly gridItems = computed(() =>
     this.visibleChannels().map((item) => {
       const { is_series, ...rest } = item;
-      const streamIcon =
-        typeof item["stream_icon"] === "string"
-          ? item["stream_icon"]
+      const info =
+        item.info && typeof item.info === "object"
+          ? (item.info as { movie_image?: unknown; cover?: unknown })
           : undefined;
+      const artwork =
+        this.resolveArtwork(info?.movie_image) ??
+        this.resolveArtwork(item.cover) ??
+        this.resolveArtwork(item.screenshot_uri) ??
+        this.resolveArtwork(item.logo) ??
+        this.resolveArtwork(item["movie_image"]) ??
+        this.resolveArtwork(item["stream_icon"]);
 
       return {
         ...rest,
         ...(is_series == null ? {} : { is_series }),
         title: item.title ?? item.o_name ?? item.name,
-        stream_icon: item.logo ?? streamIcon ?? item.cover,
+        poster_url: artwork,
+        cover: artwork,
+        stream_icon: artwork,
       };
     }),
   );
   readonly usesEmbeddedPlayer = computed(() =>
     this.portalPlayer.isEmbeddedPlayer(this.contentType() === "itv"),
   );
+
+  setViewMode(mode: StalkerViewMode): void {
+    this.viewMode.set(mode);
+    try {
+      localStorage.setItem(STALKER_VIEW_MODE_STORAGE_KEY, mode);
+    } catch {
+      // Ignore storage restrictions; the toggle still applies for this view.
+    }
+  }
+
+  setSortMode(mode: StalkerSortMode): void {
+    this.sortMode.set(mode);
+  }
+
+  listTitle(item: StalkerCatalogRow): string {
+    return String(item.title ?? item.o_name ?? item.name ?? "");
+  }
+
+  listLogo(item: StalkerCatalogRow): string | undefined {
+    const info =
+      item.info && typeof item.info === "object"
+        ? (item.info as { movie_image?: unknown; cover?: unknown })
+        : undefined;
+    return (
+      this.resolveArtwork(info?.movie_image) ??
+      this.resolveArtwork(item.cover) ??
+      this.resolveArtwork(item.screenshot_uri) ??
+      this.resolveArtwork(item.logo) ??
+      this.resolveArtwork(item["movie_image"]) ??
+      this.resolveArtwork(item["stream_icon"])
+    );
+  }
+
+  private resolveArtwork(value: unknown): string | undefined {
+    if (typeof value !== "string" || !value.trim()) {
+      return undefined;
+    }
+
+    const artwork = value.trim();
+    const portalUrl = this.store.currentPlaylist()?.portalUrl;
+    if (!portalUrl || /^https?:\/\//i.test(artwork)) {
+      return artwork;
+    }
+
+    try {
+      return new URL(artwork, portalUrl).toString();
+    } catch {
+      return artwork;
+    }
+  }
 
   constructor() {
     this.destroyRef.onDestroy(() => {

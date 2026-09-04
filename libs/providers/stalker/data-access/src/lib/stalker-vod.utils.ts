@@ -140,6 +140,15 @@ export function createStalkerInfo(item: StalkerVodSource): StalkerVodInfo {
             info.releasedate ?? item.releasedate ?? item.year
         ),
         genre: toStringOrFallback(info.genre ?? item.genre ?? item.genres_str),
+        country: toStringOrFallback(info.country ?? item.country),
+        duration: info.duration ?? item.duration,
+        duration_secs: info.duration_secs ?? item.duration_secs,
+        runtime: info.runtime ?? item.runtime,
+        bitrate: info.bitrate ?? item.bitrate,
+        container_extension: toStringOrFallback(
+            info.container_extension ?? item.container_extension
+        ),
+        format: toStringOrFallback(info.format ?? item.format),
         rating_imdb: toStringOrFallback(info.rating_imdb ?? item.rating_imdb),
         rating_kinopoisk: toStringOrFallback(
             info.rating_kinopoisk ?? item.rating_kinopoisk
@@ -228,10 +237,12 @@ export function normalizeStalkerFavoriteItem(
             video_id:
                 (item as StalkerVodSource).video_id ?? source.video_id,
             category_id:
-                typeof (item as StalkerVodSource).category_id === 'string'
-                    ? (item as StalkerVodSource).category_id
-                    : typeof source.category_id === 'string'
-                      ? source.category_id
+                (item as StalkerVodSource).category_id !== undefined &&
+                (item as StalkerVodSource).category_id !== null
+                    ? String((item as StalkerVodSource).category_id)
+                    : source.category_id !== undefined &&
+                        source.category_id !== null
+                      ? String(source.category_id)
                       : undefined,
         },
     };

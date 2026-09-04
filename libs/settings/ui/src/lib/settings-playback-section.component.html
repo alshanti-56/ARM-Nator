@@ -31,8 +31,13 @@
                     @for (player of players(); track player.id) {
                         <mat-option
                             [value]="player.id"
+                            [disabled]="player.available === false"
                             [attr.data-test-id]="player.id"
+                            [attr.title]="player.available === false ? player.detail : null"
                             >{{ player.labelKey | translate }}
+                            @if (player.available === false) {
+                                ({{ 'SETTINGS.PLAYER_UNAVAILABLE' | translate }})
+                            }
                         </mat-option>
                     }
                 </mat-select>
@@ -57,8 +62,13 @@
                     @for (player of players(); track player.id) {
                         <mat-option
                             [value]="player.id"
+                            [disabled]="player.available === false"
                             [attr.data-test-id]="'vod-' + player.id"
+                            [attr.title]="player.available === false ? player.detail : null"
                             >{{ player.labelKey | translate }}
+                            @if (player.available === false) {
+                                ({{ 'SETTINGS.PLAYER_UNAVAILABLE' | translate }})
+                            }
                         </mat-option>
                     }
                 </mat-select>

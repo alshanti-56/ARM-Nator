@@ -21,7 +21,11 @@ import { Router } from "@angular/router";
 import { SettingsContextService } from "@arm-nator/workspace/shell/util";
 import { TranslateModule, TranslateService } from "@ngx-translate/core";
 import { RuntimeCapabilitiesService } from "@arm-nator/services";
-import { Language, StreamFormat } from "@arm-nator/shared/interfaces";
+import {
+  Language,
+  StreamFormat,
+  type PlayerEngineAvailability,
+} from "@arm-nator/shared/interfaces";
 import { BUILD_COMMIT } from "./build-commit";
 import { SettingsAboutSectionComponent } from "./settings-about-section.component";
 import { SettingsBackupSectionComponent } from "./settings-backup-section.component";
@@ -116,6 +120,9 @@ export class SettingsComponent implements OnInit, OnDestroy {
   readonly supportsExternalPlayerPathSettings =
     this.runtime.supportsExternalPlayerPathSettings;
   private readonly ksPlayerMetalSupported = signal(false);
+  private readonly externalPlayerAvailability = signal<
+    readonly PlayerEngineAvailability[] | null
+  >(null);
   readonly supportsKsPlayerMetal = this.ksPlayerMetalSupported.asReadonly();
 
   readonly activeSection = this.settingsCtx.activeSection;
@@ -129,6 +136,7 @@ export class SettingsComponent implements OnInit, OnDestroy {
       supportsEmbeddedMpv: this.embeddedMpv.supported(),
       supportsKsPlayerMetal: this.ksPlayerMetalSupported(),
       supportsManagedExternalPlayers: this.supportsManagedExternalPlayers,
+      externalPlayerAvailability: this.externalPlayerAvailability(),
     }),
   );
 
@@ -156,6 +164,7 @@ export class SettingsComponent implements OnInit, OnDestroy {
     this.form.bindDashboardControlsEnabledState();
     void this.embeddedMpv.load();
     void this.loadKsPlayerMetalSupport();
+    void this.loadExternalPlayerAvailability();
     if (!this.isDialog) {
       this.settingsCtx.setSections(this.sectionNav);
     }
@@ -241,6 +250,26 @@ export class SettingsComponent implements OnInit, OnDestroy {
       this.ksPlayerMetalSupported.set(support.supported === true);
     } catch {
       this.ksPlayerMetalSupported.set(false);
+    }
+  }
+
+  private async loadExternalPlayerAvailability(): Promise<void> {
+    if (!this.runtime.isElectron || typeof window === "undefined") {
+      this.externalPlayerAvailability.set([]);
+      return;
+    }
+
+    if (typeof window.electron?.getPlayerEngineAvailability !== "function") {
+      this.externalPlayerAvailability.set([]);
+      return;
+    }
+
+    try {
+      this.externalPlayerAvailability.set(
+        await window.electron.getPlayerEngineAvailability(),
+      );
+    } catch {
+      this.externalPlayerAvailability.set([]);
     }
   }
 }

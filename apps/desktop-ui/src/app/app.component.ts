@@ -1,7 +1,7 @@
-import { Component, effect, HostBinding, inject, OnInit } from '@angular/core';
+import { Component, effect, HostBinding, inject, OnInit, signal } from '@angular/core';
 import { Router, RouterOutlet } from '@angular/router';
 import { Store } from '@ngrx/store';
-import { TranslateService } from '@ngx-translate/core';
+import { TranslateModule, TranslateService } from '@ngx-translate/core';
 import { WORKSPACE_SHELL_ACTIONS } from '@arm-nator/workspace/shell/util';
 import { PlaylistActions } from '@arm-nator/providers/shared/playlist-state';
 import {
@@ -19,7 +19,7 @@ import { SettingsService } from '@arm-nator/settings/data-access';
 @Component({
     selector: 'app-root',
     templateUrl: './app.component.html',
-    imports: [RouterOutlet],
+    imports: [RouterOutlet, TranslateModule],
 })
 export class AppComponent implements OnInit {
     @HostBinding('class.macos-platform') get isMacOS() {
@@ -32,6 +32,7 @@ export class AppComponent implements OnInit {
     private settingsStore = inject(SettingsStore);
     private runtime = inject(RuntimeCapabilitiesService);
     private readonly workspaceShellActions = inject(WORKSPACE_SHELL_ACTIONS);
+    readonly bundledKsPlayerWarning = signal<string | null>(null);
 
     /** Default language as fallback */
     private readonly DEFAULT_LANG = Language.ENGLISH;
@@ -59,6 +60,7 @@ export class AppComponent implements OnInit {
         this.translate.setDefaultLang(this.DEFAULT_LANG);
 
         this.initSettings();
+        void this.loadBundledKsPlayerSupport();
     }
 
     /**
@@ -105,6 +107,35 @@ export class AppComponent implements OnInit {
      */
     detectDarkMode(): void {
         this.settingsService.changeTheme(Theme.SystemTheme);
+    }
+
+    private async loadBundledKsPlayerSupport(): Promise<void> {
+        if (!this.runtime.isElectron || typeof window === 'undefined') {
+            return;
+        }
+
+        if (typeof window.electron?.getKsPlayerMetalSupport !== 'function') {
+            this.bundledKsPlayerWarning.set(
+                'The bundled KS Player runtime is unavailable in this build.'
+            );
+            return;
+        }
+
+        try {
+            const support = await window.electron.getKsPlayerMetalSupport();
+            if (!support.supported) {
+                this.bundledKsPlayerWarning.set(
+                    support.reason ??
+                        'The bundled KS Player runtime could not be loaded.'
+                );
+            }
+        } catch (error) {
+            this.bundledKsPlayerWarning.set(
+                error instanceof Error
+                    ? error.message
+                    : 'The bundled KS Player runtime could not be loaded.'
+            );
+        }
     }
 
     /**

@@ -235,6 +235,7 @@ function normalizeArtworkUrl(value: string | undefined): string | undefined {
 })
 export class GridListComponent {
   private readonly failedArtworkUrls = signal<ReadonlySet<string>>(new Set());
+  private readonly retriedArtworkUrls = signal<ReadonlySet<string>>(new Set());
   private readonly settingsStore = inject(SettingsStore);
 
   readonly items = input<GridListItem[]>([]);
@@ -317,6 +318,18 @@ export class GridListComponent {
 
   protected onImageError(event: Event, poster: string): void {
     if (this.usesArtworkPlaceholder()) {
+      const image = event.target as HTMLImageElement | null;
+      if (image && !this.retriedArtworkUrls().has(poster)) {
+        this.retriedArtworkUrls.update((retriedUrls) => {
+          const nextRetriedUrls = new Set(retriedUrls);
+          nextRetriedUrls.add(poster);
+          return nextRetriedUrls;
+        });
+        const separator = poster.includes("?") ? "&" : "?";
+        image.src = `${poster}${separator}arm_nator_retry=${Date.now()}`;
+        return;
+      }
+
       this.failedArtworkUrls.update((failedUrls) => {
         const nextFailedUrls = new Set(failedUrls);
         nextFailedUrls.add(poster);

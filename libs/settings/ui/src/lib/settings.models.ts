@@ -37,6 +37,8 @@ export interface CoverSizeOption {
 export interface SettingsPlayerOption {
   id: VideoPlayer;
   labelKey: string;
+  available?: boolean;
+  detail?: string;
 }
 
 export interface SettingsPlaylistDeleteSummary {

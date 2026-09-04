@@ -1,11 +1,16 @@
 import { createServer, type IncomingMessage, type Server, type ServerResponse } from 'node:http';
 import axios, { type AxiosRequestConfig } from 'axios';
-import { normalizeXtreamServerUrl } from '@arm-nator/shared/interfaces';
+import {
+    buildStalkerIdentityRequestContext,
+    buildStalkerRequestUrl,
+    normalizeXtreamServerUrl,
+} from '@arm-nator/shared/interfaces';
 import { databaseWorkerClient } from './database-worker-client';
 import {
     DB_WORKER_OPERATIONS,
     type DbWorkerOperation,
 } from '../workers/database-worker.types';
+import { assertRemoteUrlAllowed } from '../events/url-safety';
 import { requestWithValidatedRedirects } from '../util/validated-axios';
 
 export const webApiHost = '127.0.0.1';
@@ -142,6 +147,44 @@ async function requestXtream(payload: {
     };
 }
 
+async function requestStalker(payload: {
+    url: string;
+    macAddress: string;
+    params: Record<string, string | number>;
+    token?: string;
+    serialNumber?: string;
+}): Promise<unknown> {
+    const { requestParams, headers } = buildStalkerIdentityRequestContext({
+        macAddress: payload.macAddress,
+        params: payload.params,
+        token: payload.token,
+        serialNumber: payload.serialNumber,
+    });
+    await assertRemoteUrlAllowed(payload.url, { allowPrivateNetworks: true });
+
+    const fullUrl = buildStalkerRequestUrl(payload.url, requestParams);
+    const response = await requestWithValidatedRedirects<unknown>(
+        fullUrl,
+        {
+            method: 'GET',
+            url: fullUrl,
+            headers,
+            timeout: 15000,
+            validateStatus: (status) => status < 500,
+        },
+        { allowPrivateNetworks: true }
+    );
+
+    if (response.status >= 400) {
+        throw Object.assign(
+            new Error(`HTTP Error: ${response.statusText}`),
+            { status: response.status }
+        );
+    }
+
+    return response.data;
+}
+
 async function handleRequest(
     request: IncomingMessage,
     response: ServerResponse
@@ -220,6 +263,33 @@ async function handleRequest(
             params: payload.params as Record<string, string>,
         });
         sendJson(response, 200, result, origin);
+        return;
+    }
+
+    if (requestUrl.pathname === `${webApiPath}/stalker`) {
+        const payload = body as JsonObject;
+        if (
+            typeof payload.url !== 'string' ||
+            typeof payload.macAddress !== 'string' ||
+            !payload.params ||
+            typeof payload.params !== 'object' ||
+            Array.isArray(payload.params)
+        ) {
+            sendJson(response, 400, { error: 'Invalid Stalker request' }, origin);
+            return;
+        }
+
+        const result = await requestStalker({
+            url: payload.url,
+            macAddress: payload.macAddress,
+            params: payload.params as Record<string, string | number>,
+            token: typeof payload.token === 'string' ? payload.token : undefined,
+            serialNumber:
+                typeof payload.serialNumber === 'string'
+                    ? payload.serialNumber
+                    : undefined,
+        });
+        sendJson(response, 200, { result }, origin);
         return;
     }
 

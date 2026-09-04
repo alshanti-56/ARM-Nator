@@ -38,6 +38,14 @@ export interface StalkerVodInfo {
     rating_imdb: string;
     /** Kinopoisk rating as string */
     rating_kinopoisk: string;
+    /** Optional technical/editorial fields supplied by some portals or TMDB */
+    country?: string;
+    duration?: string | number;
+    duration_secs?: string | number;
+    runtime?: string | number;
+    bitrate?: string | number;
+    container_extension?: string;
+    format?: string;
     /** Populated by TMDB enrichment; absent in raw portal responses */
     tmdb_cast?: TmdbEnrichedCastMember[];
     /** Directors (movies) / creators (series) as clickable person chips */

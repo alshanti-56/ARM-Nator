@@ -13,6 +13,7 @@ export * from './lib/stalker-series.adapters';
 export * from './lib/stalker-session.service';
 export * from './lib/stalker-session-store';
 export * from './lib/stalker-vod.utils';
+export * from './lib/stores/stalker-tmdb-enrichment';
 export * from './lib/stalker-watchdog.controller';
 export * from './lib/stalker-identity.utils';
 export * from './lib/stores/utils/stalker-link-semantics.utils';

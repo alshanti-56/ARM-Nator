@@ -1,4 +1,8 @@
 {
+    "PLAYER_RUNTIME": {
+        "KSPLAYER_WARNING_TITLE": "Bundled KS Player is unavailable",
+        "KSPLAYER_WARNING_DESCRIPTION": "ARM-Nator can still browse your library and use web or external players. Check the bundled runtime before selecting KS Player."
+    },
     "CANCEL": "Cancel",
     "CLEAR": "Clear",
     "CLOSE": "Close",
@@ -211,6 +215,7 @@
         "PLAYER_KSPLAYER": "KS Player",
         "PLAYER_MPV": "MPV player",
         "PLAYER_VLC": "VLC",
+        "PLAYER_UNAVAILABLE": "unavailable",
         "VIDEO_PLAYER_PLACEHOLDER": "Select an option",
         "VERSION": "Version",
         "SAVE_CHANGES": "Save changes",
@@ -861,6 +866,7 @@
         "SORT_LOWEST_RATED": "Lowest rated first",
         "REFINE_ACTION": "Refine",
         "REFINE_SORT_SECTION": "Sort by",
+        "REFINE_FILTERS_GROUP": "Filters",
         "REFINE_RATING_SECTION": "Minimum rating",
         "REFINE_CLEAR_RATING": "Clear {{value}}.0 and higher rating filter",
         "FILTER_RATING": "Filter by rating",
@@ -870,6 +876,9 @@
         "REFINE_YEAR_SECTION": "Release year",
         "FILTER_GENRE_ANY": "Any genre",
         "FILTER_YEAR_ANY": "Any year",
+        "FILTER_YEAR_LABEL": "Enter release year",
+        "FILTER_YEAR_PLACEHOLDER": "e.g. 2024",
+        "FILTER_YEAR_APPLY": "Apply",
         "REFINE_CLEAR_GENRE": "Clear {{value}} genre filter",
         "REFINE_CLEAR_YEAR": "Clear {{value}} release year filter",
         "SORT_LABEL": "Sort: ",

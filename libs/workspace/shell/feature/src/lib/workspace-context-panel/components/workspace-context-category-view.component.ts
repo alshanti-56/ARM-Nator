@@ -51,7 +51,7 @@ export class WorkspaceContextCategoryViewComponent {
 
     getItemCount(item: WorkspaceCategoryViewItem): number {
         const itemId = Number(item.id ?? item.category_id);
-        return this.itemCounts().get(itemId) ?? 0;
+        return this.itemCounts().get(itemId) ?? item.count ?? 0;
     }
 
     hasItemCount(item: WorkspaceCategoryViewItem): boolean {
@@ -60,7 +60,10 @@ export class WorkspaceContextCategoryViewComponent {
         }
 
         // NaN (from the "*" all-category id) is a valid Map key here.
-        return this.itemCounts().has(Number(item.id ?? item.category_id));
+        return (
+            this.itemCounts().has(Number(item.id ?? item.category_id)) ||
+            item.count !== undefined
+        );
     }
 
     onCategoryClick(item: WorkspaceCategoryViewItem): void {

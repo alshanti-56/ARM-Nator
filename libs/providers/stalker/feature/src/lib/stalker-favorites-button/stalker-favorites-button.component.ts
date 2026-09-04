@@ -1,9 +1,11 @@
 import { AsyncPipe } from '@angular/common';
 import { Component, inject, input } from '@angular/core';
 import { MatIconModule } from '@angular/material/icon';
-import { TranslateModule } from '@ngx-translate/core';
+import { MatSnackBar } from '@angular/material/snack-bar';
+import { TranslateModule, TranslateService } from '@ngx-translate/core';
 import { BehaviorSubject, map, of, switchMap } from 'rxjs';
 import { PlaylistsService } from '@arm-nator/services';
+import { StalkerPortalItem } from '@arm-nator/shared/interfaces';
 import { StalkerStore } from '@arm-nator/providers/stalker/data-access';
 import {
     matchesFavoriteById,
@@ -26,6 +28,8 @@ type FavoriteButtonItem = StalkerSelectedVodItem & {
 export class FavoritesButtonComponent {
     private playlistService = inject(PlaylistsService);
     private stalkerStore = inject(StalkerStore);
+    private snackBar = inject(MatSnackBar);
+    private translate = inject(TranslateService);
 
     readonly itemId = input.required<string>();
     readonly item = input.required<FavoriteButtonItem>();
@@ -47,9 +51,19 @@ export class FavoritesButtonComponent {
     );
 
     removeFromFavorites() {
-        this.stalkerStore.removeFromFavorites(this.itemId(), () => {
-            this.favoritesChanged$.next();
-        });
+        const portalId = this.stalkerStore.currentPlaylist()?._id;
+        if (!portalId) return;
+
+        this.playlistService
+            .removeFromPortalFavorites(portalId, this.itemId())
+            .subscribe(() => {
+                this.snackBar.open(
+                    this.translate.instant('PORTALS.REMOVED_FROM_FAVORITES'),
+                    undefined,
+                    { duration: 1000 }
+                );
+                this.favoritesChanged$.next();
+            });
     }
 
     addToFavorites() {
@@ -62,31 +76,37 @@ export class FavoritesButtonComponent {
         };
 
         if (this.stalkerStore.selectedContentType() === 'vod') {
-            this.stalkerStore.addToFavorites(
-                {
-                    ...favoriteBase,
-                    id: item.id,
-                    category_id: item.category_id ?? 'vod',
-                    series: item.series,
-                    is_series: normalizeStalkerSeriesFlag(item.is_series),
-                },
-                () => {
-                    this.favoritesChanged$.next();
-                }
-            );
+            this.persistFavorite({
+                ...favoriteBase,
+                id: item.id,
+                category_id: item.category_id ?? 'vod',
+                series: item.series,
+                is_series: normalizeStalkerSeriesFlag(item.is_series),
+            });
             return;
         }
 
-        this.stalkerStore.addToFavorites(
-            {
-                ...favoriteBase,
-                series_id: item.id,
-                category_id: 'series',
-            },
-            () => {
+        this.persistFavorite({
+            ...favoriteBase,
+            series_id: item.id,
+            category_id: 'series',
+        });
+    }
+
+    private persistFavorite(favorite: Record<string, unknown>): void {
+        const portalId = this.stalkerStore.currentPlaylist()?._id;
+        if (!portalId) return;
+
+        this.playlistService
+            .addPortalFavorite(portalId, favorite as StalkerPortalItem)
+            .subscribe(() => {
+                this.snackBar.open(
+                    this.translate.instant('PORTALS.ADDED_TO_FAVORITES'),
+                    undefined,
+                    { duration: 1000 }
+                );
                 this.favoritesChanged$.next();
-            }
-        );
+            });
     }
 
     forceRefresh() {

@@ -157,10 +157,177 @@
     letter-spacing: 0.04em;
 }
 
+.refine-menu-section {
+    padding: 5px 8px;
+    overflow: hidden;
+}
+
+.refine-menu-section + .refine-menu-section {
+    border-top: 1px solid rgba(26, 27, 31, 0.08);
+}
+
+.refine-menu-filter-group-label {
+    margin: 8px 16px 2px;
+    padding-top: 10px;
+    border-top: 1px solid rgba(26, 27, 31, 0.1);
+    color: #5f6368;
+    font-size: 0.64rem;
+    font-weight: 800;
+    letter-spacing: 0.08em;
+    line-height: 1.2;
+    text-transform: uppercase;
+}
+
+.refine-menu-section-toggle {
+    display: grid;
+    box-sizing: border-box;
+    width: 100%;
+    min-height: 42px;
+    grid-template-columns: 20px max-content minmax(0, 1fr) 24px;
+    align-items: center;
+    gap: 8px;
+    padding: 8px 10px;
+    border: 1px solid transparent;
+    border-radius: 10px;
+    color: #1a1b1f;
+    background: rgba(26, 27, 31, 0.035);
+    cursor: pointer;
+    font: inherit;
+    font-size: 0.82rem;
+    font-weight: 700;
+    text-align: start;
+}
+
+.refine-menu-section-label {
+    white-space: nowrap;
+}
+
+.refine-menu-section-value {
+    display: block;
+    min-width: 0;
+    width: auto;
+    justify-self: end;
+    max-width: 120px;
+    overflow: hidden;
+    text-align: end;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+.refine-menu-section-value-active {
+    width: max-content;
+    max-width: 132px;
+    box-sizing: border-box;
+    padding: 3px 8px;
+    border: 1px solid rgba(37, 99, 235, 0.32);
+    border-radius: 999px;
+    color: #1d4ed8;
+    background: rgba(37, 99, 235, 0.1);
+    font-size: 0.68rem;
+    font-weight: 700;
+    line-height: 1.2;
+    text-align: center;
+}
+
+.refine-menu-section-toggle:hover {
+    background: rgba(37, 99, 235, 0.08);
+}
+
+.refine-menu-section-toggle[aria-expanded='true'] {
+    border-color: rgba(37, 99, 235, 0.28);
+    background: rgba(37, 99, 235, 0.08);
+}
+
+.refine-menu-section-toggle mat-icon {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 18px;
+    height: 18px;
+    color: #1d4ed8;
+    font-size: 18px;
+}
+
+.refine-menu-section-toggle .refine-menu-section-chevron {
+    width: 24px;
+    height: 24px;
+    border-radius: 999px;
+    color: #5f6368;
+    background: rgba(26, 27, 31, 0.07);
+    font-size: 20px;
+}
+
+.refine-menu-section-toggle[aria-expanded='true'] .refine-menu-section-chevron {
+    color: #1d4ed8;
+    background: rgba(37, 99, 235, 0.16);
+}
+
+// Keep section content mounted while it collapses. Removing menu items with
+// @if makes Angular Material recalculate the overlay's anchor on every click,
+// which causes the entire menu to jump. A grid track gives the content a
+// measured, animated height while the inner wrapper clips it cleanly.
+.refine-menu-section-content {
+    display: grid;
+    grid-template-rows: 0fr;
+    opacity: 0;
+    overflow: hidden;
+    transition:
+        grid-template-rows 180ms cubic-bezier(0.4, 0, 0.2, 1),
+        opacity 120ms ease;
+}
+
+.refine-menu-section-content-expanded {
+    grid-template-rows: 1fr;
+    opacity: 1;
+}
+
+.refine-menu-section-content-inner {
+    min-height: 0;
+    overflow: hidden;
+}
+
 .refine-menu-divider {
     height: 1px;
     margin: 6px 12px;
     background: rgba(255, 255, 255, 0.08);
+}
+
+// The Material menu panel is rendered in the CDK overlay container, outside
+// this component's emulated style scope. Keep its viewport and scroll rules
+// global so a long expanded section cannot force the overlay to flip around
+// the trigger while it is animating.
+::ng-deep .mat-mdc-menu-panel.refine-menu {
+    min-width: 300px;
+    max-height: min(70vh, 560px);
+    overflow-y: auto;
+    overflow-x: hidden;
+    overflow-anchor: none;
+    scrollbar-gutter: stable;
+}
+
+.refine-year-input-row {
+    display: grid;
+    grid-template-columns: 1fr auto;
+    gap: 6px 8px;
+    align-items: center;
+    padding: 8px 16px 12px;
+}
+
+.refine-year-input-row label {
+    grid-column: 1 / -1;
+    color: var(--app-body-color, var(--mat-sys-on-surface-variant));
+    font-size: 0.78rem;
+}
+
+.refine-year-input-row input {
+    width: 112px;
+    box-sizing: border-box;
+    padding: 7px 9px;
+    border: 1px solid var(--app-separator);
+    border-radius: 6px;
+    color: var(--mat-sys-on-surface);
+    background: var(--mat-sys-surface-container-low);
+    font: inherit;
 }
 
 // ─── Paginator — flush right, no ghost background ────────────────────────────
