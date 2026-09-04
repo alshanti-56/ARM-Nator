@@ -10,13 +10,11 @@ import { FavoritesButtonComponent } from './stalker-favorites-button.component';
 describe('FavoritesButtonComponent', () => {
     let fixture: ComponentFixture<FavoritesButtonComponent>;
     let selectedContentType: ReturnType<typeof signal<'vod' | 'series'>>;
-    let addToFavorites: jest.Mock;
+    let addPortalFavorite: jest.Mock;
 
     beforeEach(async () => {
         selectedContentType = signal<'vod' | 'series'>('series');
-        addToFavorites = jest.fn((_item: unknown, onDone?: () => void) => {
-            onDone?.();
-        });
+        addPortalFavorite = jest.fn(() => of(undefined));
 
         await TestBed.configureTestingModule({
             imports: [
@@ -30,7 +28,6 @@ describe('FavoritesButtonComponent', () => {
                     useValue: {
                         currentPlaylist: signal({ _id: 'stalker-1' }),
                         selectedContentType,
-                        addToFavorites,
                         removeFromFavorites: jest.fn(),
                     },
                 },
@@ -38,6 +35,8 @@ describe('FavoritesButtonComponent', () => {
                     provide: PlaylistsService,
                     useValue: {
                         getPortalFavorites: jest.fn(() => of([])),
+                        addPortalFavorite,
+                        removeFromPortalFavorites: jest.fn(() => of(undefined)),
                     },
                 },
             ],
@@ -67,17 +66,17 @@ describe('FavoritesButtonComponent', () => {
 
         fixture.componentInstance.addToFavorites();
 
-        expect(addToFavorites).toHaveBeenCalledWith(
+        expect(addPortalFavorite).toHaveBeenCalledWith(
+            'stalker-1',
             expect.objectContaining({
                 id: '1507',
                 category_id: '2001',
                 is_series: true,
                 title: 'VOD Flagged Series',
                 cover: 'poster.jpg',
-            }),
-            expect.any(Function)
+            })
         );
-        expect(addToFavorites.mock.calls[0][0]).not.toHaveProperty('series_id');
+        expect(addPortalFavorite.mock.calls[0][1]).not.toHaveProperty('series_id');
     });
 
     it('preserves embedded VOD series arrays in favorite payloads', () => {
@@ -97,17 +96,17 @@ describe('FavoritesButtonComponent', () => {
 
         fixture.componentInstance.addToFavorites();
 
-        expect(addToFavorites).toHaveBeenCalledWith(
+        expect(addPortalFavorite).toHaveBeenCalledWith(
+            'stalker-1',
             expect.objectContaining({
                 id: '20001',
                 category_id: '2001',
                 series: [1, 2],
                 title: 'Embedded Series',
                 cover: 'embedded.jpg',
-            }),
-            expect.any(Function)
+            })
         );
-        expect(addToFavorites.mock.calls[0][0]).not.toHaveProperty('series_id');
+        expect(addPortalFavorite.mock.calls[0][1]).not.toHaveProperty('series_id');
     });
 
     it('writes regular Stalker series favorites with series_id', () => {
@@ -125,14 +124,14 @@ describe('FavoritesButtonComponent', () => {
 
         fixture.componentInstance.addToFavorites();
 
-        expect(addToFavorites).toHaveBeenCalledWith(
+        expect(addPortalFavorite).toHaveBeenCalledWith(
+            'stalker-1',
             expect.objectContaining({
                 series_id: '30001',
                 category_id: 'series',
                 title: 'Regular Series',
                 cover: 'series.jpg',
-            }),
-            expect.any(Function)
+            })
         );
     });
 });
