@@ -39,19 +39,19 @@ const candidates = (
 ).flat().filter((file) => file.includes('/src/'));
 
 const nodeTestFiles = [];
-const legacyTestFiles = [];
+const angularJestTestFiles = [];
 
 for (const file of candidates.sort()) {
     const source = await readFile(file, 'utf8');
     if (/from\s+['"]node:test['"]/.test(source)) {
         nodeTestFiles.push(file);
     } else {
-        legacyTestFiles.push(file);
+        angularJestTestFiles.push(file);
     }
 }
 
 console.log(
-    `Running ${nodeTestFiles.length} Node test files; ${legacyTestFiles.length} legacy Angular/Jest files are not part of this runner.`
+    `Running ${nodeTestFiles.length} Node test files; ${angularJestTestFiles.length} Angular/Jest files are run separately by pnpm test:angular.`
 );
 
 const child = spawn(

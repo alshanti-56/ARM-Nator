@@ -2,9 +2,8 @@
  * Drizzle ORM schema for ARM-Nator database
  * This schema defines the structure for Xtream Codes API data storage
  *
- * Single source of truth for database schema - used by:
- * - electron-backend (full read-write access)
- * - agent-backend (read-only access for AI queries)
+ * Single source of truth for the database schema. The Electron backend uses it
+ * for read-write access; optional consumers can open it read-only.
  */
 
 import { sql } from 'drizzle-orm';

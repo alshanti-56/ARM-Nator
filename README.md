@@ -1,9 +1,9 @@
 # ARM-Nator
 
 ARM-Nator is a macOS Apple Silicon Electron media workspace. It imports Xtream
-and Stalker sources, stores catalog data in SQLite, provides search and
-refinement tools, and plays streams through several local and browser-based
-engines.
+and Stalker sources, stores the Xtream catalog and shared state in SQLite,
+provides search and refinement tools, and plays streams through several local
+and browser-based engines.
 
 This document describes the current repository rather than a historical
 roadmap. The package version in this checkout is `0.31.0`.
@@ -14,10 +14,10 @@ roadmap. The package version in this checkout is `0.31.0`.
   recently viewed, and global search views.
 - Stalker portal sources with MAC authentication, live TV, movies, series,
   episode details, and shared-player playback.
-- SQLite-backed catalog storage, indexed search, pagination, metadata
-  enrichment, and case-insensitive refinement values.
-- Global Search searches the local database across Xtream and Stalker sources;
-  title and provider-supplied metadata are available from the imported catalog.
+- SQLite-backed Xtream catalog storage and shared state, indexed search,
+  pagination, metadata enrichment, and case-insensitive refinement values.
+- Global Search searches the local SQLite Xtream catalog; Stalker exposes its
+  own portal-scoped search route and is not included in Global Search.
 - Optional TMDB enrichment for on-demand detail views and the Dashboard
   trending rail. TMDB enrichment is separate from Xtream detail loading and
   does not scan the entire catalog when enabled.
@@ -50,10 +50,13 @@ The repository provides standard validation commands:
 pnpm verify:environment
 pnpm lint
 pnpm test
+pnpm test:angular         # Stalker Jest suites; accepts optional Jest configs
 pnpm build
 ```
 
-`pnpm test` runs the repository's Node test suites through the shared test runner.
+`pnpm test` runs the repository's Node built-in test suites through the shared
+test runner. Angular/Jest suites are separate; `pnpm test:angular` runs the
+Stalker Jest configurations (or explicit configs passed to that script).
 Production builds prepare the pinned Embedded MPV runtime automatically when it is
 not already staged. Runtime compilation requires
 macOS on Apple Silicon plus `meson`, `ninja`, and `pkg-config`.
@@ -99,10 +102,11 @@ a downloadable media stream and may fail in a generic player engine.
   views, and native Embedded MPV integration.
 - Active source types: Xtream and Stalker portal.
 - Active player engines: ArtPlayer, ArtPlayer2, HTML5, Embedded MPV, KSPlayer, external MPV, and VLC.
-- Browser and YouTube are Electron-hosted features, not generic browser-only
-  routes.
-- PWA/browser-only runtime paths, the old Downloads feature, remote
-  control/server surfaces, and Video.js are not active product features.
+- Browser and YouTube are Electron-hosted features. A normal browser is only
+  supported for the development loopback bridge; there is no separate PWA
+  product.
+- The old Downloads feature, remote-control/server surfaces, and Video.js are
+  not active product features.
 
 ## Routes and tools
 
@@ -122,8 +126,10 @@ a downloadable media stream and may fail in a generic player engine.
 | `/workspace/tools/credentials` | Test Xtream credentials in bulk |
 | `/workspace/settings` | Application, player, source, and dashboard settings |
 
-Source-specific movie, series, live TV, recently added, and advanced-search
-routes are mounted below the workspace shell.
+Xtream routes are mounted below `/workspace/xtreams/:id` for live, VOD,
+series, search, actor/filmography, recently added, favorites, and recent
+views. Stalker routes are mounted below `/workspace/stalker/:id` for ITV, VOD,
+series, recently added, and portal search.
 
 ## Architecture
 
@@ -192,16 +198,25 @@ The default database path is:
 ```
 
 The catalog stores provider and metadata text because it supports search,
-refinement, diagnostics, and offline UI state. It does not store poster image
-files as part of the catalog database; poster and backdrop values are URL
+refinement, diagnostics, and offline UI state. Xtream catalog rows are imported
+into SQLite; Stalker VOD, series, and ITV catalogs are loaded from the portal
+on demand, while connection identity and user state are persisted locally. The
+database does not store poster image files; poster and backdrop values are URL
 metadata. SQLite access remains in Electron/main-process services.
 
 Xtream movie and series detail metadata is persisted when it is fetched from the
-provider. Global Search itself does not contact providers while the user types.
+provider. Global Search itself does not contact providers while the user types;
+it currently searches Xtream rows only. Stalker search remains portal-scoped
+and on demand.
 
 TMDB data is stored separately in `tmdb_metadata`. It is optional, cached
 locally, and fetched on demand for supported detail, person, season, hero, or
 trending views.
+
+Provider credentials are currently stored in the local SQLite connection data;
+there is no macOS Keychain integration in this version. Xtream backups include
+secrets when the user explicitly exports a backup, so backup files must be
+handled as sensitive data.
 
 ## Embedded MPV
 
@@ -242,11 +257,11 @@ pnpm clean                # Remove generated build output
 ```
 
 `pnpm dev` is the normal development workflow. The Angular renderer is served
-at `http://localhost:4200` while Electron runs the desktop window.
+at `http://localhost:4300` while Electron runs the desktop window.
 
 The same development command also exposes a loopback web data adapter at
 `http://127.0.0.1:4310/api` after SQLite initialization. Opening
-`http://localhost:4200` in a normal browser uses this adapter for playlists,
+`http://localhost:4300` in a normal browser uses this adapter for playlists,
 catalogs, favorites, recently viewed items, playback positions, app state, and
 Xtream requests. The adapter forwards to the existing database worker; it does
 not open or copy the SQLite file in the browser. Set

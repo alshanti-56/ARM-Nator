@@ -1,7 +1,7 @@
 import { reservePlaylistAuthority } from '@arm-nator/services';
 import type { PlaylistMeta } from '@arm-nator/shared/interfaces';
 
-/** Shares one repair locally and reserves its source across PWA tabs. */
+/** Shares one repair locally and reserves its source across browser contexts. */
 export class StalkerRepairAuthorityCoordinator {
     private readonly pending = new Map<string, Promise<PlaylistMeta | null>>();
     private readonly blockers = new Map<string, number>();

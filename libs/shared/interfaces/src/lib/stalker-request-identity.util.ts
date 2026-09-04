@@ -31,9 +31,9 @@ export interface StalkerIdentityRequestContext {
  * `__cfduid`), the MAG User-Agent pair, the `SN`/`Authorization` headers, and
  * the serial-number parameter rules (`sn` travels only on `get_profile`).
  *
- * This is the single source of truth for BOTH transports — the Electron main
- * process and the self-hosted PWA's web-backend `/stalker` proxy — so the two
- * cannot drift apart again. The stock server reads the timezone cookie with
+ * This is the single source of truth for the Electron main process and the
+ * loopback HTTP bridge, so the two transports cannot drift apart. The stock
+ * server reads the timezone cookie with
  * `new DateTimeZone()`, so it must always be a valid PHP timezone.
  */
 export function buildStalkerIdentityRequestContext({

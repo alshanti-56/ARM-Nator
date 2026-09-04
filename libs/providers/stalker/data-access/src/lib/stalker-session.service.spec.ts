@@ -1342,7 +1342,7 @@ describe('StalkerSessionService identity payloads', () => {
         expect(dataService.sendIpcEvent).toHaveBeenCalledTimes(2);
     });
 
-    it('recognizes the raw PWA plain-text failure body and retries', async () => {
+    it('recognizes a raw plain-text bridge failure body and retries', async () => {
         const playlist = {
             _id: 'playlist-11',
             portalUrl,

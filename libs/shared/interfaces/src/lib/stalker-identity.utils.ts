@@ -101,7 +101,7 @@ async function sha256Upper(value: string): Promise<string> {
  * Returns `null` whenever it cannot produce trustworthy IDs: when the MAC is
  * not a valid address (hashing whatever happens to be in the field would bind
  * the account to a typo, permanently), and when the runtime has no WebCrypto
- * — an insecure-context PWA, where the handshake's own SHA-1 prehash cannot
+ * — a browser context without WebCrypto, where the handshake's own SHA-1 prehash cannot
  * run either, so full-portal auth is already out of reach. Both cases fail
  * closed: nothing is written, so nothing is pinned.
  */

@@ -9,7 +9,10 @@
     $season-title-font-weight: 600,
     $season-title-letter-spacing: 0,
     $episode-title-font-size: 1.125rem,
-    $episode-title-letter-spacing: 0
+    $episode-title-letter-spacing: 0,
+    $include-similar-rail: true,
+    $include-secondary-actions: true,
+    $include-legacy-sections: true
 ) {
     :host {
         --poster-width: 220px;
@@ -214,83 +217,85 @@
         }
 
         // "Similar" rail (TMDB recommendations matched to the catalog)
-        &__similar {
-            margin-top: 24px;
+        @if $include-similar-rail {
+            &__similar {
+                margin-top: 24px;
 
-            h3 {
+                h3 {
+                    color: var(--text-primary);
+                    font-size: 1rem;
+                    font-weight: 600;
+                    margin: 0 0 12px;
+                }
+            }
+
+            &__similar-strip {
+                display: flex;
+                gap: 12px;
+                overflow-x: auto;
+                padding-bottom: 8px;
+                scrollbar-width: thin;
+                scrollbar-color: color-mix(
+                        in srgb,
+                        var(--app-muted-color) 55%,
+                        transparent
+                    )
+                    transparent;
+            }
+
+            &__similar-card {
+                background: none;
+                border: none;
+                cursor: pointer;
+                display: flex;
+                flex-direction: column;
+                flex-shrink: 0;
+                gap: 6px;
+                padding: 0;
+                text-align: left;
+                width: 110px;
+
+                &:hover .details__similar-poster {
+                    transform: scale(1.04);
+                }
+            }
+
+            &__similar-poster {
+                background: rgba(255, 255, 255, 0.08);
+                border-radius: 8px;
+                height: 165px;
+                object-fit: cover;
+                transition: transform 0.15s ease;
+                width: 110px;
+
+                &--fallback {
+                    align-items: center;
+                    color: var(--text-muted);
+                    display: inline-flex;
+                    font-size: 2rem;
+                    font-weight: 600;
+                    justify-content: center;
+                    text-transform: uppercase;
+                }
+            }
+
+            &__similar-title {
                 color: var(--text-primary);
-                font-size: 1rem;
-                font-weight: 600;
-                margin: 0 0 12px;
+                font-size: 0.8125rem;
+                font-weight: 500;
+                overflow: hidden;
+                text-overflow: ellipsis;
+                white-space: nowrap;
             }
-        }
 
-        &__similar-strip {
-            display: flex;
-            gap: 12px;
-            overflow-x: auto;
-            padding-bottom: 8px;
-            scrollbar-width: thin;
-            scrollbar-color: color-mix(
-                    in srgb,
-                    var(--app-muted-color) 55%,
-                    transparent
-                )
-                transparent;
-        }
-
-        &__similar-card {
-            background: none;
-            border: none;
-            cursor: pointer;
-            display: flex;
-            flex-direction: column;
-            flex-shrink: 0;
-            gap: 6px;
-            padding: 0;
-            text-align: left;
-            width: 110px;
-
-            &:hover .details__similar-poster {
-                transform: scale(1.04);
-            }
-        }
-
-        &__similar-poster {
-            background: rgba(255, 255, 255, 0.08);
-            border-radius: 8px;
-            height: 165px;
-            object-fit: cover;
-            transition: transform 0.15s ease;
-            width: 110px;
-
-            &--fallback {
-                align-items: center;
+            // Source playlist badge on cross-portal similar cards
+            &__similar-source {
                 color: var(--text-muted);
-                display: inline-flex;
-                font-size: 2rem;
-                font-weight: 600;
-                justify-content: center;
-                text-transform: uppercase;
+                font-size: 0.6875rem;
+                overflow: hidden;
+                text-overflow: ellipsis;
+                white-space: nowrap;
             }
-        }
-
-        &__similar-title {
-            color: var(--text-primary);
-            font-size: 0.8125rem;
-            font-weight: 500;
-            overflow: hidden;
-            text-overflow: ellipsis;
-            white-space: nowrap;
-        }
-
-        // Source playlist badge on cross-portal similar cards
-        &__similar-source {
-            color: var(--text-muted);
-            font-size: 0.6875rem;
-            overflow: hidden;
-            text-overflow: ellipsis;
-            white-space: nowrap;
         }
     }
 
@@ -499,112 +504,116 @@
         }
     }
 
-    .favorite-btn {
-        @include detail-actions.secondary-action-button;
-    }
+    @if $include-secondary-actions {
+        .favorite-btn {
+            @include detail-actions.secondary-action-button;
+        }
 
-    .favorite-btn {
-        @include detail-actions.favorite-button-state;
-    }
+        .favorite-btn {
+            @include detail-actions.favorite-button-state;
+        }
 
-    .metadata-info-btn {
-        @include detail-actions.secondary-action-button;
-    }
-
-    // ============================================================================
-    // Content Sections - Below the hero fold
-    // ============================================================================
-
-    .content-section {
-        padding: 20px 0;
-        width: 100%;
-        box-sizing: border-box;
-
-        &__title {
-            font-size: $season-title-font-size;
-            font-weight: $season-title-font-weight;
-            letter-spacing: $season-title-letter-spacing;
-            margin: 0 0 20px 0;
-            color: var(--text-primary);
+        .metadata-info-btn {
+            @include detail-actions.secondary-action-button;
         }
     }
 
-    // ============================================================================
-    // Seasons & Episodes - Inside details section
-    // ============================================================================
+    @if $include-legacy-sections {
+        // ============================================================================
+        // Content Sections - Below the hero fold
+        // ============================================================================
 
-    .seasons {
-        margin-top: 24px;
-        width: 100%;
+        .content-section {
+            padding: 20px 0;
+            width: 100%;
+            box-sizing: border-box;
 
-        .season-header {
-            display: flex;
-            align-items: center;
-            justify-content: space-between;
-            padding: 12px 0;
-            cursor: pointer;
-            transition: opacity 0.2s ease;
+            &__title {
+                font-size: $season-title-font-size;
+                font-weight: $season-title-font-weight;
+                letter-spacing: $season-title-letter-spacing;
+                margin: 0 0 20px 0;
+                color: var(--text-primary);
+            }
+        }
 
-            &:hover {
-                opacity: 0.8;
+        // ============================================================================
+        // Seasons & Episodes - Inside details section
+        // ============================================================================
+
+        .seasons {
+            margin-top: 24px;
+            width: 100%;
+
+            .season-header {
+                display: flex;
+                align-items: center;
+                justify-content: space-between;
+                padding: 12px 0;
+                cursor: pointer;
+                transition: opacity 0.2s ease;
+
+                &:hover {
+                    opacity: 0.8;
+                }
+
+                h4 {
+                    margin: 0;
+                    font-size: 1rem;
+                    font-weight: 600;
+                }
+
+                .expand-icon {
+                    font-size: 0.75rem;
+                    color: var(--text-muted);
+                }
             }
 
-            h4 {
-                margin: 0;
-                font-size: 1rem;
-                font-weight: 600;
+            .episodes {
+                display: flex;
+                flex-wrap: wrap;
+                gap: 10px;
+                padding: 8px 0 16px;
+
+                button {
+                    margin: 0;
+                    font-weight: 500;
+                }
             }
 
-            .expand-icon {
-                font-size: 0.75rem;
+            .episodes-loading,
+            .seasons-loading {
+                display: flex;
+                align-items: center;
+                gap: 12px;
+                padding: 20px 0;
+                color: var(--text-secondary);
+            }
+
+            .no-episodes {
                 color: var(--text-muted);
+                font-style: italic;
+                padding: 8px 0;
             }
         }
 
-        .episodes {
-            display: flex;
-            flex-wrap: wrap;
-            gap: 10px;
-            padding: 8px 0 16px;
-
-            button {
-                margin: 0;
-                font-weight: 500;
-            }
-        }
-
-        .episodes-loading,
-        .seasons-loading {
+        // Seasons loading when inside details
+        .details .seasons-loading {
             display: flex;
             align-items: center;
             gap: 12px;
             padding: 20px 0;
             color: var(--text-secondary);
+            margin-top: 24px;
         }
 
-        .no-episodes {
-            color: var(--text-muted);
-            font-style: italic;
-            padding: 8px 0;
+        // Season container when inside details section
+        .details app-season-container {
+            display: block;
+            width: 100%;
+            margin-top: 24px;
+            box-sizing: border-box;
         }
-    }
-
-    // Seasons loading when inside details
-    .details .seasons-loading {
-        display: flex;
-        align-items: center;
-        gap: 12px;
-        padding: 20px 0;
-        color: var(--text-secondary);
-        margin-top: 24px;
-    }
-
-    // Season container when inside details section
-    .details app-season-container {
-        display: block;
-        width: 100%;
-        margin-top: 24px;
-        box-sizing: border-box;
     }
 
     // ============================================================================
@@ -643,16 +652,18 @@
         }
     }
 
-    // ============================================================================
-    // Legacy container support (for gradual migration)
-    // ============================================================================
+    @if $include-legacy-sections {
+        // ============================================================================
+        // Legacy container support (for gradual migration)
+        // ============================================================================
 
-    .container {
-        display: contents;
-    }
+        .container {
+            display: contents;
+        }
 
-    .image {
-        display: none; // Hidden - now using .poster in hero
+        .image {
+            display: none; // Hidden - now using .poster in hero
+        }
     }
 
     // ============================================================================

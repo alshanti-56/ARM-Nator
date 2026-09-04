@@ -133,7 +133,7 @@ export function isStalkerAuthFailureMessage(message: unknown): boolean {
  * Returned, never thrown: `ipcRenderer.invoke` strips custom properties from
  * rejected values, so a classified body would not survive the trip to the
  * renderer as an error. The Electron main process mints this because it is
- * where the body arrives; the PWA proxy still delivers the raw string, and
+ * where the body arrives; the HTTP bridge can still deliver the raw string, and
  * every consumer goes through the predicates below rather than caring which.
  */
 export interface StalkerAuthFailureMarker {
@@ -161,7 +161,7 @@ function readAuthFailureMarker(
 /**
  * Extracts the canonical failure body from any shape an auth failure reaches
  * a consumer in: the transport marker (Electron), the raw plain-text payload
- * (PWA proxy), or a `{js: '<body>'}` envelope. Returns null for everything
+ * (HTTP bridge), or a `{js: '<body>'}` envelope. Returns null for everything
  * else, including the structured `{js: {error|msg}}` form — that one is a
  * panel's own wording, not one of the middleware's three bodies, so it has
  * no canonical body to report. Use `isStalkerAuthFailureResponse` when the

@@ -142,7 +142,11 @@
                     }
                 </div>
 
-                @if (!seasonsLoading() && seasons().length === 0) {
+                @if (seriesError(); as error) {
+                    <div class="detail-error" role="alert">
+                        Could not load seasons and episodes: {{ error }}
+                    </div>
+                } @else if (!seasonsLoading() && seasons().length === 0) {
                     <p class="series-details__empty">No seasons were returned for this series.</p>
                 } @else {
                     <div class="season-tabs">

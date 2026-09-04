@@ -70,6 +70,8 @@ export class StalkerStore {
     readonly isPaginatedContentLoading = signal(false);
     readonly isSeriesSeasonsLoading = signal(false);
     readonly isSeriesEpisodesLoading = signal(false);
+    /** The last error raised while loading seasons or episodes for a series. */
+    readonly seriesLoadError = signal<string | null>(null);
     readonly loadError = signal<string | null>(null);
     readonly hasMoreContent = computed(
         () => this.getPaginatedContent().length < this.totalItems(),
@@ -148,6 +150,7 @@ export class StalkerStore {
             this.seriesRequestVersion += 1;
             this.seriesSeasons.set([]);
             this.seriesEpisodes.set([]);
+            this.seriesLoadError.set(null);
         }
         this.selectedItem.set(item);
 
@@ -181,6 +184,7 @@ export class StalkerStore {
         this.selectedItem.set(null);
         this.seriesSeasons.set([]);
         this.seriesEpisodes.set([]);
+        this.seriesLoadError.set(null);
         this.isSeriesSeasonsLoading.set(false);
         this.isSeriesEpisodesLoading.set(false);
     }
@@ -377,6 +381,7 @@ export class StalkerStore {
         const requestVersion = ++this.seriesRequestVersion;
         this.seriesSeasons.set([]);
         this.seriesEpisodes.set([]);
+        this.seriesLoadError.set(null);
         this.isSeriesSeasonsLoading.set(true);
 
         try {
@@ -398,6 +403,7 @@ export class StalkerStore {
             return result;
         } catch (cause) {
             if (this.isCurrentSeriesRequest(itemKey, requestVersion)) {
+                this.seriesLoadError.set(this.errorMessage(cause));
                 this.loadError.set(this.errorMessage(cause));
             }
             return [];
@@ -420,6 +426,7 @@ export class StalkerStore {
         const seasonKey = this.seasonId(season);
         const requestVersion = ++this.seriesRequestVersion;
         this.seriesEpisodes.set([]);
+        this.seriesLoadError.set(null);
         this.isSeriesEpisodesLoading.set(true);
 
         const regularEpisodes = this.createRegularSeriesEpisodes(item, season);
@@ -451,6 +458,7 @@ export class StalkerStore {
             return episodes;
         } catch (cause) {
             if (this.isCurrentSeriesRequest(itemKey, requestVersion)) {
+                this.seriesLoadError.set(this.errorMessage(cause));
                 this.loadError.set(this.errorMessage(cause));
             }
             return [];
@@ -1230,6 +1238,7 @@ export class StalkerStore {
         this.getPaginatedContent.set([]);
         this.seriesSeasons.set([]);
         this.seriesEpisodes.set([]);
+        this.seriesLoadError.set(null);
         this.isSeriesSeasonsLoading.set(false);
         this.isSeriesEpisodesLoading.set(false);
     }

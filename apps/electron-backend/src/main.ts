@@ -54,8 +54,8 @@ installBrokenPipeHandlers();
 
 app.setName('arm-nator');
 
-// The browser UI can run against the same database and provider proxy without
-// opening an Electron window. This mode is used by the browser-only dev flow.
+// A browser UI can run against the same database and provider proxy without
+// opening an Electron window. This is the optional loopback web API mode.
 const webApiOnly = process.argv.includes('--web-api-only');
 
 const electronUserDataPath = getElectronUserDataPath();

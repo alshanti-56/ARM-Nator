@@ -258,7 +258,7 @@ describe('Stalker edited-session coordination', () => {
         ).resolves.toEqual(oldPlaylist);
     });
 
-    it('reserves a playlist across PWA tabs before discovery starts', async () => {
+    it('reserves a playlist across browser contexts before discovery starts', async () => {
         let held = false;
         const request = jest.fn(
             async (
@@ -342,7 +342,7 @@ describe('Stalker edited-session coordination', () => {
         secondTab.cancelEdit(secondFence);
     });
 
-    it('fails closed before PWA discovery when cross-context locks are unavailable', async () => {
+    it('fails closed before discovery when cross-context locks are unavailable', async () => {
         Object.defineProperty(globalThis.navigator, 'locks', {
             configurable: true,
             value: undefined,

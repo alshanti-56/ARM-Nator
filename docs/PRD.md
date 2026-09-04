@@ -1,391 +1,188 @@
-# ARM-Nator Product Requirements Document
+# ARM-Nator implementation snapshot
 
-**Status:** Draft for product alignment
+**Status:** Derived from the source tree
 **Product version:** 0.31.0
-**Date:** 2026-08-04
-**Owner:** ARM-Nator product team
-
-## 1. Product summary
-
-ARM-Nator is a native macOS Apple Silicon IPTV and media workspace. It lets a user connect Xtream or Stalker sources, organize and search the resulting catalog, enrich content metadata, and play streams through the most appropriate local or browser-based engine.
-
-The next product phase is focused on making the core experience dependable and easy to trust:
-
-> Add a source, find something to watch, play it successfully, and return to it later.
-
-The product should feel like a fast, private desktop media library rather than a collection of disconnected provider tools.
-
-## 2. Problem statement
-
-IPTV users commonly manage several provider sources, inconsistent metadata, unreliable stream URLs, and different playback requirements. Existing workflows force users to switch between playlist editors, web players, external media players, and provider portals.
-
-ARM-Nator brings those workflows into one Apple Silicon desktop application, but the breadth of the current product increases the risk of inconsistent behavior across imports, catalog state, playback engines, browser views, and persisted credentials.
-
-This PRD prioritizes reliability and clarity of the main user journey before adding more providers, playback engines, or secondary tools.
-
-## 3. Goals
-
-### Primary goals
-
-1. Make source connection predictable for Xtream credentials and Stalker portal details.
-2. Make large catalogs searchable, filterable, and navigable without blocking the desktop UI.
-3. Make playback failure understandable and recoverable.
-4. Preserve user state: favorites, recently viewed items, playback positions, settings, and source refresh behavior.
-5. Establish a release-quality verification path for the packaged macOS arm64 application.
-6. Protect provider credentials and prevent sensitive data from appearing in logs, diagnostics, or unintended exports.
-
-### Secondary goals
-
-1. Keep player-engine selection understandable to users.
-2. Make browser and YouTube workspaces feel integrated without weakening Electron security boundaries.
-3. Make provider-specific behavior invisible where a shared catalog experience is sufficient.
-
-## 4. Non-goals
-
-The following are explicitly out of scope for this phase:
-
-- DRM circumvention, decryption, or turning protected streams into clear streams.
-- A browser-only or PWA version of the product.
-- A remote-control server, mobile companion, or multi-user backend.
-- Adding additional playback engines before the existing engines meet reliability targets.
-- Building a general-purpose web browser beyond the existing Electron browser workspace.
-- Replacing the Angular/Nx/Electron architecture with a new framework.
-
-## 5. Target users
-
-### Primary user: desktop IPTV viewer
-
-Uses one or more provider subscriptions and wants a single macOS application for importing, browsing, searching, and watching content.
-
-Needs:
-
-- Fast setup with minimal provider-specific knowledge.
-- Reliable playback with clear recovery guidance.
-- Favorites and resume support.
-- Confidence that credentials and personal settings remain local and protected.
-
-### Secondary user: power user / source manager
-
-Maintains many Xtream or Stalker sources and needs bulk testing, refresh, filtering, and source-level organization.
-
-Needs:
-
-- Clear source health and refresh status.
-- Safe credential testing and export controls.
-- Predictable behavior for duplicate, expired, or malformed sources.
-
-### Tertiary user: technical troubleshooter
-
-Diagnoses why a stream fails across browser, HTML5, Embedded MPV, external MPV, or VLC.
-
-Needs:
-
-- Diagnostics for URL, headers, codec, container, bitrate, buffering, and engine state.
-- Reproducible direct-play testing.
-- Logs that are useful without leaking credentials.
-
-## 6. Product principles
-
-1. **Playback is the product.** Every catalog feature should help the user reach successful playback faster.
-2. **Provider differences belong behind contracts.** Shared UI should not understand provider-specific payloads.
-3. **Failures should explain the next action.** “Playback failed” is not sufficient.
-4. **Local-first by default.** Catalog state, settings, and playback positions should remain local unless a user explicitly invokes an external service.
-5. **Secure boundaries are product features.** Electron IPC, browser views, native MPV, credentials, and file writes require explicit contracts and validation.
-6. **No silent data loss.** Imports, refreshes, migrations, deletes, and resets must be recoverable or clearly confirmed.
-
-## 7. Core user journeys
-
-### Journey A: first source to first playback
-
-1. User opens ARM-Nator.
-2. User chooses Add Source.
-3. User selects Xtream credentials or Stalker portal details.
-4. App validates the input and shows a clear preview or connection result.
-5. App imports the source in the background and reports progress.
-6. User sees the source and its available categories.
-7. User searches or browses to a title/channel.
-8. User starts playback.
-9. If the selected engine cannot play the stream, the app explains why and offers an appropriate alternative when available.
-10. The app stores the playback position and returns the user to the same source context later.
-
-### Journey B: returning viewer
-
-1. User opens the dashboard.
-2. User sees recently viewed and in-progress content.
-3. User resumes an item or opens a favorite.
-4. The app restores the appropriate source, episode, position, and playback settings.
-
-### Journey C: source maintenance
-
-1. User opens Sources.
-2. User sees source type, last refresh, item count, and health state.
-3. User manually refreshes or enables auto-refresh.
-4. App runs refresh work off the UI thread, reports progress, and preserves the previous catalog if the refresh fails.
-5. User can edit, disable, export, or remove the source with an explicit confirmation for destructive actions.
-
-### Journey E: preparing global search
-
-1. User opens Sources and sees the imported Xtream and Stalker catalogs.
-2. User searches globally across all imported sources using the catalog fields already available locally.
-3. User opens a movie or series to request detailed provider metadata when needed.
-4. The app persists returned detail metadata so later searches can use it without contacting the provider on every keystroke.
-
-### Journey D: troubleshooting playback
-
-1. User opens Direct Play or playback diagnostics.
-2. User supplies a URL and optional headers.
-3. User selects an engine or lets ARM-Nator choose.
-4. App reports network, manifest, codec, container, buffer, and engine information.
-5. User can retry, switch engine, copy a sanitized diagnostic summary, or open the stream in an external player.
-
-## 8. Functional requirements
-
-### 8.1 Source management
-
-**FR-1. Supported source types**
-
-The product must support:
-
-- Xtream server URL, username, and password import.
-- Stalker portal URL and MAC address import.
-
-**FR-2. Validation**
-
-Before committing a source, the app must validate required fields, supported protocols, credential shape, and basic source reachability where applicable.
-
-**FR-3. Import progress**
-
-Long-running imports must run outside the renderer’s blocking path and expose progress, current phase, item counts, cancellation where safe, and a terminal success or failure state.
-
-**FR-4. Failure preservation**
-
-An unsuccessful refresh must not silently replace a working catalog with an empty or partial catalog.
-
-**FR-5. Source lifecycle**
-
-Users must be able to view, edit, refresh, disable, export, and delete sources. Delete and reset actions require a clear confirmation and must explain what data will be removed.
-
-### 8.2 Catalog and discovery
-
-**FR-6. Catalog views**
-
-The app must provide source-specific and global views for live TV, movies, series, recently added, favorites, recently viewed, and search results where the source supports them.
-
-**FR-7. Search**
-
-Search must support title and relevant metadata, pagination or bounded result sets, case-insensitive matching, and predictable empty/error states.
-
-Global Search must query the local database across all Xtream and Stalker sources. It must not make a provider request for every search keystroke. Search completeness for genre, cast, director, release date, and description must reflect the metadata coverage of each source.
-
-**FR-8. Refinement**
-
-Where metadata exists, users must be able to refine by category, genre, year, language or other supported provider fields. Refinement values should be normalized consistently.
-
-**FR-9. Metadata enrichment**
-
-Xtream detail loading and TMDB enrichment are separate capabilities:
-
-- The initial Xtream catalog import must remain fast and use the metadata supplied by the provider's catalog response.
-- Opening a movie or series may retrieve its detailed Xtream record and persist the returned provider metadata in the local catalog database.
-- The app must not automatically scan every movie or series for detail metadata in the background.
-- TMDB enrichment is optional, runs after a supported detail view is opened, and must not prevent a user from browsing, searching, or playing provider content. Enrichment failures must be retryable and visible as metadata failures, not playback failures.
-
-Enabling TMDB must not scan the entire catalog immediately. TMDB details are fetched on demand for supported detail views and cached locally. If the TMDB Trending dashboard rail is enabled, the app may fetch the weekly trending list and match it against the local catalog. Disabling TMDB stops new enrichment requests while preserving the cache until the user clears it.
-
-**FR-10. State persistence**
-
-Favorites, recently viewed items, playback positions, dashboard preferences, theme, and player preferences must survive app restarts.
-
-### 8.3 Playback
-
-**FR-11. Engine support**
-
-The product must support the currently active engines: ArtPlayer, ArtPlayer2, HTML5, Embedded MPV, KSPlayer, external MPV, and VLC, subject to runtime availability.
-
-**FR-12. Engine availability**
-
-The UI must show whether an engine is available before the user selects it. Missing optional external players must not prevent the app from launching.
-
-**FR-13. Shared controls**
-
-Supported engines should expose a consistent control model for play/pause, seek, volume, speed, aspect ratio, tracks, subtitles, fullscreen, screenshots, and engine switching.
-
-**FR-14. Playback recovery**
-
-The app must provide retry, engine switch, header correction where supported, and external-player fallback where applicable.
-
-**FR-15. Series continuity**
-
-For series, the app must remember the current episode and position, provide previous/next episode navigation, and expose an Up Next path when the next episode is known.
-
-**FR-16. Playback diagnostics**
-
-Diagnostics must distinguish network/URL errors, manifest errors, unsupported codecs or containers, missing runtime dependencies, and provider-side failures.
-
-### 8.4 Browser and YouTube workspaces
-
-**FR-17. Browser workspace**
-
-Users may open HTTP(S) pages in the Electron browser workspace without giving those pages access to Node.js or the application’s privileged APIs.
-
-**FR-18. YouTube workspace**
-
-The YouTube workspace may support ad filtering, SponsorBlock, Google sign-in navigation, fullscreen, and mini-player behavior within its explicitly defined security boundary.
-
-**FR-19. Navigation safety**
-
-Unsupported protocols, unsafe navigation, and uncontrolled window creation must be rejected or routed through the system browser according to an explicit policy.
-
-### 8.5 Credentials and privacy
-
-**FR-20. Secret storage**
-
-Provider passwords, API keys, and access tokens must not be stored as ordinary plaintext application data in the long-term product design. The preferred implementation is macOS Keychain-backed storage with database references.
-
-**FR-21. Redaction**
-
-Credentials must be redacted from logs, debug events, trace payloads, error messages, crash reports, and copied diagnostic summaries.
-
-**FR-22. Explicit export**
-
-Credential export, when intentionally requested by the user, must be clearly labeled as sensitive, require an explicit action, and warn that the resulting file contains credentials.
-
-**FR-23. IPC validation**
-
-Every privileged IPC handler must validate sender ownership, argument shape, URL/protocol constraints, and filesystem boundaries before performing work.
-
-## 9. Non-functional requirements
-
-### Performance
-
-- The renderer must remain responsive during imports, refreshes, database migrations, metadata enrichment, and credential testing.
-- Search should return the first usable result set within 500 ms for a typical local catalog and within 2 seconds for a large catalog under normal hardware conditions.
-- Provider detail requests must run outside the renderer’s blocking path and must not be scheduled for every catalog item when a source is opened.
-- App launch should show the main shell before optional enrichment or diagnostics complete.
-- Playback start time should be measured separately for each engine and provider class.
-
-### Reliability
-
-- A failed refresh must preserve the last known good catalog.
-- App restart must not lose favorites, positions, source configuration, or settings.
-- Native Embedded MPV failures must degrade to another available engine or a clear diagnostic state.
-- Cancellation and teardown must not leave orphaned workers, processes, sessions, or IPC listeners.
-
-### Security
-
-- Main renderer: `contextIsolation: true`, `nodeIntegration: false`, sandbox enabled.
-- Browser views: least privilege, explicit protocol allowlists, controlled navigation, and denied uncontrolled windows.
-- File writes: user-authorized paths only, with one-time authorization where possible.
-- Sensitive data: redacted by default and stored in the system credential store where feasible.
-
-### Accessibility and localization
-
-- Keyboard navigation must work for browsing, search, playback controls, dialogs, and settings.
-- Focus must be visible and restored after dialogs or player transitions.
-- User-facing strings must remain localizable.
-- Layouts must support the existing light, dark, and system themes.
-
-### Compatibility
-
-- Supported runtime: macOS Apple Silicon arm64.
-- Clear H.264/AAC and common MP4/HLS/DASH streams are the baseline playback target.
-- HEVC, unusual containers, audio codecs, and DRM-protected streams must be reported according to engine capability rather than promised universally.
-
-## 10. Quality strategy
-
-The release gate must include:
-
-1. Unit tests for parsing, normalization, credential handling, lifecycle races, search planning, and playback classification.
-2. Integration tests for database initialization, migrations, imports, refresh failure preservation, favorites, and playback positions.
-3. Packaged-app smoke tests for startup, source import, catalog browsing, direct play, engine switching, and shutdown cleanup.
-4. Fixture-based stream tests for common HLS, DASH, MP4, live, VOD, subtitle, header, and failure scenarios.
-5. Security checks for IPC sender validation, browser navigation, file writes, credential redaction, and secret persistence.
-6. A signed and notarized release validation path when distributing outside local development.
-
-The repository should expose one documented command for the full test suite and should not rely on ad-hoc direct execution of individual TypeScript test files.
-
-## 11. Success metrics
-
-### North-star metric
-
-**Successful first playback rate:** percentage of newly added sources for which the user reaches a playing stream within 10 minutes of completing source setup.
-
-### Supporting metrics
-
-- Source import completion rate.
-- Refresh success rate and percentage of refreshes preserving the last known good catalog.
-- Median search-to-play time.
-- Playback start success by engine and source type.
-- Playback recovery success after an initial failure.
-- Crash-free sessions.
-- Percentage of sessions with restored playback position.
-- Credential redaction test coverage and zero known credential leaks in diagnostics.
-- Time required to produce a useful playback diagnostic.
-
-Metrics should be collected locally or in opt-in diagnostics unless the product later introduces an explicit privacy-reviewed telemetry policy.
-
-## 12. Release plan
-
-### Phase 1: Core reliability
-
-- Establish the canonical test command and CI execution.
-- Fix test-runner path alias resolution.
-- Add import, refresh, catalog, playback, and resume smoke tests.
-- Verify worker cancellation and teardown.
-- Define engine-specific playback fixtures and failure classifications.
-
-### Phase 2: Privacy and security hardening
-
-- Migrate credentials and API keys toward macOS Keychain storage.
-- Audit every IPC handler and browser-view navigation path.
-- Expand redaction tests to URLs, headers, errors, trace payloads, and exported diagnostics.
-- Review the YouTube security exception and minimize its privileges.
-
-### Phase 3: Maintainability and performance
-
-- Split the preload bridge into domain namespaces.
-- Split database operations and browser management into bounded services.
-- Add performance budgets for import, search, startup, and playback start.
-- Remove or resolve persistent lint, CommonJS, and deprecated native API warnings where practical.
-
-### Phase 4: Distribution readiness
-
-- Developer ID signing and notarization.
-- Versioned migration and rollback strategy.
-- Crash reporting and support bundle with guaranteed redaction.
-- Auto-update policy and release notes.
-
-## 13. Risks and mitigations
-
-| Risk | Impact | Mitigation |
-| --- | --- | --- |
-| Provider APIs and stream URLs are inconsistent | Import and playback failures | Normalize at provider boundaries; classify errors; preserve last known good data |
-| Multiple playback engines diverge | Confusing controls and bugs | Shared playback contract plus engine-specific conformance tests |
-| Credentials are exposed in local data or logs | User privacy and trust failure | Keychain storage, redaction, security tests, explicit sensitive export warnings |
-| Native MPV runtime changes with macOS | Packaged playback regression | Vendored runtime verification, startup diagnostics, packaged smoke tests |
-| Large catalogs make the UI feel slow | Poor retention and perceived instability | Worker-backed operations, indexed search, pagination, performance budgets |
-| Feature breadth outpaces verification | Regressions and slow releases | Freeze new engines/providers until core journey gates pass |
-| Browser workspace expands security surface | Privilege escalation risk | Least-privilege WebContentsView configuration and navigation allowlists |
-
-## 14. Open decisions
-
-1. Is ARM-Nator intended for private/local use only, or will it be distributed publicly?
-2. Should credentials be migrated automatically to Keychain on first launch after the change?
-3. Should user telemetry be entirely opt-in, or should the app provide only local diagnostic bundles?
-4. Which engines are officially supported for release, and which are best-effort integrations?
-5. What is the minimum supported macOS version for the next public release?
-6. Should the current bulk credential tester remain a first-class product feature or become an advanced tool behind an explicit warning?
-7. What is the required behavior when a provider returns a partial catalog during refresh?
-
-## 15. Definition of done for the next release
-
-The next release is ready when:
-
-- A new user can add a supported source and reach first playback through the documented flow.
-- A returning user can find and resume previously watched content.
-- Imports and refreshes do not block the UI or destroy the last known good catalog.
-- Playback failures produce an actionable diagnostic and at least one recovery path when technically possible.
-- The full automated test command passes in CI.
-- Packaged macOS arm64 smoke tests pass with the embedded runtime present.
-- Credentials are not exposed in logs, diagnostics, crash bundles, or ordinary persisted application data.
-- The release is signed and notarized if public distribution is a product requirement.
+**Date:** 2026-09-04
+
+This document records behavior that exists in this checkout. The code is the
+source of truth; when this document disagrees with the implementation, the
+implementation wins. Items in the final section are known gaps or deliberate
+follow-up work, not current product capabilities.
+
+## Product
+
+ARM-Nator is a macOS arm64 Electron media workspace. The Angular renderer uses
+typed preload contracts to reach Electron services, database workers, provider
+HTTP clients, browser views, and native playback integrations.
+
+The supported source types are:
+
+- **Xtream:** server URL, username, and password. Catalog rows are imported
+  into SQLite for local browsing, indexed search, refinement, favorites,
+  recently viewed items, and playback positions.
+- **Stalker:** portal URL and MAC address, with optional identity fields and
+  credentials. Portal ITV, VOD, and series data are loaded on demand; the app
+  persists the connection identity and user state locally.
+
+## Current user flows
+
+### Add and maintain a source
+
+The Sources UI adds, edits, refreshes, disables, and deletes connections. Xtream
+forms normalize and validate HTTP(S) server URLs and credentials. Stalker forms
+validate the portal URL and MAC, can derive device identifiers, and run portal
+discovery before saving a session identity. Credential testing is available for
+Xtream sources at `/workspace/tools/credentials`.
+
+Xtream imports and database work run through the Electron database worker, so
+the renderer does not open SQLite directly. Stalker discovery and portal
+requests use the same validated request identity and URL utilities in the main
+process or loopback HTTP bridge.
+
+### Browse and search
+
+Xtream has source-scoped live, VOD, series, recently-added, favorites, recent,
+actor, and search routes. Stalker has ITV, VOD, series, recently-added, and
+portal-search routes. Both source types use the shared player and shared user
+state surfaces where their data supports them.
+
+**Global Search is Xtream-only.** It queries the local SQLite FTS/search tables
+and bounded fallback scans; it does not issue a provider request for each
+keystroke. It searches the metadata currently stored for Xtream content,
+including provider fields when those fields have been imported or fetched from
+an opened detail view. Stalker search is portal-scoped and on demand.
+
+Opening an Xtream movie or series can fetch its detailed provider record and
+persist the returned metadata. TMDB is a separate, optional cache used by
+supported detail/person/season/hero/trending views; enabling it does not scan
+the whole catalog.
+
+Favorites, recently viewed items, playback positions, dashboard preferences,
+theme, and player preferences persist across restarts. Stalker portal catalog
+data itself is not a durable local catalog: the ITV list is cached in session
+memory and VOD/series data are requested from the portal as needed.
+
+### Play and diagnose
+
+The active engines are ArtPlayer, ArtPlayer2, HTML5, Embedded MPV, KSPlayer,
+external MPV, and VLC. The player core classifies engines as web,
+embedded-native, KSPlayer, or managed-external and reports runtime
+availability. The shared facade exposes play, pause, stop, seek, volume, mute,
+speed, track selection, diagnostics, and engine switching; UI features such as
+subtitles, screenshots, aspect ratio, and fullscreen are available where the
+engine contract supports them.
+
+Direct Play at `/workspace/tools/direct-play` accepts a URL, optional headers,
+and a selected engine. Diagnostics expose the URL/resolution, container,
+codecs, bitrate, buffer state, tracks, and common loading failures. External
+MPV and VLC are optional installed programs; Embedded MPV and KSPlayer depend
+on staged native artifacts.
+
+Browser playback uses the web media stack and Shaka integration for manifests
+that require it. ClearKey configuration is supported. The app does not bypass
+DRM or decrypt protected streams; Widevine and PlayReady require a compatible
+CDM and provider license flow. Direct Play is intended for media/provider
+stream URLs, not ordinary YouTube page URLs.
+
+### Browser and YouTube workspaces
+
+The Browser and YouTube workspaces are Electron `WebContentsView` features with
+persistent sessions. General browser navigation is limited to HTTP(S). The
+YouTube view has a YouTube host allowlist, ad filtering, SponsorBlock support,
+Google sign-in navigation, fullscreen, and mini-player behavior within its
+explicit preload/security boundary. External HTTP(S) links are opened by the
+system browser; uncontrolled window creation and unsupported protocols are
+rejected.
+
+The normal browser path outside Electron is only a development feature. The
+loopback API listens on `127.0.0.1:4310` by default (override with
+`ARM_NATOR_WEB_API_PORT`) and exposes `/api/health`, `/api/db`, `/api/db/cancel`,
+`/api/xtream`, and `/api/stalker`. It forwards to the existing database worker
+and provider bridge; it does not expose SQLite or Node APIs to the browser.
+
+## Routes
+
+The root redirects to `/workspace`, and the workspace shell owns settings
+initialization and startup-view redirects.
+
+| Area | Routes |
+| --- | --- |
+| Dashboard and tools | `/workspace/dashboard`, `/workspace/tools/direct-play`, `/workspace/tools/credentials` |
+| Shared views | `/workspace/sources`, `/workspace/search`, `/workspace/global-favorites`, `/workspace/global-recent`, `/workspace/filmography`, `/workspace/settings` |
+| Browser | `/workspace/browser`, `/workspace/youtube` |
+| Xtream | `/workspace/xtreams/:id` with `live`, `vod`, `series`, `search`, `actor/:personId`, `recently-added`, `favorites`, and `recent` branches |
+| Stalker | `/workspace/stalker/:id` with `itv`, `vod`, `series`, `recently-added`, and `search` branches |
+
+## Storage and security reality
+
+The default SQLite database is:
+
+```text
+~/.arm-nator/databases/arm-nator.db
+```
+
+The schema includes `playlists`, `app_state`, `categories`, `content`,
+`recently_viewed`, `favorites`, `playback_positions`, and `tmdb_metadata`, plus
+SQLite FTS tables/triggers created during connection setup. The database
+library has a normal read-write connection and an optional read-only/skip-table
+mode for diagnostics or other consumers.
+
+Provider credentials are currently stored in the local SQLite connection data
+and serialized playlist payloads. TMDB settings, including its API key, are
+stored in renderer settings storage. There is no Keychain integration in this
+version. Xtream backup export intentionally includes secrets when the user
+invokes it, so exported backup files are sensitive. Logging and trace helpers
+redact sensitive values, but local secret storage remains a known gap.
+
+Electron windows use `contextIsolation`, disabled Node integration, sandboxing,
+web security, typed preload APIs, and explicit navigation rules. Provider HTTP
+requests validate redirects and constrain browser CORS to local origins.
+
+## Build, test, and release
+
+The supported environment is Apple Silicon macOS with Node `22.23.1` and pnpm
+`10.33.0`. `pnpm verify:environment` checks those requirements and the project
+is arm64-only. Native build hooks use Electron 41 dependencies and require
+`meson`, `ninja`, and `pkg-config` when the Embedded MPV runtime must be built.
+
+Commands:
+
+```bash
+pnpm verify:environment
+pnpm lint
+pnpm test                 # Node built-in test files
+pnpm test:angular         # Stalker Jest suites (or explicit configs)
+pnpm build                # production desktop build
+pnpm package              # ad-hoc-signed arm64 DMG/ZIP
+```
+
+The CI workflow runs lint, the Node test runner, and the production build on
+`macos-15` arm64. The release workflow is tag-driven (`v*.*.*`), checks that
+the tag matches `package.json`, builds Embedded MPV and KSPlayer artifacts,
+publishes arm64 DMG/ZIP files and `SHA256SUMS.txt`, and currently uses ad-hoc
+signing without notarization. The packaged app declares macOS 26.0 as its
+minimum system version.
+
+## Known gaps and follow-up work
+
+These points are intentionally not described as implemented features:
+
+- Credentials and API keys have not yet moved to macOS Keychain storage.
+- Backup export is secret-bearing and needs stronger UX/documentation around
+  handling the resulting file.
+- The repository has separate Node and Angular/Jest test commands; there is no
+  single command that executes every test framework.
+- Public distribution signing, notarization, auto-update, crash reporting, and
+  telemetry are not configured.
+- Refresh behavior and partial-provider responses remain provider-specific;
+  do not assume every failed refresh preserves a complete last-known catalog.
+- Stalker catalogs are portal-backed/session-cached rather than equivalent to
+  the durable Xtream SQLite catalog, so Global Search cannot treat them as the
+  same data source.
+
+## Maintenance rule
+
+When behavior changes, update documentation only after tracing the relevant
+implementation, tests, scripts, and workflow. Prefer exact route names,
+commands, ports, storage locations, and capability boundaries over roadmap
+language. Keep this snapshot and the README consistent with the source tree.

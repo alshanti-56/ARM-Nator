@@ -127,7 +127,7 @@ describe('transport marker', () => {
 });
 
 describe('extractStalkerAuthFailureBody', () => {
-    it('extracts from the raw PWA payload string', () => {
+    it('extracts from a raw HTTP-bridge payload string', () => {
         expect(extractStalkerAuthFailureBody('Authorization failed. 12')).toBe(
             'Authorization failed.'
         );

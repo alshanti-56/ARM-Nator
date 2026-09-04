@@ -48,8 +48,8 @@ export interface StalkerPortalDiscoveryRejection {
     /**
      * The abandoned attempt was STILL in flight when the drain deadline
      * expired, so discovery must not advance. Cancellation is cooperative —
-     * neither transport can pull a request off the wire (the PWA `fetch()`
-     * takes no signal, and the Electron main process runs its HTTP request to
+     * neither transport can pull a request off the wire (the browser bridge
+     * fetch takes no signal, and the Electron main process runs its HTTP request to
      * completion) — so an attempt this far past its deadline may still land a
      * `get_profile`, which adopts the MAC's token portal-side and would
      * invalidate the session a later candidate had just established.

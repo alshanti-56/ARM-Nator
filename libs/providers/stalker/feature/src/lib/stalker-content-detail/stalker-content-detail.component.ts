@@ -68,6 +68,7 @@ export class StalkerContentDetailComponent {
     readonly episodes = this.store.seriesEpisodes;
     readonly seasonsLoading = this.store.isSeriesSeasonsLoading;
     readonly episodesLoading = this.store.isSeriesEpisodesLoading;
+    readonly seriesError = this.store.seriesLoadError;
     readonly detailLoading = signal(true);
     readonly detailError = signal<string | null>(null);
     readonly playbackError = signal<string | null>(null);

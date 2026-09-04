@@ -6,8 +6,9 @@
  * E2E tests can override the root with ARM_NATOR_E2E_DATA_DIR.
  *
  * Provides two connection modes:
- * - Full access (for electron-backend): creates tables, read-write
- * - Read-only access (for agent-backend): no table creation, read-only queries
+ * - Full access for the Electron backend: creates tables and allows writes.
+ * - Optional read-only access for diagnostics or other consumers: skips table
+ *   creation and allows queries without writes.
  */
 
 import Database from 'better-sqlite3';
@@ -871,7 +872,7 @@ function runMigrations(sqliteDb: Database.Database): void {
 }
 
 export interface DatabaseOptions {
-    /** Open database in read-only mode (for agent-backend) */
+    /** Open database in read-only mode. */
     readonly?: boolean;
     /** Skip table creation (useful for read-only connections) */
     skipTableCreation?: boolean;
@@ -967,7 +968,7 @@ export async function getDatabase(
 
 /**
  * Get a read-only database connection
- * Used by agent-backend for safe read-only queries
+ * Used by diagnostics and other consumers that need safe read-only queries.
  */
 export async function getReadOnlyDatabase(): Promise<DatabaseInstance> {
     return getDatabase({ readonly: true, skipTableCreation: true });
