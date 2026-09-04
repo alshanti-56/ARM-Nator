@@ -9,6 +9,7 @@ const lockDirectory = path.join(workspaceRoot, 'tmp');
 const lockPath = path.join(lockDirectory, 'arm-nator-dev.lock');
 const electronMain = path.join(workspaceRoot, 'dist/apps/electron-backend/main.js');
 const electronBinary = path.join(workspaceRoot, 'node_modules/.bin/electron');
+const electronLogPath = path.join(lockDirectory, 'electron.log');
 const rendererPort = 4300;
 const restartDebounceMs = 450;
 
@@ -22,6 +23,7 @@ let restartInProgress = false;
 let restartRequested = false;
 let shuttingDown = false;
 let lastBuildMtime = 0;
+let electronLogFd;
 
 function isAlive(pid) {
     try {
@@ -61,6 +63,30 @@ function findLegacyRunners() {
                 command.includes('electron-backend:serve-electron-dev') ||
                 /nx(?:\.js)?\s+(?:run\s+)?serve electron-backend/.test(command);
             return pid !== process.pid && isLegacyNx && isWorkspaceCwd(pid) ? [pid] : [];
+        });
+}
+
+function findWebApiOnlyRunners() {
+    const result = spawnSync('ps', ['-axo', 'pid=,command='], { encoding: 'utf8' });
+    if (result.status !== 0) return [];
+
+    return result.stdout
+        .split('\n')
+        .flatMap((line) => {
+            const match = line.trim().match(/^(\d+)\s+(.+)$/);
+            if (!match) return [];
+
+            const pid = Number(match[1]);
+            const command = match[2];
+            const isWebApiOnlyElectron =
+                command.includes('dist/apps/electron-backend/main.js') &&
+                command.includes('--web-api-only');
+
+            return pid !== process.pid &&
+                isWebApiOnlyElectron &&
+                isWorkspaceCwd(pid)
+                ? [pid]
+                : [];
         });
 }
 
@@ -125,23 +151,33 @@ async function acquireLock() {
     }
 }
 
+async function stopPid(pid, label) {
+    console.log(`[dev] Stopping ${label} (PID ${pid})...`);
+    try {
+        process.kill(pid, 'SIGTERM');
+    } catch {
+        return;
+    }
+    if (!(await waitForExit(pid, 3000))) {
+        console.warn(`[dev] ${label} did not exit; sending SIGKILL to PID ${pid}.`);
+        try {
+            process.kill(pid, 'SIGKILL');
+        } catch {
+            // It exited between the checks.
+        }
+        await waitForExit(pid, 1000);
+    }
+}
+
 async function stopLegacyRunners() {
     for (const pid of findLegacyRunners()) {
-        console.log(`[dev] Stopping legacy Nx dev runner (PID ${pid})...`);
-        try {
-            process.kill(pid, 'SIGTERM');
-        } catch {
-            continue;
-        }
-        if (!(await waitForExit(pid, 3000))) {
-            console.warn(`[dev] Legacy runner did not exit; sending SIGKILL to PID ${pid}.`);
-            try {
-                process.kill(pid, 'SIGKILL');
-            } catch {
-                // It exited between the checks.
-            }
-            await waitForExit(pid, 1000);
-        }
+        await stopPid(pid, 'legacy Nx dev runner');
+    }
+}
+
+async function stopConflictingElectronRunners() {
+    for (const pid of findWebApiOnlyRunners()) {
+        await stopPid(pid, 'conflicting web-api-only Electron process');
     }
 }
 
@@ -153,13 +189,24 @@ async function releaseLock() {
         lockHandle = undefined;
         await fs.promises.rm(lockPath, { force: true });
     }
+    if (electronLogFd !== undefined) {
+        fs.closeSync(electronLogFd);
+        electronLogFd = undefined;
+    }
 }
 
-function spawnGroup(command, args) {
+function getElectronLogFd() {
+    if (electronLogFd === undefined) {
+        electronLogFd = fs.openSync(electronLogPath, 'a');
+    }
+    return electronLogFd;
+}
+
+function spawnGroup(command, args, options = {}) {
     return spawn(command, args, {
         cwd: workspaceRoot,
         env: process.env,
-        stdio: 'inherit',
+        stdio: options.stdio ?? 'inherit',
         detached: true
     });
 }
@@ -224,7 +271,12 @@ async function restartElectron() {
         }
         if (!fs.existsSync(electronMain)) return;
         console.log('[dev] Starting Electron with the latest build.');
-        electronProcess = spawnGroup(electronBinary, [electronMain]);
+        electronProcess = spawnGroup(electronBinary, [electronMain], {
+            // Detached Electron must not inherit the runner's terminal pipe.
+            // Codex/IDE terminals can close independently, which otherwise
+            // turns a later console write into an uncaught EPIPE exception.
+            stdio: ['ignore', getElectronLogFd(), getElectronLogFd()],
+        });
         electronProcess.once('error', (error) => {
             console.error(`[dev] Electron failed to start: ${error.message}`);
         });
@@ -277,6 +329,7 @@ async function shutdown(exitCode = 0) {
 async function main() {
     await acquireLock();
     await stopLegacyRunners();
+    await stopConflictingElectronRunners();
     process.on('SIGINT', () => void shutdown(130));
     process.on('SIGTERM', () => void shutdown(143));
 

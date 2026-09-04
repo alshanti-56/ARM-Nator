@@ -34,6 +34,24 @@ import CredentialTesterEvents, {
 import { runEmbeddedMpvRuntimeDiagnosticOrContinue } from './app/services/embedded-mpv-runtime-diagnostic';
 import { startWebApi, stopWebApi } from './app/services/web-api.service';
 
+function installBrokenPipeHandlers(): void {
+    for (const stream of [process.stdout, process.stderr]) {
+        stream.on('error', (error: NodeJS.ErrnoException) => {
+            if (error.code === 'EPIPE') {
+                return;
+            }
+
+            // Preserve the normal crash behavior for unexpected stream errors
+            // without attempting to write another message to the broken stream.
+            process.nextTick(() => {
+                throw error;
+            });
+        });
+    }
+}
+
+installBrokenPipeHandlers();
+
 app.setName('arm-nator');
 
 // The browser UI can run against the same database and provider proxy without
