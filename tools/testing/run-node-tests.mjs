@@ -3,6 +3,7 @@ import { spawn } from 'node:child_process';
 import { extname, join, relative, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { availableParallelism } from 'node:os';
+import { createRequire } from 'node:module';
 
 const workspaceRoot = resolve(fileURLToPath(new URL('../..', import.meta.url)));
 const sourceRoots = ['apps', 'libs', 'tools/embedded-mpv', 'tools/packaging', 'tools/testing'];
@@ -59,6 +60,10 @@ for (const file of candidates.sort()) {
 console.log(
     `Running ${nodeTestFiles.length} Node test files; ${angularJestTestFiles.length} Angular/Jest files are run separately by pnpm test:angular.`
 );
+
+// Electron downloads a missing runtime on first require. Finish extraction in
+// this process before parallel workers can observe a partially written binary.
+createRequire(import.meta.url)('electron');
 
 const child = spawn(
     process.execPath,
