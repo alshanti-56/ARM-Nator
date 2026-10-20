@@ -108,6 +108,11 @@ const ksPlayerPatches = [
     markers: [["Sources/KSPlayer/MEPlayer/MetalPlayView.swift", "hasPresentedFrame"], ["Sources/KSPlayer/Metal/MetalRender.swift", "drawable.addPresentedHandler"]],
   },
   {
+    path: path.join(packageRoot, "patches", "ksplayer", "frame-presentation-availability.patch"),
+    files: ["Sources/KSPlayer/Metal/MetalRender.swift"],
+    markers: [["Sources/KSPlayer/Metal/MetalRender.swift", "if #available(macOS 10.15.4, *) {"]],
+  },
+  {
     path: path.join(
       packageRoot,
       "patches",

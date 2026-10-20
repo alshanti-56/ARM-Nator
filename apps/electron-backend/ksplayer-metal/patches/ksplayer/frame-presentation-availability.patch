@@ -1,0 +1,13 @@
+--- a/Sources/KSPlayer/Metal/MetalRender.swift
++++ b/Sources/KSPlayer/Metal/MetalRender.swift
+@@ -114,7 +114,9 @@
+         display.set(encoder: encoder)
+         encoder.popDebugGroup()
+         encoder.endEncoding()
+-        drawable.addPresentedHandler { _ in onPresented() }
++        if #available(macOS 10.15.4, *) {
++            drawable.addPresentedHandler { _ in onPresented() }
++        }
+         commandBuffer.present(drawable)
+         commandBuffer.commit()
+         // Keep rendering asynchronous so the main/display-link thread can
