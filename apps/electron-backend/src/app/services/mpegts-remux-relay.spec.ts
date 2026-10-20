@@ -321,14 +321,13 @@ test("keeps one remux process alive across upstream reconnects", async () => {
   const waitForOutputBytes = (minimumBytes: number): Promise<void> => {
     if (capturedOutputBytes >= minimumBytes) return Promise.resolve();
     return new Promise((resolve) => {
-      let timer: ReturnType<typeof setTimeout>;
       const onData = () => {
         if (capturedOutputBytes < minimumBytes) return;
         clearTimeout(timer);
         output.off("data", onData);
         resolve();
       };
-      timer = setTimeout(() => {
+      const timer = setTimeout(() => {
         output.off("data", onData);
         resolve();
       }, 5_000);

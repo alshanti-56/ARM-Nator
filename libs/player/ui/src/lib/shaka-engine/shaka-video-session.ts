@@ -525,8 +525,7 @@ export class ShakaVideoSession {
             throw new Error('The DASH session release API is unavailable.');
         }
 
-        let tracked!: Promise<void>;
-        tracked = Promise.resolve()
+        const tracked: Promise<void> = Promise.resolve()
             .then(() => ownedSession.bridge.releaseDashProxySession(ownedSession.id))
             .then(() => {
                 if (this.ownedDashSession === ownedSession) {
@@ -669,8 +668,7 @@ export class ShakaVideoSession {
         const playerDestroy = Promise.resolve()
             .then(() => player.destroy())
             .then(() => undefined);
-        let tracked!: Promise<void>;
-        tracked = Promise.allSettled([
+        const tracked: Promise<void> = Promise.allSettled([
             playerDestroy,
             this.pendingSessionRelease,
         ])

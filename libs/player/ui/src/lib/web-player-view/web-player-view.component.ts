@@ -327,9 +327,9 @@ export class WebPlayerViewComponent {
 
   constructor() {
     const bridge = typeof window === 'undefined' ? undefined : window.electron;
-    if (bridge?.getEmbeddedMpvSupport) void bridge.getEmbeddedMpvSupport().then(value => this.inlineRuntimeAvailability.update(current => ({ ...current, [VideoPlayer.EmbeddedMpv]: { available: value.supported, detail: value.reason } }))).catch(() => {});
-    if (bridge?.getKsPlayerMetalSupport) void bridge.getKsPlayerMetalSupport().then(value => this.inlineRuntimeAvailability.update(current => ({ ...current, [VideoPlayer.KsPlayer]: { available: value.supported, detail: value.reason } }))).catch(() => {});
-    if (bridge?.getPlayerEngineAvailability) void bridge.getPlayerEngineAvailability().then(values => this.inlineRuntimeAvailability.update(current => ({ ...current, ...Object.fromEntries(values.map(value => [value.engine, { available: value.available, detail: value.reason }])) }))).catch(() => {});
+    if (bridge?.getEmbeddedMpvSupport) void bridge.getEmbeddedMpvSupport().then(value => this.inlineRuntimeAvailability.update(current => ({ ...current, [VideoPlayer.EmbeddedMpv]: { available: value.supported, detail: value.reason } }))).catch(() => undefined);
+    if (bridge?.getKsPlayerMetalSupport) void bridge.getKsPlayerMetalSupport().then(value => this.inlineRuntimeAvailability.update(current => ({ ...current, [VideoPlayer.KsPlayer]: { available: value.supported, detail: value.reason } }))).catch(() => undefined);
+    if (bridge?.getPlayerEngineAvailability) void bridge.getPlayerEngineAvailability().then(values => this.inlineRuntimeAvailability.update(current => ({ ...current, ...Object.fromEntries(values.map(value => [value.engine, { available: value.available, detail: value.reason }])) }))).catch(() => undefined);
     effect((onCleanup) => {
       const playback = this.resolvedPlayback();
       this.inlineSource = undefined;
@@ -346,11 +346,11 @@ export class WebPlayerViewComponent {
       const drm = playback.drm;
       if (drm?.supported && drm.licenseServerUrl && typeof navigator !== 'undefined' && navigator.requestMediaKeySystemAccess) {
         void navigator.requestMediaKeySystemAccess(drm.licenseType, [{ initDataTypes: ['cenc'], videoCapabilities: [{ contentType: 'video/mp4; codecs="avc1.42E01E"' }], audioCapabilities: [{ contentType: 'audio/mp4; codecs="mp4a.40.2"' }] }])
-          .then(() => { if (current) this.inlineDrmAvailable.set(true); }).catch(() => {});
+          .then(() => { if (current) this.inlineDrmAvailable.set(true); }).catch(() => undefined);
       }
       const accountRef = playback.recovery?.accountRef;
       if (accountRef) void window.electron?.getPlaybackRecoveryAvailability?.(accountRef)
-        .then(value => { if (current) this.inlineCredentialAvailability.set(value); }).catch(() => {});
+        .then(value => { if (current) this.inlineCredentialAvailability.set(value); }).catch(() => undefined);
     });
     effect(() => {
       const generation = this.reloadGeneration();

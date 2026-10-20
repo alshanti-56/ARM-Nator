@@ -27,6 +27,7 @@ import {
 import { XtreamStore } from '@arm-nator/providers/xtream/data-access';
 import { StalkerStore, StalkerContentType, updateStalkerCategoryVisibility, buildStalkerCategoryCounts } from '@arm-nator/providers/stalker/data-access';
 import { PlaylistsService } from '@arm-nator/services';
+import { CategoryVisibilityDialogComponent } from '@arm-nator/ui/components';
 import { firstValueFrom } from 'rxjs';
 import { WorkspaceContextCategoryViewComponent } from './components/workspace-context-category-view.component';
 import { hasActiveLiveCategoryRoute } from './workspace-context-panel-route.utils';
@@ -400,7 +401,6 @@ export class WorkspaceContextPanelComponent {
                 countIsPartial: this.stalkerPartialCategoryIds().has(String(c.category_id)),
                 hidden: hidden.has(String(c.category_id)),
             }));
-        const { CategoryVisibilityDialogComponent } = await import('@arm-nator/ui/components');
         this.dialog.open(CategoryVisibilityDialogComponent, {
             width: '500px', maxWidth: 'calc(100vw - 32px)', maxHeight: '90vh',
             data: {

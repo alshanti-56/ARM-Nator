@@ -128,7 +128,7 @@ test("pause and stalled clock cannot replenish the automatic renewal budget", as
   coordinator.observe(2, "playing", false, 1000);
   await coordinator.run(
     async () => source,
-    async () => {},
+    async () => undefined,
     true,
   );
   coordinator.observe(2, "paused", false, 2000);
@@ -147,7 +147,7 @@ test("a synchronously throwing provider cannot leave recovery locked", async () 
       () => {
         throw new Error("Provider failed");
       },
-      async () => {},
+      async () => undefined,
       false,
     ),
     false,
@@ -162,7 +162,7 @@ test("a long gap between clock samples does not count as stable playback", async
   coordinator.observe(2, "playing", false, 1000);
   await coordinator.run(
     async () => source,
-    async () => {},
+    async () => undefined,
     true,
   );
   coordinator.observe(3, "playing", false, 2000);
@@ -181,7 +181,7 @@ test("old buffered playback during resolution cannot replenish the renewal budge
   const pending = deferred<typeof source>();
   const work = coordinator.run(
     () => pending.promise,
-    async () => {},
+    async () => undefined,
     true,
   );
   for (let second = 2; second <= 25; second++)
@@ -203,7 +203,7 @@ test("failed renewal remains terminal until a manual attempt", async () => {
     async () => {
       throw new Error("Denied");
     },
-    async () => {},
+    async () => undefined,
     true,
   );
   for (let second = 2; second <= 25; second++)

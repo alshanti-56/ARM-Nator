@@ -312,11 +312,11 @@ export class WorkspacePlayerHostComponent {
     this.drmAvailable.set(false);
     let current = true; onCleanup(() => { current = false; });
     if (accountRef) void window.electron?.getPlaybackRecoveryAvailability?.(accountRef)
-      .then(value => { if (current) this.credentialAvailability.set(value); }).catch(() => {});
+      .then(value => { if (current) this.credentialAvailability.set(value); }).catch(() => undefined);
     const drm = playback?.drm;
     if (drm?.supported && drm.licenseServerUrl && typeof navigator !== 'undefined' && navigator.requestMediaKeySystemAccess) {
       void navigator.requestMediaKeySystemAccess(drm.licenseType, [{ initDataTypes: ['cenc'], videoCapabilities: [{ contentType: 'video/mp4; codecs="avc1.42E01E"' }], audioCapabilities: [{ contentType: 'audio/mp4; codecs="mp4a.40.2"' }] }])
-        .then(() => { if (current) this.drmAvailable.set(true); }).catch(() => {});
+        .then(() => { if (current) this.drmAvailable.set(true); }).catch(() => undefined);
     }
   });
 
