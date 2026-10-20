@@ -7,6 +7,8 @@ and browser-based engines.
 
 This document describes the current repository rather than a historical
 roadmap. The package version in this checkout is `0.31.0`.
+See the [documentation guide](docs/README.md) for operational references and
+the current development handoff.
 
 ## What is available now
 
@@ -16,8 +18,9 @@ roadmap. The package version in this checkout is `0.31.0`.
   episode details, and shared-player playback.
 - SQLite-backed Xtream catalog storage and shared state, indexed search,
   pagination, metadata enrichment, and case-insensitive refinement values.
-- Global Search searches the local SQLite Xtream catalog; Stalker exposes its
-  own portal-scoped search route and is not included in Global Search.
+- Global Search shows indexed Xtream results locally. Its explicit Search
+  portals action searches connected Stalker sources; typing alone does not
+  query portals. Stalker also retains its own portal-scoped search route.
 - Optional TMDB enrichment for on-demand detail views and the Dashboard
   trending rail. TMDB enrichment is separate from Xtream detail loading and
   does not scan the entire catalog when enabled.
@@ -57,11 +60,17 @@ pnpm build
 `pnpm test` runs the repository's Node built-in test suites through the shared
 test runner. Angular/Jest suites are separate; `pnpm test:angular` runs the
 Stalker Jest configurations (or explicit configs passed to that script).
+
+Playback diagnostics are recorded in production as well as development. Run
+`pnpm diagnostics:playback` for recent events, or
+`pnpm diagnostics:playback --json` for the complete URLs and headers needed to
+replay a request. See [playback diagnostics](docs/playback-diagnostics.md) for
+storage limits, sharing exports, and interpreting authentication failures.
 Production builds prepare the pinned Embedded MPV runtime automatically when it is
 not already staged. Runtime compilation requires
 macOS on Apple Silicon plus `meson`, `ninja`, and `pkg-config`.
 The production `build` and `package` lifecycle hooks verify the pinned
-environment and rebuild Electron-native dependencies for Electron 41 before
+environment and rebuild Electron-native dependencies for Electron 44 before
 they run. Development reuses the native player artifacts already present in
 `apps/electron-backend/native/build/Release/` so normal renderer restarts do
 not rebuild Swift, Metal, and MPV toolchains.
@@ -100,7 +109,9 @@ a downloadable media stream and may fail in a generic player engine.
 - Renderer: one Angular desktop application.
 - Main process: Electron services, typed IPC, SQLite access, workers, browser
   views, and native Embedded MPV integration.
-- Active source types: Xtream and Stalker portal.
+- Active source types: Xtream and Stalker portal. M3U channel-playlist URL/file
+  import is not exposed in Add Source. Direct playback of an individual HLS
+  `.m3u8` stream is a separate supported playback capability.
 - Active player engines: ArtPlayer, ArtPlayer2, HTML5, Embedded MPV, KSPlayer, external MPV, and VLC.
 - Browser and YouTube are Electron-hosted features. A normal browser is only
   supported for the development loopback bridge; there is no separate PWA
@@ -225,8 +236,8 @@ packaged `.app`. It uses the vendored macOS arm64 runtime; Homebrew libraries
 are not release inputs. External MPV and VLC are optional managed players and
 must be installed/configured separately when those engines are used.
 
-Required development inputs are macOS, Xcode Command Line Tools, Node.js,
-pnpm through Corepack, and the vendored MPV runtime.
+Required development inputs are macOS, full Xcode with its Metal toolchain,
+directly installed Node.js and pnpm, and the vendored MPV runtime.
 
 ```text
 vendor/embedded-mpv/darwin-arm64/
@@ -242,6 +253,35 @@ apps/electron-backend/native/build/Release/
 
 ## Development
 
+Node and pnpm are pinned to exact versions in `package.json`; `.nvmrc`
+and `devEngines.runtime.version` must match `engines.node`.
+The project uses the directly installed Node and pnpm on `PATH`.
+`pmOnFail: error` and `runtimeOnFail: error` prevent automatic downloads
+or version switching. A mismatched installation fails before building.
+
+For first-time setup on Apple Silicon, install Node directly with
+Homebrew, verify that its version matches `.nvmrc`, and install the
+project's exact pnpm version with npm:
+
+```bash
+brew install node
+npm install --global --allow-scripts=pnpm "pnpm@$(node -p "require('./package.json').engines.pnpm")"
+command -v node
+command -v pnpm
+node --version
+pnpm --version
+```
+
+Both commands should resolve through `/opt/homebrew/bin`.
+If an older Corepack pnpm launcher exists there, disable it before
+installing pnpm directly. Run `node tools/verify-environment.mjs` to
+diagnose version mismatches without installing project dependencies.
+Native build targets read `tools/native-toolchain.env`, which explicitly
+selects the full Xcode installation at `/Applications/Xcode.app` without
+changing the system developer directory. Update that file if your Xcode
+installation has a different path. For direct native build-helper commands,
+set `DEVELOPER_DIR=/Applications/Xcode.app/Contents/Developer` explicitly.
+
 ```bash
 pnpm install --frozen-lockfile
 pnpm verify:environment
@@ -255,6 +295,19 @@ pnpm embedded-mpv:build   # Build the native Embedded MPV addon
 pnpm player:fixtures      # Run player stream fixture tooling
 pnpm clean                # Remove generated build output
 ```
+
+To upgrade the toolchain, update `engines.pnpm` and the integrity-pinned
+`packageManager` together; for Node, update `engines.node`,
+`devEngines.runtime.version`, and `.nvmrc` together. Upgrade the direct
+Node installation and reinstall the pinned pnpm globally. Run
+`pnpm install --lockfile-only`, then validate a
+`pnpm install --frozen-lockfile`, `pnpm verify:environment`, `pnpm test`,
+`pnpm lint`, and `pnpm build` before committing the new pins and lockfile.
+Routine commands reject stale dependencies; refresh them explicitly
+with `pnpm install --frozen-lockfile`.
+
+See [toolchain maintenance](docs/toolchain.md) for the authoritative version
+pins, compatibility exceptions, and verification workflow.
 
 `pnpm dev` is the normal development workflow. The Angular renderer is served
 at `http://localhost:4300` while Electron runs the desktop window.
@@ -311,5 +364,7 @@ When changing a feature:
    changes.
 5. Keep generated artifacts and local Graphify output out of the canonical
    product description.
-6. Keep `README.md` current for shipped behavior and `docs/PRD.md` current for
-   product requirements and release intent.
+6. Keep `README.md` current for supported behavior and `docs/NEXT-SESSION.md`
+   current for installed state, verification limits, and remaining work. Update
+   existing guides instead of adding a report for every session; follow
+   [the documentation guide](docs/README.md).

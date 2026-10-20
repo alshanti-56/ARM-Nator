@@ -1,0 +1,25 @@
+{
+  "appAsarSha256": "75d1b448d7bbe945a7d7a31f7f33c673074162d3f82ad72b1dee17e3e69962f6",
+  "installedApp": "/Users/m-home/Downloads/ARM-Nator/dist/executables/mac-arm64/ARM-Nator.app",
+  "rollbackDirectory": "/Users/m-home/Downloads/ARM-Nator/dist/executables/backups/stalker-counts-20261018",
+  "deliveredAt": "2026-10-18T00:21:43.116163+00:00",
+  "change": "Stalker groups all loaded items by opaque category ID, matching Xtream local aggregation. Complete live lists use local exact counts; known portal totals supplement partial VOD/series; otherwise lower bounds showN+. Sidebar and Manage Categories share the computed result. No additional requests.",
+  "verification": {
+    "node": 8,
+    "angular": 5,
+    "uiTypes": "pass",
+    "lint": "0 errors,1 existing max-lines warning",
+    "productionPackage": "pass",
+    "signature": "ad-hoc deep/strict passed",
+    "zip": "integrity and app hash match",
+    "dmg": "checksum valid"
+  },
+  "packagedProof": "Real Stalker live list23833: PAY PER VIEW35, UFC6, BOXING17 in sidebar and management dialog, previously1; screenshots stalker-sidebar.png and stalker-manager.png",
+  "limitations": [
+    "Paged lower-bound marking tested in unit suites; actual provider screenshot used complete LiveTV",
+    "Existing Chromium Escape fullscreen/menu ordering edge remains"
+  ],
+  "evidenceDirectory": "/Users/m-home/Downloads/ARM-Nator/.superpowers/sdd/stalker-category-counts-20261018",
+  "installedSmoke": "PASS: normal dark-theme Stalker LiveTV23833 items shows PayPerView35, UFC6, Boxing17; installed-counts.png",
+  "finalState": "Normal app left on Stalker LiveTV with corrected counts. Test clone quit; no playback or category selection edits."
+}

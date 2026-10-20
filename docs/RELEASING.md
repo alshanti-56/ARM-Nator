@@ -14,7 +14,7 @@ from GitHub Actions, select the branch containing the fix, and enter the
 existing tag in the `release_tag` field. Manual runs use that branch's current
 workflow and build scripts; tag-triggered runs build the immutable tag.
 
-The workflow runs on an Apple Silicon `macos-15` runner, verifies the version,
+The workflow runs on an Apple Silicon `macos-26` runner, verifies the version,
 builds the pinned Embedded MPV and KSPlayer runtimes, packages the arm64 DMG
 and ZIP, creates SHA-256 checksums, and publishes a GitHub Release with the
 artifacts. The packaged app declares macOS 26.0 as its minimum system version.

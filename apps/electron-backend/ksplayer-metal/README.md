@@ -140,7 +140,7 @@ recovery or disposal.
 Run the focused real-host lifecycle proof after building:
 
 ```sh
-node_modules/.pnpm/electron@41.7.2/node_modules/electron/dist/Electron.app/Contents/MacOS/Electron apps/electron-backend/ksplayer-metal/electron-embedding-harness.cjs
+pnpm exec electron apps/electron-backend/ksplayer-metal/electron-embedding-harness.cjs
 ```
 
 Run the reproducible same-fixture comparison with both addons built:
