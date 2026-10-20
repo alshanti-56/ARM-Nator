@@ -1,0 +1,220 @@
+<div class="library-workspace" [class.empty]="!state.groups().length">
+  <div class="library-catalogue">
+    <ng-content select="[library-controls]" />
+    <div class="library-heading">
+      <span
+        >{{ state.groups().length }}
+        {{ state.groups().length === 1 ? "result" : "results" }} loaded</span
+      >
+      <label
+        >Sort
+        <select
+          aria-label="Sort results"
+          [ngModel]="sort()"
+          (ngModelChange)="sort.set($event)"
+        >
+          <option value="match">Best match</option>
+          <option value="title">Title A–Z</option>
+          <option value="year">Newest year</option>
+        </select></label
+      >
+    </div>
+    <ng-content />
+    @for (section of sections(); track section.key) {
+      @if (section.name) {
+        <h2 class="source-heading">{{ section.name }}</h2>
+      }
+      <div class="discovery-grid">
+        @for (group of section.groups; track group.key) {
+          @let version = group.versions[0];
+          <article [class.selected]="focused()?.key === group.key">
+            <button
+              type="button"
+              class="poster-select"
+              [attr.aria-pressed]="focused()?.key === group.key"
+              [attr.aria-label]="
+                'Show details and versions for ' + title(version)
+              "
+              (click)="focus(group)"
+            >
+              <span class="poster-art">
+                @if (version.posterUrl) {
+                  <img
+                    [src]="version.posterUrl"
+                    alt=""
+                    loading="lazy"
+                    (load)="$any($event.target).hidden = false"
+                    (error)="$any($event.target).hidden = true"
+                  />
+                }
+                <mat-icon aria-hidden="true">{{
+                  version.contentType === "live"
+                    ? "live_tv"
+                    : version.contentType === "series"
+                      ? "video_library"
+                      : "movie"
+                }}</mat-icon>
+                @if (version.resolution) {
+                  <span class="quality-label">{{ quality(version) }}</span>
+                }
+              </span>
+              <strong>{{ title(version) }}</strong>
+            </button>
+            <div class="poster-meta">
+              <span>{{
+                version.work?.releaseYear ||
+                  (version.contentType === "live" ? "Live TV" : "Year unknown")
+              }}</span>
+              <button
+                type="button"
+                class="version-count"
+                [attr.aria-label]="'Choose source for ' + title(version)"
+                (click)="focus(group, true)"
+              >
+                {{ sourceCount(group) }}
+                {{ sourceCount(group) === 1 ? "source" : "sources" }}
+              </button>
+            </div>
+          </article>
+        }
+      </div>
+    }
+  </div>
+  @if (focused(); as group) {
+    @let version = group.versions[0];
+    <aside
+      #inspector
+      class="work-inspector"
+      aria-label="Selected title and available versions"
+    >
+      <div class="inspector-art" [class.poster-crop]="!version.backdropUrl">
+        @if (version.backdropUrl || version.posterUrl) {
+          <img
+            [src]="version.backdropUrl || version.posterUrl"
+            alt=""
+            (load)="$any($event.target).hidden = false"
+            (error)="$any($event.target).hidden = true"
+          />
+        }
+        <mat-icon aria-hidden="true">{{
+          version.contentType === "live" ? "live_tv" : "movie"
+        }}</mat-icon>
+      </div>
+      <div class="inspector-body">
+        <p class="content-kind">
+          {{
+            version.contentType === "movie"
+              ? "Movie"
+              : version.contentType === "series"
+                ? "Series"
+                : "Live TV"
+          }}
+        </p>
+        <h2>{{ title(version) }}</h2>
+        <p class="work-meta">
+          {{ version.work?.releaseYear || "Year unknown" }}
+          @if (version.genre) {
+            <span> · {{ version.genre }}</span>
+          }
+        </p>
+        @if (version.description) {
+          <p class="synopsis">{{ version.description }}</p>
+        }
+        <button
+          type="button"
+          class="auto-open"
+          [disabled]="state.choosing() !== null"
+          (click)="choose(group)"
+        >
+          <mat-icon>play_arrow</mat-icon>{{ action(version) }} · Auto
+        </button>
+        @if (preferred(); as choice) {
+          <p class="auto-source">Auto · {{ sourceSummary(choice) }}</p>
+        }
+        <button
+          type="button"
+          class="sources-toggle"
+          [attr.aria-expanded]="sourcesOpenFor() === group.key"
+          (click)="toggleSources(group)"
+        >
+          Sources ({{ sources().length }})<mat-icon>{{
+            sourcesOpenFor() === group.key ? "expand_less" : "expand_more"
+          }}</mat-icon>
+        </button>
+        @if (sourcesOpenFor() === group.key) {
+          <div class="version-list">
+            @for (source of sources(); track source.key) {
+              <section class="source-group">
+                <header class="source-header">
+                  <strong>{{ source.providerName }}</strong>
+                  @if (source.versions.length > 1) {
+                    <button
+                      type="button"
+                      class="source-options"
+                      [attr.aria-expanded]="expandedSource() === source.key"
+                      (click)="
+                        expandedSource.set(
+                          expandedSource() === source.key ? null : source.key
+                        )
+                      "
+                    >
+                      {{ source.versions.length }} copies<mat-icon>{{
+                        expandedSource() === source.key
+                          ? "expand_less"
+                          : "expand_more"
+                      }}</mat-icon>
+                    </button>
+                  }
+                </header>
+                @if (
+                  source.versions.length === 1 ||
+                  expandedSource() === source.key
+                ) {
+                  @for (
+                    choice of source.versions;
+                    track state.versionKey(choice)
+                  ) {
+                    <article class="version-row">
+                      <div class="version-info">
+                        @if (preferredKey() === state.versionKey(choice)) {
+                          <span class="recommended">Auto choice</span>
+                        }
+                        <p class="original-title">{{ choice.originalTitle }}</p>
+                        <p class="version-facts">
+                          {{ quality(choice) }} · {{ language(choice) }}
+                        </p>
+                      </div>
+                      <button
+                        type="button"
+                        class="version-open"
+                        [disabled]="state.choosing() !== null"
+                        [attr.aria-label]="
+                          action(choice) +
+                          ' from ' +
+                          choice.providerName +
+                          ' · ' +
+                          choice.originalTitle
+                        "
+                        (click)="choose(group, choice)"
+                      >
+                        {{
+                          choice.contentType === "series" ? "Episodes" : "Open"
+                        }}<mat-icon>arrow_forward</mat-icon>
+                      </button>
+                    </article>
+                  }
+                }
+              </section>
+            }
+          </div>
+        }
+        @if (state.choosing() === group.key) {
+          <p role="status">Choosing version…</p>
+        }
+        @if (state.error()) {
+          <p class="selection-error" role="alert">{{ state.error() }}</p>
+        }
+      </div>
+    </aside>
+  }
+</div>

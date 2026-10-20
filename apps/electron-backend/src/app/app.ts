@@ -1,4 +1,4 @@
-import { app, BrowserWindow, Menu, screen, session, shell } from 'electron';
+import { app, BrowserWindow, Menu, screen, shell } from 'electron';
 import { join, resolve } from 'path';
 import { fileURLToPath } from 'url';
 import { rendererAppName, rendererAppPort } from './constants';
@@ -9,6 +9,14 @@ import {
     trace,
 } from './services/debug-trace';
 import { store, WINDOW_BOUNDS } from './services/store.service';
+import { recordStartupMilestone } from './services/startup-performance.service';
+import { PlaybackExitCoordinator } from './services/playback-exit-coordinator';
+import { isPlaybackQuitAuthorized, requestRendererPlaybackFlush } from './services/playback-exit-flush.service';
+import { ownsWorkspaceMenuShortcut } from './services/workspace-menu-shortcuts';
+import { compositionWindowOptions, nativePlayerCompositionEnabled, recoverNativeRenderer } from './services/native-player-composition';
+import { browserGuestRegistry } from './services/browser-view.service';
+import { shutdownEmbeddedMpv } from './events/embedded-mpv.events';
+import { shutdownKsPlayerMetal } from './events/ksplayer-metal.events';
 
 const externalBrowserProtocols = new Set(['http:', 'https:']);
 const trustedDevRendererHosts = new Set([
@@ -86,33 +94,6 @@ export function getMainWindowWebPreferences(): Electron.BrowserWindowConstructor
         backgroundThrottling: false,
         preload: join(__dirname, 'main.preload.js'),
     };
-}
-
-export async function clearElectronServiceWorkerStorage(
-    electronSession: Pick<
-        Electron.Session,
-        'clearStorageData'
-    > = session.defaultSession
-): Promise<void> {
-    try {
-        await electronSession.clearStorageData({
-            storages: ['serviceworkers', 'cachestorage'],
-        });
-
-        if (isStartupTraceEnabled()) {
-            trace('startup', 'electron-service-worker-storage:cleared');
-        }
-    } catch (error) {
-        console.warn('Failed to clear Electron service worker storage:', error);
-
-        if (isStartupTraceEnabled()) {
-            trace(
-                'startup',
-                'electron-service-worker-storage:clear-failed',
-                error
-            );
-        }
-    }
 }
 
 function attachWindowTrace(mainWindow: Electron.BrowserWindow): void {
@@ -286,13 +267,15 @@ export default class App {
 
         const savedWindowBounds = store.get(WINDOW_BOUNDS);
 
+        const compositionEnabled = process.platform === 'darwin' && nativePlayerCompositionEnabled(process.env);
+        process.env.ARM_NATOR_NATIVE_COMPOSITION = compositionEnabled ? '1' : '0';
         // Create the browser window.
         App.mainWindow = new BrowserWindow({
             title: 'ARM-Nator',
             width: width,
             height: height,
             show: false,
-            webPreferences: getMainWindowWebPreferences(),
+            ...compositionWindowOptions(compositionEnabled, getMainWindowWebPreferences() ?? {}),
             ...savedWindowBounds,
             minHeight: 600,
             minWidth: 900,
@@ -301,7 +284,34 @@ export default class App {
             trafficLightPosition: { x: 16, y: 20 },
         });
         App.mainWindow.setMenu(null);
+        const mainWindow = App.mainWindow;
+        if (compositionEnabled) browserGuestRegistry.bind(mainWindow);
+        mainWindow.webContents.on('before-input-event', (_event, input) => {
+            // Native menu accelerators otherwise run before renderer handlers,
+            // e.g. Command-R reloads a non-existent deep file:// route.
+            mainWindow.webContents.setIgnoreMenuShortcuts(ownsWorkspaceMenuShortcut(input));
+        });
         attachWindowTrace(App.mainWindow);
+        if (compositionEnabled) {
+            let recovering = false;
+            mainWindow.webContents.on('render-process-gone', () => {
+                if (recovering || mainWindow.isDestroyed()) return;
+                recovering = true;
+                void recoverNativeRenderer({
+                    hide: () => mainWindow.hide(),
+                    dispose: [() => shutdownEmbeddedMpv(true), () => shutdownKsPlayerMetal(true)],
+                    recover: async () => {
+                        if (mainWindow.isDestroyed()) return;
+                        await App.loadMainWindowContent(mainWindow);
+                        if (!mainWindow.isDestroyed()) mainWindow.show();
+                    },
+                    fail: errors => {
+                        console.error('[native-composition] Renderer recovery failed; closing the window.', { failures: errors.length });
+                        if (!mainWindow.isDestroyed()) mainWindow.destroy();
+                    },
+                }).finally(() => { recovering = false; });
+            });
+        }
         if (!savedWindowBounds) {
             App.mainWindow.center();
         }
@@ -338,7 +348,10 @@ export default class App {
             App.mainWindowLoadPromise = null;
         });
 
-        App.mainWindow.on('close', () => {
+        const closingWindow = App.mainWindow;
+        const exitCoordinator = new PlaybackExitCoordinator(() => requestRendererPlaybackFlush(closingWindow.webContents), { onError: error => console.error('Window progress flush failed:', error) });
+        App.mainWindow.on('close', event => {
+            if (!isPlaybackQuitAuthorized()) exitCoordinator.deferWindowClose(event, () => { if (!closingWindow.isDestroyed()) closingWindow.close(); });
             if (App.mainWindow) {
                 store.set(WINDOW_BOUNDS, App.mainWindow.getNormalBounds());
             }
@@ -395,8 +408,12 @@ export default class App {
             }
             await loadPromise;
         } else {
-            await clearElectronServiceWorkerStorage();
+            // The packaged file:// renderer has no service-worker registration.
+            // Session-wide cleanup can stall first-profile startup and also clears
+            // unrelated web origins; load the local renderer directly.
+            recordStartupMilestone('packaged-load-file-start');
             await mainWindow.loadFile(getPackagedRendererIndexPath());
+            recordStartupMilestone('packaged-load-file-end');
         }
     }
 

@@ -1,0 +1,13 @@
+@layer theme, base, components, utilities;
+
+/* Import utilities and theme tokens without Preflight so Material's base
+ * styles and browser defaults remain intact. */
+@import "tailwindcss/theme.css" layer(theme);
+@import "tailwindcss/utilities.css" layer(utilities);
+
+@config "../tailwind.config.js";
+
+/* The stylesheet is under apps/desktop-ui/src, so scan app templates and the
+ * shared libraries explicitly instead of relying on the process working dir. */
+@source "./";
+@source "../../../libs";

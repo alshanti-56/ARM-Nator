@@ -196,6 +196,7 @@ export function withSearch() {
          * Set the search term
          */
         setSearchTerm(term: string): void {
+          if (term !== store.searchTerm()) searchRequestVersion++;
           patchState(store, { searchTerm: term });
         },
 
@@ -203,6 +204,7 @@ export function withSearch() {
          * Set search filters
          */
         setSearchFilters(filters: SearchFilters): void {
+          searchRequestVersion++;
           patchState(store, { searchFilters: filters });
         },
 
@@ -210,6 +212,7 @@ export function withSearch() {
          * Update a single filter
          */
         updateSearchFilter(key: keyof SearchFilters, value: boolean): void {
+          searchRequestVersion++;
           patchState(store, {
             searchFilters: {
               ...store.searchFilters(),

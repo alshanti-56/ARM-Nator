@@ -156,7 +156,7 @@ export class GroupsViewComponent {
 
       this.previousActiveChannelUrl = activeChannelUrl;
 
-      let nextSelection: string | null = null;
+      let nextSelection: string | null;
 
       if (
         activeChannelChanged &&
@@ -388,6 +388,7 @@ export class GroupsViewComponent {
         hiddenGroupTitles: this.hiddenGroupTitles(),
       },
       width: "500px",
+      maxWidth: "calc(100vw - 32px)",
       maxHeight: "90vh",
     });
 

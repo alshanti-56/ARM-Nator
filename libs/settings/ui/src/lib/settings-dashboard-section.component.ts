@@ -1,9 +1,9 @@
 import { CommonModule } from "@angular/common";
-import { Component, input, ViewEncapsulation } from "@angular/core";
+import { Component, input, ViewEncapsulation, ChangeDetectionStrategy } from "@angular/core";
 import { FormGroup, ReactiveFormsModule } from "@angular/forms";
 import { MatCheckboxModule } from "@angular/material/checkbox";
 import { MatIconModule } from "@angular/material/icon";
-import { TranslateModule } from "@ngx-translate/core";
+import { TranslatePipe } from "@ngx-translate/core";
 
 @Component({
   selector: "app-settings-dashboard-section",
@@ -12,10 +12,11 @@ import { TranslateModule } from "@ngx-translate/core";
     MatCheckboxModule,
     MatIconModule,
     ReactiveFormsModule,
-    TranslateModule,
+    TranslatePipe,
   ],
   templateUrl: "./settings-dashboard-section.component.html",
   encapsulation: ViewEncapsulation.None,
+  changeDetection: ChangeDetectionStrategy.Eager,
   styles: [":host { display: contents; }"],
 })
 export class SettingsDashboardSectionComponent {

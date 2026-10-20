@@ -51,6 +51,11 @@ export function getRecentItemNavigation(
     item: PortalRecentItem,
     seriesResume?: SeriesResumeTarget | null
 ): WorkspaceNavigationTarget {
+    if (item.source === 'stalker') {
+        const section = item.type === 'movie' ? 'vod' : item.type === 'live' ? 'itv' : 'series';
+        return { link: ['/workspace', 'stalker', item.playlist_id, section, String(item.category_id ?? '*'), ...(item.type === 'live' ? [] : [String(item.xtream_id)])] };
+    }
+
     if (item.type === 'live') {
         return buildLiveCollectionNavigationTarget({
             mode: 'recent',

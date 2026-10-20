@@ -1,7 +1,8 @@
 import { InjectionToken } from '@angular/core';
-import { PlaybackPositionData } from '@arm-nator/shared/interfaces';
+import { isViewingPositionFinished, PlaybackPositionData, ViewingHistoryEntry } from '@arm-nator/shared/interfaces';
 
 export interface PortalPlaybackPositions {
+    getViewingHistory?(playlistId?: string): Promise<ViewingHistoryEntry[]>;
     savePlaybackPosition(
         playlistId: string,
         data: PlaybackPositionData
@@ -45,7 +46,7 @@ export function getPortalPlaybackProgressPercent(
 export function isPortalPlaybackWatched(
     position: PlaybackPositionData | null | undefined
 ): boolean {
-    return getPortalPlaybackProgressPercent(position) >= 90;
+    return isViewingPositionFinished(position);
 }
 
 export function isPortalPlaybackInProgress(
@@ -55,6 +56,5 @@ export function isPortalPlaybackInProgress(
         return false;
     }
 
-    const percent = getPortalPlaybackProgressPercent(position);
-    return position.positionSeconds > 10 && percent < 90;
+    return position.positionSeconds > 10 && !isPortalPlaybackWatched(position);
 }

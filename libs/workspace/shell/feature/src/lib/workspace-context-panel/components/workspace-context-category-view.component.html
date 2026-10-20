@@ -34,8 +34,9 @@
                             aria-hidden="true"
                         ></div>
                     } @else if (hasItemCount(item)) {
-                        <div class="item-count app-count-badge">
-                            {{ getItemCount(item) }}
+                        <div class="item-count app-count-badge"
+                            [attr.title]="isPartialCount(item) ? ('WORKSPACE.LOADED_COUNT' | translate) : null">
+                            {{ getItemCount(item) }}{{ isPartialCount(item) ? '+' : '' }}
                         </div>
                     }
                 } @else if ($any(item).count !== undefined) {

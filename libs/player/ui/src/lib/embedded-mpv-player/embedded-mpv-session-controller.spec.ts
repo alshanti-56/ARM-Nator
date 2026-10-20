@@ -1,3 +1,4 @@
+import { NativeCompositionService } from './native-composition.service';
 /* eslint-disable max-lines -- backend lifecycle coverage shares one harness. */
 import "@angular/compiler";
 import { strict as assert } from "node:assert";
@@ -183,9 +184,12 @@ function createHarness(overrides: HarnessOverrides = () => ({})): {
     loadKsPlayerMetalPlayback: async () => {
       events.push("load-ks");
     },
-    disposeKsPlayerMetalSession: async () => {
+    disposeKsPlayerMetalSession: async (sessionId: string) => {
       events.push("dispose-ks");
-      return null;
+      return {
+        ...makeSession(sessionId, "ksplayer-metal"),
+        status: "closed",
+      };
     },
     disposeAllKsPlayerMetal: async () => {
       events.push("dispose-all-ks");
@@ -200,9 +204,12 @@ function createHarness(overrides: HarnessOverrides = () => ({})): {
     loadEmbeddedMpvPlayback: async () => {
       events.push("load-embedded");
     },
-    disposeEmbeddedMpvSession: async () => {
+    disposeEmbeddedMpvSession: async (sessionId: string) => {
       events.push("dispose-embedded");
-      return null;
+      return {
+        ...makeSession(sessionId, "embedded-mpv"),
+        status: "closed",
+      };
     },
     setEmbeddedMpvBounds: async () => undefined,
     ...overrides(events),
@@ -254,6 +261,7 @@ function createHarness(overrides: HarnessOverrides = () => ({})): {
         provide: ɵChangeDetectionScheduler,
         useValue: { notify: () => undefined },
       },
+      {provide:NativeCompositionService,useValue:{enabled:false,clearAperture:()=>undefined}},
       EmbeddedMpvSessionController,
     ],
   });
@@ -334,6 +342,56 @@ function assertNoEmbeddedCalls(events: string[]): void {
     false,
   );
 }
+
+test("KSPlayer applies a paused VOD start position once metadata is ready", async () => {
+  let update!: (session: EmbeddedMpvSession) => void;
+  const seeks: number[] = [];
+  const harness = createHarness(() => ({
+    onKsPlayerMetalSessionUpdate: (listener: typeof update) => { update = listener; return () => undefined; },
+    seekKsPlayerMetal: async (_id: string, seconds: number) => {
+      seeks.push(seconds);
+      return { ...makeSession('ks-strict', 'ksplayer-metal'), status: 'paused', positionSeconds: seconds };
+    },
+  }));
+  try {
+    harness.controller.startSession(host, { ...playback, startTime: 37, startPaused: true }, 0.5, 'ksplayer-metal');
+    await waitFor(() => harness.events.includes('load-ks'));
+    await new Promise<void>(resolve => setImmediate(resolve));
+    update({ ...makeSession('ks-strict', 'ksplayer-metal'), status: 'loading', durationSeconds: null });
+    assert.deepEqual(seeks, [], 'wait for seekable metadata');
+    const ready = { ...makeSession('ks-strict', 'ksplayer-metal'), status: 'paused' as const };
+    update(ready);
+    await new Promise<void>(resolve => setImmediate(resolve));
+    assert.deepEqual(seeks, [37]);
+    update(ready);
+    assert.deepEqual(seeks, [37], 'subsequent snapshots cannot replay the initial seek');
+  } finally {
+    harness.destroy();
+  }
+});
+
+test("KSPlayer retains resume when paused metadata arrives before load acknowledgement", async () => {
+  let update!: (session: EmbeddedMpvSession) => void;
+  const seeks: number[] = [];
+  const harness = createHarness(() => ({
+    onKsPlayerMetalSessionUpdate: (listener: typeof update) => { update = listener; return () => undefined; },
+    loadKsPlayerMetalPlayback: async () => {
+      update({ ...makeSession('ks-strict', 'ksplayer-metal'), status: 'paused' });
+    },
+    seekKsPlayerMetal: async (_id: string, seconds: number) => {
+      seeks.push(seconds);
+      return { ...makeSession('ks-strict', 'ksplayer-metal'), status: 'paused', positionSeconds: seconds };
+    },
+  }));
+  try {
+    harness.controller.startSession(host, { ...playback, startTime: 37, startPaused: true }, 0.5, 'ksplayer-metal');
+    await waitFor(() => harness.events.includes('create-ks'));
+    await new Promise<void>(resolve => setImmediate(resolve));
+    assert.deepEqual(seeks, [37]);
+  } finally {
+    harness.destroy();
+  }
+});
 
 test("unsupported KS probe is terminal and never enters embedded MPV", async () => {
   let prepareCalled = false;
@@ -489,7 +547,6 @@ test("KS load failure disposes the session, stays Metal, and does not re-enter",
       "create-ks",
       "load-ks",
       "dispose-ks",
-      "dispose-all-ks",
     ]);
     assertNoEmbeddedCalls(harness.events);
     assertStrictMetalTerminalState(harness.controller, "KS load failed");
@@ -538,6 +595,67 @@ test("direct EmbeddedMpv requests keep their existing create/load behavior", asy
     teardown?.();
     await new Promise<void>((resolve) => setImmediate(resolve));
     assert.equal(harness.events.at(-1), "dispose-embedded");
+    harness.destroy();
+  }
+});
+
+test("teardown waits for native startup and disposes a session created late", async () => {
+  let completeCreate!: (session: EmbeddedMpvSession) => void;
+  const creation = new Promise<EmbeddedMpvSession>((resolve) => {
+    completeCreate = resolve;
+  });
+  const harness = createHarness((events) => ({
+    createEmbeddedMpvSession: async () => {
+      events.push("create-embedded");
+      return creation;
+    },
+  }));
+
+  try {
+    harness.controller.startSession(host, playback, 0.5, "embedded-mpv");
+    await waitFor(() => harness.events.includes("create-embedded"));
+
+    const teardown = harness.controller.teardownActiveSessionAndWait();
+    await Promise.resolve();
+    assert.equal(harness.events.includes("dispose-embedded"), false);
+    completeCreate(makeSession("embedded-late", "embedded-mpv"));
+    await teardown;
+
+    assert.deepEqual(harness.events, [
+      "create-embedded",
+      "dispose-embedded",
+    ]);
+    assert.equal(harness.controller.sessionId(), null);
+  } finally {
+    harness.destroy();
+  }
+});
+
+test("native teardown retains session ownership when dispose does not acknowledge closure", async () => {
+  let disposeAttempts = 0;
+  const harness = createHarness((events) => ({
+    disposeEmbeddedMpvSession: async () => {
+      events.push("dispose-embedded");
+      disposeAttempts += 1;
+      return disposeAttempts === 1
+        ? makeSession("embedded-direct", "embedded-mpv")
+        : { ...makeSession("embedded-direct", "embedded-mpv"), status: "closed" };
+    },
+  }));
+
+  try {
+    harness.controller.startSession(host, playback, 0.5, "embedded-mpv");
+    await waitFor(() => harness.controller.session()?.status === "playing");
+
+    await assert.rejects(
+      harness.controller.teardownActiveSessionAndWait(),
+      /did not confirm closure/,
+    );
+    assert.equal(disposeAttempts, 1);
+    await harness.controller.teardownActiveSessionAndWait();
+    assert.equal(disposeAttempts, 2);
+    assert.equal(harness.events.at(-1), "dispose-embedded");
+  } finally {
     harness.destroy();
   }
 });

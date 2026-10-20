@@ -1,8 +1,9 @@
+import type { StalkerSearchContext } from '@arm-nator/shared/interfaces';
+import { abortableStalkerRequest, throwIfStalkerRequestAborted } from './abortable-stalker-request';
 import {
     extractStalkerAuthFailureBody,
     isFullStalkerPortalPlaylist,
     type Playlist,
-    STALKER_REQUEST,
 } from '@arm-nator/shared/interfaces';
 import type { DataService } from '@arm-nator/services';
 import { StalkerPortalError } from './stalker-portal-error';
@@ -16,7 +17,8 @@ export class StalkerAuthenticatedRequestClient {
         private readonly dataService: DataService,
         private readonly tokens: StalkerTokenCache,
         private readonly ensureToken: (
-            playlist: Playlist
+            playlist: Playlist,
+            signal?: AbortSignal
         ) => Promise<{ token: string | null; serialNumber?: string }>,
         private readonly assertCurrent: (
             playlist: Playlist,
@@ -27,27 +29,32 @@ export class StalkerAuthenticatedRequestClient {
     async request<T>(
         playlist: Playlist,
         params: Record<string, string | number>,
-        retryOnAuthFailure = true
+        retryOnAuthFailure = true,
+        options?: { signal?: AbortSignal; timeoutMs?: number; discovery?: StalkerSearchContext }
     ): Promise<T> {
         // Bind the whole request to one immutable connection snapshot. An
         // Edit can replace the authoritative endpoint/mode while transport is
         // in flight; its old response must never reach a store or player.
+        throwIfStalkerRequestAborted(options?.signal);
         const configuration = { ...playlist } as Playlist;
         const sessionFingerprint =
             stalkerSessionFingerprint(configuration);
         const { token, serialNumber } =
-            await this.ensureToken(configuration);
+            await (options?.signal ? this.ensureToken(configuration, options.signal) : this.ensureToken(configuration));
+        throwIfStalkerRequestAborted(options?.signal);
 
         try {
-            const response = await this.dataService.sendIpcEvent<T>(
-                STALKER_REQUEST,
-                {
+            if (!configuration.portalUrl || !configuration.macAddress) throw new Error('Portal URL and MAC address are required');
+            const response = await abortableStalkerRequest<T>(
+                this.dataService, {
                     url: configuration.portalUrl,
                     macAddress: configuration.macAddress,
                     params,
-                    token,
+                    token: token ?? undefined,
+                    accountRef: configuration._id,
+                    timeoutMs: options?.timeoutMs,
                     ...(serialNumber ? { serialNumber } : {}),
-                }
+                }, options?.signal, options?.discovery
             );
             this.assertCurrent(configuration, sessionFingerprint);
             if (isStalkerAuthorizationFailure(response)) {
@@ -56,7 +63,7 @@ export class StalkerAuthenticatedRequestClient {
                     params,
                     token,
                     response,
-                    retryOnAuthFailure
+                    retryOnAuthFailure, options
                 );
             }
             return response;
@@ -73,7 +80,7 @@ export class StalkerAuthenticatedRequestClient {
                     retryOnAuthFailure &&
                     isFullStalkerPortalPlaylist(configuration)
                 ) {
-                    return this.request<T>(configuration, params, false);
+                    return this.request<T>(configuration, params, false, options);
                 }
             }
             // Transport evidence (especially HTTP 401/403) is consumed by
@@ -87,11 +94,12 @@ export class StalkerAuthenticatedRequestClient {
         params: Record<string, string | number>,
         failedToken: string | null,
         failure: unknown,
-        retryOnAuthFailure: boolean
+        retryOnAuthFailure: boolean,
+        options?: { signal?: AbortSignal; timeoutMs?: number; discovery?: StalkerSearchContext }
     ): Promise<T> {
         this.tokens.retireFailed(playlist._id, failedToken);
         if (retryOnAuthFailure && isFullStalkerPortalPlaylist(playlist)) {
-            return this.request<T>(playlist, params, false);
+            return this.request<T>(playlist, params, false, options);
         }
 
         const failureBody = extractStalkerAuthFailureBody(failure) ?? undefined;

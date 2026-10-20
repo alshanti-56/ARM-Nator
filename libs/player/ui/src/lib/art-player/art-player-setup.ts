@@ -1,4 +1,9 @@
 import { getPlaybackMediaExtensionFromUrl } from '../playback-diagnostics/playback-diagnostics.util';
+import type { AutoPlaybackPreparation } from '@arm-nator/shared/interfaces';
+import {
+    getPreparedProxyMediaExtension,
+    getPreparedProxyPlayerType,
+} from '../web-video-support/prepared-proxy-source.util';
 
 /** Disable ArtPlayer chrome so ARM-Nator's controls are the sole owner. */
 export function buildArtPlayerChrome(): Record<string, unknown> {
@@ -30,8 +35,16 @@ export function resolveArtPlayerIsLive(
     return authoritativeIsLive;
 }
 
-export function getArtPlayerVideoType(url: string): string {
-    const extension = getPlaybackMediaExtensionFromUrl(url);
+export function getArtPlayerVideoType(
+    url: string,
+    preparedProxy?: AutoPlaybackPreparation,
+): string {
+    const preparedType = getPreparedProxyPlayerType(preparedProxy);
+    if (preparedType) {
+        return preparedType;
+    }
+    const extension = getPreparedProxyMediaExtension(preparedProxy) ??
+        getPlaybackMediaExtensionFromUrl(url);
     switch (extension) {
         case 'mkv':
             return 'video/matroska';

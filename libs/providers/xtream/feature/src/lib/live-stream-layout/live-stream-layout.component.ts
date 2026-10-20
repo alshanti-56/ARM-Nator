@@ -31,7 +31,11 @@ import {
   FavoriteItem,
   FavoritesService,
   XtreamStore,
+  XtreamUrlService,
+  type XtreamPlaylistData,
+  buildXtreamSavedPlaybackHeaders,
 } from "@arm-nator/providers/xtream/data-access";
+import type { XtreamCredentials } from "@arm-nator/providers/xtream/data-access";
 import { type PlaybackFallbackRequest } from "@arm-nator/player/ui";
 import { ResolvedPortalPlayback } from "@arm-nator/shared/interfaces";
 
@@ -92,6 +96,7 @@ export class LiveStreamLayoutComponent implements OnInit {
   private readonly router = inject(Router);
   private readonly favoritesService = inject(FavoritesService);
   private readonly xtreamStore = inject(XtreamStore);
+  private readonly xtreamUrl = inject(XtreamUrlService);
   private readonly runtime = inject(RuntimeCapabilitiesService);
   private readonly settingsStore = inject(SettingsStore);
   private readonly portalPlayer = inject(PORTAL_PLAYER);
@@ -256,15 +261,36 @@ export class LiveStreamLayoutComponent implements OnInit {
     startPlayback = !this.settingsStore.openStreamOnDoubleClick(),
   ) {
     const streamUrl = this.xtreamStore.constructStreamUrl(item);
+    const playlist = this.xtreamStore.currentPlaylist();
     // Keep both root/recently-added playback and same-category replays in
     // sync with the category rail. For already-selected channels this is a
     // store no-op.
     this.selectLiveItemCategory(item);
     const playback: ResolvedPortalPlayback = {
       streamUrl,
+      userAgent: playlist?.userAgent,
+      referer: playlist?.referrer,
+      origin: playlist?.origin,
       title: item.title ?? item.name ?? "",
       thumbnail: item.poster_url ?? item.stream_icon ?? null,
       isLive: true,
+      ...(playlist
+        ? {
+            recovery: this.xtreamUrl.buildPlaybackRecoveryMetadata(
+              this.getXtreamCredentials(playlist),
+              playlist.id,
+              streamUrl,
+              {
+                liveStreamId: Number(item.xtream_id),
+                savedHeaders: buildXtreamSavedPlaybackHeaders(playlist),
+              },
+            ),
+            requestPolicy: {
+              accountRef: playlist.id,
+              portalCredentials: true,
+            },
+          }
+        : {}),
     };
     if (this.usesEmbeddedPlayer()) {
       const channels = this.getAllLiveStreams();
@@ -288,11 +314,20 @@ export class LiveStreamLayoutComponent implements OnInit {
     if (!startPlayback) {
       return;
     }
-    this.xtreamStore.openPlayer(
-      streamUrl,
-      item.title ?? item.name ?? "",
-      item.poster_url ?? item.stream_icon ?? null,
+    void this.portalPlayer.openResolvedPlayback(
+      playback,
+      localStorage.getItem("hideExternalInfoDialog") === "true",
     );
+  }
+
+  private getXtreamCredentials(playlist: XtreamPlaylistData): XtreamCredentials {
+    return {
+      serverUrl: playlist.serverUrl,
+      username: playlist.username,
+      password: playlist.password,
+      playbackServerUrl: playlist.playbackServerUrl,
+      allowedOutputFormats: playlist.allowedOutputFormats,
+    };
   }
 
   setLiveChannelSortMode(mode: PortalChannelSortMode): void {

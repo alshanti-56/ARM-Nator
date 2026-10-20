@@ -1,3 +1,4 @@
+import type { PlaybackNetworkFailure } from '@arm-nator/shared/interfaces';
 import type {
     HlsPlaybackErrorInput,
     MpegTsPlaybackErrorInput,
@@ -88,6 +89,24 @@ export function classifyNativePlaybackIssue(
     });
 }
 
+function hlsNetwork(error: HlsPlaybackErrorInput): PlaybackNetworkFailure {
+    const code = error.response?.code;
+    const details = error.details?.toLowerCase() ?? '';
+    let retryAfterSeconds: number | undefined;
+    const loader = error.networkDetails as { getResponseHeader?: (name: string) => string | null; headers?: { get(name: string): string | null } } | undefined;
+    const retryAfter = loader?.getResponseHeader?.('Retry-After') ?? loader?.headers?.get('Retry-After');
+    if (retryAfter) {
+        const seconds = Number(retryAfter);
+        const duration = Number.isFinite(seconds) ? seconds : (Date.parse(retryAfter) - Date.now()) / 1000;
+        if (Number.isFinite(duration)) retryAfterSeconds = Math.max(0, duration);
+    }
+    return {
+        status: typeof code === 'number' && code >= 100 && code <= 599 ? code : null,
+        resourceKind: details.includes('key') ? 'encryption-key' : details.includes('frag') ? 'segment' : details.includes('manifest') ? 'manifest' : details.includes('level') || details.includes('audio') || details.includes('subtitle') ? 'playlist' : 'unknown',
+        ...(retryAfterSeconds === undefined ? {} : { retryAfterSeconds }),
+    };
+}
+
 export function classifyHlsPlaybackIssue(
     error: HlsPlaybackErrorInput,
     metadata: PlaybackSourceMetadata,
@@ -108,6 +127,7 @@ export function classifyHlsPlaybackIssue(
             source: DiagnosticSource.Hls,
             metadata: mergedMetadata,
             details,
+            network: hlsNetwork(error),
         });
     }
 
@@ -117,6 +137,7 @@ export function classifyHlsPlaybackIssue(
             source: DiagnosticSource.Hls,
             metadata: mergedMetadata,
             details,
+            network: hlsNetwork(error),
         });
     }
 
@@ -126,6 +147,7 @@ export function classifyHlsPlaybackIssue(
             source: DiagnosticSource.Hls,
             metadata: mergedMetadata,
             details,
+            network: hlsNetwork(error),
         });
     }
 
@@ -135,6 +157,7 @@ export function classifyHlsPlaybackIssue(
             source: DiagnosticSource.Hls,
             metadata: mergedMetadata,
             details,
+            network: hlsNetwork(error),
         });
     }
 
@@ -143,6 +166,7 @@ export function classifyHlsPlaybackIssue(
         source: DiagnosticSource.Hls,
         metadata: mergedMetadata,
         details,
+        network: hlsNetwork(error),
     });
 }
 
@@ -251,11 +275,17 @@ export function classifyUnsupportedHlsManifestCodecs(
     });
 }
 
+export function redactPlaybackErrorText(value: string): string {
+    return value.replace(/https?:\/\/[^\s"'<>]+/gi, '[media request]')
+        .replace(/(authorization|cookie|token|password)\s*[:=]\s*[^\s,;]+/gi, '$1=[redacted]');
+}
+
 export function createPlaybackDiagnostic(options: {
     readonly code: PlaybackDiagnosticCode;
     readonly source: PlaybackDiagnosticSource;
     readonly metadata: PlaybackSourceMetadata;
     readonly details?: string;
+    readonly network?: PlaybackNetworkFailure;
     readonly nativeErrorCode?: number;
     readonly nativeErrorMessage?: string;
     /** Overrides the code-derived recommendation, e.g. when external players
@@ -280,9 +310,10 @@ export function createPlaybackDiagnostic(options: {
         player: metadata.player,
         audioCodecs: metadata.audioCodecs,
         videoCodecs: metadata.videoCodecs,
-        details: details || undefined,
+        details: details ? redactPlaybackErrorText(details) : undefined,
+        network: options.network,
         nativeErrorCode,
-        nativeErrorMessage,
+        nativeErrorMessage: nativeErrorMessage ? redactPlaybackErrorText(nativeErrorMessage) : undefined,
         externalFallbackRecommended:
             options.externalFallbackRecommended ??
             isExternalFallbackRecommended(code),

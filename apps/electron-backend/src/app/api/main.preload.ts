@@ -1,3 +1,5 @@
+import type { StalkerSearchRequestPayload, StalkerSearchPageResponse } from '@arm-nator/shared/interfaces';
+import type { StalkerRequestPayload } from '@arm-nator/shared/interfaces';
 /* eslint-disable max-lines */
 import { contextBridge, ipcRenderer } from 'electron';
 import {
@@ -30,8 +32,15 @@ import type {
     GlobalSearchPaginationOptions,
     GlobalSearchResultSource,
     PlaybackPositionData,
+    PlaybackRequestPolicy,
+    PlaybackResourceKind,
+    ViewingItem,
+    TitleTrackPreferences,
+    ViewingStateUpdate,
+    CatalogueItemIdentity,
     PlayerContentInfo,
     PlaybackNetworkInspection,
+    AutoPlaybackPreparationResult,
     PlayerEngineAvailability,
     Playlist,
     PortalDebugEvent,
@@ -58,6 +67,8 @@ import {
     summarizeForTrace,
 } from '../services/debug-trace';
 import {
+    type XtreamCatalogueSnapshot,
+    type XtreamCatalogueAccountIdentity,
     KSPLAYER_METAL_CREATE_SESSION,
     KSPLAYER_METAL_DISPOSE_ALL,
     KSPLAYER_METAL_DISPOSE_SESSION,
@@ -253,6 +264,13 @@ function wrapElectronApi<T extends object>(api: T): T {
 }
 
 const electronApi: ElectronBridgeApi = {
+    captureWebVideoFrame: (bounds: EmbeddedMpvBounds) => ipcRenderer.invoke('PLAYER:CAPTURE_WEB_FRAME', bounds),
+    registerBrowserGuest: (id: number, mode: BrowserViewMode) => ipcRenderer.invoke('BROWSER:REGISTER_GUEST', id, mode),
+    onBrowserGuestSurfaces: callback => {
+        const listener = (_event: Electron.IpcRendererEvent, surfaces: Parameters<typeof callback>[0]) => callback(surfaces);
+        ipcRenderer.on('BROWSER:GUEST_SURFACES', listener);
+        return () => ipcRenderer.removeListener('BROWSER:GUEST_SURFACES', listener);
+    },
     openBrowserView: (mode: BrowserViewMode, url?: string) =>
         ipcRenderer.invoke(BROWSER_VIEW_OPEN, mode, url) as Promise<BrowserViewState>,
     setBrowserViewBounds: (
@@ -288,6 +306,17 @@ const electronApi: ElectronBridgeApi = {
         return () => ipcRenderer.off(PORTAL_DEBUG_EVENT, handler);
     },
     // Playback position update listener - returns unsubscribe function
+    onPlaybackProgressFlush: (callback: () => Promise<string | null>) => {
+        const handler = (_event: Electron.IpcRendererEvent, id: unknown) => {
+            if (typeof id !== 'string') return;
+            void Promise.resolve().then(callback).then(
+                error => ipcRenderer.send('PLAYBACK_PROGRESS_FLUSHED', id, error ?? undefined),
+                error => ipcRenderer.send('PLAYBACK_PROGRESS_FLUSHED', id, error instanceof Error ? error.message : String(error)),
+            );
+        };
+        ipcRenderer.on('PLAYBACK_PROGRESS_FLUSH', handler);
+        return () => ipcRenderer.off('PLAYBACK_PROGRESS_FLUSH', handler);
+    },
     onPlaybackPositionUpdate: (
         callback: (data: PlaybackPositionData) => void
     ) => {
@@ -446,18 +475,38 @@ const electronApi: ElectronBridgeApi = {
         headers?: Record<string, string>
     ): Promise<PlaybackNetworkInspection> =>
         ipcRenderer.invoke('INSPECT_PLAYBACK_URL', url, headers),
-    createHlsProxySession: (url: string, headers?: Record<string, string>) =>
-        ipcRenderer.invoke('CREATE_HLS_PROXY_SESSION', url, headers),
+    prepareAutoPlayback: (url: string, headers: Record<string, string> | undefined, isLive: boolean, attemptId: string, policy?: PlaybackRequestPolicy): Promise<AutoPlaybackPreparationResult> =>
+        ipcRenderer.invoke('PREPARE_AUTO_PLAYBACK', url, headers, isLive, attemptId, policy),
+    cancelAutoPlaybackPreparation: (attemptId: string): Promise<void> =>
+        ipcRenderer.invoke('CANCEL_AUTO_PLAYBACK_PREPARATION', attemptId),
+    releaseAutoPlaybackSession: (sessionId: string): Promise<void> =>
+        ipcRenderer.invoke('RELEASE_AUTO_PLAYBACK_SESSION', sessionId),
+    recordAutomaticPlaybackDecision: (decision: { sourceUrl: string; sessionId?: string; engine: string; reason: string }): Promise<void> =>
+        ipcRenderer.invoke('RECORD_AUTOMATIC_PLAYBACK_DECISION', decision),
+    createHlsProxySession: (url: string, headers?: Record<string, string>, policy?: PlaybackRequestPolicy) =>
+        ipcRenderer.invoke('CREATE_HLS_PROXY_SESSION', url, headers, policy),
     releaseHlsProxySession: (sessionId: string) =>
         ipcRenderer.invoke('RELEASE_HLS_PROXY_SESSION', sessionId),
-    createProgressiveVodProxySession: (url: string, headers?: Record<string, string>) =>
-        ipcRenderer.invoke('CREATE_PROGRESSIVE_VOD_PROXY_SESSION', url, headers),
+    createProgressiveVodProxySession: (url: string, headers?: Record<string, string>, policy?: PlaybackRequestPolicy) =>
+        ipcRenderer.invoke('CREATE_PROGRESSIVE_VOD_PROXY_SESSION', url, headers, policy),
     releaseProgressiveVodProxySession: (sessionId: string) =>
         ipcRenderer.invoke('RELEASE_PROGRESSIVE_VOD_PROXY_SESSION', sessionId),
-    createMpegTsProxySession: (url: string, headers?: Record<string, string>) =>
-        ipcRenderer.invoke('CREATE_MPEGTS_PROXY_SESSION', url, headers),
+    createMpegTsProxySession: (url: string, headers?: Record<string, string>, isLive?: boolean, policy?: PlaybackRequestPolicy) =>
+        ipcRenderer.invoke('CREATE_MPEGTS_PROXY_SESSION', url, headers, isLive, policy),
     releaseMpegTsProxySession: (sessionId: string) =>
         ipcRenderer.invoke('RELEASE_MPEGTS_PROXY_SESSION', sessionId),
+    createDashProxySession: (url: string, headers?: Record<string, string>, policy?: PlaybackRequestPolicy) =>
+        ipcRenderer.invoke('CREATE_DASH_PROXY_SESSION', url, headers, policy),
+    registerDashProxyResource: (sessionId: string, targetUrl: string, resourceKind?: PlaybackResourceKind) =>
+        ipcRenderer.invoke('REGISTER_DASH_PROXY_RESOURCE', sessionId, targetUrl, resourceKind),
+    registerDashProxyLicense: (sessionId: string, licenseUrl: string, licenseHeaders?: Record<string, string>) =>
+        ipcRenderer.invoke('REGISTER_DASH_PROXY_LICENSE', sessionId, licenseUrl, licenseHeaders),
+    releaseDashProxySession: (sessionId: string) =>
+        ipcRenderer.invoke('RELEASE_DASH_PROXY_SESSION', sessionId),
+    getPlaybackRecoveryAvailability: (accountRef: string) =>
+        ipcRenderer.invoke('GET_PLAYBACK_RECOVERY_AVAILABILITY', accountRef),
+    clearPlaybackAccountProfile: (accountRef: string) =>
+        ipcRenderer.invoke('CLEAR_PLAYBACK_ACCOUNT_PROFILE', accountRef),
     getPlayerEngineAvailability: (): Promise<PlayerEngineAvailability[]> =>
         ipcRenderer.invoke('GET_PLAYER_ENGINE_AVAILABILITY'),
     closeExternalPlayerSession: (sessionId: string) =>
@@ -679,15 +728,11 @@ const electronApi: ElectronBridgeApi = {
         requestId?: string;
         sessionId?: string;
         suppressErrorLog?: boolean;
+        accountRef?: string;
     }) => ipcRenderer.invoke('XTREAM_REQUEST', payload),
-    stalkerRequest: (payload: {
-        url: string;
-        macAddress: string;
-        params: Record<string, string | number>;
-        token?: string;
-        serialNumber?: string;
-        requestId?: string;
-    }) => ipcRenderer.invoke('STALKER_REQUEST', payload),
+    stalkerRequest: (payload: StalkerRequestPayload) => ipcRenderer.invoke('STALKER_REQUEST', payload),
+    stalkerSearchPage: (payload: StalkerSearchRequestPayload): Promise<StalkerSearchPageResponse> => ipcRenderer.invoke('STALKER_SEARCH_PAGE', payload),
+    stalkerCancelRequest: (requestId: string) => ipcRenderer.invoke('STALKER_CANCEL_REQUEST', requestId),
     xtreamCancelSession: (sessionId: string) =>
         ipcRenderer.invoke('XTREAM_CANCEL_SESSION', sessionId),
     xtreamProbeUrl: (url: string, method?: 'GET' | 'HEAD') =>
@@ -726,6 +771,13 @@ const electronApi: ElectronBridgeApi = {
     ) => ipcRenderer.invoke('DB_UPDATE_PLAYLIST', playlistId, updates),
     dbDeletePlaylist: (playlistId: string, operationId?: string) =>
         ipcRenderer.invoke('DB_DELETE_PLAYLIST', playlistId, operationId),
+    nativePlayerCompositionEnabled: process.argv.includes('--arm-nator-native-composition=1'),
+    performanceCaptureEnabled: shouldCapturePerformance,
+    reportUiPerformance: (sample: { name: 'dashboard' | 'category' | 'search'; phase?: 'catalogue-read'; startedAt: number; paintedAt: number }) => {
+        if (shouldCapturePerformance) ipcRenderer.send('ARM_NATOR_UI_PERFORMANCE', sample);
+    },
+    dbReplaceXtreamCatalogue: (playlistId: string, snapshot: XtreamCatalogueSnapshot, account: XtreamCatalogueAccountIdentity, operationId?: string) =>
+        ipcRenderer.invoke('DB_REPLACE_XTREAM_CATALOGUE', playlistId, snapshot, account, operationId),
     dbDeleteXtreamContent: (playlistId: string, operationId?: string) =>
         ipcRenderer.invoke('DB_DELETE_XTREAM_CONTENT', playlistId, operationId),
     dbRestoreXtreamUserData: (
@@ -770,6 +822,8 @@ const electronApi: ElectronBridgeApi = {
         ipcRenderer.invoke('DB_HAS_CONTENT', playlistId, type),
     dbGetContent: (playlistId: string, type: string) =>
         ipcRenderer.invoke('DB_GET_CONTENT', playlistId, type),
+    dbGetContentSerialized: (playlistId: string, type: 'live' | 'movie' | 'series') =>
+        ipcRenderer.invoke('DB_GET_CONTENT_SERIALIZED', playlistId, type),
     dbSaveContent: (
         playlistId: string,
         streams: ElectronBridgeXtreamContentStream[],
@@ -939,6 +993,12 @@ const electronApi: ElectronBridgeApi = {
     dbMatchTitles: (titles: string[]) =>
         ipcRenderer.invoke('DB_MATCH_TITLES', titles),
     // Playback Positions
+    dbGetViewingHistory: (playlistId?: string) => ipcRenderer.invoke('DB_GET_VIEWING_HISTORY', playlistId),
+    dbReconcileViewingItem: (item: ViewingItem) => ipcRenderer.invoke('DB_RECONCILE_VIEWING_ITEM', item),
+    dbSaveViewingState: (update: ViewingStateUpdate) => ipcRenderer.invoke('DB_SAVE_VIEWING_STATE', update),
+    dbGetTitlePreferences: (item: ViewingItem) => ipcRenderer.invoke('DB_GET_TITLE_PREFERENCES', item),
+    dbSaveTitlePreferences: (item: ViewingItem, patch: TitleTrackPreferences, confirmedAt: number) => ipcRenderer.invoke('DB_SAVE_TITLE_PREFERENCES', item, patch, confirmedAt),
+    dbGetViewingResume: (identity: CatalogueItemIdentity, actualDuration?: number) => ipcRenderer.invoke('DB_GET_VIEWING_RESUME', identity, actualDuration),
     dbSavePlaybackPosition: (
         playlistId: string,
         data: ElectronBridgePlaybackPositionInput

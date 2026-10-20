@@ -37,8 +37,20 @@ export interface ShakaRequestLike {
 
 export interface ShakaNetworkingEngineLike {
     registerRequestFilter(
-        filter: (type: number, request: ShakaRequestLike) => void
+        filter: (type: number, request: ShakaRequestLike) => void | Promise<void>
     ): void;
+    registerResponseFilter(
+        filter: (
+            type: number,
+            response: ShakaResponseLike,
+            request: ShakaRequestLike
+        ) => void | Promise<void>
+    ): void;
+}
+
+export interface ShakaResponseLike {
+    uri: string;
+    headers: Record<string, string>;
 }
 
 export interface ShakaPlayerLike {

@@ -66,3 +66,13 @@ export interface BrowserMiniPlayerState {
     readonly bounds: BrowserViewBounds;
     readonly isMuted: boolean;
 }
+
+/** CSS-pixel placement for an app-owned DOM browser guest. */
+export interface BrowserGuestSurfaceState {
+    readonly isFullscreen?: boolean;
+    readonly displayMode?: BrowserViewDisplayMode;
+    readonly id: number;
+    readonly mode: BrowserViewMode;
+    readonly bounds: BrowserViewBounds;
+    readonly visible: boolean;
+}

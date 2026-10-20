@@ -2,9 +2,12 @@ import { readdir, readFile } from 'node:fs/promises';
 import { spawn } from 'node:child_process';
 import { extname, join, relative, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
+import { availableParallelism } from 'node:os';
 
 const workspaceRoot = resolve(fileURLToPath(new URL('../..', import.meta.url)));
-const sourceRoots = ['apps', 'libs'];
+const sourceRoots = ['apps', 'libs', 'tools/embedded-mpv', 'tools/packaging', 'tools/testing'];
+const testConcurrency = Number(process.env.ARM_NATOR_NODE_TEST_CONCURRENCY ?? Math.min(4, availableParallelism()));
+if (!Number.isSafeInteger(testConcurrency) || testConcurrency < 1) throw new Error('ARM_NATOR_NODE_TEST_CONCURRENCY must be a positive integer');
 
 async function collectSpecFiles(directory) {
     const entries = await readdir(directory, { withFileTypes: true });
@@ -20,8 +23,9 @@ async function collectSpecFiles(directory) {
             files.push(...(await collectSpecFiles(absolutePath)));
         } else if (
             entry.isFile() &&
-            extname(entry.name) === '.ts' &&
-            entry.name.endsWith('.spec.ts')
+            ((extname(entry.name) === '.ts' &&
+                entry.name.endsWith('.spec.ts')) ||
+                entry.name.endsWith('.test.mjs'))
         ) {
             files.push(absolutePath);
         }
@@ -36,7 +40,9 @@ const candidates = (
             collectSpecFiles(join(workspaceRoot, sourceRoot))
         )
     )
-).flat().filter((file) => file.includes('/src/'));
+)
+    .flat()
+    .filter((file) => file.includes('/src/') || file.endsWith('.test.mjs'));
 
 const nodeTestFiles = [];
 const angularJestTestFiles = [];
@@ -56,14 +62,20 @@ console.log(
 
 const child = spawn(
     process.execPath,
-    ['--import', 'tsx', '--test', ...nodeTestFiles.map((file) => relative(workspaceRoot, file))],
+    [
+        '--import',
+        'tsx',
+        '--test',
+        `--test-concurrency=${testConcurrency}`,
+        ...nodeTestFiles.map((file) => relative(workspaceRoot, file))
+    ],
     {
         cwd: workspaceRoot,
         env: {
             ...process.env,
-            TSX_TSCONFIG_PATH: 'tsconfig.base.json',
+            TSX_TSCONFIG_PATH: 'tsconfig.base.json'
         },
-        stdio: 'inherit',
+        stdio: 'inherit'
     }
 );
 

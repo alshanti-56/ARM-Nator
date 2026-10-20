@@ -1,11 +1,19 @@
+import type { ViewingItem, ViewingStateUpdate, CatalogueItemIdentity, TitleTrackPreferences } from '@arm-nator/shared/interfaces';
+import { reconcileViewingHistoryItem, getViewingHistory, saveViewingItemProgress, readViewingResume, getViewingTitlePreferences, saveViewingTitlePreferences } from '../database/operations/viewing-state.operations';
 import {
     closeWorkerDatabase,
     getWorkerDatabase,
 } from './database.worker-connection';
 import { parentPort } from 'worker_threads';
+import { SearchQueryCache, isSearchCatalogueMutation } from './search-query-cache';
 import type {
+    GlobalSearchPaginationOptions,
+    XtreamCatalogueSnapshot,
+    XtreamCatalogueAccountIdentity,
     XtreamBackupFavoriteItem,
     XtreamBackupRecentlyViewedItem,
+    XtreamContentMetadata,
+    XtreamMetadataEnrichmentState,
 } from '@arm-nator/shared/interfaces';
 import type {
     DbOperationEvent,
@@ -35,6 +43,7 @@ import {
 } from '../database/operations/favorites.operations';
 import {
     clearXtreamImportCache,
+    replaceXtreamCatalogue,
     getContent,
     getContentByXtreamId,
     getGlobalRecentlyAdded,
@@ -148,6 +157,7 @@ type OperationController = {
 };
 
 const activeOperations = new Map<string, ActiveOperationState>();
+const searchPages = new SearchQueryCache<Awaited<ReturnType<typeof globalSearch>>[number]>();
 const activePerformanceCaptures = new Set<WorkerPerformanceCapture>();
 
 if (!parentPort) {
@@ -316,6 +326,7 @@ function preRegisterCancellableOperation(
 ): PreRegisteredActiveOperation | null {
     switch (message.operation) {
         case 'DB_SAVE_CONTENT':
+        case 'DB_REPLACE_XTREAM_CATALOGUE':
         case 'DB_DELETE_PLAYLIST':
         case 'DB_DELETE_XTREAM_CONTENT':
         case 'DB_RESTORE_XTREAM_USER_DATA':
@@ -433,6 +444,11 @@ async function executeRequest(
             return getContent(db, payload.playlistId, payload.type);
         }
 
+        case 'DB_GET_CONTENT_SERIALIZED': {
+            const payload = message.payload as { playlistId: string; type: 'live' | 'movie' | 'series' };
+            return JSON.stringify(await getContent(db, payload.playlistId, payload.type));
+        }
+
         case 'DB_GET_GLOBAL_RECENTLY_ADDED': {
             const payload = message.payload as {
                 kind?: 'all' | 'vod' | 'series';
@@ -489,6 +505,16 @@ async function executeRequest(
             );
         }
 
+        case 'DB_REPLACE_XTREAM_CATALOGUE': {
+            const payload = message.payload as { playlistId: string; snapshot: XtreamCatalogueSnapshot; account: XtreamCatalogueAccountIdentity; operationId?: string };
+            return executeTrackedOperation({ requestId: message.requestId, operation: DB_OPERATION_NAMES.REFRESH_CATALOGUE, operationId: payload.operationId, playlistId: payload.playlistId }, async controller => {
+                controller.emitStarted({ phase: 'staging-catalogue' });
+                const result = await replaceXtreamCatalogue(db, payload.playlistId, payload.snapshot, controller.control, payload.account);
+                controller.emitCompleted({ phase: 'catalogue-ready', current: result.count, total: result.count });
+                return result;
+            }, preRegisteredState);
+        }
+
         case 'DB_CLEAR_XTREAM_IMPORT_CACHE': {
             const payload = message.payload as {
                 playlistId: string;
@@ -527,8 +553,8 @@ async function executeRequest(
         case 'DB_UPDATE_XTREAM_CONTENT_METADATA': {
             const payload = message.payload as {
                 contentId: number;
-                metadata: import('@arm-nator/shared/interfaces').XtreamContentMetadata;
-                enrichment?: import('@arm-nator/shared/interfaces').XtreamMetadataEnrichmentState;
+                metadata: XtreamContentMetadata;
+                enrichment?: XtreamMetadataEnrichmentState;
             };
             return updateXtreamContentMetadata(
                 db,
@@ -544,7 +570,7 @@ async function executeRequest(
                 searchTerm: string;
                 types: string[];
                 excludeHidden?: boolean;
-                options?: import('@arm-nator/shared/interfaces').GlobalSearchPaginationOptions;
+                options?: GlobalSearchPaginationOptions;
             };
             return searchContent(
                 db,
@@ -567,14 +593,14 @@ async function executeRequest(
                     offset?: number;
                 };
             };
-            return globalSearch(
+            return searchPages.read(JSON.stringify(payload), () => globalSearch(
                 db,
                 payload.searchTerm,
                 payload.types,
                 payload.excludeHidden,
                 payload.sources,
                 payload.options
-            );
+            ));
         }
 
         case 'DB_CREATE_PLAYLIST': {
@@ -959,6 +985,22 @@ async function executeRequest(
             return removeRecentItemsBatch(db, payload.items);
         }
 
+        case 'DB_RECONCILE_VIEWING_ITEM': {
+            const item = message.payload as ViewingItem;
+            const alias = reconcileViewingHistoryItem(db, item);
+            return { identityKey: alias.identityKey, workId: alias.workId };
+        }
+        case 'DB_GET_TITLE_PREFERENCES': return getViewingTitlePreferences(db, message.payload as ViewingItem);
+        case 'DB_SAVE_TITLE_PREFERENCES': {
+            const payload = message.payload as { item: ViewingItem; patch: TitleTrackPreferences; confirmedAt: number };
+            return saveViewingTitlePreferences(db, payload.item, payload.patch, payload.confirmedAt);
+        }
+        case 'DB_SAVE_VIEWING_STATE': return saveViewingItemProgress(db, message.payload as ViewingStateUpdate);
+        case 'DB_GET_VIEWING_HISTORY': return getViewingHistory(db, (message.payload as { playlistId?: string }).playlistId);
+        case 'DB_GET_VIEWING_RESUME': {
+            const payload = message.payload as { identity: CatalogueItemIdentity; actualDuration?: number };
+            return readViewingResume(db, payload.identity, payload.actualDuration);
+        }
         case 'DB_SAVE_PLAYBACK_POSITION': {
             const payload = message.payload as {
                 playlistId: string;
@@ -970,6 +1012,7 @@ async function executeRequest(
                     episodeNumber?: number;
                     positionSeconds: number;
                     durationSeconds?: number;
+                    confirmedAt?: number;
                     playlistType?:
                         | 'xtream';
                 };
@@ -1059,6 +1102,9 @@ parentPort.on('message', async (message: DbWorkerIncomingMessage) => {
     }
 
     const preRegisteredOperation = preRegisterCancellableOperation(message);
+    const localWorkStartedAt = Date.now();
+    const invalidatesSearch = isSearchCatalogueMutation(message.operation);
+    if (invalidatesSearch) searchPages.clear();
     let performanceCapture: WorkerPerformanceCapture | null = null;
     const execution = await (async () => {
         try {
@@ -1080,6 +1126,9 @@ parentPort.on('message', async (message: DbWorkerIncomingMessage) => {
                     )
             );
         } finally {
+            // A refresh can yield between batches. Discard queries started against
+            // its old catalogue before the transaction committed (or failed).
+            if (invalidatesSearch) searchPages.clear();
             releaseDatabaseWorkerPerformanceCapture(
                 activePerformanceCaptures,
                 performanceCapture
@@ -1094,6 +1143,7 @@ parentPort.on('message', async (message: DbWorkerIncomingMessage) => {
             requestId: message.requestId,
             success: true,
             result: execution.result,
+            localWorkDurationMs: process.env['ARM_NATOR_PERF_CAPTURE'] === '1' ? Date.now() - localWorkStartedAt : undefined,
             performance: stampWorkerPerformanceResponsePostedEpoch(
                 performanceCapture,
                 execution.performance

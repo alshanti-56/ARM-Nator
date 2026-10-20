@@ -40,7 +40,8 @@ export async function hasCategories(
         .where(
             and(
                 eq(schema.categories.playlistId, playlistId),
-                eq(schema.categories.type, type)
+                eq(schema.categories.type, type),
+                eq(schema.categories.available, true)
             )
         );
 
@@ -63,6 +64,7 @@ export async function getCategories(
             and(
                 eq(schema.categories.playlistId, playlistId),
                 eq(schema.categories.type, type),
+                eq(schema.categories.available, true),
                 eq(schema.categories.hidden, false)
             )
         )
@@ -142,7 +144,8 @@ export async function getAllCategories(
         .where(
             and(
                 eq(schema.categories.playlistId, playlistId),
-                eq(schema.categories.type, type)
+                eq(schema.categories.type, type),
+                eq(schema.categories.available, true)
             )
         )
         .orderBy(sql`name COLLATE NOCASE`);

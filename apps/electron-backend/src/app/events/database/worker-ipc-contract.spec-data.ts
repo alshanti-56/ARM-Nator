@@ -124,6 +124,11 @@ export const workerIpcContractCases: WorkerIpcContractCase[] = [
         payload: { playlistId, type: 'movie' },
     },
     {
+        operation: 'DB_GET_CONTENT_SERIALIZED',
+        args: [playlistId, 'movie'],
+        payload: { playlistId, type: 'movie' },
+    },
+    {
         operation: 'DB_GET_GLOBAL_RECENTLY_ADDED',
         args: ['vod', 50, 'xtream'],
         payload: { kind: 'vod', limit: 50, playlistType: 'xtream' },

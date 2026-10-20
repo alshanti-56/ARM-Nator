@@ -96,3 +96,92 @@ test("MPEG-TS proxy surfaces Electron session creation failures", async () => {
     restoreTestWindow(previous);
   }
 });
+
+test("MPEG-TS proxy forwards recorded playback mode and credentials", async () => {
+  let received: unknown[] = [];
+  const previous = setTestWindow({
+    electron: {
+      createMpegTsProxySession: async (...args) => {
+        received = args;
+        return { id: "vod", url: "http://127.0.0.1:1234/stream/vod" };
+      },
+    },
+  });
+  try {
+    const session = new MpegTsProxySession();
+    const headers = { Authorization: "Bearer secret" };
+    await session.load("http://provider.example/movie.ts", headers, () => true, false);
+    assert.deepEqual(received, ["http://provider.example/movie.ts", headers, false]);
+  } finally {
+    restoreTestWindow(previous);
+  }
+});
+
+test("prepared MPEG-TS sources bypass a second proxy and are not released by the player", async () => {
+  let createCalls = 0;
+  let releaseCalls = 0;
+  const previous = setTestWindow({
+    electron: {
+      createMpegTsProxySession: async () => {
+        createCalls += 1;
+        return { id: "nested", url: "http://127.0.0.1/nested" };
+      },
+      releaseMpegTsProxySession: async () => {
+        releaseCalls += 1;
+      },
+    },
+  });
+  try {
+    const session = new MpegTsProxySession();
+    const prepared = {
+      id: "automatic-ts",
+      url: "http://127.0.0.1/stream/automatic-ts",
+      format: "mpegts" as const,
+      container: "mpegts" as const,
+    };
+    assert.equal(
+      await session.load(
+        "https://provider.example/live.ts",
+        { Authorization: "Bearer secret" },
+        () => true,
+        true,
+        prepared,
+      ),
+      prepared.url,
+    );
+    assert.equal(session.currentUrl, prepared.url);
+    await session.releaseAndWait();
+    assert.equal(session.currentUrl, null);
+    assert.equal(createCalls, 0);
+    assert.equal(releaseCalls, 0);
+  } finally {
+    restoreTestWindow(previous);
+  }
+});
+
+test("direct MPEG-TS loads recheck current ownership after draining", async () => {
+  const previous = setTestWindow({ electron: {} });
+  try {
+    const session = new MpegTsProxySession();
+    let currentChecks = 0;
+    const sourceUrl = "https://provider.example/live.ts";
+    assert.equal(
+      await session.load(
+        sourceUrl,
+        undefined,
+        () => {
+          currentChecks += 1;
+          return false;
+        },
+        true,
+        undefined,
+        undefined,
+        true,
+      ),
+      sourceUrl,
+    );
+    assert.equal(currentChecks, 1);
+  } finally {
+    restoreTestWindow(previous);
+  }
+});

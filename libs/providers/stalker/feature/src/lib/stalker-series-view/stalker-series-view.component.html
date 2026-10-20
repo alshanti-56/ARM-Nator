@@ -204,7 +204,7 @@
                 [seasonDescriptions]="seasonDescriptions()"
                 [isLoading]="
                     isVodSeriesSeasonsLoading() ||
-                    isCurrentSeasonLoading(seasonContainer?.selectedSeason())
+                    isCurrentSeasonLoading($safeNavigationMigration(seasonContainer?.selectedSeason()))
                 "
                 (seasonSelected)="onSeasonSelected($event)"
                 (episodeClicked)="onEpisodeClicked($event)"

@@ -1,3 +1,4 @@
+import { ViewingHistoryEntry } from '@arm-nator/shared/interfaces';
 import {
     DestroyRef,
     Injectable,
@@ -10,6 +11,7 @@ import {
 import {
     buildStalkerSelectedVodItem,
     isStalkerSeriesFlag,
+    StalkerPlaybackResolutionOptions,
     StalkerLinkFlagSource,
     StalkerStore,
     StalkerVodSource,
@@ -23,7 +25,7 @@ import {
     PORTAL_PLAYBACK_POSITIONS,
     StalkerPortalCatalogFacade,
 } from '@arm-nator/providers/shared/util';
-import { PlaybackPositionData } from '@arm-nator/shared/interfaces';
+import { isViewingPositionFinished, PlaybackPositionData } from '@arm-nator/shared/interfaces';
 
 function calculateProgress(position: PlaybackPositionData | undefined): number {
     if (!position || !position.durationSeconds) {
@@ -57,6 +59,7 @@ export class StalkerCatalogFacadeService implements StalkerPortalCatalogFacade<
     private readonly stalkerSeriesPositions = signal<
         Map<number, PlaybackPositionData[]>
     >(new Map());
+    private readonly neutralPositions = signal<ViewingHistoryEntry[]>([]);
     private loadedPositionsForPlaylistId: string | null = null;
 
     readonly provider = 'stalker' as const;
@@ -129,6 +132,7 @@ export class StalkerCatalogFacadeService implements StalkerPortalCatalogFacade<
             if (!playlistId) {
                 this.loadedPositionsForPlaylistId = null;
                 this.stalkerPositions.set(new Map());
+                this.neutralPositions.set([]);
                 this.stalkerSeriesPositions.set(new Map());
                 return;
             }
@@ -264,6 +268,11 @@ export class StalkerCatalogFacadeService implements StalkerPortalCatalogFacade<
     }
 
     getItemProgress(item: StalkerVodSource): PortalCatalogItemProgress {
+        const neutral = this.neutralPositions().find(row => row.item.identity.contentKind === 'vod' && row.item.identity.providerItemId === String(item.id));
+        if (neutral) {
+            const state = neutral.resume ?? neutral.raw;
+            return { progress: state.durationSeconds ? Math.min(100, Math.round(state.positionSeconds / state.durationSeconds * 100)) : 0, isWatched: state.finished };
+        }
         const numericId = Number(item.id);
         if (Number.isNaN(numericId)) {
             return {};
@@ -289,7 +298,7 @@ export class StalkerCatalogFacadeService implements StalkerPortalCatalogFacade<
         );
         return {
             progress,
-            isWatched: progress >= 90,
+            isWatched: isViewingPositionFinished(this.stalkerPositions().get(`vod_${numericId}`)),
         };
     }
 
@@ -333,7 +342,8 @@ export class StalkerCatalogFacadeService implements StalkerPortalCatalogFacade<
         cmd?: string,
         title?: string,
         thumbnail?: string,
-        startTime?: number
+        startTime?: number,
+        options?: StalkerPlaybackResolutionOptions,
     ) {
         return this.stalkerStore.resolveVodPlayback(
             cmd,
@@ -341,13 +351,21 @@ export class StalkerCatalogFacadeService implements StalkerPortalCatalogFacade<
             thumbnail,
             undefined,
             undefined,
-            startTime
+            startTime,
+            options,
         );
     }
 
     private async loadStalkerPositions(playlistId: string): Promise<void> {
+        const history = await this.playbackPositions.getViewingHistory?.(playlistId).catch(error => {
+            console.warn('Unable to load Stalker viewing history', error);
+            return null;
+        });
+        if (this.playlist()?.id !== playlistId) return;
+        if (history) this.neutralPositions.set(history.filter(row => row.item.identity.sourceType === 'stalker'));
         const positions =
             await this.playbackPositions.getAllPlaybackPositions(playlistId);
+        if (this.playlist()?.id !== playlistId) return;
 
         const positionsMap = new Map<string, PlaybackPositionData>();
         const seriesMap = new Map<number, PlaybackPositionData[]>();

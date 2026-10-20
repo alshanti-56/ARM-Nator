@@ -9,6 +9,7 @@ export async function getRecentlyViewed(db: AppDatabase) {
             id: schema.content.id,
             category_id: schema.content.categoryId,
             title: schema.content.title,
+            releaseDate: schema.content.releaseDate,
             rating: schema.content.rating,
             added: schema.content.added,
             poster_url: schema.content.posterUrl,

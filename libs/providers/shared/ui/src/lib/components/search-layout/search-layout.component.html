@@ -59,14 +59,15 @@
                     </div>
                 }
 
-                <!-- Subheader slot (info notes, secondary controls) -->
-                <ng-content select="[subheader]" />
             </div>
 
             <div
                 class="results-container"
                 (scroll)="onSearchContentScroll($event)"
             >
+                <!-- Secondary controls share the results scroller so a tall
+                     subheader cannot consume the entire results viewport. -->
+                <ng-content select="[subheader]" />
                 @if (isLoading()) {
                     <div class="loading-state">
                         <mat-spinner diameter="48" />

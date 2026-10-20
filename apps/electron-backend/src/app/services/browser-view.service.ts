@@ -12,6 +12,7 @@ import type {
     BrowserViewState,
 } from '@arm-nator/shared/interfaces';
 import { BROWSER_VIEW_UPDATE } from '@arm-nator/shared/interfaces';
+import { BrowserGuestRegistry, type BrowserSurface } from './browser-guest-registry';
 import { toNativeViewBounds } from './embedded-mpv-bounds.util';
 
 const BROWSER_PARTITION = 'persist:arm-nator-browser';
@@ -26,6 +27,8 @@ const YOUTUBE_AD_FILTER_PRELOAD = join(
     'assets',
     'youtube-ad-filter.preload.js'
 );
+
+export const browserGuestRegistry = new BrowserGuestRegistry(YOUTUBE_AD_FILTER_PRELOAD);
 
 const YOUTUBE_MINI_PLAYER_CSS = `
     html, body {
@@ -122,7 +125,7 @@ function clampBounds(bounds: BrowserViewBounds): BrowserViewBounds {
 interface ManagedBrowserView {
     readonly mode: BrowserViewMode;
     readonly owner: Electron.BrowserWindow;
-    readonly view: WebContentsView;
+    readonly view: BrowserSurface;
     bounds: BrowserViewBounds;
     displayMode: BrowserViewDisplayMode;
     isFullscreen: boolean;
@@ -439,7 +442,13 @@ export class BrowserViewService {
         mode: BrowserViewMode
     ): ManagedBrowserView {
         const browserSession = session.fromPartition(BROWSER_PARTITION);
-        const view = new WebContentsView({
+        let view: BrowserSurface;
+        if (process.env.ARM_NATOR_NATIVE_COMPOSITION === '1') {
+            const guest = browserGuestRegistry.get(owner, mode);
+            if (!guest) throw new Error('The browser guest has not attached. Try again.');
+            view = guest;
+        } else {
+        const nativeView = new WebContentsView({
             webPreferences: {
                 contextIsolation: mode !== 'youtube',
                 nodeIntegration: false,
@@ -450,6 +459,12 @@ export class BrowserViewService {
                 session: browserSession,
             },
         });
+            view = {
+                nativeView, webContents: nativeView.webContents,
+                setBounds: bounds => nativeView.setBounds(bounds),
+                setVisible: visible => nativeView.setVisible(visible),
+            };
+        }
         const managedView: ManagedBrowserView = {
             bounds: { x: 0, y: 0, width: 1, height: 1 },
             displayMode: 'full',
@@ -461,7 +476,8 @@ export class BrowserViewService {
             view,
         };
 
-        owner.contentView.addChildView(view);
+        if (view.nativeView) owner.contentView.addChildView(view.nativeView);
+        view.setVisible(true);
         view.setBounds({ x: 0, y: 0, width: 1, height: 1 });
         this.bindEvents(managedView);
         return managedView;
@@ -549,8 +565,8 @@ export class BrowserViewService {
         view.isParked = false;
         this.activeView = view;
         if (!view.owner.isDestroyed()) {
-            view.owner.contentView.removeChildView(view.view);
-            view.owner.contentView.addChildView(view.view);
+            if (view.view.nativeView) view.owner.contentView.removeChildView(view.view.nativeView);
+            if (view.view.nativeView) view.owner.contentView.addChildView(view.view.nativeView);
             view.view.setVisible(true);
         }
         this.applyBounds(view, { x: 0, y: 0, width: 1, height: 1 });
@@ -728,7 +744,7 @@ export class BrowserViewService {
         view.parkingPromise = undefined;
         view.isParked = false;
         this.activeView = view;
-        this.owner?.contentView.addChildView(view.view);
+        if (view.view.nativeView) this.owner?.contentView.addChildView(view.view.nativeView);
         view.view.setVisible(true);
         if (view.displayMode === 'full') {
             this.applyBounds(view, { x: 0, y: 0, width: 1, height: 1 });
@@ -878,11 +894,10 @@ export class BrowserViewService {
     ): void {
         const bounds = clampBounds(requestedBounds);
         view.bounds = bounds;
-        view.view.setBounds(
-            toNativeViewBounds(bounds, {
-                zoomFactor: view.owner.webContents.getZoomFactor(),
-            })
-        );
+        if (!view.view.nativeView) browserGuestRegistry.setDisplayMode(view.owner, view.mode, view.displayMode, view.isFullscreen);
+        view.view.setBounds(view.view.nativeView ?
+            toNativeViewBounds(bounds, {zoomFactor: view.owner.webContents.getZoomFactor()}) : bounds);
+
     }
 
     private bringArmMiniPlayerToFront(): void {
@@ -897,12 +912,18 @@ export class BrowserViewService {
             return;
         }
 
-        owner.contentView.removeChildView(mini.view);
-        owner.contentView.addChildView(mini.view);
+        if (mini.view.nativeView) owner.contentView.removeChildView(mini.view.nativeView);
+        if (mini.view.nativeView) owner.contentView.addChildView(mini.view.nativeView);
     }
 
     private bindEvents(view: ManagedBrowserView): void {
         const contents = view.view.webContents;
+        contents.once('destroyed', () => {
+            const wasPrimary = this.activeView === view || (!this.activeView && this.youtubeView === view && view.displayMode === 'mini');
+            if (this.activeView === view) this.activeView = null;
+            if (this.youtubeView === view) this.youtubeView = null;
+            this.publish(wasPrimary ? 'closed' : undefined);
+        });
         contents.setWindowOpenHandler(({ url }) => {
             if (/^https?:/i.test(url)) {
                 void shell.openExternal(url);
@@ -1001,10 +1022,9 @@ export class BrowserViewService {
             (this.youtubeView?.displayMode === 'mini'
                 ? this.youtubeView
                 : null);
-        owner.webContents.send(
-            BROWSER_VIEW_UPDATE,
-            this.snapshot(source && source === primary ? status : undefined)
-        );
+        try {
+            owner.webContents.send(BROWSER_VIEW_UPDATE, this.snapshot(!source || source === primary ? status : undefined));
+        } catch { /* A crashed owner renderer cannot receive guest teardown updates. */ }
     }
 
     private disposeActiveView(): void {
@@ -1034,7 +1054,7 @@ export class BrowserViewService {
     private detachView(view: ManagedBrowserView): void {
         const owner = view.owner;
         if (!owner.isDestroyed()) {
-            owner.contentView.removeChildView(view.view);
+            if (view.view.nativeView) owner.contentView.removeChildView(view.view.nativeView);
         }
         if (!view.view.webContents.isDestroyed()) {
             view.view.setVisible(false);
@@ -1062,7 +1082,7 @@ export class BrowserViewService {
         }
         view.miniPlayerCssKey = undefined;
         if (!owner.isDestroyed()) {
-            owner.contentView.removeChildView(view.view);
+            if (view.view.nativeView) owner.contentView.removeChildView(view.view.nativeView);
         }
         if (!view.view.webContents.isDestroyed()) {
             view.view.setVisible(false);

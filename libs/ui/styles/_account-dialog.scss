@@ -15,6 +15,10 @@
         var(--app-widget-header-border, var(--app-separator));
 }
 
+.account-dialog__hero::before {
+    display: none;
+}
+
 .account-dialog__hero-copy {
     display: grid;
     align-content: start;
@@ -263,6 +267,8 @@
 }
 
 .account-detail-row dt {
+    min-width: 0;
+    overflow-wrap: anywhere;
     margin: 0;
     color: var(--app-muted-color, var(--mat-sys-on-surface-variant));
     font-size: 0.74rem;
@@ -404,7 +410,7 @@
     }
 }
 
-@media (max-width: 840px) {
+@container (max-width: 840px) {
     .account-dialog__hero,
     .account-dialog__grid {
         grid-template-columns: 1fr;
@@ -415,7 +421,7 @@
     }
 }
 
-@media (max-width: 560px) {
+@container (max-width: 560px) {
     .account-dialog__hero,
     .account-dialog__content,
     .account-dialog__actions {

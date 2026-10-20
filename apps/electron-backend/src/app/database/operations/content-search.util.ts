@@ -285,70 +285,73 @@ export function buildCompoundFtsMatchQuery(searchTerm: string): string {
         .join(' AND ');
 }
 
-export function scoreSearchTextMatch(
-    value: string,
-    searchTerm: string
-): number | null {
-    const candidateText = normalizeSearchMatchText(value);
+export function createSearchTextScorer(searchTerm: string): (value: string) => number | null {
     const searchText = normalizeSearchMatchText(searchTerm);
-    if (!candidateText || !searchText) {
-        return null;
-    }
-
     const searchTokens = searchText.split(' ');
-    const candidateTokens = candidateText.split(' ');
     const firstSearchToken = searchTokens[0];
+    return (value: string): number | null => {
+        const candidateText = normalizeSearchMatchText(value);
+        if (!candidateText || !searchText) {
+            return null;
+        }
 
-    if (
-        firstSearchToken.length <= 2 &&
-        !candidateText.startsWith(firstSearchToken)
-    ) {
-        // Short first tokens stay prefix-anchored to keep one-letter noise
-        // out, but a multi-token phrase ("a e" from "A&E") may still match as
-        // a whole word sequence anywhere in the title ("US: A&E").
+        const candidateTokens = candidateText.split(' ');
+
         if (
-            searchTokens.length > 1 &&
-            ` ${candidateText} `.includes(` ${searchText} `)
+            firstSearchToken.length <= 2 &&
+            !candidateText.startsWith(firstSearchToken)
         ) {
+            // Short first tokens stay prefix-anchored to keep one-letter noise
+            // out, but a multi-token phrase ("a e" from "A&E") may still match as
+            // a whole word sequence anywhere in the title ("US: A&E").
+            if (
+                searchTokens.length > 1 &&
+                ` ${candidateText} `.includes(` ${searchText} `)
+            ) {
+                return 40;
+            }
+            return null;
+        }
+
+        if (candidateText === searchText) {
+            return 0;
+        }
+
+        if (
+            candidateText.startsWith(searchText) &&
+            (searchTokens.length > 1 || firstSearchToken.length <= 2)
+        ) {
+            return 10;
+        }
+
+        if (candidateTokens.some((token) => token.startsWith(searchText))) {
+            return 20;
+        }
+
+        if (
+            searchTokens.every((searchToken) =>
+                candidateTokens.some((candidateToken) =>
+                    candidateToken.startsWith(searchToken)
+                )
+            )
+        ) {
+            return 30;
+        }
+
+        if (candidateText.includes(searchText)) {
             return 40;
         }
+
+        if (
+            searchTokens.every((searchToken) => candidateText.includes(searchToken))
+        ) {
+            return 50;
+        }
+
         return null;
-    }
+    };
+}
 
-    if (candidateText === searchText) {
-        return 0;
-    }
-
-    if (
-        candidateText.startsWith(searchText) &&
-        (searchTokens.length > 1 || firstSearchToken.length <= 2)
-    ) {
-        return 10;
-    }
-
-    if (candidateTokens.some((token) => token.startsWith(searchText))) {
-        return 20;
-    }
-
-    if (
-        searchTokens.every((searchToken) =>
-            candidateTokens.some((candidateToken) =>
-                candidateToken.startsWith(searchToken)
-            )
-        )
-    ) {
-        return 30;
-    }
-
-    if (candidateText.includes(searchText)) {
-        return 40;
-    }
-
-    if (
-        searchTokens.every((searchToken) => candidateText.includes(searchToken))
-    ) {
-        return 50;
-    }
-
-    return null;
+export function scoreSearchTextMatch(value: string, searchTerm: string): number | null {
+    return createSearchTextScorer(searchTerm)(value);
 }

@@ -1,13 +1,16 @@
+import { UiPerformanceService } from '@arm-nator/services';
 import { NgComponentOutlet } from '@angular/common';
 import {
     ChangeDetectionStrategy,
     Component,
     computed,
+    effect,
     DestroyRef,
     ElementRef,
     inject,
     OnInit,
     signal,
+    afterRenderEffect,
 } from '@angular/core';
 import { takeUntilDestroyed, toSignal } from '@angular/core/rxjs-interop';
 import { map } from 'rxjs/operators';
@@ -16,7 +19,7 @@ import { MatIcon } from '@angular/material/icon';
 import { MatMenuModule } from '@angular/material/menu';
 import { MatPaginatorModule, PageEvent } from '@angular/material/paginator';
 import { MatTooltip } from '@angular/material/tooltip';
-import { ActivatedRoute, Router } from '@angular/router';
+import { ActivatedRoute, NavigationStart, Router } from '@angular/router';
 import { TranslatePipe, TranslateService } from '@ngx-translate/core';
 import {
     GridListComponent,
@@ -27,6 +30,9 @@ import {
     PORTAL_CATALOG_DETAIL_COMPONENT,
     PORTAL_CATALOG_FACADE,
     PortalCatalogSortMode,
+    CatalogueNavigationStateService,
+    type CatalogueRefinements,
+    readCatalogueRefinements,
 } from '@arm-nator/providers/shared/util';
 
 interface CategoryContentItem {
@@ -62,8 +68,10 @@ export class CategoryContentViewComponent implements OnInit {
     private readonly hostElement = inject(ElementRef<HTMLElement>);
     private readonly router = inject(Router);
     private readonly translate = inject(TranslateService);
+    private readonly navigationState = inject(CatalogueNavigationStateService);
+    private readonly listUrl = signal('');
+    private restoredListUrl: string | null = null;
     private hasAppliedInitialQueryParams = false;
-    private previousSearchQuery: string | null = null;
     private readonly catalog = inject(
         PORTAL_CATALOG_FACADE
     ) as PortalCatalogFacade<
@@ -184,19 +192,23 @@ export class CategoryContentViewComponent implements OnInit {
 
     setContentSortMode(mode: PortalCatalogSortMode): void {
         this.catalog.setContentSortMode(mode);
+        this.updateRefinementQueryParams();
     }
 
     setMinRating(value: number | null): void {
         this.catalog.setMinRating?.(value);
+        this.updateRefinementQueryParams();
     }
 
     setGenreFilter(value: string | null): void {
         this.catalog.setGenreFilter?.(value);
+        this.updateRefinementQueryParams();
     }
 
     setYearFilter(value: number | null): void {
         this.catalog.setYearFilter?.(value);
         this.yearInput.set(value === null ? '' : String(value));
+        this.updateRefinementQueryParams();
     }
 
     onYearInput(event: Event): void {
@@ -232,6 +244,29 @@ export class CategoryContentViewComponent implements OnInit {
         }
     }
 
+    private readonly performanceCapture = inject(UiPerformanceService);
+    constructor() {
+        this.router.events.pipe(takeUntilDestroyed(this.destroyRef)).subscribe(event => {
+            if (event instanceof NavigationStart) this.saveListState();
+        });
+        afterRenderEffect(() => {
+            const url = this.listUrl();
+            this.paginatedContent();
+            if (!url || this.isPaginatedContentLoading() || this.restoredListUrl === url) return;
+            const grid = this.gridElement();
+            if (!grid) return;
+            const saved = this.navigationState.read(url);
+            grid.scrollTop = saved?.scrollTop ?? 0;
+            this.restoredListUrl = url;
+        });
+        effect(() => {
+            this.paginatedContent();
+            if (!this.isPaginatedContentLoading()) {
+                this.performanceCapture.painted('category');
+            }
+        });
+    }
+
     ngOnInit(): void {
         this.activatedRoute.paramMap
             .pipe(takeUntilDestroyed(this.destroyRef))
@@ -245,40 +280,42 @@ export class CategoryContentViewComponent implements OnInit {
                 const searchQuery = params.get('q') ?? '';
                 const pageIndex = this.toPageIndex(params.get('page'));
 
+                const saved = this.navigationState.read(this.router.url);
+                const fallback = saved ?? this.currentRefinements();
+                // An unrelated category starts with its own filters. URL state
+                // and an exact list snapshot take precedence when returning.
+                if (!saved && !this.hasAppliedInitialQueryParams) {
+                    fallback.minRating = null;
+                    fallback.genreFilter = null;
+                    fallback.yearFilter = null;
+                }
+                const refinements = readCatalogueRefinements(params, fallback);
+                this.catalog.setLimit(refinements.limit);
+                if (refinements.sortMode) this.catalog.setContentSortMode(refinements.sortMode);
+                this.catalog.setMinRating?.(refinements.minRating);
+                this.catalog.setGenreFilter?.(refinements.genreFilter);
+                this.catalog.setYearFilter?.(refinements.yearFilter);
+                this.yearInput.set(refinements.yearFilter === null ? '' : String(refinements.yearFilter));
+                this.restoredListUrl = null;
+                this.listUrl.set(this.router.url);
+
                 this.catalog.setSearchQuery?.(searchQuery);
 
-                if (!this.hasAppliedInitialQueryParams) {
-                    this.hasAppliedInitialQueryParams = true;
-                    this.previousSearchQuery = searchQuery;
-                    this.catalog.setPage(pageIndex);
-                    return;
-                }
-
-                const didSearchChange =
-                    searchQuery !== this.previousSearchQuery;
-                this.previousSearchQuery = searchQuery;
-
-                if (didSearchChange) {
-                    this.catalog.setPage(0);
-                    if (params.has('page')) {
-                        this.clearPageQueryParam();
-                    }
-                    return;
-                }
-
+                this.hasAppliedInitialQueryParams = true;
                 this.catalog.setPage(pageIndex);
             });
     }
 
     onPageChange(event: PageEvent): void {
-        this.catalog.setPage(event.pageIndex);
         this.catalog.setLimit(event.pageSize);
+        this.catalog.setPage(event.pageIndex);
         this.scrollGridToTop();
 
         void this.router.navigate([], {
             relativeTo: this.activatedRoute,
             queryParams: {
                 page: event.pageIndex > 0 ? event.pageIndex + 1 : null,
+                limit: event.pageSize,
             },
             queryParamsHandling: 'merge',
             replaceUrl: true,
@@ -288,9 +325,11 @@ export class CategoryContentViewComponent implements OnInit {
     onItemClick(item: CategoryContentItem): void {
         const navigation = this.catalog.selectItem(item);
         if (navigation?.length) {
+            this.saveListState();
             this.router.navigate(navigation, {
                 relativeTo: this.activatedRoute,
                 queryParamsHandling: 'preserve',
+                state: { catalogueOrigin: this.router.url },
             });
         }
     }
@@ -301,17 +340,33 @@ export class CategoryContentViewComponent implements OnInit {
     }
 
     private scrollGridToTop(): void {
-        const gridList = this.hostElement.nativeElement.querySelector(
-            'app-grid-list'
-        ) as HTMLElement | null;
-        gridList?.scrollTo?.({ top: 0 });
+        this.gridElement()?.scrollTo?.({ top: 0 });
     }
 
-    private clearPageQueryParam(): void {
+    private gridElement(): HTMLElement | null {
+        return this.hostElement.nativeElement.querySelector('app-grid-list');
+    }
+
+    private currentRefinements(): CatalogueRefinements {
+        return { limit: this.limit(), sortMode: this.contentSortMode(), minRating: this.minRating(), genreFilter: this.genreFilter(), yearFilter: this.yearFilter() };
+    }
+
+    private saveListState(): void {
+        const grid = this.gridElement();
+        if (grid && this.listUrl()) this.navigationState.save(this.listUrl(), { ...this.currentRefinements(), scrollTop: grid.scrollTop });
+    }
+
+    private updateRefinementQueryParams(): void {
+        this.scrollGridToTop();
         void this.router.navigate([], {
             relativeTo: this.activatedRoute,
             queryParams: {
                 page: null,
+                sort: this.contentSortMode(),
+                rating: this.minRating(),
+                genre: this.genreFilter(),
+                year: this.yearFilter(),
+                limit: this.limit(),
             },
             queryParamsHandling: 'merge',
             replaceUrl: true,

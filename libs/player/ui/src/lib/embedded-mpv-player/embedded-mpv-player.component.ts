@@ -1,3 +1,7 @@
+import { NativeCompositionService } from './native-composition.service';
+import { canRevealNativeFrame } from './native-presentation-state';
+import { SeekPreviewComponent } from '../player-controls/seek-preview.component';
+import { catalogueIdentityKey } from '@arm-nator/shared/interfaces';
 /* eslint-disable max-lines */
 import {
     ChangeDetectionStrategy,
@@ -42,6 +46,9 @@ import {
     EmbeddedMpvSessionController,
     readSessionActiveUntracked,
 } from './embedded-mpv-session-controller';
+import { WorkspacePlayerStateService } from '../workspace-player/workspace-player-state.service';
+import { isKnownAudioOnlySourceUrl } from '../playback-diagnostics/playback-evidence';
+import { MiniPlayerChromeService } from '../workspace-player/mini-player-chrome.service';
 import { EmbeddedMpvShortcuts } from './embedded-mpv-shortcuts';
 import {
     EmbeddedMpvFeedback,
@@ -68,6 +75,7 @@ import { DEFAULT_PICTURE_SETTINGS } from '../player-controls/player-controls-def
     templateUrl: './embedded-mpv-player.component.html',
     styleUrl: './embedded-mpv-player.component.scss',
     imports: [
+        SeekPreviewComponent,
         EmbeddedMpvDockPanelComponent,
         PlayerSettingsPanelComponent,
         MatButtonModule,
@@ -83,7 +91,10 @@ import { DEFAULT_PICTURE_SETTINGS } from '../player-controls/player-controls-def
     },
 })
 export class EmbeddedMpvPlayerComponent implements OnDestroy {
+    readonly composition = inject(NativeCompositionService);
+    readonly frameVisible = computed(() => !!this.controller.committedBounds() && canRevealNativeFrame({enabled:this.composition.enabled,activeSessionId:this.controller.sessionId(),snapshot:this.session(),closing:!this.controller.sessionActive()}));
     readonly playback = input.required<ResolvedPortalPlayback>();
+    readonly seekPreviewCacheKey = computed(() => { const playback=this.playback();return playback.itemIdentity ? catalogueIdentityKey(playback.itemIdentity) : playback.originalStreamUrl ?? playback.streamUrl; });
     readonly showControls = input(true);
     readonly seriesNavigation = input<SeriesPlaybackNavigation | null>(null);
     readonly mediaTitle = input<PlayerMediaTitle | null>(null);
@@ -113,11 +124,26 @@ export class EmbeddedMpvPlayerComponent implements OnDestroy {
         merge(
             this.translate.onLangChange,
             this.translate.onTranslationChange,
-            this.translate.onDefaultLangChange,
+            this.translate.onFallbackLangChange,
         ),
         { initialValue: null },
     );
     readonly controller = inject(EmbeddedMpvSessionController);
+    private readonly workspacePlayer = inject(WorkspacePlayerStateService);
+    private readonly miniPlayerChrome = inject(MiniPlayerChromeService, {
+        optional: true,
+    });
+    readonly miniPlayer = computed(
+        () => this.workspacePlayer.presentation() === 'mini' && !this.isFullscreen(),
+    );
+    readonly miniOverlay = computed(
+        () => this.miniPlayer() && this.composition.enabled,
+    );
+    private readonly unregisterPlaybackTeardown =
+        this.workspacePlayer.registerPlaybackTeardown(
+            () => this.controller.teardownActiveSessionAndWait(),
+            { repeatable: true },
+        );
     readonly sharedControls = inject(EmbeddedMpvControlsAdapter);
     private readonly shortcuts = new EmbeddedMpvShortcuts();
     readonly menus = new EmbeddedMpvMenuState();
@@ -238,6 +264,14 @@ export class EmbeddedMpvPlayerComponent implements OnDestroy {
     readonly hasSubtitleTracks = computed(
         () => this.subtitleTracks().length > 0,
     );
+    readonly showSpeedShortcut = computed(
+        () => this.capabilities().playbackSpeed &&
+            (!this.miniPlayer() || !this.hasAudioTracks()),
+    );
+    readonly showAspectShortcut = computed(
+        () => this.capabilities().aspectRatio &&
+            (!this.miniPlayer() || !(this.capabilities().subtitles && this.hasSubtitleTracks())),
+    );
     readonly selectedSubtitleTrackId = computed(
         () => this.session()?.selectedSubtitleTrackId ?? null,
     );
@@ -313,6 +347,26 @@ export class EmbeddedMpvPlayerComponent implements OnDestroy {
     };
 
     constructor() {
+        effect(() => {
+            const viewport = this.viewport();
+            const overlay = this.miniOverlay();
+            const frame = viewport?.nativeElement.closest('.workspace-player');
+            if (!overlay || !frame) {
+                this.controller.apertureRadius.set(0);
+                return;
+            }
+            // The native picture sits behind the renderer. Match the inner
+            // frame curve in its scene opening; overflow:hidden alone only
+            // clips the HTML controls, not the native surface underneath.
+            const style = getComputedStyle(frame);
+            const radius = parseFloat(style.borderBottomLeftRadius) || 0;
+            const border = parseFloat(style.borderBottomWidth) || 0;
+            const cornerRadius = Math.max(0, radius - border);
+            this.controller.apertureRadius.set({
+                top: cornerRadius,
+                bottom: cornerRadius,
+            });
+        });
         this.legacyInteractions = new EmbeddedMpvLegacyInteractions({
             isAvailable: () => true,
             playerRoot: () => this.playerRoot()?.nativeElement ?? null,
@@ -375,6 +429,13 @@ export class EmbeddedMpvPlayerComponent implements OnDestroy {
                     videoCodec: session?.videoCodec,
                     audioCodec: session?.audioCodec,
                     hwdecCurrent: session?.hwdecCurrent,
+                    frameReady: session?.frameReady,
+                    audioOnly: session
+                        ? isKnownAudioOnlySourceUrl(session.streamUrl) &&
+                          !session.videoWidth &&
+                          !session.videoHeight
+                        : undefined,
+                    muted: session ? session.volume <= 0 : undefined,
                     fps: session?.fps,
                     bitrate: session?.bitrate,
                     droppedFrames: session?.droppedFrames,
@@ -403,7 +464,10 @@ export class EmbeddedMpvPlayerComponent implements OnDestroy {
         }
 
         this.controller.setBoundsProvider((host) => {
-            if (this.overlayVisibility.overlayActive()) {
+            if (
+                untracked(() => this.workspacePlayer.miniPlayerCollapsed()) ||
+                (!this.composition.enabled && this.overlayVisibility.overlayActive())
+            ) {
                 return HIDDEN_BOUNDS;
             }
             // Control menus render as horizontal panels inside the
@@ -417,6 +481,10 @@ export class EmbeddedMpvPlayerComponent implements OnDestroy {
                 this.legacyInteractions.isAvailable() &&
                 !this.overlayVisibility.overlayActive(),
             arrowKeysBlocked: () => this.menus.dockPanelOpen(),
+            canTogglePaused: () => !this.isLoading() && !this.isErrored() && (this.backend() !== 'ksplayer-metal' || this.controller.supportedControls()?.pause === true),
+            canSeek: () => this.canSeek(),
+            canAdjustVolume: () => this.sharedControls.capabilities().volume,
+            canToggleFullscreen: () => this.canFullscreen(),
             onEscape: () => this.legacyInteractions.closePopovers(),
             togglePaused: () => void this.togglePaused(),
             toggleFullscreen: () => void this.toggleFullscreen(),
@@ -472,6 +540,25 @@ export class EmbeddedMpvPlayerComponent implements OnDestroy {
         });
 
         effect(() => {
+            const collapsed = this.workspacePlayer.miniPlayerCollapsed();
+            this.workspacePlayer.miniPlayerGeometryRevision();
+            untracked(() => {
+                if (collapsed) {
+                    const sessionId = this.controller.sessionId();
+                    if (sessionId) {
+                        this.composition.hideAperture(sessionId);
+                    }
+                }
+                this.controller.triggerBoundsSync();
+            });
+        });
+
+        effect(() => {
+            const visible = this.controlsAreVisible();
+            this.miniPlayerChrome?.controlsVisible.set(visible);
+        });
+
+        effect(() => {
             const panelOpen = this.menus.dockPanelOpen();
             untracked(() => this.dockPanels.handlePanelOpenChange(panelOpen));
         });
@@ -511,6 +598,7 @@ export class EmbeddedMpvPlayerComponent implements OnDestroy {
     }
 
     ngOnDestroy(): void {
+        this.miniPlayerChrome?.controlsVisible.set(false);
         this.shortcuts.detach();
         this.feedback.dispose();
         if (typeof document !== 'undefined') {
@@ -520,6 +608,12 @@ export class EmbeddedMpvPlayerComponent implements OnDestroy {
             );
         }
         this.legacyInteractions.dispose();
+        void this.controller
+            .teardownActiveSessionAndWait()
+            .then(() => this.unregisterPlaybackTeardown())
+            .catch((error: unknown) => {
+                console.error('Failed to stop native playback during component destruction.', error);
+            });
     }
 
     onPlayerInteraction(): void {
@@ -665,6 +759,7 @@ export class EmbeddedMpvPlayerComponent implements OnDestroy {
     }
 
     async selectAudioTrack(trackId: number): Promise<void> {
+        this.sharedControls.noteTrackPreference('audio', trackId);
         this.legacyInteractions.revealControls(false);
         await this.controller.setAudioTrack(trackId);
         this.menus.close('audio');
@@ -672,6 +767,7 @@ export class EmbeddedMpvPlayerComponent implements OnDestroy {
     }
 
     async selectSubtitleTrack(trackId: number): Promise<void> {
+        this.sharedControls.noteTrackPreference('subtitle', trackId);
         this.legacyInteractions.revealControls(false);
         await this.controller.setSubtitleTrack(trackId);
         this.menus.close('subtitle');
@@ -706,7 +802,9 @@ export class EmbeddedMpvPlayerComponent implements OnDestroy {
     }
 
     retry(): void {
-        this.controller.retry();
+        void this.controller.retry().catch((error: unknown) => {
+            console.error('Failed to retry native playback.', error);
+        });
     }
 
     // These helpers run inside the template's reactive context, so the

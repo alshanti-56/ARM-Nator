@@ -1,0 +1,80 @@
+diff --git a/Sources/KSPlayer/AVPlayer/KSOptions.swift b/Sources/KSPlayer/AVPlayer/KSOptions.swift
+--- a/Sources/KSPlayer/AVPlayer/KSOptions.swift
++++ b/Sources/KSPlayer/AVPlayer/KSOptions.swift
+@@ -97,6 +97,8 @@
+     public var asynchronousDecompression = KSOptions.asynchronousDecompression
+     public var videoDisable = false
+     public var canStartPictureInPictureAutomaticallyFromInline = KSOptions.canStartPictureInPictureAutomaticallyFromInline
++    /// Enables system picture-in-picture for this player instance.
++    public var isPictureInPictureEnabled = true
+     public var automaticWindowResize = true
+     @Published
+     public var videoInterlacingType: VideoInterlacingType?
+diff --git a/Sources/KSPlayer/MEPlayer/KSMEPlayer.swift b/Sources/KSPlayer/MEPlayer/KSMEPlayer.swift
+--- a/Sources/KSPlayer/MEPlayer/KSMEPlayer.swift
++++ b/Sources/KSPlayer/MEPlayer/KSMEPlayer.swift
+@@ -37,21 +37,25 @@
+         }
+     }
+ 
+-    private lazy var _pipController: Any? = {
+-        if #available(iOS 15.0, tvOS 15.0, macOS 12.0, *), let videoOutput {
+-            let contentSource = AVPictureInPictureController.ContentSource(sampleBufferDisplayLayer: videoOutput.displayLayer, playbackDelegate: self)
+-            let pip = KSPictureInPictureController(contentSource: contentSource)
+-            return pip
+-        } else {
+-            return nil
+-        }
+-    }()
++    private var _pipController: Any?
+ 
+     @available(tvOS 14.0, *)
+     public var pipController: KSPictureInPictureController? {
+-        _pipController as? KSPictureInPictureController
+-    }
+-
++        guard options.isPictureInPictureEnabled else { return nil }
++        if let existing = _pipController as? KSPictureInPictureController {
++            return existing
++        }
++        guard #available(iOS 15.0, tvOS 15.0, macOS 12.0, *), let videoOutput else {
++            return nil
++        }
++        let contentSource = AVPictureInPictureController.ContentSource(
++            sampleBufferDisplayLayer: videoOutput.displayLayer,
++            playbackDelegate: self
++        )
++        let controller = KSPictureInPictureController(contentSource: contentSource)
++        _pipController = controller
++        return controller
++    }
+     private lazy var _playbackCoordinator: Any? = {
+         if #available(macOS 12.0, iOS 15.0, tvOS 15.0, *) {
+             let coordinator = AVDelegatingPlaybackCoordinator(playbackControlDelegate: self)
+@@ -394,7 +398,7 @@
+         KSLog("play \(self)")
+         playbackState = .playing
+         if #available(iOS 15.0, tvOS 15.0, macOS 12.0, *) {
+-            pipController?.invalidatePlaybackState()
++            (_pipController as? KSPictureInPictureController)?.invalidatePlaybackState()
+         }
+     }
+ 
+@@ -402,7 +406,7 @@
+         KSLog("pause \(self)")
+         playbackState = .paused
+         if #available(iOS 15.0, tvOS 15.0, macOS 12.0, *) {
+-            pipController?.invalidatePlaybackState()
++            (_pipController as? KSPictureInPictureController)?.invalidatePlaybackState()
+         }
+     }
+ 
+@@ -572,7 +576,7 @@
+ 
+ extension KSMEPlayer: DisplayLayerDelegate {
+     public func change(displayLayer: AVSampleBufferDisplayLayer) {
+-        if #available(iOS 15.0, tvOS 15.0, macOS 12.0, *) {
++        if options.isPictureInPictureEnabled, #available(iOS 15.0, tvOS 15.0, macOS 12.0, *) {
+             let contentSource = AVPictureInPictureController.ContentSource(sampleBufferDisplayLayer: displayLayer, playbackDelegate: self)
+             _pipController = KSPictureInPictureController(contentSource: contentSource)
+             // 更改contentSource会直接crash

@@ -119,6 +119,12 @@ export class EmbeddedMpvDockPanelComponent implements OnDestroy {
 
     onPanelKeydown(event: KeyboardEvent): void {
         const key = event.key;
+        if (key === 'Escape') {
+            event.preventDefault();
+            event.stopPropagation();
+            this.closed.emit();
+            return;
+        }
         if (key === ' ' || key === 'Enter') {
             // Let the focused chip button activate natively (Space/Enter →
             // click → chipSelected), but stop the keydown before it reaches

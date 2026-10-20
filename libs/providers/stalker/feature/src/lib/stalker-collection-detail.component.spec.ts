@@ -1,4 +1,4 @@
-import { Component, input, output, signal } from '@angular/core';
+import { Component, input, output, signal, ChangeDetectionStrategy } from '@angular/core';
 import { ComponentFixture, TestBed } from '@angular/core/testing';
 import { By } from '@angular/platform-browser';
 import { MatSnackBar } from '@angular/material/snack-bar';
@@ -26,6 +26,7 @@ import { createPlaybackSessionKey } from '@arm-nator/player/util';
 @Component({
     selector: 'app-content-hero',
     standalone: true,
+    changeDetection: ChangeDetectionStrategy.Eager,
     template: '',
 })
 class StubContentHeroComponent {
@@ -35,6 +36,7 @@ class StubContentHeroComponent {
 @Component({
     selector: 'app-stalker-inline-detail',
     standalone: true,
+    changeDetection: ChangeDetectionStrategy.Eager,
     template: '',
 })
 class StubStalkerInlineDetailComponent {
@@ -188,7 +190,7 @@ describe('StalkerCollectionDetailComponent', () => {
                         stream: (key: string) => of(key),
                         onLangChange: of(null),
                         onTranslationChange: of(null),
-                        onDefaultLangChange: of(null),
+                        onFallbackLangChange: of(null),
                     },
                 },
                 {
@@ -395,7 +397,17 @@ describe('StalkerCollectionDetailComponent', () => {
         expect(stalkerStore.resolveVodPlayback).toHaveBeenCalledWith(
             '/media/file_1701.mpg',
             'Collection Movie',
-            'movie.jpg'
+            'movie.jpg',
+            undefined,
+            undefined,
+            undefined,
+            expect.objectContaining({
+                item: expect.objectContaining({ id: '1701' }),
+                playlist: expect.objectContaining({ _id: 'stalker-1' }),
+                selectedContentType: 'vod',
+                signal: expect.any(Object),
+                recordRecentlyViewed: true,
+            }),
         );
         expect(stalkerStore.createLinkToPlayVod).not.toHaveBeenCalled();
         expect(portalPlayer.openResolvedPlayback).not.toHaveBeenCalled();

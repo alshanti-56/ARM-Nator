@@ -1,9 +1,9 @@
 import { CommonModule } from "@angular/common";
-import { Component, computed, inject } from "@angular/core";
+import { Component, computed, inject, ChangeDetectionStrategy } from "@angular/core";
 import { MatButtonModule } from "@angular/material/button";
 import { MatDialogModule, MAT_DIALOG_DATA } from "@angular/material/dialog";
 import { MatIconModule } from "@angular/material/icon";
-import { TranslateModule } from "@ngx-translate/core";
+import { TranslatePipe } from "@ngx-translate/core";
 
 export interface SettingsDeleteAllPlaylistsDialogData {
   summary: {
@@ -24,12 +24,13 @@ type SettingsDeleteSummaryItem = {
   selector: "app-settings-delete-all-playlists-dialog",
   templateUrl: "./settings-delete-all-playlists-dialog.component.html",
   styleUrls: ["./settings-delete-all-playlists-dialog.component.scss"],
+  changeDetection: ChangeDetectionStrategy.Eager,
   imports: [
     CommonModule,
     MatButtonModule,
     MatDialogModule,
     MatIconModule,
-    TranslateModule,
+    TranslatePipe,
   ],
 })
 export class SettingsDeleteAllPlaylistsDialogComponent {

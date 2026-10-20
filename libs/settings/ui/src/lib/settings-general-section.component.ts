@@ -1,11 +1,11 @@
 import { CommonModule } from "@angular/common";
-import { Component, input, output, ViewEncapsulation } from "@angular/core";
+import { Component, input, output, ViewEncapsulation, ChangeDetectionStrategy } from "@angular/core";
 import { FormGroup, ReactiveFormsModule } from "@angular/forms";
 import { MatCheckboxModule } from "@angular/material/checkbox";
 import { MatFormFieldModule } from "@angular/material/form-field";
 import { MatIconModule } from "@angular/material/icon";
 import { MatSelectModule } from "@angular/material/select";
-import { TranslateModule } from "@ngx-translate/core";
+import { TranslatePipe } from "@ngx-translate/core";
 import { CoverSize, Language, Theme } from "@arm-nator/shared/interfaces";
 import {
   CoverSizeOption,
@@ -22,10 +22,11 @@ import {
     MatIconModule,
     MatSelectModule,
     ReactiveFormsModule,
-    TranslateModule,
+    TranslatePipe,
   ],
   templateUrl: "./settings-general-section.component.html",
   encapsulation: ViewEncapsulation.None,
+  changeDetection: ChangeDetectionStrategy.Eager,
   styles: [":host { display: contents; }"],
 })
 export class SettingsGeneralSectionComponent {

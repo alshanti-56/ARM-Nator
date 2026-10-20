@@ -85,11 +85,11 @@
             "REFRESH_XTREAM": "Refresh Xtream playlist from remote",
             "REFRESH_XTREAM_DIALOG": {
                 "TITLE": "Refresh Xtream Playlist",
-                "MESSAGE": "This will delete the local Xtream cache and re-import categories and streams from the remote server. Favorites, recently viewed items, hidden category visibility, and playback progress are restored after a successful re-import when matching content still exists. If the server cannot be reached, the restore remains pending until a later successful refresh. Continue?",
-                "STARTED": "Refresh started. Navigating to playlist...",
+                "MESSAGE": "Refresh the catalogue from the provider? Your current catalogue stays available until the refresh succeeds. Favorites, hidden categories, recent items and playback progress are kept.",
+                "STARTED": "Refreshing catalogue...",
                 "ERROR": "Failed to refresh playlist. Please try again.",
                 "IN_PROGRESS": "Refreshing playlist...",
-                "COLLECTING_DATA": "Collecting favorites and recently viewed...",
+                "COLLECTING_DATA": "Loading provider catalogue...",
                 "DELETING_CONTENT": "Removing cached content...",
                 "DELETING_CATEGORIES": "Removing cached categories..."
             },
@@ -209,6 +209,7 @@
         "VOD_VIDEO_PLAYER_LABEL": "Movies and series player",
         "VOD_VIDEO_PLAYER_DESCRIPTION": "Default player for movies and series episodes",
         "PLAYER_HTML5": "HTML5 video player",
+        "PLAYER_AUTO": "Auto",
         "PLAYER_ARTPLAYER": "ArtPlayer",
         "PLAYER_ARTPLAYER2": "ArtPlayer 2 (stock)",
         "PLAYER_EMBEDDED_MPV": "Embedded MPV",
@@ -633,6 +634,7 @@
         "EPISODE": "Episode",
         "RESUME": "Resume",
         "RESTART": "Start Over",
+        "VERSIONS": "Versions ({{count}})",
         "CONTINUE_WATCHING": "Continue Watching",
         "PLAY_FIRST_EPISODE": "Play first episode",
         "PLAY_EPISODE": "Play episode {{episode}}",
@@ -816,6 +818,7 @@
         "ALL_RADIO": "All radio"
     },
     "STALKER": {
+        "CATEGORY_SAVE_FAILED": "Could not save category visibility. Please try again.",
         "ACCOUNT_INFO": {
             "TITLE": "Account information",
             "ACTIVE": "Active",
@@ -827,7 +830,16 @@
             "NO_ACCOUNT_DATA_DESCRIPTION": "This portal did not provide account details.",
             "PORTAL_INFO": "Portal information",
             "PORTAL_TYPE_FULL": "Full portal",
-            "PORTAL_TYPE_LEGACY": "Legacy portal"
+            "PORTAL_TYPE_LEGACY": "Legacy portal",
+            "STATUS": "Status",
+            "LOGIN": "Login",
+            "PHONE": "Phone",
+            "PORTAL_URL": "Portal URL",
+            "MAC_ADDRESS": "MAC address",
+            "DAYS_LEFT": "Days left",
+            "EXPIRED": "Expired",
+            "TARIFF_PLAN": "Plan",
+            "EXPIRES": "Expires"
         }
     },
     "INFORMATION": "Information",
@@ -854,6 +866,7 @@
         "OPENING": "Opening browser"
     },
     "WORKSPACE": {
+        "LOADED_COUNT": "At least this many items loaded; full total is unavailable.",
         "FAVORITES_ONLY": "Favorites only",
         "SORT_CUSTOM": "Custom order",
         "SORT_DATE_DESC": "Date Added (Latest First)",
@@ -885,6 +898,7 @@
         "SORT_SERVER": "Server sorting",
         "CATEGORY_SORT_ARIA": "Sort categories",
         "DASHBOARD": {
+            "VERSIONS": "Versions ({{count}})",
             "CONTINUE_WATCHING": "Continue Watching",
             "LIVE_FAVORITES": "Live now on your favorites",
             "LIVE_RECENT": "Continue with live TV",
@@ -1029,10 +1043,10 @@
                 "SWITCH_PLAYER_FEEDBACK": "Player set to {{name}}"
             },
             "XTREAM_REFRESH_TITLE": "Refreshing playlist",
-            "XTREAM_REFRESH_COLLECTING_DATA": "Preserving your library data...",
+            "XTREAM_REFRESH_COLLECTING_DATA": "Collecting the updated catalogue...",
             "XTREAM_REFRESH_DELETING_CONTENT": "Removing cached streams...",
             "XTREAM_REFRESH_DELETING_CATEGORIES": "Removing cached categories...",
-            "XTREAM_REFRESH_DETAIL_LOCAL": "Keeping favorites, watch history, hidden categories, and playback progress ready for restore after sync.",
+            "XTREAM_REFRESH_DETAIL_LOCAL": "Your cached catalogue stays available. Favorites, watch history, hidden categories, and playback progress are kept.",
             "XTREAM_REFRESH_PROGRESS": "Local records processed: {{current}} / {{total}}",
             "RAIL_RADIO": "Radio"
         },
@@ -1095,6 +1109,8 @@
                 "DIALOGS": "Dialogs and lists"
             },
             "ITEMS": {
+                "NAVIGATE_BACK": "Go back",
+                "NAVIGATE_FORWARD": "Go forward",
                 "OPEN_KEYBOARD_SHORTCUTS": "Open this shortcuts list",
                 "OPEN_COMMAND_PALETTE": "Open command palette",
                 "OPEN_GLOBAL_SEARCH": "Open global search",
@@ -1133,5 +1149,57 @@
             "NO_ITEMS_TITLE": "Nothing watched yet",
             "NO_ITEMS_BODY": "Start watching anything from your library and it will show up here."
         }
+    },
+    "PLAYBACK_RECOVERY": {
+        "retry": "Retry current source",
+        "fresh-link": "Get a fresh playback link",
+        "alternate-host": "Try alternate provider host",
+        "login-cookies": "Retry with login cookies",
+        "saved-headers": "Retry with saved headers",
+        "default-headers": "Retry with default headers",
+        "portal-credentials": "Send portal credentials to stream host",
+        "hls": "Try HLS",
+        "mpegts": "Try MPEG-TS",
+        "proxy": "Try local proxy",
+        "direct": "Try direct connection",
+        "engine": "Try another player",
+        "wait": "Wait and retry",
+        "license-proxy": "Retry DRM license through proxy",
+        "help": "Other possible causes",
+        "SUGGESTED": "Suggested",
+        "NO_RESOLVER": "This provider does not offer a fresh-link resolver.",
+        "NO_HOST": "No different provider host is configured.",
+        "NO_COOKIES": "No login cookies are available for this account.",
+        "SAME_HEADERS": "No different header profile is available.",
+        "NO_PORTAL_PROFILE": "No Stalker credential profile is available for this account.",
+        "NO_FORMAT": "This provider has not advertised this live output format.",
+        "NO_PROXY": "The desktop playback proxy is unavailable.",
+        "DIRECT_HEADERS": "Direct playback cannot send the required headers or credentials.",
+        "NO_ENGINE": "No other compatible player is available.",
+        "NO_DRM": "A configured license endpoint and supported DRM runtime are required.",
+        "FAILED": "Recovery did not complete. Choose another Retry action.",
+        "WORKING": "Recovering playback…",
+        "COUNTDOWN": "Retrying in {{seconds}} seconds…",
+        "CANCEL": "Cancel",
+        "CAUSE_ACCOUNT": "Account or subscription access",
+        "HELP_ACCOUNT": "Check that the account and subscription permit this channel or title. HTTP 401 or 403 alone does not identify the cause.",
+        "CAUSE_LIMIT": "Provider connection limit",
+        "HELP_LIMIT": "Stop playback on another device or player, then retry. The app cannot increase the provider connection limit.",
+        "CAUSE_NETWORK": "Server, DNS, or network failure",
+        "HELP_NETWORK": "Check the connection and provider address. An unavailable provider or a DNS failure may require waiting or contacting the provider.",
+        "CAUSE_CHALLENGE": "Login page or browser challenge",
+        "HELP_CHALLENGE": "The provider returned a web page instead of playable media. Complete its supported login process or obtain a compatible playback source.",
+        "CAUSE_LOCATION": "Location or network restrictions",
+        "HELP_LOCATION": "The provider may restrict this account by location, network, or device. Check the provider account requirements.",
+        "CAUSE_CODEC": "Unsupported codec or DRM",
+        "HELP_CODEC": "Try a compatible installed player for codec issues. DRM playback requires a supported runtime and a valid provider license.",
+        "OBSERVED": "Observed failure",
+        "UNKNOWN_STATUS": "HTTP status unavailable",
+        "RESOURCE_manifest": "manifest",
+        "RESOURCE_playlist": "playlist",
+        "RESOURCE_segment": "media segment",
+        "RESOURCE_encryption-key": "encryption key",
+        "RESOURCE_license": "DRM license",
+        "RESOURCE_unknown": "request"
     }
 }

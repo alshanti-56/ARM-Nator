@@ -1,10 +1,5 @@
 /** @type {import('tailwindcss').Config} */
 module.exports = {
-    // Content paths scoped to the Angular web app and shared libs
-    content: [
-        './apps/desktop-ui/src/**/*.{html,ts,scss}',
-        './libs/**/*.{html,ts,scss}',
-    ],
     // Match Angular Material's dark theme class strategy
     darkMode: 'class',
     theme: {
@@ -48,9 +43,5 @@ module.exports = {
                 card: '0 2px 8px rgba(0,0,0,0.15)',
             },
         },
-    },
-    // CRITICAL: disable preflight to avoid conflicts with Angular Material
-    corePlugins: {
-        preflight: false,
     },
 };

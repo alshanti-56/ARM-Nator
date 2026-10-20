@@ -14,11 +14,76 @@ import { redactSensitiveData } from '@arm-nator/shared/logging';
 import { emitPortalDebugEvent } from './portal-debug.events';
 import { UnsafeUrlError } from './url-safety';
 import { requestWithValidatedRedirects } from '../util/validated-axios';
+import { createProviderDiagnosticsObserver } from '../services/provider-request-diagnostics';
+import { playbackAccountProfiles } from '../services/playback-account-profile.service';
 
 // Some Xtream panels sit behind Cloudflare (or similar WAFs) configured to
 // challenge generic browser-looking User-Agents while allowlisting known
 // IPTV player clients. A VLC-style User-Agent reliably passes those checks.
 const XTREAM_CLIENT_USER_AGENT = 'VLC/3.0.18 LibVLC/3.0.18';
+
+interface XtreamRequestError {
+    type: 'ERROR';
+    status: number;
+    message: string;
+    name?: 'AbortError';
+}
+
+function getXtreamHttpErrorMessage(status: number): string {
+    switch (status) {
+        case 401:
+            return 'Xtream server rejected the credentials';
+        case 403:
+            return 'Xtream server denied access';
+        case 404:
+            return 'Xtream API endpoint was not found';
+        case 429:
+            return 'Xtream server is rate limiting requests';
+        default:
+            return `Xtream server returned HTTP ${status}`;
+    }
+}
+
+function xtreamError(
+    status: number,
+    message: string,
+    name?: 'AbortError'
+): XtreamRequestError {
+    return { type: 'ERROR', status, message, ...(name ? { name } : {}) };
+}
+
+function toXtreamRequestError(error: unknown): XtreamRequestError {
+    if (axios.isAxiosError(error)) {
+        if (error.code === 'ERR_CANCELED') {
+            return xtreamError(499, 'Xtream request cancelled', 'AbortError');
+        }
+
+        if (error.response) {
+            const status = error.response.status;
+            return xtreamError(status, getXtreamHttpErrorMessage(status));
+        }
+
+        return xtreamError(
+            500,
+            error.code === 'ECONNABORTED'
+                ? 'Xtream server did not respond in time'
+                : 'Could not connect to Xtream server'
+        );
+    }
+
+    if (error instanceof UnsafeUrlError) {
+        return xtreamError(error.status, 'Xtream server URL is not allowed');
+    }
+
+    if (error && typeof error === 'object' && 'status' in error) {
+        const status = (error as { status: unknown }).status;
+        if (typeof status === 'number' && status >= 400 && status <= 599) {
+            return xtreamError(status, getXtreamHttpErrorMessage(status));
+        }
+    }
+
+    return xtreamError(500, 'Failed to fetch data from Xtream server');
+}
 
 export default class XtreamEvents {
     static bootstrapXtreamEvents(): Electron.IpcMain {
@@ -31,7 +96,7 @@ function formatXtreamError(
     requestUrl: string,
     action?: string
 ) {
-    let parsedUrl: URL | null = null;
+    let parsedUrl: URL | null;
     try {
         parsedUrl = new URL(requestUrl);
     } catch {
@@ -98,6 +163,7 @@ ipcMain.handle(
             requestId?: string;
             sessionId?: string;
             suppressErrorLog?: boolean;
+            accountRef?: string;
         }
     ) => {
         const startedAt = Date.now();
@@ -136,13 +202,45 @@ ipcMain.handle(
             const response = await requestWithValidatedRedirects<unknown>(
                 apiUrl.toString(),
                 config,
-                { allowPrivateNetworks: true }
+                { allowPrivateNetworks: true },
+                5,
+                createProviderDiagnosticsObserver('xtream-api', params.action ?? 'authenticate', sessionId)
             );
+
+            const username = params.username;
+            const password = params.password;
+            const isXtreamLogout = params.action?.toLowerCase() === 'logout';
+            if (isXtreamLogout && payload.accountRef && response.status < 400) {
+                playbackAccountProfiles.clear(payload.accountRef);
+            } else if (
+                typeof username === 'string' &&
+                typeof password === 'string' &&
+                payload.accountRef &&
+                response.status < 400
+            ) {
+                playbackAccountProfiles.replacePortalCredentials(
+                    payload.accountRef,
+                    { username, password }
+                );
+                if (!params.action) {
+                    const rawSetCookie = response.headers['set-cookie'];
+                    const setCookieHeaders = Array.isArray(rawSetCookie)
+                        ? rawSetCookie
+                        : typeof rawSetCookie === 'string'
+                            ? [rawSetCookie]
+                            : undefined;
+                    const responseUrl = response.request?.res?.responseUrl ?? apiUrl.toString();
+                    playbackAccountProfiles.captureLoginCookies(
+                        payload.accountRef,
+                        responseUrl,
+                        setCookieHeaders
+                    );
+                }
+            }
 
             // Check if response is successful
             if (response.status >= 400) {
                 throw {
-                    message: `HTTP Error: ${response.statusText}`,
                     status: response.status,
                 };
             }
@@ -223,38 +321,9 @@ ipcMain.handle(
                 );
             }
 
-            // Format error response
-            if (axios.isAxiosError(error)) {
-                if (error.code === 'ERR_CANCELED') {
-                    throw {
-                        type: 'ERROR',
-                        name: 'AbortError',
-                        message: 'Xtream request cancelled',
-                        status: 499,
-                    };
-                }
-                const errorResponse = {
-                    type: 'ERROR',
-                    message:
-                        error.response?.data?.message ||
-                        error.message ||
-                        'Failed to fetch data from Xtream server',
-                    status: error.response?.status || 500,
-                };
-                throw errorResponse;
-            } else if (
-                error &&
-                typeof error === 'object' &&
-                'message' in error
-            ) {
-                throw error;
-            } else {
-                throw {
-                    type: 'ERROR',
-                    message: 'An unknown error occurred',
-                    status: 500,
-                };
-            }
+            // Electron only serializes a thrown error's message across invoke().
+            // Return a structured failure so the renderer keeps its HTTP status.
+            return { error: toXtreamRequestError(error) };
         } finally {
             if (activeRequestKey) {
                 activeXtreamRequests.delete(activeRequestKey);

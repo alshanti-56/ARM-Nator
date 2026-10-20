@@ -243,7 +243,7 @@
                 <div class="details__meta-item">
                     <span class="label">{{ 'XTREAM.FORMAT' | translate }}</span>
                     <span class="value">{{
-                        item?.movie_data?.container_extension | uppercase
+                        $safeNavigationMigration(item?.movie_data?.container_extension) | uppercase
                     }}</span>
                 </div>
             }
@@ -303,7 +303,7 @@
                 @if (!isExternalStopAction()) {
                     <button
                         class="play-btn play-btn--restart"
-                        (click)="playVod(item)"
+                        (click)="playVod(item, 'start-over')"
                     >
                         <mat-icon>replay</mat-icon>
                         {{ 'XTREAM.RESTART' | translate }}

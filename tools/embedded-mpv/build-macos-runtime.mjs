@@ -4,6 +4,12 @@ import fs from 'fs';
 import os from 'os';
 import path from 'path';
 import { spawnSync } from 'child_process';
+import {
+    applyLibassPatches,
+    applyMpvPatches,
+    getRequiredLibassPatches,
+    getRequiredMpvPatches
+} from './runtime-patches.mjs';
 
 const rawArgs = process.argv.slice(2);
 const args = rawArgs[0] === '--' ? rawArgs.slice(1) : rawArgs;
@@ -443,12 +449,18 @@ function buildRuntime() {
         '-Dutilities=disabled',
         '-Dbenchmark=disabled'
     ]);
+    applyLibassPatches(sourcePathFor('libass'));
     configureMakeInstall('libass', [
         '--enable-shared',
         '--disable-static',
         '--disable-fontconfig',
         '--enable-coretext',
         '--disable-libunibreak'
+    ]);
+    run(process.execPath, [
+        path.join(workspaceRoot, 'tools/testing/verify-subtitle-position.mjs'),
+        path.join(prefix, 'include'),
+        path.join(prefix, 'lib')
     ]);
 
     const ffmpegSourcePath = sourcePathFor('ffmpeg');
@@ -471,6 +483,11 @@ function buildRuntime() {
         '-Dfuzz=false',
         '-Dunwind=disabled',
         '-Dxxhash=disabled'
+    ]);
+    applyMpvPatches(sourcePathFor('mpv'));
+    run(process.execPath, [
+        path.join(workspaceRoot, 'tools/testing/verify-coreaudio-cleanup.mjs'),
+        sourcePathFor('mpv')
     ]);
     mesonInstall('mpv', mpvMesonFlags);
 }
@@ -595,7 +612,10 @@ function writeManifest() {
                     ...(sourcePackage.submodules
                         ? { sourceSubmodules: sourcePackage.submodules }
                         : {}),
-                    license: sourcePackage.license
+                    license: sourcePackage.license,
+                    ...(sourcePackage.id === 'libass'
+                        ? { patches: getRequiredLibassPatches() }
+                        : {})
                 }
             ])
         ),
@@ -607,6 +627,7 @@ function writeManifest() {
         },
         mpv: {
             ...sourceMetadata('mpv'),
+            patches: getRequiredMpvPatches(),
             licensePolicy:
                 'LGPL-compatible libmpv, built with -Dlibmpv=true -Dgpl=false',
             mesonFlags: mpvMesonFlags

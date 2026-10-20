@@ -84,6 +84,10 @@ export function buildSettingsPlayerOptions({
     supportsManagedExternalPlayers,
   }).map(({ id, kind, labelKey }) => {
     const option: SettingsPlayerOption = { id, labelKey };
+    if (kind === "automatic") {
+      option.available = true;
+      option.detail = "Selects a compatible player and recovers automatically";
+    }
     if (
       kind === "managed-external" &&
       externalPlayerAvailability !== undefined &&

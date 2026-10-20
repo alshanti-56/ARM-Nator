@@ -183,6 +183,17 @@
         );
 }
 
+// Image-backed heroes use white text in either theme. A light surface tint
+// cannot provide its contrast over the blurred-poster fallback.
+.hero--with-image:not(.hero--has-backdrop) .hero__vignette {
+    background: linear-gradient(
+        90deg,
+        rgba(0, 0, 0, 0.45),
+        rgba(0, 0, 0, 0.65) 55%,
+        rgba(0, 0, 0, 0.78)
+    );
+}
+
 // Layer 2: sharp poster in native 2:3 aspect (no more 16:9 crop).
 .hero__poster {
     position: relative;
@@ -324,7 +335,7 @@
     }
 
     &--rating {
-        color: #ffd166;
+        color: var(--app-rating-color);
 
         .hero--with-image & {
             color: #ffd166;
@@ -332,7 +343,7 @@
     }
 
     &--episode {
-        color: #7ddb8a;
+        color: var(--app-success-color);
 
         .hero--with-image & {
             color: #7ddb8a;
@@ -562,7 +573,9 @@
 
     // Skeleton hero mirrors real hero at this breakpoint.
     .rails-page__skeleton-hero {
-        grid-template-columns: var(--hero-poster-width, clamp(112px, 16vw, 128px)) minmax(0, 1fr);
+        grid-template-columns:
+            var(--hero-poster-width, clamp(112px, 16vw, 128px))
+            minmax(0, 1fr);
         gap: clamp(12px, 1.8vw, 14px);
         padding: clamp(12px, 1.8vw, 14px);
     }

@@ -1,3 +1,4 @@
+#include "native_presentation.h"
 #include <napi.h>
 
 #define GL_SILENCE_DEPRECATION
@@ -92,6 +93,7 @@ struct AudioTrack {
 struct SessionSnapshot {
     SessionStatus status = SessionStatus::Idle;
     double positionSeconds = 0.0;
+    bool seeking = false;
     double durationSeconds = -1.0;
     double volumePercent = 100.0;
     std::string streamUrl;
@@ -121,6 +123,7 @@ struct SessionSnapshot {
 
 struct Session {
     std::string id;
+    NativePresentation presentation;
     mpv_handle* handle = nullptr;
     mpv_render_context* renderContext = nullptr;
     NSView* __strong parentView = nil;
@@ -129,7 +132,7 @@ struct Session {
     NSOpenGLPixelFormat* __strong openGLPixelFormat = nil;
     NSOpenGLContext* __strong openGLContext = nil;
     CVDisplayLinkRef displayLink = nullptr;
-    dispatch_queue_t renderQueue = nullptr;
+    dispatch_queue_t __strong renderQueue = nullptr;
     std::thread eventThread;
     std::atomic<bool> running{false};
     std::atomic<bool> renderScheduled{false};
@@ -140,6 +143,7 @@ struct Session {
     std::mutex mutex;
     SessionSnapshot snapshot;
     uint64_t pendingPlaybackLoadRequestId = 0;
+    uint64_t pendingSeekRequestId = 0;
     std::weak_ptr<Session>* renderCallbackContext = nullptr;
     RenderBackend renderBackend = RenderBackend::OpenGL;
     int renderWidthPixels = 0;
@@ -410,6 +414,7 @@ void destroySession(const std::shared_ptr<Session>& session)
         return;
     }
 
+    session->presentation.invalidate();
     session->running.store(false);
     session->renderNeeded.store(false);
 
@@ -446,6 +451,9 @@ void destroySession(const std::shared_ptr<Session>& session)
               );
               mpv_render_context_free(session->renderContext);
               session->renderContext = nullptr;
+              if (cglContext) {
+                  glFinish();
+              }
               [NSOpenGLContext clearCurrentContext];
               if (cglContext) {
                   CGLUnlockContext(cglContext);
@@ -469,6 +477,14 @@ void destroySession(const std::shared_ptr<Session>& session)
         }
     }
 
+    // The render queue is per-session. Drain it after the render callback and
+    // context are stopped, then release the queue instead of keeping one
+    // dispatch object alive for every closed player.
+    if (session->renderQueue) {
+        dispatch_sync(session->renderQueue, ^{});
+        session->renderQueue = nullptr;
+    }
+
     if (session->renderCallbackContext) {
         delete session->renderCallbackContext;
         session->renderCallbackContext = nullptr;
@@ -490,6 +506,9 @@ void destroySession(const std::shared_ptr<Session>& session)
     }
 
     runOnMainSync(^{
+      if (session->openGLContext) {
+          [session->openGLContext clearDrawable];
+      }
       if (session->containerView) {
           [session->containerView removeFromSuperview];
           session->containerView = nil;
@@ -508,6 +527,9 @@ void renderSoftwareFrame(const std::shared_ptr<Session>& session)
     }
 
     const auto startedAt = std::chrono::steady_clock::now();
+    const auto presentationToken = session->presentation.frameToken();
+    const bool actualFrame = (mpv_render_context_update(session->renderContext) & MPV_RENDER_UPDATE_FRAME) != 0;
+    if (!actualFrame && !session->presentation.ready()) return;
     int widthPixels = 0;
     int heightPixels = 0;
     double contentsScale = 1.0;
@@ -586,9 +608,11 @@ void renderSoftwareFrame(const std::shared_ptr<Session>& session)
           return;
       }
 
+      if (session->presentation.frameToken() != presentationToken) return;
       session->containerView.layer.contents = frameImage;
       session->containerView.layer.contentsScale = contentsScale;
       session->containerView.layer.contentsGravity = kCAGravityResize;
+      if (actualFrame) session->presentation.presented(presentationToken);
     });
 
     recordRenderedFrame(session, std::chrono::steady_clock::now() - startedAt);
@@ -620,6 +644,7 @@ void renderOpenGLFrame(const std::shared_ptr<Session>& session)
         return;
     }
 
+    const auto presentationToken = session->presentation.frameToken();
     CGLLockContext(cglContext);
     [session->openGLContext makeCurrentContext];
 
@@ -666,6 +691,7 @@ void renderOpenGLFrame(const std::shared_ptr<Session>& session)
 
     [session->openGLContext flushBuffer];
     mpv_render_context_report_swap(session->renderContext);
+    session->presentation.presented(presentationToken);
     CGLUnlockContext(cglContext);
 
     recordRenderedFrame(session, std::chrono::steady_clock::now() - startedAt);
@@ -1135,7 +1161,15 @@ void runEventLoop(const std::shared_ptr<Session>& session)
         std::lock_guard<std::mutex> lock(session->mutex);
 
         switch (event->event_id) {
+            case MPV_EVENT_SEEK:
+                session->snapshot.seeking = true;
+                break;
+            case MPV_EVENT_PLAYBACK_RESTART:
+                session->snapshot.seeking = false;
+                break;
             case MPV_EVENT_START_FILE:
+                session->presentation.beginLoad();
+                session->snapshot.seeking = false;
                 session->snapshot.status = SessionStatus::Loading;
                 session->snapshot.error.clear();
                 session->snapshot.audioTracks.clear();
@@ -1145,6 +1179,7 @@ void runEventLoop(const std::shared_ptr<Session>& session)
                 session->loadedPath = false;
                 break;
             case MPV_EVENT_FILE_LOADED:
+                session->presentation.loaded();
                 session->loadedPath = true;
                 session->snapshot.status = session->paused
                     ? SessionStatus::Paused
@@ -1242,7 +1277,7 @@ void runEventLoop(const std::shared_ptr<Session>& session)
                     property->format == MPV_FORMAT_STRING &&
                     property->data) {
                     const auto* pathValue =
-                        static_cast<char*>(property->data);
+                        *static_cast<char**>(property->data);
                     session->snapshot.streamUrl = pathValue ? pathValue : "";
                     break;
                 }
@@ -1264,7 +1299,7 @@ void runEventLoop(const std::shared_ptr<Session>& session)
                 if (propertyName == "file-format" &&
                     property->format == MPV_FORMAT_STRING &&
                     property->data) {
-                    const auto* value = static_cast<char*>(property->data);
+                    const auto* value = *static_cast<char**>(property->data);
                     session->snapshot.container = value ? value : "";
                     break;
                 }
@@ -1274,7 +1309,7 @@ void runEventLoop(const std::shared_ptr<Session>& session)
                     property->format == MPV_FORMAT_STRING &&
                     property->data) {
                     const auto* value =
-                        static_cast<char*>(property->data);
+                        *static_cast<char**>(property->data);
                     if (propertyName == "video-codec") {
                         session->snapshot.videoCodec = sanitizeCodecLabel(value);
                     } else {
@@ -1286,7 +1321,7 @@ void runEventLoop(const std::shared_ptr<Session>& session)
                 if (propertyName == "hwdec-current" &&
                     property->format == MPV_FORMAT_STRING &&
                     property->data) {
-                    const auto* value = static_cast<char*>(property->data);
+                    const auto* value = *static_cast<char**>(property->data);
                     session->snapshot.hwdecCurrent = value ? value : "";
                     break;
                 }
@@ -1335,7 +1370,7 @@ void runEventLoop(const std::shared_ptr<Session>& session)
                 if (propertyName == "aid" &&
                     property->format == MPV_FORMAT_STRING &&
                     property->data) {
-                    const auto* aidValue = static_cast<char*>(property->data);
+                    const auto* aidValue = *static_cast<char**>(property->data);
                     int64_t selectedTrackId = -1;
                     if (aidValue && parseIntegerString(aidValue, selectedTrackId)) {
                         updateSelectedAudioTrack(
@@ -1349,7 +1384,7 @@ void runEventLoop(const std::shared_ptr<Session>& session)
                 if (propertyName == "sid" &&
                     property->format == MPV_FORMAT_STRING &&
                     property->data) {
-                    const auto* sidValue = static_cast<char*>(property->data);
+                    const auto* sidValue = *static_cast<char**>(property->data);
                     int64_t selectedTrackId = -1;
                     if (sidValue && parseIntegerString(sidValue, selectedTrackId)) {
                         updateSelectedSubtitleTrack(
@@ -1374,7 +1409,7 @@ void runEventLoop(const std::shared_ptr<Session>& session)
                     property->format == MPV_FORMAT_STRING &&
                     property->data) {
                     const auto* aspectValue =
-                        static_cast<char*>(property->data);
+                        *static_cast<char**>(property->data);
                     session->snapshot.aspectOverride =
                         sanitizeAspectOverride(aspectValue);
                     break;
@@ -1422,6 +1457,9 @@ void runEventLoop(const std::shared_ptr<Session>& session)
                 // Only a failed loadfile may flip the session status: a
                 // rejected seek/aid/speed reply on a live stream must not
                 // surface the error UI while playback keeps running.
+                if (event->reply_userdata == session->pendingSeekRequestId && event->error < 0) {
+                    session->snapshot.seeking = false;
+                }
                 if (event->error < 0) {
                     session->snapshot.error = mpv_error_string(event->error);
                 }
@@ -1448,7 +1486,7 @@ bool createSoftwareView(const std::shared_ptr<Session>& session)
           NSColor.blackColor.CGColor;
       session->containerView.layer.contentsGravity = kCAGravityResize;
       [session->hostView addSubview:session->containerView
-                  positioned:NSWindowAbove
+                  positioned:(std::getenv("ARM_NATOR_NATIVE_COMPOSITION") && std::string(std::getenv("ARM_NATOR_NATIVE_COMPOSITION")) == "1") ? NSWindowBelow : NSWindowAbove
                   relativeTo:nil];
       created = true;
     });
@@ -1498,7 +1536,7 @@ bool createOpenGLView(const std::shared_ptr<Session>& session)
       [session->openGLContext setView:openGLView];
       session->containerView = openGLView;
       [session->hostView addSubview:session->containerView
-                  positioned:NSWindowAbove
+                  positioned:(std::getenv("ARM_NATOR_NATIVE_COMPOSITION") && std::string(std::getenv("ARM_NATOR_NATIVE_COMPOSITION")) == "1") ? NSWindowBelow : NSWindowAbove
                   relativeTo:nil];
       created = true;
     });
@@ -1508,6 +1546,9 @@ bool createOpenGLView(const std::shared_ptr<Session>& session)
 void removeRenderView(const std::shared_ptr<Session>& session)
 {
     runOnMainSync(^{
+      if (session->openGLContext) {
+          [session->openGLContext clearDrawable];
+      }
       if (session->containerView) {
           [session->containerView removeFromSuperview];
           session->containerView = nil;
@@ -1770,6 +1811,9 @@ Napi::Value CreateSession(const Napi::CallbackInfo& info)
               }
               mpv_render_context_free(session->renderContext);
               session->renderContext = nullptr;
+              if (cglContext) {
+                  glFinish();
+              }
               [NSOpenGLContext clearCurrentContext];
               if (cglContext) {
                   CGLUnlockContext(cglContext);
@@ -1946,6 +1990,7 @@ Napi::Value LoadPlayback(const Napi::CallbackInfo& info)
         std::lock_guard<std::mutex> lock(session->mutex);
         session->snapshot.streamUrl = streamUrl;
         session->snapshot.error.clear();
+        session->presentation.beginLoad();
         session->snapshot.status = SessionStatus::Loading;
         session->pendingPlaybackLoadRequestId = loadPlaybackRequestId;
     }
@@ -2051,9 +2096,12 @@ Napi::Value Seek(const Napi::CallbackInfo& info)
         "absolute+exact",
         nullptr,
     };
+    const uint64_t requestId = nextAsyncRequestId();
+    // Keep the command and pending marker atomic against the event thread.
+    std::lock_guard<std::mutex> lock(session->mutex);
     const int result = mpv_command_async(
         session->handle,
-        nextAsyncRequestId(),
+        requestId,
         command
     );
 
@@ -2065,10 +2113,9 @@ Napi::Value Seek(const Napi::CallbackInfo& info)
         );
     }
 
-    {
-        std::lock_guard<std::mutex> lock(session->mutex);
-        session->snapshot.positionSeconds = std::max(0.0, target);
-    }
+    session->pendingSeekRequestId = requestId;
+    session->snapshot.seeking = true;
+    // Position is published only by MPV's time-pos events, never by the target.
 
     return env.Undefined();
 }
@@ -2358,6 +2405,9 @@ Napi::Value SetSubtitleSettings(const Napi::CallbackInfo& info)
     setMpvVideoProperty(session, "sub-scale", fontSize / 100.0);
     setMpvVideoProperty(session, "sub-back-alpha", backgroundOpacity / 100.0);
     setMpvVideoProperty(session, "sub-outline-size", outlineSize);
+    // The position slider owns the vertical inset; MPV's default margin
+    // otherwise keeps its 100% endpoint above the bottom of the player.
+    setMpvSubtitleString(session, "sub-margin-y", "0");
     setMpvVideoProperty(session, "sub-pos", position);
     setMpvVideoProperty(session, "sub-delay", delaySeconds);
 
@@ -2534,7 +2584,9 @@ Napi::Value GetSessionSnapshot(const Napi::CallbackInfo& info)
     }
 
     auto result = Napi::Object::New(env);
+    result.Set("frameReady", Napi::Boolean::New(env, session->presentation.ready()));
     result.Set("status", toStatusString(snapshot.status));
+    result.Set("seeking", Napi::Boolean::New(env, snapshot.seeking));
     result.Set(
         "positionSeconds",
         Napi::Number::New(env, snapshot.positionSeconds)

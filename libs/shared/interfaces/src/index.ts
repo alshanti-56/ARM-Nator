@@ -74,3 +74,24 @@ export * from './lib/date-normalizer';
 // Unified VOD details (discriminated union + adapters)
 export * from './lib/vod-details-adapters';
 export * from './lib/vod-details-item.interface';
+
+export * from './lib/xtream-catalogue.interface';
+export * from './lib/viewing-continuity';
+export * from './lib/confirmed-progress-writer';
+export * from './lib/title-track-preferences';
+export * from './lib/initial-resume-coordinator';
+export * from './lib/title-preference-coordinator';
+
+export * from './lib/playback-recovery.interface';
+
+export * from './lib/stalker-viewing-item';
+
+export * from "./lib/unified-discovery";
+
+export * from "./lib/stalker-request.interface";
+
+export * from "./lib/discovery-adapters";
+
+export * from './lib/discovery-presentation';
+export * from './lib/playback-versions';
+export * from './lib/seek-previews';

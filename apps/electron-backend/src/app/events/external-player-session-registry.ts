@@ -134,10 +134,7 @@ export class ExternalPlayerSessionRegistry {
             return null;
         }
 
-        try {
-            await runtime.close?.();
-        } finally {
-            return this.markClosed(id);
-        }
+        await runtime.close?.();
+        return this.markClosed(id);
     }
 }

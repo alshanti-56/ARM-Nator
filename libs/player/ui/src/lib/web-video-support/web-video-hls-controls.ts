@@ -1,3 +1,4 @@
+import { inferTrackRole } from '@arm-nator/shared/interfaces';
 import Hls from 'hls.js';
 import type {
     PlayerMediaTelemetry,
@@ -57,6 +58,8 @@ export class WebVideoHlsControls {
             id: index,
             label: track.name || track.lang || `Audio ${index + 1}`,
             selected: index === hls.audioTrack,
+            language: track.lang,
+            role: inferTrackRole({ label: track.name, characteristics: track.attrs?.CHARACTERISTICS }),
         }));
     }
 

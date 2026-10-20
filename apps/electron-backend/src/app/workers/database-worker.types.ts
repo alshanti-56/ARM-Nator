@@ -8,8 +8,10 @@ export const DB_WORKER_OPERATIONS = [
     'DB_UPDATE_CATEGORY_VISIBILITY',
     'DB_HAS_CONTENT',
     'DB_GET_CONTENT',
+    'DB_GET_CONTENT_SERIALIZED',
     'DB_GET_GLOBAL_RECENTLY_ADDED',
     'DB_SAVE_CONTENT',
+    'DB_REPLACE_XTREAM_CATALOGUE',
     'DB_CLEAR_XTREAM_IMPORT_CACHE',
     'DB_GET_CONTENT_BY_XTREAM_ID',
     'DB_SET_CONTENT_BACKDROP_IF_MISSING',
@@ -44,6 +46,12 @@ export const DB_WORKER_OPERATIONS = [
     'DB_CLEAR_PLAYLIST_RECENT_ITEMS',
     'DB_REMOVE_RECENT_ITEM',
     'DB_REMOVE_RECENT_ITEMS_BATCH',
+    'DB_RECONCILE_VIEWING_ITEM',
+    'DB_SAVE_VIEWING_STATE',
+    'DB_GET_VIEWING_RESUME',
+    'DB_GET_VIEWING_HISTORY',
+    'DB_GET_TITLE_PREFERENCES',
+    'DB_SAVE_TITLE_PREFERENCES',
     'DB_SAVE_PLAYBACK_POSITION',
     'DB_GET_PLAYBACK_POSITION',
     'DB_GET_SERIES_PLAYBACK_POSITIONS',
@@ -62,6 +70,7 @@ export type DbWorkerOperation = (typeof DB_WORKER_OPERATIONS)[number];
 
 export const DB_OPERATION_NAMES = {
     SAVE_CONTENT: 'save-content',
+    REFRESH_CATALOGUE: 'refresh-catalogue',
     DELETE_XTREAM_CONTENT: 'delete-xtream-content',
     RESTORE_XTREAM_USER_DATA: 'restore-xtream-user-data',
     DELETE_PLAYLIST: 'delete-playlist',
@@ -140,6 +149,7 @@ export interface DbWorkerResponseMessage<TResult = unknown> {
     result?: TResult;
     error?: SerializedWorkerError;
     performance?: WorkerPerformanceCaptureResult;
+    localWorkDurationMs?: number;
 }
 
 export type DbWorkerIncomingMessage =

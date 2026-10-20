@@ -4,7 +4,11 @@ import Hls, {
   type LevelLoadedData,
   type ManifestParsedData,
 } from "hls.js";
-import { createDevLogger } from "@arm-nator/shared/interfaces";
+import {
+  createDevLogger,
+  type AutoPlaybackPreparation,
+  type PlaybackRequestPolicy,
+} from "@arm-nator/shared/interfaces";
 import type { HtmlVideoControlsSource } from "./html-video-player-controls.bridge";
 import { emitUnsupportedHlsManifestCodecs } from "./html-video-player-diagnostics";
 import {
@@ -20,6 +24,7 @@ import { seekVideoToLiveEdge } from "../web-video-support/live-edge-resume";
 import { isRecoverableMpegTsLiveFailure } from "../web-video-support/mpegts-live-recovery";
 import { VodPlaybackRecovery } from "../web-video-support/vod-playback-recovery";
 import type { WebVideoPlaybackIntent } from "../player-controls/web-video-controls.adapter";
+import { HlsProxySession } from "../web-video-support/hls-proxy-session";
 
 const debugHtmlPlayer = createDevLogger("HtmlVideoPlayer");
 const FALLBACK_LIVE_TARGET_DURATION_SECONDS = 2;
@@ -28,10 +33,15 @@ const MPEGTS_RECOVERY_BUDGET_MS = 15_000;
 export interface HtmlVideoLiveControllerConfig {
   readonly getVideo: () => HTMLVideoElement;
   readonly getSourceUrl: () => string | undefined;
+  readonly getPreparedProxy?: () => AutoPlaybackPreparation | undefined;
+  readonly getRequestPolicy?: () => PlaybackRequestPolicy | undefined;
+  readonly isDirect?: () => boolean;
   readonly isLive: () => boolean;
+  readonly providerRecovery?: () => boolean;
   readonly getSourceKind: () => HtmlVideoControlsSource["kind"] | null;
   readonly restartMpegTs: () => void;
   readonly bindControlsSource: (source: HtmlVideoControlsSource) => void;
+  readonly clearControlsSource: () => void;
   readonly play: () => void;
   readonly emitPlaybackIssue: (issue: PlaybackDiagnostic) => void;
 }
@@ -40,6 +50,8 @@ export interface HtmlVideoLiveControllerConfig {
 export class HtmlVideoLiveController {
   private hls: Hls | null = null;
   private hlsUrl = "";
+  private hlsRequestHeaders: Record<string, string> | undefined;
+  private readonly hlsProxySession = new HlsProxySession();
   private hlsTargetDurationSeconds = FALLBACK_LIVE_TARGET_DURATION_SECONDS;
   private readonly watchdog = new LivePlaybackWatchdog();
   private readonly mpegTsRecovery: LivePlaybackRecovery;
@@ -91,8 +103,9 @@ export class HtmlVideoLiveController {
     });
   }
 
-  openHls(url: string): void {
+  openHls(url: string, headers?: Record<string, string>): void {
     this.hlsUrl = url;
+    this.hlsRequestHeaders = headers;
     this.hlsTargetDurationSeconds = FALLBACK_LIVE_TARGET_DURATION_SECONDS;
     const hls = new Hls(
       this.config.isLive()
@@ -133,9 +146,65 @@ export class HtmlVideoLiveController {
         .addEventListener("playing", this.vodHlsPlayingListener);
     }
     this.config.bindControlsSource({ kind: "hls", hls });
-    hls.loadSource(url);
-    this.config.play();
-    this.startWatchdog("hls");
+    void this.hlsProxySession
+      .load(
+        hls,
+        url,
+        headers,
+        () => this.hls === hls,
+        this.config.getPreparedProxy?.(),
+        this.config.getRequestPolicy?.(),
+        this.config.isDirect?.(),
+      )
+      .then((loaded) => {
+        if (this.hls !== hls) {
+          return;
+        }
+        if (!loaded) {
+          this.config.clearControlsSource();
+          this.destroyHlsPlayer();
+          this.config.emitPlaybackIssue(
+            classifyHlsPlaybackIssue(
+              {
+                type: ErrorTypes.NETWORK_ERROR,
+                details: "Electron HLS proxy initialization failed.",
+                fatal: true,
+              },
+              createPlaybackSourceMetadata({
+                url,
+                mimeType: "application/x-mpegURL",
+                player: InlinePlaybackPlayer.Html5,
+              }),
+            ),
+          );
+          return;
+        }
+        this.config.play();
+        this.startWatchdog("hls");
+      })
+      .catch((error: unknown) => {
+        debugHtmlPlayer("Unable to load the live HLS proxy:", error);
+        if (this.hls !== hls) {
+          return;
+        }
+        this.config.clearControlsSource();
+        this.destroyHlsPlayer();
+        this.config.emitPlaybackIssue(
+          classifyHlsPlaybackIssue(
+            {
+              type: ErrorTypes.NETWORK_ERROR,
+              details: "Electron HLS proxy initialization failed.",
+              fatal: true,
+              error,
+            },
+            createPlaybackSourceMetadata({
+              url,
+              mimeType: "application/x-mpegURL",
+              player: InlinePlaybackPlayer.Html5,
+            }),
+          ),
+        );
+      });
   }
 
   startMpegTsWatchdog(): void {
@@ -218,6 +287,7 @@ export class HtmlVideoLiveController {
     this.watchdog.stop();
     this.destroyHlsPlayer();
     this.hlsUrl = "";
+    this.hlsRequestHeaders = undefined;
     this.mpegTsRecovery.reset();
     this.hlsRecovery.reset();
     this.vodHlsRecovery.reset();
@@ -229,6 +299,7 @@ export class HtmlVideoLiveController {
   destroy(): void {
     this.watchdog.destroy();
     this.destroyHlsPlayer();
+    this.hlsRequestHeaders = undefined;
     this.mpegTsRecovery.destroy();
     this.hlsRecovery.destroy();
     this.vodHlsRecovery.destroy();
@@ -237,14 +308,22 @@ export class HtmlVideoLiveController {
     this.clearMpegTsIssue();
   }
 
+  releaseProxyAndWait(): Promise<void> {
+    return this.hlsProxySession.releaseAndWait();
+  }
+
   private restartHls(): void {
     const url = this.hlsUrl;
     if (!url || !this.config.isLive()) {
       return;
     }
+    if (this.getBufferAheadSeconds(this.config.getVideo()) > 0.5) {
+      this.hls?.startLoad();
+      return;
+    }
     this.watchdog.stop();
     this.destroyHlsPlayer();
-    this.openHls(url);
+    this.openHls(url, this.hlsRequestHeaders);
   }
 
   private destroyHlsPlayer(): void {
@@ -264,6 +343,7 @@ export class HtmlVideoLiveController {
     this.clearHlsIssue();
     this.clearVodHlsIssue();
     hls?.destroy();
+    this.hlsProxySession.release();
   }
 
   private getHlsRecoveryBudgetMs(): number {
@@ -319,6 +399,8 @@ export class HtmlVideoLiveController {
         fatal: data.fatal,
         message: data.error?.message,
         error: data.error,
+        response: data.response,
+        networkDetails: data.networkDetails,
       },
       createPlaybackSourceMetadata({
         url,
@@ -326,6 +408,14 @@ export class HtmlVideoLiveController {
         player: InlinePlaybackPlayer.Html5,
       }),
     );
+
+    if (this.config.providerRecovery?.() && (issue.network?.status === 401 || issue.network?.status === 403)) {
+      this.hlsRecovery.reset(); this.vodHlsRecovery.reset();
+      this.watchdog.stop(); this.clearHlsIssue(); this.clearVodHlsIssue();
+      hls.stopLoad();
+      this.config.emitPlaybackIssue(issue);
+      return;
+    }
 
     if (!this.config.isLive()) {
       this.vodHlsIssue = issue;
@@ -353,7 +443,10 @@ export class HtmlVideoLiveController {
     }
     if (data.fatal && this.config.isLive()) {
       if (data.type === ErrorTypes.NETWORK_ERROR) {
-        hls.startLoad();
+        hls.stopLoad();
+        this.hlsRecovery.request(`${data.type}: ${data.details}`, {
+          cancelOnPlaying: false,
+        });
       } else if (data.type === ErrorTypes.MEDIA_ERROR) {
         hls.recoverMediaError();
       } else {

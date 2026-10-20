@@ -22,6 +22,7 @@ test("filters embedded MPV and KSPlayer Metal independently", () => {
       supportsManagedExternalPlayers: false,
     }),
     [
+      VideoPlayer.Auto,
       VideoPlayer.ArtPlayer,
       VideoPlayer.ArtPlayer2,
       VideoPlayer.Html5Player,
@@ -35,6 +36,7 @@ test("filters embedded MPV and KSPlayer Metal independently", () => {
       supportsManagedExternalPlayers: false,
     }),
     [
+      VideoPlayer.Auto,
       VideoPlayer.ArtPlayer,
       VideoPlayer.ArtPlayer2,
       VideoPlayer.Html5Player,
@@ -51,6 +53,7 @@ test("keeps web and managed external engine ordering unchanged", () => {
       supportsManagedExternalPlayers: true,
     }),
     [
+      VideoPlayer.Auto,
       VideoPlayer.ArtPlayer,
       VideoPlayer.ArtPlayer2,
       VideoPlayer.Html5Player,
@@ -67,4 +70,8 @@ test("identifies bundled engines separately from optional external players", () 
   assert.equal(isBundledPlayerEngine(VideoPlayer.KsPlayer), true);
   assert.equal(isBundledPlayerEngine(VideoPlayer.MPV), false);
   assert.equal(isBundledPlayerEngine(VideoPlayer.VLC), false);
+});
+
+test("unknown engine identifiers keep the existing ArtPlayer fallback", () => {
+  assert.equal(getPlayerEngine("invalid" as VideoPlayer).id, VideoPlayer.ArtPlayer);
 });

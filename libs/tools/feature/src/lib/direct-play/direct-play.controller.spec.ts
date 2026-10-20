@@ -6,7 +6,7 @@ import {
   getDirectPlayNativeSupport,
   getDirectPlayStaticCapabilities,
 } from "./direct-play-capabilities";
-import { hasStartedEmbeddedMpvSession } from "./direct-play-native-session";
+import { hasStartedEmbeddedMpvSession, isUnexpectedEmbeddedMpvSession } from "./direct-play-native-session";
 
 test("Direct Play ignores a neutral embedded MPV startup snapshot", () => {
   assert.equal(
@@ -113,4 +113,11 @@ test("Direct Play lists only controls implemented by KSPlayer Metal", () => {
       "Fullscreen",
     ],
   );
+});
+
+test("Direct Play allows an explicit workspace switch from KSPlayer to MPV", () => {
+  const snapshot = {engine: "embedded-mpv", sessionId: "mpv-new"};
+  assert.equal(isUnexpectedEmbeddedMpvSession(VideoPlayer.KsPlayer, VideoPlayer.EmbeddedMpv, snapshot), false);
+  assert.equal(isUnexpectedEmbeddedMpvSession(VideoPlayer.KsPlayer, VideoPlayer.KsPlayer, snapshot), true);
+  assert.equal(isUnexpectedEmbeddedMpvSession(VideoPlayer.ArtPlayer, VideoPlayer.ArtPlayer, snapshot), false);
 });

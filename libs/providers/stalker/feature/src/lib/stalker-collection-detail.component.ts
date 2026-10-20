@@ -502,17 +502,28 @@ export class StalkerCollectionDetailComponent {
         thumbnail?: string,
         startTime?: number
     ): Promise<void> {
-        await this.vodPlayback.startVodPlayback(() =>
-            startTime === undefined
-                ? this.stalkerStore.resolveVodPlayback(cmd, title, thumbnail)
-                : this.stalkerStore.resolveVodPlayback(
-                      cmd,
-                      title,
-                      thumbnail,
-                      undefined,
-                      undefined,
-                      startTime
-                  )
+        const item = this.itemDetails();
+        const playlist = this.stalkerStore.currentPlaylist();
+        const selectedContentType = this.stalkerStore.selectedContentType();
+        const resolve = (signal?: AbortSignal, recordRecentlyViewed = true) =>
+            this.stalkerStore.resolveVodPlayback(
+                cmd,
+                title,
+                thumbnail,
+                undefined,
+                undefined,
+                startTime,
+                {
+                    item,
+                    playlist,
+                    selectedContentType,
+                    signal,
+                    recordRecentlyViewed,
+                },
+            );
+        await this.vodPlayback.startVodPlayback(
+            (signal) => resolve(signal),
+            ({ signal }) => resolve(signal, false),
         );
     }
 

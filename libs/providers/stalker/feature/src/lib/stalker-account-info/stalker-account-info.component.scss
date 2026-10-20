@@ -2,6 +2,8 @@
 
 :host {
     display: block;
+    container-type: inline-size;
+    width: 100%;
     color: var(--app-body-color, var(--mat-sys-on-surface));
     --account-dialog-accent: var(
         --app-provider-stalker,
@@ -9,13 +11,7 @@
     );
 }
 
-// Stalker shows three hero stats (days left / tariff / MAC), not four.
+// Adapt to the number of stats actually supplied by the portal.
 .account-dialog__hero-stats {
-    grid-template-columns: repeat(3, minmax(0, 1fr));
-}
-
-@media (max-width: 720px) {
-    .account-dialog__hero-stats {
-        grid-template-columns: 1fr;
-    }
+    grid-template-columns: repeat(auto-fit, minmax(min(100%, 160px), 1fr));
 }

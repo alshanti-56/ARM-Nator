@@ -17,6 +17,7 @@ test("settings keeps KS Player when embedded MPV is unsupported", () => {
       }),
     ),
     [
+      VideoPlayer.Auto,
       VideoPlayer.ArtPlayer,
       VideoPlayer.ArtPlayer2,
       VideoPlayer.Html5Player,
@@ -35,6 +36,7 @@ test("settings hides KS Player when it is unsupported", () => {
       }),
     ),
     [
+      VideoPlayer.Auto,
       VideoPlayer.ArtPlayer,
       VideoPlayer.ArtPlayer2,
       VideoPlayer.Html5Player,
@@ -53,6 +55,7 @@ test("settings preserves web and external player ordering", () => {
       }),
     ),
     [
+      VideoPlayer.Auto,
       VideoPlayer.ArtPlayer,
       VideoPlayer.ArtPlayer2,
       VideoPlayer.Html5Player,

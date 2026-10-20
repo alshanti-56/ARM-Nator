@@ -1,4 +1,4 @@
-import { Component, input, output, signal } from '@angular/core';
+import { Component, input, output, signal, ChangeDetectionStrategy } from '@angular/core';
 import { ComponentFixture, TestBed } from '@angular/core/testing';
 import { By } from '@angular/platform-browser';
 import { Router } from '@angular/router';
@@ -25,6 +25,7 @@ import { StalkerSeriesViewComponent } from './stalker-series-view.component';
 @Component({
     selector: 'app-season-container',
     standalone: true,
+    changeDetection: ChangeDetectionStrategy.Eager,
     template: '<div data-testid="season-container"></div>',
 })
 class StubSeasonContainerComponent {
@@ -47,6 +48,7 @@ class StubSeasonContainerComponent {
 @Component({
     selector: 'app-portal-inline-player',
     standalone: true,
+    changeDetection: ChangeDetectionStrategy.Eager,
     template: '',
 })
 class StubPortalInlinePlayerComponent {
@@ -69,6 +71,7 @@ class StubPortalInlinePlayerComponent {
 @Component({
     selector: 'app-favorites-button',
     standalone: true,
+    changeDetection: ChangeDetectionStrategy.Eager,
     template: '<button class="favorite-btn">favorite</button>',
 })
 class StubFavoritesButtonComponent {
@@ -228,16 +231,17 @@ describe('StalkerSeriesViewComponent', () => {
                 {
                     provide: TranslateService,
                     useValue: {
+                        translate: (key: string) => signal(key),
                         instant: (key: string) => key,
                         get: (key: string) => of(key),
                         stream: (key: string) => of(key),
-                        currentLang: 'en',
-                        defaultLang: 'en',
+                        currentLang: () => 'en',
+                        fallbackLang: () => 'en',
                         // EMPTY (not of(null)): the real TranslatePipe inside
                         // the detail shell reads `event.lang` from emissions.
                         onLangChange: EMPTY,
                         onTranslationChange: EMPTY,
-                        onDefaultLangChange: EMPTY,
+                        onFallbackLangChange: EMPTY,
                     },
                 },
             ],
@@ -306,13 +310,20 @@ describe('StalkerSeriesViewComponent', () => {
             'poster.jpg',
             1,
             expect.any(Number),
-            undefined
+            undefined,
+            expect.objectContaining({
+                item: expect.anything(),
+                playlist: expect.anything(),
+                selectedContentType: 'series',
+                signal: expect.any(Object),
+            })
         );
         expect(openResolvedPlayback).toHaveBeenCalledWith(
             expect.objectContaining({
                 streamUrl: 'http://stalker.example/episode.mpg',
             }),
-            true
+            true,
+            {}
         );
     });
 
@@ -434,7 +445,13 @@ describe('StalkerSeriesViewComponent', () => {
             'vod-series.jpg',
             1,
             expect.any(Number),
-            undefined
+            undefined,
+            expect.objectContaining({
+                item: expect.anything(),
+                playlist: expect.anything(),
+                selectedContentType: 'vod',
+                signal: expect.any(Object),
+            })
         );
         expect(openResolvedPlayback).toHaveBeenCalledWith(
             expect.objectContaining({
@@ -443,7 +460,8 @@ describe('StalkerSeriesViewComponent', () => {
                     episodeNumber: 1,
                 }),
             }),
-            true
+            true,
+            {}
         );
     });
 
@@ -548,7 +566,13 @@ describe('StalkerSeriesViewComponent', () => {
             'vod-series.jpg',
             1,
             expect.any(Number),
-            undefined
+            undefined,
+            expect.objectContaining({
+                item: expect.anything(),
+                playlist: expect.anything(),
+                selectedContentType: 'vod',
+                signal: expect.any(Object),
+            })
         );
     });
 
@@ -666,7 +690,13 @@ describe('StalkerSeriesViewComponent', () => {
             'vod-series.jpg',
             2,
             Number(secondEpisode.id),
-            undefined
+            undefined,
+            expect.objectContaining({
+                item: expect.anything(),
+                playlist: expect.anything(),
+                selectedContentType: 'vod',
+                signal: expect.any(Object),
+            })
         );
         expect(inlinePlayer.episodeMetadata()).toEqual({
             label: 'S01E02',
@@ -1040,7 +1070,13 @@ describe('StalkerSeriesViewComponent', () => {
             'vod-series.jpg',
             1,
             expect.any(Number),
-            undefined
+            undefined,
+            expect.objectContaining({
+                item: expect.anything(),
+                playlist: expect.anything(),
+                selectedContentType: 'vod',
+                signal: expect.any(Object),
+            })
         );
     });
 

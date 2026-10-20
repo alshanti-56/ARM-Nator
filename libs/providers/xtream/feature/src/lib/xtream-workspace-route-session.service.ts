@@ -18,6 +18,7 @@ import {
   XtreamStore,
 } from "@arm-nator/providers/xtream/data-access";
 import { PlaylistMeta } from "@arm-nator/shared/interfaces";
+import { bootstrapCachedSection } from "./cached-section-bootstrap";
 
 function normalizeOptionalConnectionValue(
   value: string | null | undefined,
@@ -297,12 +298,20 @@ export class XtreamWorkspaceRouteSession {
       }
 
       await this.xtreamStore.fetchXtreamPlaylist();
-      portalStatus = await this.xtreamStore.checkPortalStatus();
-      canUseCachedContent =
-        portalStatus !== "active" && cacheScope
-          ? this.xtreamStore.isCachedContentScopeReady(cacheScope) ||
-            (await this.xtreamStore.hasUsableOfflineCache(cacheScope))
-          : false;
+      const isCurrent = () => this.xtreamStore.playlistId() === playlistId &&
+        getXtreamRouteTarget(this.router.url).playlistId === playlistId;
+      if (!isCurrent()) return;
+      const bootstrap = await bootstrapCachedSection({
+        authenticate: () => this.xtreamStore.checkPortalStatus(isCurrent),
+        hasCache: async () => !!cacheScope && (
+          this.xtreamStore.isCachedContentScopeReady(cacheScope) ||
+          await this.xtreamStore.hasUsableOfflineCache(cacheScope)),
+        hydrate: () => this.xtreamStore.hydrateCachedContent(cacheScope),
+        isCurrent,
+      });
+      if (!isCurrent()) return;
+      portalStatus = bootstrap.status ?? this.xtreamStore.portalStatus();
+      canUseCachedContent = bootstrap.cached;
       const nextBlockReason = canUseCachedContent
         ? null
         : toContentInitBlockReason(portalStatus);
@@ -317,7 +326,9 @@ export class XtreamWorkspaceRouteSession {
       section = this.syncRouteState(routeSection);
     }
 
-    if (portalStatus !== "active" && !canUseCachedContent && cacheScope) {
+    // Authentication does not mean this content kind is hydrated. A prior
+    // cached section can mark the store initialized while the next is idle.
+    if (!canUseCachedContent && cacheScope) {
       canUseCachedContent =
         this.xtreamStore.isCachedContentScopeReady(cacheScope) ||
         (await this.xtreamStore.hasUsableOfflineCache(cacheScope));

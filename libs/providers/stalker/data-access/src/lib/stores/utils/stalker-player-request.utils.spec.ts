@@ -37,6 +37,30 @@ describe('stalker-player-request.utils', () => {
         };
     });
 
+    it('does not send create_link when its playback resolution was cancelled', async () => {
+        const controller = new AbortController();
+        controller.abort();
+
+        await expect(
+            fetchStalkerPlaybackLink(
+                {
+                    dataService: dataService as never,
+                    stalkerSession: stalkerSession as StalkerSessionService,
+                },
+                {
+                    playlist: PLAYLIST,
+                    selectedContentType: 'series',
+                    cmd: '/media/episode.mpg',
+                    series: 1,
+                    signal: controller.signal,
+                }
+            )
+        ).rejects.toMatchObject({ name: 'AbortError' });
+
+        expect(dataService.sendIpcEvent).not.toHaveBeenCalled();
+        expect(stalkerSession.makeAuthenticatedRequest).not.toHaveBeenCalled();
+    });
+
     it('resolves relative replies against arbitrary discovered installations', async () => {
         // Discovery can persist a nested endpoint (/cp/server/load.php);
         // the base must come from the endpoint's API suffix, not from a

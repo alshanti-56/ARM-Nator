@@ -5,7 +5,7 @@ import {
     output,
 } from '@angular/core';
 import { MatIconModule } from '@angular/material/icon';
-import { TranslateModule } from '@ngx-translate/core';
+import { TranslatePipe } from '@ngx-translate/core';
 import type { UpNextRailItem } from './up-next-rail.util';
 
 /**
@@ -17,7 +17,7 @@ import type { UpNextRailItem } from './up-next-rail.util';
     selector: 'app-up-next-rail',
     templateUrl: './up-next-rail.component.html',
     styleUrl: './up-next-rail.component.scss',
-    imports: [MatIconModule, TranslateModule],
+    imports: [MatIconModule, TranslatePipe],
     changeDetection: ChangeDetectionStrategy.OnPush,
 })
 export class UpNextRailComponent {

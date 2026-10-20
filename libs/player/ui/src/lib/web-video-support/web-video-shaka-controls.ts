@@ -1,3 +1,4 @@
+import { inferTrackRole } from '@arm-nator/shared/interfaces';
 import type { PlayerTrack } from '../player-controls/player-controls.model';
 import type {
     ShakaPlayerLike,
@@ -54,6 +55,8 @@ export class WebVideoShakaControls {
                     track.language ||
                     `Audio ${index + 1}`,
                 selected: track.active,
+                language: track.language,
+                role: inferTrackRole({ roles: track.roles, label: track.label ?? undefined }),
             })
         );
     }
@@ -80,6 +83,8 @@ export class WebVideoShakaControls {
             id: index,
             label: formatTextTrackLabel(track, index),
             selected: track.active,
+            language: track.language,
+            role: inferTrackRole({ kind: track.kind, label: track.label ?? undefined }),
         }));
     }
 

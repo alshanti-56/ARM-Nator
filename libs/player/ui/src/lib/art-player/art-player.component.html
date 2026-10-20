@@ -7,6 +7,8 @@
     <div class="art-player-interaction-capture" aria-hidden="true"></div>
     <app-player-controls
         [controller]="controlsAdapter"
+        [seekPreviews]="channel().seekPreviews"
+        [seekPreviewCacheKey]="channel().seekPreviewCacheKey ?? ''"
         [playerSurface]="playerRoot"
         [mediaTitle]="mediaTitle()"
         [media]="controlsAdapter.mediaTelemetry()"

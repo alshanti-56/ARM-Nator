@@ -3,6 +3,7 @@
  * Operations for managing video playback progress
  */
 
+import type { ViewingItem, ViewingStateUpdate, CatalogueItemIdentity, TitleTrackPreferences } from '@arm-nator/shared/interfaces';
 import { handleWorkerRequest } from './worker-events.utils';
 
 handleWorkerRequest(
@@ -65,3 +66,12 @@ handleWorkerRequest(
         contentType,
     })
 );
+
+handleWorkerRequest('DB_RECONCILE_VIEWING_ITEM', (item: ViewingItem) => item);
+handleWorkerRequest('DB_SAVE_VIEWING_STATE', (update: ViewingStateUpdate) => update);
+handleWorkerRequest('DB_GET_VIEWING_RESUME', (identity: CatalogueItemIdentity, actualDuration?: number) => ({ identity, actualDuration }));
+
+handleWorkerRequest('DB_GET_TITLE_PREFERENCES', (item: ViewingItem) => item);
+handleWorkerRequest('DB_SAVE_TITLE_PREFERENCES', (item: ViewingItem, patch: TitleTrackPreferences, confirmedAt: number) => ({ item, patch, confirmedAt }));
+
+handleWorkerRequest('DB_GET_VIEWING_HISTORY', (playlistId?: string) => ({ playlistId }));

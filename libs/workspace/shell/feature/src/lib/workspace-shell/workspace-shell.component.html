@@ -1,8 +1,9 @@
-<div class="workspace-shell">
+<div class="workspace-shell" [class.workspace-shell--native-composition]="nativeComposition.enabled && !!nativeComposition.aperture()">
     @if (facade.showXtreamImportOverlay()) {
         <app-workspace-shell-import-overlay />
     }
 
+    <div class="workspace-shell__scene" [style.clip-path]="nativeComposition.sceneClip()">
     <app-workspace-shell-rail
         [isMacOS]="facade.isMacOS"
         [workspaceLinks]="facade.workspaceLinks()"
@@ -61,7 +62,6 @@
         </main>
     </div>
 
-    <app-workspace-player-host />
 
     @if (facade.showExternalPlaybackBar()) {
         @if (facade.externalPlaybackSession(); as session) {
@@ -76,4 +76,6 @@
             </footer>
         }
     }
+    </div>
+    <app-workspace-player-host />
 </div>

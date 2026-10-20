@@ -5,6 +5,7 @@
 
 import { ipcMain } from 'electron';
 import { databaseWorkerClient } from '../../services/database-worker-client';
+import { playbackAccountProfiles } from '../../services/playback-account-profile.service';
 import {
     handleWorkerRequest,
     requestWorkerWithEvents,
@@ -23,9 +24,10 @@ handleWorkerRequest('DB_GET_APP_PLAYLISTS', () => ({}));
 handleWorkerRequest('DB_GET_APP_PLAYLIST_METAS', () => ({}));
 handleWorkerRequest('DB_GET_APP_PLAYLIST', (playlistId: string) => ({ playlistId }));
 handleWorkerRequest('DB_GET_PLAYLIST', (playlistId: string) => ({ playlistId }));
-handleWorkerRequest(
+ipcMain.handle(
     'DB_UPDATE_PLAYLIST',
-    (
+    async (
+        _event,
         playlistId: string,
         updates: {
             name?: string;
@@ -34,10 +36,20 @@ handleWorkerRequest(
             serverUrl?: string;
             lastUpdated?: string;
         }
-    ) => ({
-        playlistId,
-        updates,
-    })
+    ) => {
+        const result = await databaseWorkerClient.request(
+            'DB_UPDATE_PLAYLIST',
+            { playlistId, updates }
+        );
+        if (
+            Object.prototype.hasOwnProperty.call(updates ?? {}, 'username') ||
+            Object.prototype.hasOwnProperty.call(updates ?? {}, 'password') ||
+            Object.prototype.hasOwnProperty.call(updates ?? {}, 'serverUrl')
+        ) {
+            playbackAccountProfiles.clear(playlistId);
+        }
+        return result;
+    }
 );
 handleWorkerRequest('DB_GET_APP_STATE', (key: string) => ({ key }));
 handleWorkerRequest('DB_SET_APP_STATE', (key: string, value: string) => ({
@@ -53,7 +65,7 @@ ipcMain.handle(
         operationId?: string
     ) => {
         try {
-            return await requestWorkerWithEvents(
+            const result = await requestWorkerWithEvents(
                 event,
                 'DB_DELETE_PLAYLIST',
                 {
@@ -61,6 +73,8 @@ ipcMain.handle(
                     operationId,
                 }
             );
+            playbackAccountProfiles.clear(playlistId);
+            return result;
         } catch (error) {
             console.error('Error handling DB_DELETE_PLAYLIST:', error);
             throw error;
@@ -72,11 +86,13 @@ ipcMain.handle(
     'DB_DELETE_ALL_PLAYLISTS',
     async (event, operationId?: string) => {
         try {
-            return await requestWorkerWithEvents(
+            const result = await requestWorkerWithEvents(
                 event,
                 'DB_DELETE_ALL_PLAYLISTS',
                 { operationId }
             );
+            playbackAccountProfiles.clearAll();
+            return result;
         } catch (error) {
             console.error('Error handling DB_DELETE_ALL_PLAYLISTS:', error);
             throw error;

@@ -1,10 +1,13 @@
-import { app, BrowserWindow } from 'electron';
+import { app, BrowserWindow, ipcMain } from 'electron';
+import { createWebVideoFrameCapture } from './app/services/web-video-frame-capture';
 import { getElectronUserDataPath } from '@arm-nator/database';
 import fixPath from 'fix-path';
 import App from './app/app';
+import { PlaybackExitCoordinator } from './app/services/playback-exit-coordinator';
+import { authorizePlaybackQuit, requestRendererPlaybackFlush } from './app/services/playback-exit-flush.service';
 import { initDatabase } from './app/database/connection';
 import DatabaseEvents from './app/events/database.events';
-import ElectronEvents from './app/events/electron.events';
+import ElectronEvents, { recordStartupMilestone } from './app/events/electron.events';
 import EmbeddedMpvEvents, {
     shutdownEmbeddedMpv,
 } from './app/events/embedded-mpv.events';
@@ -25,7 +28,6 @@ import WindowEvents from './app/events/window.events';
 import BrowserEvents, {
     shutdownBrowserView,
 } from './app/events/browser.events';
-import { browserViewService } from './app/services/browser-view.service';
 import XtreamEvents from './app/events/xtream.events';
 import StalkerEvents from './app/events/stalker.events';
 import CredentialTesterEvents, {
@@ -33,6 +35,7 @@ import CredentialTesterEvents, {
 } from './app/events/credential-tester.events';
 import { runEmbeddedMpvRuntimeDiagnosticOrContinue } from './app/services/embedded-mpv-runtime-diagnostic';
 import { startWebApi, stopWebApi } from './app/services/web-api.service';
+import { playbackDiagnostics } from './app/services/playback-diagnostics.service';
 
 function installBrokenPipeHandlers(): void {
     for (const stream of [process.stdout, process.stderr]) {
@@ -63,6 +66,7 @@ const electronUserDataPath = getElectronUserDataPath();
 if (electronUserDataPath) {
     app.setPath('userData', electronUserDataPath);
 }
+recordStartupMilestone('main-entry');
 
 // Keep development and packaged launches single-instance for this app's
 // user-data directory. A generic Electron shell from another checkout uses a
@@ -122,6 +126,7 @@ export default class Main {
         ElectronEvents.bootstrapElectronEvents();
         WindowEvents.bootstrapWindowEvents();
         BrowserEvents.bootstrapBrowserEvents();
+        ipcMain.handle('PLAYER:CAPTURE_WEB_FRAME', createWebVideoFrameCapture(() => App.mainWindow));
         EmbeddedMpvEvents.bootstrapEmbeddedMpvEvents();
         KsPlayerMetalEvents.bootstrapKsPlayerMetalEvents();
         SharedEvents.bootstrapSharedEvents();
@@ -134,19 +139,18 @@ export default class Main {
         DatabaseEvents.bootstrapDatabaseEvents();
 
         // Load the renderer only after IPC handlers are registered.
+        recordStartupMilestone('before-renderer-load');
         await App.loadMainWindow();
+        recordStartupMilestone('renderer-loaded');
 
-        if (App.mainWindow && !App.mainWindow.isDestroyed()) {
-            void browserViewService
-                .preloadYoutube(App.mainWindow)
-                .catch((error) => {
-                    console.warn('YouTube preload failed:', error);
-                });
-        }
+        // Browser and YouTube views are created by their open actions. Loading
+        // a remote page here competes with the cached dashboard and retains
+        // several idle renderer processes before either feature is used.
 
         // Initialize the database after the first renderer load is underway.
         // IPC handlers call getDatabase() lazily and share the same promise.
         await initDatabase();
+        recordStartupMilestone('database-ready');
 
         // Touch the worker before declaring startup healthy. This catches a
         // stale Electron-native SQLite binary at launch instead of allowing
@@ -165,6 +169,7 @@ export default class Main {
             throw startupError;
         }
 
+        recordStartupMilestone('worker-ready');
         await startWebApi();
 
         if (isStartupTraceEnabled()) {
@@ -202,13 +207,21 @@ if (!hasSingleInstanceLock) {
     });
 
     const bootstrap = () => {
+        recordStartupMilestone('before-window-bootstrap');
         // bootstrap app
         if (!webApiOnly) {
             Main.bootstrapApp();
         }
+        recordStartupMilestone('after-window-bootstrap');
 
         // Bootstrap app events after Electron app is ready
         app.whenReady().then(async () => {
+            recordStartupMilestone('electron-ready');
+            playbackDiagnostics.record({
+                event: 'app-start',
+                transport: 'electron-main',
+                details: `Electron ${process.versions.electron}; Node ${process.versions.node}; ${process.platform}-${process.arch}`,
+            });
             if (isStartupTraceEnabled()) {
                 trace('startup', 'app.whenReady');
             }
@@ -220,7 +233,9 @@ if (!hasSingleInstanceLock) {
             }
         });
 
-        app.on('before-quit', () => {
+        const exitCoordinator = new PlaybackExitCoordinator(() => requestRendererPlaybackFlush(App.mainWindow?.webContents), { onError: error => console.error('Exit progress flush failed:', error) });
+        app.on('before-quit', event => {
+            if (exitCoordinator.deferQuit(event, () => { authorizePlaybackQuit(); app.quit(); })) return;
             void stopWebApi();
             void hlsPlaybackProxy.shutdown();
             void shutdownCredentialTesterBatches();

@@ -9,9 +9,9 @@
     "emitDecoratorMetadata": true,
     "experimentalDecorators": true,
     "importHelpers": true,
-    "target": "es2015",
+    "target": "es2022",
     "module": "esnext",
-    "lib": ["es2020", "dom"],
+    "lib": ["es2022", "dom"],
     "skipLibCheck": true,
     "skipDefaultLibCheck": true,
     "baseUrl": ".",
@@ -26,8 +26,8 @@
       "@arm-nator/player/ui/embedded-mpv-player": [
         "libs/player/ui/src/lib/embedded-mpv-player/index.ts"
       ],
-            "@arm-nator/player/ui": ["libs/player/ui/src/index.ts"],
-            "@arm-nator/player/util": ["libs/player/util/src/index.ts"],
+      "@arm-nator/player/ui": ["libs/player/ui/src/index.ts"],
+      "@arm-nator/player/util": ["libs/player/util/src/index.ts"],
       "@arm-nator/providers/catalog/feature": [
         "libs/providers/catalog/feature/src/index.ts"
       ],
@@ -54,6 +54,9 @@
       ],
       "@arm-nator/providers/shared/util": [
         "libs/providers/shared/util/src/index.ts"
+      ],
+      "@arm-nator/providers/shared/util/testing": [
+        "libs/providers/shared/util/src/lib/testing/node-browser-environment.ts"
       ],
       "@arm-nator/providers/shared/playlist-state": [
         "libs/providers/shared/playlist-state/src/index.ts"
@@ -97,7 +100,11 @@
       "@arm-nator/shared/marketing-fixtures": [
         "./libs/shared/marketing-fixtures/src/index.ts"
       ]
-    }
+    },
+    "strict": false,
+    "noUncheckedSideEffectImports": false,
+    "types": ["*"],
+    "ignoreDeprecations": "6.0"
   },
   "exclude": ["node_modules", "tmp"],
   "files": ["global.d.ts"]

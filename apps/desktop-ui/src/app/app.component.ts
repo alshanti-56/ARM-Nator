@@ -1,7 +1,8 @@
-import { Component, effect, HostBinding, inject, OnInit, signal } from '@angular/core';
+import { BrowserGuestHostComponent } from './browser-guest-host.component';
+import { Component, effect, HostBinding, inject, OnInit, signal, ChangeDetectionStrategy } from '@angular/core';
 import { Router, RouterOutlet } from '@angular/router';
 import { Store } from '@ngrx/store';
-import { TranslateModule, TranslateService } from '@ngx-translate/core';
+import { TranslatePipe, TranslateService } from '@ngx-translate/core';
 import { WORKSPACE_SHELL_ACTIONS } from '@arm-nator/workspace/shell/util';
 import { PlaylistActions } from '@arm-nator/providers/shared/playlist-state';
 import {
@@ -15,11 +16,13 @@ import {
     Theme,
 } from '@arm-nator/shared/interfaces';
 import { SettingsService } from '@arm-nator/settings/data-access';
+import { isTypingInInput } from '@arm-nator/providers/shared/util';
 
 @Component({
     selector: 'app-root',
     templateUrl: './app.component.html',
-    imports: [RouterOutlet, TranslateModule],
+    changeDetection: ChangeDetectionStrategy.OnPush,
+    imports: [RouterOutlet, TranslatePipe, BrowserGuestHostComponent],
 })
 export class AppComponent implements OnInit {
     @HostBinding('class.macos-platform') get isMacOS() {
@@ -45,20 +48,17 @@ export class AppComponent implements OnInit {
 
         if (this.runtime.isElectron) {
             document.addEventListener('keydown', (event) => {
-                if (event.ctrlKey || event.metaKey) {
-                    if (event.key === 'r') {
-                        event.preventDefault();
-                        this.workspaceShellActions.openGlobalRecent();
-                    }
-                }
+                if (event.defaultPrevented || !(event.ctrlKey || event.metaKey) || event.key.toLowerCase() !== 'r') return;
+                // Suppress Chromium reload even when an editor owns focus.
+                event.preventDefault();
+                if (event.isComposing || event.altKey || event.shiftKey || isTypingInInput(event)) return;
+                this.workspaceShellActions.openGlobalRecent();
             });
         }
     }
 
     ngOnInit() {
         this.store.dispatch(PlaylistActions.loadPlaylists());
-        this.translate.setDefaultLang(this.DEFAULT_LANG);
-
         this.initSettings();
         void this.loadBundledKsPlayerSupport();
     }

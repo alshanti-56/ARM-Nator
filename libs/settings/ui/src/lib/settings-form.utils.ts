@@ -2,10 +2,12 @@ import { FormBuilder } from "@angular/forms";
 import {
   CoverSize,
   DEFAULT_DASHBOARD_RAILS_SETTINGS,
+  DEFAULT_MEDIA_COMPANION_SETTINGS,
   DEFAULT_TMDB_SETTINGS,
   Language,
   normalizeDashboardRailsSettings,
   normalizeExternalPlayerArguments,
+  normalizeMediaCompanionSettings,
   Settings,
   StartupBehavior,
   StreamFormat,
@@ -15,9 +17,9 @@ import {
 
 export function createSettingsForm(formBuilder: FormBuilder) {
   return formBuilder.group({
-    player: [VideoPlayer.ArtPlayer],
-    livePlayer: [VideoPlayer.ArtPlayer],
-    vodPlayer: [VideoPlayer.ArtPlayer],
+    player: [VideoPlayer.Auto],
+    livePlayer: [VideoPlayer.Auto],
+    vodPlayer: [VideoPlayer.Auto],
     playerAmbientMode: false,
     playerUpNextRail: true,
     streamFormat: StreamFormat.AutoStreamFormat,
@@ -50,6 +52,11 @@ export function createSettingsForm(formBuilder: FormBuilder) {
     tmdb: formBuilder.group({
       enabled: DEFAULT_TMDB_SETTINGS.enabled,
       apiKey: DEFAULT_TMDB_SETTINGS.apiKey ?? "",
+    }),
+    mediaCompanion: formBuilder.group({
+      enabled: DEFAULT_MEDIA_COMPANION_SETTINGS.enabled,
+      baseUrl: DEFAULT_MEDIA_COMPANION_SETTINGS.baseUrl,
+      allowConversion: DEFAULT_MEDIA_COMPANION_SETTINGS.allowConversion,
     }),
   });
 }
@@ -94,6 +101,7 @@ export function createSettingsFromFormValue(
       enabled: value.tmdb?.enabled ?? DEFAULT_TMDB_SETTINGS.enabled,
       apiKey: value.tmdb?.apiKey?.trim() ?? "",
     },
+    mediaCompanion: normalizeMediaCompanionSettings(value.mediaCompanion),
   };
 }
 

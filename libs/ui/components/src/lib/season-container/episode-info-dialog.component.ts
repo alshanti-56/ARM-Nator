@@ -1,4 +1,4 @@
-import { Component, inject } from '@angular/core';
+import { Component, inject, ChangeDetectionStrategy } from '@angular/core';
 import { MatButtonModule } from '@angular/material/button';
 import {
     MAT_DIALOG_DATA,
@@ -6,7 +6,7 @@ import {
     MatDialogRef,
 } from '@angular/material/dialog';
 import { MatIconModule } from '@angular/material/icon';
-import { TranslateModule } from '@ngx-translate/core';
+import { TranslatePipe } from '@ngx-translate/core';
 import { XtreamSerieEpisode } from '@arm-nator/shared/interfaces';
 
 export interface EpisodeInfoDialogData {
@@ -53,7 +53,7 @@ export const EPISODE_INFO_PLAY = 'play' as const;
 @Component({
     selector: 'app-episode-info-dialog',
     standalone: true,
-    imports: [MatButtonModule, MatDialogModule, MatIconModule, TranslateModule],
+    imports: [MatButtonModule, MatDialogModule, MatIconModule, TranslatePipe],
     template: `
         <div class="episode-info">
             @if (data.thumbnailUrl) {
@@ -107,6 +107,7 @@ export const EPISODE_INFO_PLAY = 'play' as const;
             </button>
         </div>
     `,
+    changeDetection: ChangeDetectionStrategy.OnPush,
     styles: [
         `
             :host {

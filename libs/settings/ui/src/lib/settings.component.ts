@@ -8,6 +8,7 @@ import {
   OnInit,
   signal,
   ViewEncapsulation,
+  ChangeDetectionStrategy
 } from "@angular/core";
 import { ReactiveFormsModule } from "@angular/forms";
 import { MatButtonModule } from "@angular/material/button";
@@ -19,7 +20,7 @@ import {
 import { MatIconModule } from "@angular/material/icon";
 import { Router } from "@angular/router";
 import { SettingsContextService } from "@arm-nator/workspace/shell/util";
-import { TranslateModule, TranslateService } from "@ngx-translate/core";
+import { TranslatePipe, TranslateService } from "@ngx-translate/core";
 import { RuntimeCapabilitiesService } from "@arm-nator/services";
 import {
   Language,
@@ -68,7 +69,7 @@ import { SettingsSnackbarService } from "./settings-snackbar.service";
     MatButtonModule,
     MatIconModule,
     ReactiveFormsModule,
-    TranslateModule,
+    TranslatePipe,
     MatDialogModule,
     SettingsAboutSectionComponent,
     SettingsBackupSectionComponent,
@@ -79,6 +80,7 @@ import { SettingsSnackbarService } from "./settings-snackbar.service";
     SettingsSectionScrollDirective,
     SettingsTmdbSectionComponent,
   ],
+  changeDetection: ChangeDetectionStrategy.Eager,
   providers: [
     SettingsBackupFacade,
     SettingsEmbeddedMpvFacade,

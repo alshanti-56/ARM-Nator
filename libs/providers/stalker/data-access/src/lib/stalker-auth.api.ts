@@ -1,7 +1,7 @@
+import { abortableStalkerRequest } from './abortable-stalker-request';
 import type { DataService } from '@arm-nator/services';
 import {
     extractStalkerAuthFailureBody,
-    STALKER_REQUEST,
     STALKER_STB_PROFILE_PARAMS,
 } from '@arm-nator/shared/interfaces';
 import type { createLogger } from '@arm-nator/providers/shared/util';
@@ -214,8 +214,8 @@ export class StalkerAuthApi {
             // computed and the request would still go out.
             assertNotAborted(signal);
             const response =
-                await this.dataService.sendIpcEvent<StalkerHandshakeResponse>(
-                    STALKER_REQUEST,
+                await abortableStalkerRequest<StalkerHandshakeResponse>(
+                    this.dataService,
                     {
                         url: portalUrl,
                         macAddress,
@@ -223,7 +223,7 @@ export class StalkerAuthApi {
                         ...(normalizedIdentity.serialNumber
                             ? { serialNumber: normalizedIdentity.serialNumber }
                             : {}),
-                    }
+                    }, signal
                 );
 
             assertNotAuthFailure(response);
@@ -312,8 +312,8 @@ export class StalkerAuthApi {
             // pre-check can be stale by now.
             assertNotAborted(options.signal);
             const response =
-                await this.dataService.sendIpcEvent<StalkerProfileResponse>(
-                    STALKER_REQUEST,
+                await abortableStalkerRequest<StalkerProfileResponse>(
+                    this.dataService,
                     {
                         url: portalUrl,
                         macAddress,
@@ -322,7 +322,7 @@ export class StalkerAuthApi {
                         ...(normalizedIdentity.serialNumber
                             ? { serialNumber: normalizedIdentity.serialNumber }
                             : {}),
-                    }
+                    }, options.signal
                 );
 
             assertNotAuthFailure(response);
@@ -363,8 +363,8 @@ export class StalkerAuthApi {
         try {
             assertNotAborted(signal);
             const response =
-                await this.dataService.sendIpcEvent<StalkerAuthConfirmationResponse>(
-                    STALKER_REQUEST,
+                await abortableStalkerRequest<StalkerAuthConfirmationResponse>(
+                    this.dataService,
                     {
                         url: portalUrl,
                         macAddress,
@@ -373,7 +373,7 @@ export class StalkerAuthApi {
                         ...(normalizedIdentity.serialNumber
                             ? { serialNumber: normalizedIdentity.serialNumber }
                             : {}),
-                    }
+                    }, signal
                 );
 
             assertNotAuthFailure(response);

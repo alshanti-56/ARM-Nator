@@ -1,6 +1,19 @@
 import { inject, Injectable } from '@angular/core';
 import { DataService } from '@arm-nator/services';
-import { createLogger } from '@arm-nator/providers/shared/util';import { XtreamCategory, XtreamCodeActions, XtreamLiveStream, XtreamSerieDetails, XtreamSerieItem, XtreamVodDetails, XtreamVodStream, XTREAM_REQUEST, normalizeXtreamServerUrl } from '@arm-nator/shared/interfaces';
+import { createLogger } from '@arm-nator/providers/shared/util';
+import {
+    canTryNextXtreamAccountAction,
+    normalizeXtreamServerUrl,
+    XTREAM_REQUEST,
+    XtreamCategory,
+    XtreamCodeActions,
+    XtreamLiveStream,
+    XtreamSerieDetails,
+    XtreamSerieItem,
+    XtreamVodDetails,
+    XtreamVodStream,
+    requireXtreamCatalogueArray,
+} from '@arm-nator/shared/interfaces';
 
 import { XtreamAccountInfo } from '../account-info/account-info.interface';
 
@@ -9,6 +22,7 @@ import { XtreamAccountInfo } from '../account-info/account-info.interface';
  */
 export interface XtreamCredentials {
     allowedOutputFormats?: string[];
+    playbackServerUrl?: string;
     serverUrl: string;
     username: string;
     password: string;
@@ -28,6 +42,7 @@ export interface XtreamRequestOptions {
     requestId?: string;
     sessionId?: string;
     suppressErrorLog?: boolean;
+    requireArray?: boolean;
 }
 
 const XTREAM_ACCOUNT_ACTIONS = [
@@ -90,6 +105,9 @@ export class XtreamApiService {
 
                 lastResponse = response;
             } catch (error) {
+                if (!canTryNextXtreamAccountAction(error)) {
+                    throw error;
+                }
                 lastError = error;
             }
         }
@@ -127,7 +145,9 @@ export class XtreamApiService {
             options
         );
 
-        return Array.isArray(response) ? response : [];
+        return options?.requireArray
+            ? requireXtreamCatalogueArray(response)
+            : Array.isArray(response) ? response : [];
     }
 
     /**
@@ -147,7 +167,9 @@ export class XtreamApiService {
             options
         );
 
-        return Array.isArray(response) ? response : [];
+        return options?.requireArray
+            ? requireXtreamCatalogueArray(response)
+            : Array.isArray(response) ? response : [];
     }
 
     /**
@@ -167,7 +189,9 @@ export class XtreamApiService {
             options
         );
 
-        return Array.isArray(response) ? response : [];
+        return options?.requireArray
+            ? requireXtreamCatalogueArray(response)
+            : Array.isArray(response) ? response : [];
     }
 
     /**
@@ -187,7 +211,9 @@ export class XtreamApiService {
             options
         );
 
-        return Array.isArray(response) ? response : [];
+        return options?.requireArray
+            ? requireXtreamCatalogueArray(response)
+            : Array.isArray(response) ? response : [];
     }
 
     /**
@@ -297,6 +323,7 @@ export class XtreamApiService {
         })) as {
             message?: string;
             payload?: unknown;
+            status?: number;
             type?: string;
         };
 
@@ -307,7 +334,14 @@ export class XtreamApiService {
             response?.type === 'ERROR' ||
             (!response?.payload && response?.message)
         ) {
-            throw new Error(response?.message ?? 'Request failed');
+            const error = new Error(response?.message ?? 'Request failed') as Error & {
+                status?: number;
+            };
+            error.status = response?.status;
+            if (error.status === 499) {
+                error.name = 'AbortError';
+            }
+            throw error;
         }
 
         return response?.payload as TResponse;

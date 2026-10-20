@@ -346,6 +346,7 @@ export class PlaylistsService {
                       favorites: currentPlaylist.favorites,
                       recentlyViewed: currentPlaylist.recentlyViewed,
                       position: currentPlaylist.position,
+                      hiddenStalkerCategoryIds: currentPlaylist.hiddenStalkerCategoryIds,
                   }
                 : {}),
             autoRefresh:

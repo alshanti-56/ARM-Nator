@@ -7,6 +7,7 @@ import { TmdbSettings } from './tmdb.interface';
  * Contains all types of supported video players
  */
 export enum VideoPlayer {
+    Auto = 'auto',
     Html5Player = 'html5',
     EmbeddedMpv = 'embedded-mpv',
     KsPlayer = 'ksplayer',
@@ -38,11 +39,12 @@ export function normalizeDirectPlayPreferences(
     const seekStepSeconds = Number(value?.seekStepSeconds);
     const frameRate = Number(value?.frameRate);
 
-    return {
-        engine: normalizeVideoPlayer(
+    const engine = normalizeVideoPlayer(
             value?.engine,
             DEFAULT_DIRECT_PLAY_PREFERENCES.engine
-        ),
+        );
+    return {
+        engine: engine === VideoPlayer.Auto ? DEFAULT_DIRECT_PLAY_PREFERENCES.engine : engine,
         layout: value?.layout === 'compact' ? 'compact' : 'full',
         seekStepSeconds: Number.isFinite(seekStepSeconds)
             ? Math.min(600, Math.max(1, Math.round(seekStepSeconds)))
@@ -131,6 +133,37 @@ export function normalizeDashboardRailsSettings(
     return normalized;
 }
 
+export interface MediaCompanionSettings {
+    enabled: boolean;
+    baseUrl: string;
+    allowConversion: boolean;
+}
+
+export const DEFAULT_MEDIA_COMPANION_SETTINGS: MediaCompanionSettings = {
+    enabled: false,
+    baseUrl: 'http://127.0.0.1:4321/',
+    allowConversion: false,
+};
+
+export type MediaCompanionSettingsInput = {
+    [Key in keyof MediaCompanionSettings]?: MediaCompanionSettings[Key] | null;
+};
+
+export function normalizeMediaCompanionSettings(
+    settings?: MediaCompanionSettingsInput | null
+): MediaCompanionSettings {
+    const baseUrl = settings?.baseUrl?.trim();
+    return {
+        enabled: typeof settings?.enabled === 'boolean'
+            ? settings.enabled
+            : DEFAULT_MEDIA_COMPANION_SETTINGS.enabled,
+        baseUrl: baseUrl || DEFAULT_MEDIA_COMPANION_SETTINGS.baseUrl,
+        allowConversion: typeof settings?.allowConversion === 'boolean'
+            ? settings.allowConversion
+            : DEFAULT_MEDIA_COMPANION_SETTINGS.allowConversion,
+    };
+}
+
 /**
  * Describes all available settings options of the application
  */
@@ -196,4 +229,6 @@ export interface Settings {
      * Disabled by default because enrichment sends content titles to TMDB.
      */
     tmdb?: TmdbSettings;
+    /** Optional media companion endpoint preferences. Pairing tokens are ephemeral and never persisted here. */
+    mediaCompanion?: MediaCompanionSettings;
 }

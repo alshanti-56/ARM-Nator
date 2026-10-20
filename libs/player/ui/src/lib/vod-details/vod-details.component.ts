@@ -1,4 +1,4 @@
-import { Component, computed, effect, inject, input, output, signal, untracked } from '@angular/core';
+import { Component, computed, effect, inject, input, output, signal, untracked, ChangeDetectionStrategy } from '@angular/core';
 import { MatIcon } from '@angular/material/icon';
 import { TranslatePipe } from '@ngx-translate/core';
 import { SafePipe } from '@arm-nator/pipes';
@@ -47,6 +47,7 @@ import { PortalInlinePlayerComponent } from '../portal-inline-player/portal-inli
     selector: 'app-vod-details',
     templateUrl: './vod-details.component.html',
     styleUrls: ['../styles/detail-view.scss'],
+    changeDetection: ChangeDetectionStrategy.Eager,
     imports: [
         DetailActionsTemplateDirective,
         DetailMetaTemplateDirective,

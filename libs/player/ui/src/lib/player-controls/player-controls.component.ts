@@ -1,3 +1,6 @@
+import { SeekPreviewComponent } from './seek-preview.component';
+import { MiniPlayerChromeService } from '../workspace-player/mini-player-chrome.service';
+import type { SeekPreviewSource } from '@arm-nator/shared/interfaces';
 /* eslint-disable max-lines */
 import {
     ChangeDetectionStrategy,
@@ -48,6 +51,7 @@ import type {
         MatIconModule,
         MatTooltipModule,
         PlayerSettingsPanelComponent,
+        SeekPreviewComponent,
         TranslatePipe,
     ],
     changeDetection: ChangeDetectionStrategy.OnPush,
@@ -57,10 +61,13 @@ import type {
     },
 })
 export class PlayerControlsComponent implements OnDestroy {
+    private readonly miniChrome = inject(MiniPlayerChromeService, { optional: true });
     private readonly host = inject(ElementRef<HTMLElement>).nativeElement;
     private readonly translate = inject(TranslateService);
     readonly controller = input.required<PlayerController>();
     readonly playerSurface = input<HTMLElement | null>(null);
+    readonly seekPreviews = input<SeekPreviewSource | undefined>();
+    readonly seekPreviewCacheKey = input('');
     readonly showControls = input(true);
     readonly shortcutsEnabled = input(true);
     readonly mediaTitle = input<PlayerMediaTitle | null>(null);
@@ -162,12 +169,18 @@ export class PlayerControlsComponent implements OnDestroy {
     readonly controlsAreVisible = this.vm.controlsAreVisible;
     readonly hideCursor = this.vm.hideCursor;
     constructor() {
+        effect((onCleanup) => {
+            const visible = this.controlsAreVisible();
+            this.miniChrome?.controlsVisible.set(visible);
+            onCleanup(() => this.miniChrome?.controlsVisible.set(false));
+        });
         this.shortcuts.attach({
             isAvailable: () =>
                 this.shortcutsEnabled() &&
                 this.showControls() &&
                 !this.host.closest('.workspace-player--mini'),
             canTogglePaused: () => this.canTogglePlay(),
+            canHandleEscape: () => this.showControls() && this.menus.anyOpen(),
             canSeek: () => this.capabilities().seek && this.state().canSeek,
             canAdjustVolume: () => this.capabilities().volume,
             canToggleFullscreen: () => this.canFullscreen(),

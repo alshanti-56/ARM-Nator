@@ -1,3 +1,4 @@
+import type { PlaybackRequestPolicy } from '@arm-nator/shared/interfaces';
 import type Artplayer from "artplayer";
 import type { Option } from "artplayer";
 import Hls, {
@@ -7,7 +8,11 @@ import Hls, {
   type ManifestParsedData,
 } from "hls.js";
 import mpegts from "mpegts.js";
-import { createDevLogger, type ChannelDrm } from "@arm-nator/shared/interfaces";
+import {
+  createDevLogger,
+  type AutoPlaybackPreparation,
+  type ChannelDrm,
+} from "@arm-nator/shared/interfaces";
 import {
   InlinePlaybackPlayer,
   type PlaybackDiagnostic,
@@ -38,6 +43,11 @@ import { seekVideoToLiveEdge } from "../web-video-support/live-edge-resume";
 import { VodPlaybackRecovery } from "../web-video-support/vod-playback-recovery";
 import { ProgressiveVodProxySession } from "../web-video-support/progressive-vod-proxy-session";
 import { MpegTsProxySession } from "../web-video-support/mpegts-proxy-session";
+import { awaitPlaybackTeardowns } from "../workspace-player/playback-teardown-registry";
+import {
+  setNativeVideoSource,
+} from "../web-video-support/web-video-native-source.util";
+import { getPreparedProxyMimeType } from "../web-video-support/prepared-proxy-source.util";
 
 // Used only before the first live playlist exposes timing metadata.
 const LIVE_HLS_FALLBACK_SEGMENT_DURATION_SECONDS = 2;
@@ -45,11 +55,14 @@ const INITIAL_LIVE_SYNC_SEGMENTS = 4;
 const MAX_LIVE_SYNC_SEGMENTS = 6;
 const LIVE_WINDOW_SAFETY_SEGMENTS = 2;
 const debugMpegTs = createDevLogger("ArtPlayer MPEG-TS");
+const debugSource = createDevLogger("ArtPlayer source teardown");
 const MPEGTS_STARTUP_GRACE_MS = 20_000;
 
 export interface ArtPlayerSourceSessionConfig {
   controlsAdapter: WebVideoControlsAdapter;
   isLive: () => boolean;
+  providerRecovery?: () => boolean;
+  startPaused?: boolean;
   showCaptions: () => boolean;
   emitPlaybackIssue: (issue: PlaybackDiagnostic) => void;
   /** DRM config of the active channel, used by the DASH (`mpd`) engine. */
@@ -62,6 +75,10 @@ export interface ArtPlayerSourceSessionConfig {
   mediaRequestHeaders?: Record<string, string>;
   /** Provider headers used by the raw MPEG-TS transport. */
   mpegTsRequestHeaders?: Record<string, string>;
+  /** Prepared URL is owned and released by the automatic playback registry. */
+  preparedProxy?: AutoPlaybackPreparation;
+  requestPolicy?: PlaybackRequestPolicy;
+  direct?: boolean;
 }
 
 interface PendingPlaybackIssue {
@@ -156,6 +173,7 @@ export class ArtPlayerSourceSession {
       },
       onExhausted: () => this.handleVodHlsRecoveryExhausted(),
     });
+    this.playbackIntent = config.startPaused ? 'pause' : null;
     this.unregisterPlaybackIntentListener =
       this.config.controlsAdapter.registerPlaybackIntentListener((intent) =>
         this.handlePlaybackIntent(intent),
@@ -227,8 +245,18 @@ export class ArtPlayerSourceSession {
     this.progressiveVodProxy.release();
     this.mpegTsProxy.release();
     this.shakaSession?.destroy();
-    this.shakaSession = null;
     this.player = null;
+  }
+
+  async quiesce(): Promise<void> {
+    const shakaSession = this.shakaSession;
+    this.destroy();
+    await awaitPlaybackTeardowns([
+      this.hlsProxySession.releaseAndWait(),
+      this.progressiveVodProxy.releaseAndWait(),
+      this.mpegTsProxy.releaseAndWait(),
+      shakaSession?.destroyAndWait() ?? Promise.resolve(),
+    ]);
   }
 
   private startHls(
@@ -306,38 +334,112 @@ export class ArtPlayerSourceSession {
           url,
           this.config.hlsRequestHeaders,
           () => !this.destroyed && this.hls === hls,
+          this.config.preparedProxy,
+          this.config.requestPolicy,
+          this.config.direct,
         )
         .then((loaded) => {
-          if (loaded && !this.destroyed && this.hls === hls) {
-            if (this.config.isLive()) {
-              this.hlsWatchdog.start(video, {
-                isLive: this.config.isLive,
-                onNoProgress: (reason) => this.hlsRecovery.request(reason),
-                onPlaying: () => {
-                  this.clearPendingPlaybackIssue();
-                  this.clearHlsResumeTimer();
-                  this.lastHlsIssue = null;
-                  this.hlsRecovery.markPlaying();
-                },
-                onUnstable: () => this.hlsRecovery.markUnstable(),
-                onUserPause: () => this.hlsRecovery.reset(),
-              });
+          if (this.destroyed || this.hls !== hls) {
+            return;
+          }
+          if (!loaded) {
+            this.controlsBridge?.clearSource();
+            this.destroyHls();
+            this.emitHlsProxyFailure(url);
+            return;
+          }
+          if (this.config.isLive()) {
+            this.hlsWatchdog.start(video, {
+              isLive: this.config.isLive,
+              onNoProgress: (reason) => this.hlsRecovery.request(reason),
+              onPlaying: () => {
+                this.clearPendingPlaybackIssue();
+                this.clearHlsResumeTimer();
+                this.lastHlsIssue = null;
+                this.hlsRecovery.markPlaying();
+              },
+              onUnstable: () => this.hlsRecovery.markUnstable(),
+              onUserPause: () => this.hlsRecovery.reset(),
+            });
+          }
+          if (resumePlayback && this.playbackIntent !== "pause") {
+            const playResult = video.play();
+            if (playResult) {
+              void playResult.catch(() => undefined);
             }
-            if (resumePlayback) {
-              const playResult = video.play();
-              if (playResult) {
-                void playResult.catch(() => undefined);
-              }
-            }
+          }
+        })
+        .catch((error: unknown) => {
+          debugSource("Unable to load the HLS proxy:", error);
+          if (!this.destroyed && this.hls === hls) {
+            this.controlsBridge?.clearSource();
+            this.destroyHls();
+            this.emitHlsProxyFailure(url);
           }
         });
       return;
     }
 
     if (video.canPlayType("application/vnd.apple.mpegurl")) {
-      video.src = url;
       this.bindControlsSource({ kind: "native" });
+      const generation = this.nativeSourceGeneration;
+      const isCurrent = () =>
+        !this.destroyed && generation === this.nativeSourceGeneration;
+      void this.hlsProxySession
+        .load(
+          {
+            loadSource: (sourceUrl) => {
+              const mimeType = getPreparedProxyMimeType(
+                this.config.preparedProxy,
+              );
+              if (mimeType) {
+                setNativeVideoSource(video, sourceUrl, mimeType);
+              } else {
+                video.src = sourceUrl;
+              }
+            },
+          },
+          url,
+          this.config.hlsRequestHeaders,
+          isCurrent,
+          this.config.preparedProxy,
+          this.config.requestPolicy,
+          this.config.direct,
+        )
+        .then((loaded) => {
+          if (!isCurrent()) {
+            return;
+          }
+          if (!loaded) {
+            this.controlsBridge?.clearSource();
+            this.emitHlsProxyFailure(url);
+            return;
+          }
+          video.load();
+          if (resumePlayback && this.playbackIntent !== "pause") {
+            void video.play()?.catch(() => undefined);
+          }
+        })
+        .catch((error: unknown) => {
+          debugSource("Unable to load the native HLS proxy:", error);
+          if (isCurrent()) {
+            this.emitHlsProxyFailure(url);
+          }
+        });
     }
+  }
+
+  private emitHlsProxyFailure(url: string): void {
+    this.config.emitPlaybackIssue(
+      classifyHlsPlaybackIssue(
+        {
+          type: ErrorTypes.NETWORK_ERROR,
+          details: "Electron HLS proxy initialization failed.",
+          fatal: true,
+        },
+        this.createSourceMetadata(url, "application/x-mpegURL"),
+      ),
+    );
   }
 
   private startMpegTs(video: HTMLVideoElement, url: string): void {
@@ -361,6 +463,10 @@ export class ArtPlayerSourceSession {
           sourceGeneration === this.nativeSourceGeneration &&
           this.mpegTsUrl === url &&
           this.mpegTsVideo === video,
+        this.config.isLive(),
+        this.config.preparedProxy,
+        this.config.requestPolicy,
+        this.config.direct,
       )
       .then((playbackUrl) => {
         if (
@@ -475,7 +581,7 @@ export class ArtPlayerSourceSession {
       });
     }
     engine.load();
-    const playResult = engine.play();
+    const playResult = this.playbackIntent === "pause" ? undefined : engine.play();
     if (playResult) {
       void playResult.catch((error: unknown) => {
         debugMpegTs(
@@ -500,7 +606,11 @@ export class ArtPlayerSourceSession {
     this.prepareForSourceChange();
     const session = this.getShakaSession();
     this.bindControlsSource({ kind: "shaka", session });
-    session.start(video, url, this.config.getDrm?.());
+    session.start(video, url, this.config.getDrm?.(), {
+      headers: this.config.mediaRequestHeaders, requestPolicy: this.config.requestPolicy,
+      preparedProxy: this.config.preparedProxy, direct: this.config.direct,
+      providerRecovery: this.config.providerRecovery?.(),
+    });
   }
 
   private startNative(video: HTMLVideoElement, url: string): void {
@@ -523,8 +633,13 @@ export class ArtPlayerSourceSession {
     this.bindControlsSource({ kind: "native" });
     const generation = ++this.nativeSourceGeneration;
     const setSource = (sourceUrl: string): void => {
-      video.preload = "auto";
-      video.src = sourceUrl;
+      const mimeType = getPreparedProxyMimeType(this.config.preparedProxy);
+      if (mimeType) {
+        setNativeVideoSource(video, sourceUrl, mimeType);
+      } else {
+        video.preload = "auto";
+        video.src = sourceUrl;
+      }
     };
 
     void this.progressiveVodProxy
@@ -533,6 +648,9 @@ export class ArtPlayerSourceSession {
         url,
         this.config.mediaRequestHeaders,
         () => !this.destroyed && generation === this.nativeSourceGeneration,
+        this.config.preparedProxy,
+        this.config.requestPolicy,
+        this.config.direct,
       )
       .then((loaded) => {
         if (
@@ -549,6 +667,9 @@ export class ArtPlayerSourceSession {
             void playResult.catch(() => undefined);
           }
         }
+      })
+      .catch((error: unknown) => {
+        debugSource("Unable to load the progressive VOD proxy:", error);
       });
   }
 
@@ -900,9 +1021,18 @@ export class ArtPlayerSourceSession {
         fatal: data.fatal,
         message: data.error?.message,
         error: data.error,
+        response: data.response,
+        networkDetails: data.networkDetails,
       },
       this.createSourceMetadata(url, "application/x-mpegURL"),
     );
+    if (this.config.providerRecovery?.() && (issue.network?.status === 401 || issue.network?.status === 403)) {
+      this.hlsRecovery.reset(); this.vodHlsRecovery.reset();
+      this.hlsWatchdog.stop(); this.clearPendingPlaybackIssue(); this.clearHlsResumeTimer();
+      hls.stopLoad();
+      this.config.emitPlaybackIssue(issue);
+      return;
+    }
     if (this.config.isLive()) {
       if (
         data.type === ErrorTypes.NETWORK_ERROR ||
@@ -920,7 +1050,6 @@ export class ArtPlayerSourceSession {
         // Recovery remains scheduled, but restartHls() will only
         // replace the engine after the buffer is nearly exhausted.
         hls.stopLoad();
-        hls.startLoad();
         this.hlsRecovery.request(`${data.type}: ${data.details}`, {
           cancelOnPlaying: false,
         });

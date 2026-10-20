@@ -2,13 +2,6 @@
 @use './settings-theme';
 @use './cover-size';
 
-// ─── Tailwind CSS ─────────────────────────────────────────────────────────────
-// Preflight is disabled in tailwind.config.js to avoid conflicts with
-// Angular Material. Only components + utilities are loaded.
-@tailwind base;
-@tailwind components;
-@tailwind utilities;
-
 .app-runtime-warning {
     display: grid;
     gap: 4px;
@@ -284,4 +277,17 @@ textarea,
     clip: rect(0, 0, 0, 0);
     white-space: nowrap;
     border: 0;
+}
+
+// Only the controlled native-video opening is transparent; the clipped workspace scene owns all surrounding paint.
+html:has(> body.native-composition-active), body.native-composition-active {background:transparent !important;}
+
+// A transparent fullscreen picture must not expose the player chrome that
+// remains beneath the browser's fullscreen top layer. Keep only that element
+// visible; CSS restores the surrounding player immediately on fullscreen exit.
+body.native-composition-active .workspace-player:has(.embedded-mpv-player:fullscreen) {
+    visibility: hidden;
+}
+body.native-composition-active .embedded-mpv-player:fullscreen {
+    visibility: visible;
 }

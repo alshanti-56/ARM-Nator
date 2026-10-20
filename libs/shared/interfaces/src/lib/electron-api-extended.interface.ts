@@ -1,3 +1,7 @@
+import type { StalkerSearchRequestPayload, StalkerSearchPageResponse } from './stalker-request.interface';
+import type { StalkerRequestPayload } from './stalker-request.interface';
+import type { TitleTrackPreferences } from './title-track-preferences';
+import type { ViewingItem, ViewingStateUpdate, CatalogueItemIdentity, ViewingResume, ViewingHistoryEntry } from './viewing-continuity';
 import { EmbeddedMpvBounds, EmbeddedMpvSession, EmbeddedMpvSupport } from './embedded-mpv-session.interface';
 import type { ElectronBridgeKsPlayerMetalApi } from './electron-api.interface';
 import { ExternalPlayerControlAction, ExternalPlayerSession } from './external-player-session.interface';
@@ -5,11 +9,12 @@ import { GlobalSearchPaginationOptions, GlobalSearchResult, GlobalSearchResultSo
 import { PlaybackPositionData } from './playback-position.interface';
 import { XtreamBackupFavoriteItem, XtreamBackupHiddenCategory, XtreamBackupRecentlyViewedItem } from './playlist-backup.interface';
 import { Playlist } from './playlist.interface';
-import { PlaybackNetworkInspection, PlayerContentInfo, PlayerEngineAvailability, ResolvedPortalPlayback } from './portal-playback.interface';
+import { AutoPlaybackPreparationResult, PlaybackNetworkInspection, PlayerContentInfo, PlayerEngineAvailability, ResolvedPortalPlayback } from './portal-playback.interface';
 import { PortalDebugEvent } from './portal-debug.interface';
 import { CatalogTitleMatch } from './catalog-title-match.interface';
 import type { PlayerPictureSettings } from './video-picture-settings.interface';
 import type { PlayerSubtitleSettings } from './player-subtitle-settings.interface';
+import type { PlaybackRequestPolicy, PlaybackResourceKind } from './playback-recovery.interface';
 import type {
     XtreamContentMetadata,
     XtreamMetadataEnrichmentState,
@@ -24,6 +29,7 @@ import {
     OpenSubtitlesSearchResult,
 } from './open-subtitles.interface';
 import type {
+    BrowserGuestSurfaceState,
     BrowserViewBounds,
     BrowserViewBoundsTarget,
     BrowserViewCommand,
@@ -94,10 +100,20 @@ export interface ElectronBridgeXtreamRequestPayload {
     requestId?: string;
     sessionId?: string;
     suppressErrorLog?: boolean;
+    /** Stable playlist id; contains no provider credentials. */
+    accountRef?: string;
 }
 export interface ElectronBridgeXtreamResponse {
     payload: unknown;
     action: string;
+}
+export interface ElectronBridgeXtreamFailure {
+    error: {
+        type: 'ERROR';
+        message: string;
+        status: number;
+        name?: 'AbortError';
+    };
 }
 export interface ElectronBridgeXtreamCancelResult extends ElectronBridgeResult {
     cancelled: number;
@@ -241,12 +257,22 @@ export interface ElectronBridgeApi extends ElectronBridgeKsPlayerMetalApi {
     openInMpv: (url: string, title: string, thumbnail: string, userAgent: string | undefined, referer?: string, origin?: string, contentInfo?: PlayerContentInfo, startTime?: number, headers?: Record<string, string>, subtitleUrl?: string) => Promise<ExternalPlayerSession>;
     openInVlc: (url: string, title: string, thumbnail: string, userAgent: string | undefined, referer?: string, origin?: string, contentInfo?: PlayerContentInfo, startTime?: number, headers?: Record<string, string>, subtitleUrl?: string) => Promise<ExternalPlayerSession>;
     inspectPlaybackUrl: (url: string, headers?: Record<string, string>) => Promise<PlaybackNetworkInspection>;
-    createHlsProxySession: (url: string, headers?: Record<string, string>) => Promise<{ id: string; url: string }>;
+    prepareAutoPlayback: (url: string, headers: Record<string, string> | undefined, isLive: boolean, attemptId: string, policy?: PlaybackRequestPolicy) => Promise<AutoPlaybackPreparationResult>;
+    cancelAutoPlaybackPreparation: (attemptId: string) => Promise<void>;
+    releaseAutoPlaybackSession: (sessionId: string) => Promise<void>;
+    recordAutomaticPlaybackDecision: (decision: { sourceUrl: string; sessionId?: string; engine: string; reason: string }) => Promise<void>;
+    createHlsProxySession: (url: string, headers?: Record<string, string>, policy?: PlaybackRequestPolicy) => Promise<{ id: string; url: string }>;
     releaseHlsProxySession: (sessionId: string) => Promise<void>;
-    createProgressiveVodProxySession: (url: string, headers?: Record<string, string>) => Promise<{ id: string; url: string }>;
+    createProgressiveVodProxySession: (url: string, headers?: Record<string, string>, policy?: PlaybackRequestPolicy) => Promise<{ id: string; url: string }>;
     releaseProgressiveVodProxySession: (sessionId: string) => Promise<void>;
-    createMpegTsProxySession: (url: string, headers?: Record<string, string>) => Promise<{ id: string; url: string }>;
+    createMpegTsProxySession: (url: string, headers?: Record<string, string>, isLive?: boolean, policy?: PlaybackRequestPolicy) => Promise<{ id: string; url: string }>;
     releaseMpegTsProxySession: (sessionId: string) => Promise<void>;
+    createDashProxySession: (url: string, headers?: Record<string, string>, policy?: PlaybackRequestPolicy) => Promise<{ id: string; url: string }>;
+    registerDashProxyResource: (sessionId: string, targetUrl: string, resourceKind?: PlaybackResourceKind) => Promise<string>;
+    registerDashProxyLicense: (sessionId: string, licenseUrl: string, licenseHeaders?: Record<string, string>) => Promise<string>;
+    releaseDashProxySession: (sessionId: string) => Promise<void>;
+    getPlaybackRecoveryAvailability: (accountRef: string) => Promise<{ loginCookies: boolean; portalCredentials: boolean }>;
+    clearPlaybackAccountProfile: (accountRef: string) => Promise<void>;
     getPlayerEngineAvailability: () => Promise<PlayerEngineAvailability[]>;
     updateSettings: (settings: Partial<Settings>) => Promise<void>;
     getAiSettings: () => Promise<ElectronBridgeAiSettings>;
@@ -259,15 +285,10 @@ export interface ElectronBridgeApi extends ElectronBridgeKsPlayerMetalApi {
     clearOpenSubtitlesCache: () => Promise<void>;
     setMpvPlayerPath: (mpvPlayerPath: string) => Promise<void>;
     setVlcPlayerPath: (vlcPlayerPath: string) => Promise<void>;
-    xtreamRequest: (payload: ElectronBridgeXtreamRequestPayload) => Promise<ElectronBridgeXtreamResponse>;
-    stalkerRequest: (payload: {
-        url: string;
-        macAddress: string;
-        params: Record<string, string | number>;
-        token?: string;
-        serialNumber?: string;
-        requestId?: string;
-    }) => Promise<unknown>;
+    xtreamRequest: (payload: ElectronBridgeXtreamRequestPayload) => Promise<ElectronBridgeXtreamResponse | ElectronBridgeXtreamFailure>;
+    stalkerRequest: (payload: StalkerRequestPayload) => Promise<unknown>;
+    stalkerSearchPage: (payload: StalkerSearchRequestPayload) => Promise<StalkerSearchPageResponse>;
+    stalkerCancelRequest: (requestId: string) => Promise<{ cancelled: boolean }>;
     xtreamCancelSession: (sessionId: string) => Promise<ElectronBridgeXtreamCancelResult>;
     xtreamProbeUrl: (url: string, method?: 'GET' | 'HEAD') => Promise<ElectronBridgeXtreamProbeResult>;
     startCredentialTestBatch: (request: CredentialTestBatchStartRequest) => Promise<string>;
@@ -292,6 +313,10 @@ export interface ElectronBridgeApi extends ElectronBridgeKsPlayerMetalApi {
     operationId?: string) => Promise<Playlist | null>;
     dbUpdatePlaylist: (playlistId: string, updates: Partial<Playlist> | ElectronBridgePlaylistInput) => Promise<ElectronBridgeResult>;
     dbDeletePlaylist: (playlistId: string, operationId?: string) => Promise<ElectronBridgeResult>;
+    nativePlayerCompositionEnabled?: boolean;
+    performanceCaptureEnabled?: boolean;
+    reportUiPerformance?: (sample: { name: 'dashboard' | 'category' | 'search'; phase?: 'catalogue-read'; startedAt: number; paintedAt: number }) => void;
+    dbReplaceXtreamCatalogue: (playlistId: string, snapshot: import('./xtream-catalogue.interface').XtreamCatalogueSnapshot, account: import('./xtream-catalogue.interface').XtreamCatalogueAccountIdentity, operationId?: string) => Promise<import('./xtream-catalogue.interface').XtreamCatalogueRefreshResult>;
     dbDeleteXtreamContent: (playlistId: string, operationId?: string) => Promise<{
         success: boolean;
         favorites: XtreamBackupFavoriteItem[];
@@ -306,6 +331,7 @@ export interface ElectronBridgeApi extends ElectronBridgeKsPlayerMetalApi {
     dbUpdateCategoryVisibility: (categoryIds: number[], hidden: boolean) => Promise<ElectronBridgeResult>;
     dbHasContent: (playlistId: string, type: string) => Promise<boolean>;
     dbGetContent: (playlistId: string, type: string) => Promise<ElectronBridgeXtreamContent[]>;
+    dbGetContentSerialized?: (playlistId: string, type: ElectronBridgePortalContentType) => Promise<string>;
     dbSaveContent: (playlistId: string, streams: ElectronBridgeXtreamContentStream[], type: string, operationId?: string) => Promise<ElectronBridgeCountResult>;
     dbClearXtreamImportCache: (playlistId: string, type: ElectronBridgePortalContentType) => Promise<ElectronBridgeResult>;
     dbSearchContent: (playlistId: string, searchTerm: string, types: string[], excludeHidden?: boolean, options?: GlobalSearchPaginationOptions) => Promise<ElectronBridgeXtreamContent[]>;
@@ -345,6 +371,12 @@ export interface ElectronBridgeApi extends ElectronBridgeKsPlayerMetalApi {
     onDbOperationEvent?: (callback: (data: ElectronBridgeDbOperationEvent) => void) => () => void;
     dbDeleteAllPlaylists: (operationId?: string) => Promise<ElectronBridgeResult>;
     dbCancelOperation: (operationId: string) => Promise<ElectronBridgeResult>;
+    dbGetViewingHistory?: (playlistId?: string) => Promise<ViewingHistoryEntry[]>;
+    dbReconcileViewingItem?: (item: ViewingItem) => Promise<{ identityKey: string; workId: string }>;
+    dbSaveViewingState?: (update: ViewingStateUpdate) => Promise<{ success: boolean }>;
+    dbGetTitlePreferences?: (item: ViewingItem) => Promise<TitleTrackPreferences | null>;
+    dbSaveTitlePreferences?: (item: ViewingItem, patch: TitleTrackPreferences, confirmedAt: number) => Promise<{ success: boolean }>;
+    dbGetViewingResume?: (identity: CatalogueItemIdentity, actualDuration?: number) => Promise<ViewingResume | null>;
     dbSavePlaybackPosition: (playlistId: string, data: ElectronBridgePlaybackPositionInput) => Promise<ElectronBridgeResult>;
     dbGetPlaybackPosition: (playlistId: string, contentXtreamId: number, contentType: ElectronBridgePlaybackContentType) => Promise<PlaybackPositionData | null>;
     dbGetSeriesPlaybackPositions: (playlistId: string, seriesXtreamId: number) => Promise<PlaybackPositionData[]>;
@@ -352,6 +384,7 @@ export interface ElectronBridgeApi extends ElectronBridgeKsPlayerMetalApi {
     dbGetAllPlaybackPositions: (playlistId: string) => Promise<PlaybackPositionData[]>;
     dbClearAllPlaybackPositions: (playlistId: string) => Promise<ElectronBridgeResult>;
     dbClearPlaybackPosition: (playlistId: string, contentXtreamId: number, contentType: ElectronBridgePlaybackContentType) => Promise<ElectronBridgeResult>;
+    onPlaybackProgressFlush?: (callback: () => Promise<string | null>) => () => void;
     onPlaybackPositionUpdate: (callback: (data: PlaybackPositionData) => void) => () => void;
     onExternalPlayerSessionUpdate?: (callback: (data: ExternalPlayerSession) => void) => () => void;
     onEmbeddedMpvSessionUpdate?: (callback: (data: EmbeddedMpvSession) => void) => () => void;
@@ -373,6 +406,9 @@ export interface ElectronBridgeApi extends ElectronBridgeKsPlayerMetalApi {
     setEmbeddedMpvAspect?: (sessionId: string, aspect: string) => Promise<EmbeddedMpvSession | null>;
     setEmbeddedMpvPicture?: (sessionId: string, picture: PlayerPictureSettings) => Promise<EmbeddedMpvSession | null>;
     disposeEmbeddedMpvSession: (sessionId: string) => Promise<EmbeddedMpvSession | null>;
+    captureWebVideoFrame?: (bounds: EmbeddedMpvBounds) => Promise<string | null>;
+    registerBrowserGuest?: (id: number, mode: BrowserViewMode) => Promise<void>;
+    onBrowserGuestSurfaces?: (callback: (surfaces: BrowserGuestSurfaceState[]) => void) => () => void;
     openBrowserView: (
         mode: BrowserViewMode,
         url?: string

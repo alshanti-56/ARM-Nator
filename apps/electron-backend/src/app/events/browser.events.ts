@@ -1,4 +1,4 @@
-import { BrowserWindow, ipcMain } from 'electron';
+import { BrowserWindow, ipcMain, webContents } from 'electron';
 import type {
     BrowserViewBounds,
     BrowserViewBoundsTarget,
@@ -14,19 +14,26 @@ import {
     BROWSER_VIEW_SET_BOUNDS,
 } from '@arm-nator/shared/interfaces';
 import App from '../app';
-import { browserViewService } from '../services/browser-view.service';
+import { browserViewService, browserGuestRegistry } from '../services/browser-view.service';
 
 function getSenderWindow(
     event: Electron.IpcMainInvokeEvent
 ): Electron.BrowserWindow | null {
     const window = BrowserWindow.fromWebContents(event.sender);
-    return window && window === App.mainWindow && !window.isDestroyed()
+    return window && window === App.mainWindow && window.webContents === event.sender && !window.isDestroyed()
         ? window
         : null;
 }
 
 export default class BrowserEvents {
     static bootstrapBrowserEvents(): Electron.IpcMain {
+        ipcMain.handle('BROWSER:REGISTER_GUEST', (event, id: number, mode: BrowserViewMode) => {
+            const owner = getSenderWindow(event);
+            const guest = Number.isSafeInteger(id) ? webContents.fromId(id) : null;
+            if (!owner || event.senderFrame !== event.sender.mainFrame || !guest ||
+                (mode !== 'browser' && mode !== 'youtube')) throw new Error('Browser guest registration is not authorized.');
+            browserGuestRegistry.register(owner, guest, mode);
+        });
         ipcMain.handle(
             BROWSER_VIEW_OPEN,
             (event, mode: BrowserViewMode, url?: string) => {

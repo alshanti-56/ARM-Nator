@@ -1,11 +1,12 @@
 import {
-    Component,
-    OnDestroy,
-    computed,
-    effect,
-    inject,
-    input,
-    signal,
+  Component,
+  OnDestroy,
+  computed,
+  effect,
+  inject,
+  input,
+  signal,
+  ChangeDetectionStrategy
 } from '@angular/core';
 import { MatSnackBar } from '@angular/material/snack-bar';
 import { Router } from '@angular/router';
@@ -25,6 +26,7 @@ import {
     isSelectedStalkerVodFavorite,
     normalizeStalkerEntityId,
     StalkerSelectedVodItem,
+    StalkerStore,
     toggleStalkerVodFavorite,
 } from '@arm-nator/providers/stalker/data-access';
 import {
@@ -44,6 +46,7 @@ import {
 } from '@arm-nator/shared/interfaces';
 import { StalkerCatalogFacadeService } from '../stalker-catalog-facade.service';
 import { StalkerSeriesViewComponent } from '../stalker-series-view/stalker-series-view.component';
+import { createStalkerPlaybackRecoveryContext } from '../stalker-playback-recovery';
 
 import { createPlaybackSessionKey } from '@arm-nator/player/util';
 
@@ -51,6 +54,7 @@ import { createPlaybackSessionKey } from '@arm-nator/player/util';
     selector: 'app-stalker-catalog-detail',
     imports: [StalkerSeriesViewComponent, VodDetailsComponent],
     templateUrl: './stalker-catalog-detail.component.html',
+    changeDetection: ChangeDetectionStrategy.Eager,
     styles: [
         `
             :host {
@@ -63,6 +67,7 @@ import { createPlaybackSessionKey } from '@arm-nator/player/util';
 })
 export class StalkerCatalogDetailComponent implements OnDestroy {
     private readonly catalog = inject(StalkerCatalogFacadeService);
+    private readonly stalkerStore = inject(StalkerStore);
     private readonly playbackPositions = inject(PORTAL_PLAYBACK_POSITIONS);
     private readonly portalPlayer = inject(PORTAL_PLAYER);
     private readonly playbackPositionBridge = inject(
@@ -76,6 +81,7 @@ export class StalkerCatalogDetailComponent implements OnDestroy {
     private readonly logger = createLogger('StalkerCatalogDetail');
     private readonly favoritesRefresh = createRefreshTrigger();
     private playbackRequestId = 0;
+    private playbackRequestController: AbortController | null = null;
     private currentPlaybackOwnerKey = '';
 
     readonly contentType = this.catalog.contentType;
@@ -249,6 +255,8 @@ export class StalkerCatalogDetailComponent implements OnDestroy {
 
     closeInlinePlayer(): void {
         this.playbackRequestId += 1;
+        this.playbackRequestController?.abort();
+        this.playbackRequestController = null;
         this.inlinePlayback.set(null);
         this.positionWriter.reset();
     }
@@ -274,6 +282,7 @@ export class StalkerCatalogDetailComponent implements OnDestroy {
 
 
     ngOnDestroy(): void {
+        this.playbackRequestController?.abort();
         this.closeInlinePlayer();
         this.unsubscribePositionUpdates?.();
     }
@@ -302,25 +311,44 @@ export class StalkerCatalogDetailComponent implements OnDestroy {
         startTime?: number
     ): Promise<void> {
         const requestId = ++this.playbackRequestId;
+        this.playbackRequestController?.abort();
+        const controller = new AbortController();
+        this.playbackRequestController = controller;
         const sessionKey = this.playbackSessionKey();
         const ownerKey = this.playbackOwnerKey();
         const usesEmbeddedPlayer = this.portalPlayer.isEmbeddedPlayer();
         if (usesEmbeddedPlayer && !sessionKey) return;
-
-        try {
-            const playback = await this.catalog.resolveVodPlayback(
+        const item = this.selectedItem();
+        const playlist = this.stalkerStore.currentPlaylist();
+        const selectedContentType = this.contentType();
+        const resolve = (signal?: AbortSignal, recordRecentlyViewed = true) =>
+            this.catalog.resolveVodPlayback(
                 cmd,
                 title,
                 thumbnail,
-                startTime
+                startTime,
+                {
+                    item,
+                    playlist,
+                    selectedContentType,
+                    signal,
+                    recordRecentlyViewed,
+                },
             );
+        try {
+            const playback = await resolve(controller.signal);
             if (
+                controller.signal.aborted ||
                 requestId !== this.playbackRequestId ||
                 this.playbackOwnerKey() !== ownerKey
             ) {
                 return;
             }
 
+            const recoveryContext = createStalkerPlaybackRecoveryContext(
+                playback,
+                ({ signal }) => resolve(signal, false),
+            );
             this.positionWriter.reset();
             if (usesEmbeddedPlayer) {
                 this.inlinePlayback.set(playback);
@@ -328,9 +356,10 @@ export class StalkerCatalogDetailComponent implements OnDestroy {
             }
 
             this.closeInlinePlayer();
-            void this.portalPlayer.openResolvedPlayback(playback, true);
+            void this.portalPlayer.openResolvedPlayback(playback, true, recoveryContext);
         } catch (error) {
             if (
+                controller.signal.aborted ||
                 requestId !== this.playbackRequestId ||
                 this.playbackOwnerKey() !== ownerKey
             ) {

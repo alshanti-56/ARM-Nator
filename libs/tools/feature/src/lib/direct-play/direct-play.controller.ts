@@ -36,7 +36,7 @@ import {
   getDirectPlayStaticCapabilities,
   isDirectPlayNativeEngine,
 } from "./direct-play-capabilities";
-import { hasStartedEmbeddedMpvSession } from "./direct-play-native-session";
+import { isUnexpectedEmbeddedMpvSession } from "./direct-play-native-session";
 
 interface DirectPlaybackInfo {
   readonly protocol: string;
@@ -59,7 +59,7 @@ export class DirectPlayController implements OnDestroy {
   private readonly settingsStore = inject(SettingsStore);
   private readonly workspacePlayer = inject(WorkspacePlayerStateService);
 
-  readonly engines = PLAYER_ENGINES;
+  readonly engines = PLAYER_ENGINES.filter((engine) => engine.id !== VideoPlayer.Auto);
   readonly playback = signal<ResolvedPortalPlayback | null>(null);
   readonly selectedEngine = signal(VideoPlayer.ArtPlayer);
   readonly status = signal<
@@ -445,8 +445,9 @@ export class DirectPlayController implements OnDestroy {
 
   onRuntimeSnapshot(snapshot: PlayerRuntimeSnapshot): void {
     if (
-      this.selectedEngine() === VideoPlayer.KsPlayer &&
-      hasStartedEmbeddedMpvSession(snapshot.engine)
+      isUnexpectedEmbeddedMpvSession(
+        this.selectedEngine(), this.workspacePlayer.engine(), snapshot.engine,
+      )
     ) {
       if (!this.metalPlaybackFailure()) {
         const message =

@@ -5,6 +5,11 @@
 
 import { ipcMain } from 'electron';
 import { requestWorkerWithEvents } from './worker-events.utils';
+import type { XtreamCatalogueSnapshot, XtreamCatalogueAccountIdentity } from '@arm-nator/shared/interfaces';
+
+ipcMain.handle('DB_REPLACE_XTREAM_CATALOGUE', (event, playlistId: string, snapshot: XtreamCatalogueSnapshot, account: XtreamCatalogueAccountIdentity, operationId?: string) =>
+    requestWorkerWithEvents(event, 'DB_REPLACE_XTREAM_CATALOGUE', { playlistId, snapshot, account, operationId })
+);
 
 ipcMain.handle(
     'DB_DELETE_XTREAM_CONTENT',

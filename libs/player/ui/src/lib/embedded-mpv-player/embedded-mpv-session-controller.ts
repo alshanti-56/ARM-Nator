@@ -1,3 +1,5 @@
+import { NativeCompositionService } from './native-composition.service';
+import { canRevealNativeFrame, type NativeApertureRadius } from './native-presentation-state';
 /* eslint-disable max-lines */
 import {
     DestroyRef,
@@ -20,6 +22,7 @@ import {
     ResolvedPortalPlayback,
 } from '@arm-nator/shared/interfaces';
 import { EmbeddedMpvCommandRunner } from './embedded-mpv-command-runner';
+import { awaitPlaybackTeardowns } from '../workspace-player/playback-teardown-registry';
 import { measureBounds } from './embedded-mpv-format.utils';
 import {
     createErrorSession,
@@ -59,6 +62,9 @@ const EMPTY_KS_CONTROLS: KsPlayerMetalControls = {
 
 @Injectable()
 export class EmbeddedMpvSessionController {
+    readonly committedBounds = signal<EmbeddedMpvBounds | null>(null);
+    readonly apertureRadius = signal<NativeApertureRadius>(0);
+    private readonly composition = inject(NativeCompositionService);
     readonly support = signal<EmbeddedMpvSupport | null>(null);
     readonly session = signal<EmbeddedMpvSession | null>(null);
     readonly sessionId = signal<string | null>(null);
@@ -93,6 +99,8 @@ export class EmbeddedMpvSessionController {
     private pendingSupportRequest: Promise<void> | null = null;
     private pendingOperation: Promise<void> | null = null;
     private pendingCleanup: Promise<void> | null = null;
+    private activeTeardown: (() => Promise<void>) | null = null;
+    private pendingInitialSeek: { sessionId: string; seconds: number } | null = null;
 
     private boundsProvider: EmbeddedMpvBoundsProvider = (host) =>
         measureBounds(host);
@@ -100,6 +108,23 @@ export class EmbeddedMpvSessionController {
     private boundsAnimationFrame: number | null = null;
 
     constructor() {
+        let owner: string | null = null;
+        effect(() => {
+            const id=this.sessionId(), snapshot=this.session(), bounds=this.committedBounds(), active=this.sessionActive();
+            const radius = this.apertureRadius();
+            untracked(() => {
+                if (!this.composition.enabled) return;
+                if (owner!==id) {
+                    if(owner)this.composition.clearAperture(owner);
+                    if(id)this.composition.beginSession(id);
+                    owner=id;
+                }
+                if (!id) return;
+                if(bounds && canRevealNativeFrame({enabled:true,activeSessionId:id,snapshot,closing:!active})) {
+                    this.composition.updateAperture({sessionId:id,bounds,radius});
+                } else this.composition.hideAperture(id);
+            });
+        });
         const unsubscribeEmbedded =
             window.electron?.onEmbeddedMpvSessionUpdate?.((session) =>
                 this.handleSessionUpdate(session)
@@ -148,10 +173,27 @@ export class EmbeddedMpvSessionController {
         this.activeBoundsSync?.();
     }
 
-    retry(): void {
+    async retry(): Promise<boolean> {
+        const playback = this.activePlayback();
+        const volume = this.session()?.volume ?? 0.5;
         this.stalledTracker.reset();
+        try {
+            await this.teardownActiveSessionAndWait();
+        } catch (error) {
+            if (playback) {
+                this.session.set(
+                    this.decorateSession(
+                        createErrorSession(playback, volume, error),
+                        this.configuredBackend
+                    )
+                );
+            }
+            return false;
+        }
         this.sessionActive.set(false);
         this.session.set(null);
+        if (this.sessionId()) this.composition.clearAperture(this.sessionId()!);
+        this.committedBounds.set(null);
         this.sessionId.set(null);
         this.activePlayback.set(null);
         this.activeBackend.set(this.configuredBackend);
@@ -159,6 +201,7 @@ export class EmbeddedMpvSessionController {
         this.supportedControls.set(null);
         this.requestSupport(this.configuredBackend);
         this.retryToken.update((value) => value + 1);
+        return true;
     }
 
     /** Start one explicitly selected backend. */
@@ -169,12 +212,14 @@ export class EmbeddedMpvSessionController {
         requestedBackend: EmbeddedMpvBackend = this.configuredBackend
     ): () => void {
         this.setBackend(requestedBackend);
+        this.pendingInitialSeek = null;
 
         let disposed = false;
         let activeSessionId: string | null = null;
         let activeSessionBackend: EmbeddedMpvBackend = requestedBackend;
         const previousOperation = this.pendingOperation;
         const previousCleanup = this.pendingCleanup;
+        const previousTeardown = this.activeTeardown;
         this.sessionActive.set(true);
         this.activeBackend.set(requestedBackend);
         this.activePlayback.set(playback);
@@ -197,17 +242,14 @@ export class EmbeddedMpvSessionController {
             const electron = this.getElectronBridge();
             const id = activeSessionId;
             const bounds = this.boundsProvider(host);
-            if (activeSessionBackend === 'ksplayer-metal') {
-                if (typeof electron?.setKsPlayerMetalBounds === 'function') {
-                    void electron
-                        .setKsPlayerMetalBounds(id, bounds)
-                        .catch(() => undefined);
-                }
-            } else if (typeof electron?.setEmbeddedMpvBounds === 'function') {
-                void electron
-                    .setEmbeddedMpvBounds(id, bounds)
-                    .catch(() => undefined);
-            }
+            const operation = activeSessionBackend === 'ksplayer-metal'
+                ? electron?.setKsPlayerMetalBounds?.(id,bounds)
+                : electron?.setEmbeddedMpvBounds?.(id,bounds);
+            if(operation) void operation.then(() => {
+                if (!disposed && this.sessionId()===id) this.committedBounds.set(bounds);
+            }).catch(() => {
+                if(this.sessionId()===id) this.committedBounds.set(null);
+            });
         };
 
         const scheduleBoundsSync = () => {
@@ -293,13 +335,20 @@ export class EmbeddedMpvSessionController {
                         playback.title,
                         initialVolume
                     );
+                    activeSessionId = created.id;
                     if (disposed) {
                         await cleanupKsSession(electron, created.id);
+                        activeSessionId = null;
                         return;
                     }
-                    activeSessionId = created.id;
                     this.sessionId.set(created.id);
                     this.session.set(this.decorateSession(created, backend));
+                    // KSPlayer's load bridge accepts URL/headers, unlike MPV's
+                    // native start option. Arm before load: paused-ready metadata
+                    // can arrive before its IPC acknowledgement, with no later poll.
+                    if (!disposed && !playback.isLive && Number.isFinite(playback.startTime) && playback.startTime! > 0) {
+                        this.pendingInitialSeek = { sessionId: created.id, seconds: playback.startTime! };
+                    }
                     await electron.loadKsPlayerMetalPlayback(
                         created.id,
                         playback
@@ -323,11 +372,12 @@ export class EmbeddedMpvSessionController {
                         playback.title,
                         initialVolume
                     );
+                    activeSessionId = created.id;
                     if (disposed) {
-                        await electron.disposeEmbeddedMpvSession(created.id);
+                        await this.disposeEmbeddedSession(electron, created.id);
+                        activeSessionId = null;
                         return;
                     }
-                    activeSessionId = created.id;
                     this.sessionId.set(created.id);
                     this.session.set(this.decorateSession(created, backend));
                     await electron.loadEmbeddedMpvPlayback(
@@ -367,7 +417,9 @@ export class EmbeddedMpvSessionController {
                 await cleanupKsSession(electron, activeSessionId);
                 activeSessionId = null;
                 activeSessionBackend = requestedBackend;
-                this.sessionId.set(null);
+                if (this.sessionId()) this.composition.clearAperture(this.sessionId()!);
+        this.committedBounds.set(null);
+        this.sessionId.set(null);
                 this.session.set(null);
                 this.activeBackend.set(requestedBackend);
                 this.reconcileKsFailure(error);
@@ -386,7 +438,9 @@ export class EmbeddedMpvSessionController {
             if (disposed) {
                 return;
             }
-            this.sessionId.set(null);
+            if (this.sessionId()) this.composition.clearAperture(this.sessionId()!);
+        this.committedBounds.set(null);
+        this.sessionId.set(null);
             this.session.set(
                 this.decorateSession(
                     createErrorSession(playback, initialVolume, error),
@@ -395,51 +449,87 @@ export class EmbeddedMpvSessionController {
             );
         });
 
-        return () => {
+        let teardownInitialized = false;
+        let cleanupComplete = false;
+        let teardownPromise: Promise<void> | null = null;
+        const teardown = (): Promise<void> => {
+            if (cleanupComplete) {
+                return Promise.resolve();
+            }
+            if (teardownPromise) {
+                return teardownPromise;
+            }
+
             disposed = true;
-            this.sessionActive.set(false);
-            resizeObserver.disconnect();
-            window.removeEventListener('resize', scheduleBoundsSync);
-            window.removeEventListener('scroll', scheduleBoundsSync, true);
-            detachDprWatch?.();
-            detachDprWatch = null;
+            if (!teardownInitialized) {
+                teardownInitialized = true;
+                this.sessionActive.set(false);
+                resizeObserver.disconnect();
+                window.removeEventListener('resize', scheduleBoundsSync);
+                window.removeEventListener('scroll', scheduleBoundsSync, true);
+                detachDprWatch?.();
+                detachDprWatch = null;
 
-            if (this.activeBoundsSync === scheduleBoundsSync) {
-                this.activeBoundsSync = null;
-            }
-            if (this.boundsAnimationFrame !== null) {
-                cancelAnimationFrame(this.boundsAnimationFrame);
-                this.boundsAnimationFrame = null;
+                if (this.activeBoundsSync === scheduleBoundsSync) {
+                    this.activeBoundsSync = null;
+                }
+                if (this.boundsAnimationFrame !== null) {
+                    cancelAnimationFrame(this.boundsAnimationFrame);
+                    this.boundsAnimationFrame = null;
+                }
+
+                if (this.sessionId()) this.composition.clearAperture(this.sessionId()!);
+        this.committedBounds.set(null);
+        this.sessionId.set(null);
+                this.session.set(null);
+                if (this.activePlayback() === playback) {
+                    this.activePlayback.set(null);
+                }
             }
 
-            const id = activeSessionId;
-            const backend = activeSessionBackend;
-            activeSessionId = null;
-            this.sessionId.set(null);
-            this.session.set(null);
-            if (this.activePlayback() === playback) {
-                this.activePlayback.set(null);
-            }
+            const cleanup = async (): Promise<void> => {
+                await previousTeardown?.();
+                await trackedOperation.catch(() => undefined);
+                if (activeSessionId) {
+                    const electron = this.getElectronBridge();
+                    if (!electron) {
+                        throw new Error('Electron bridge is unavailable while stopping native playback.');
+                    }
+                    if (activeSessionBackend === 'ksplayer-metal') {
+                        await cleanupKsSession(electron, activeSessionId);
+                    } else {
+                        await this.disposeEmbeddedSession(electron, activeSessionId);
+                    }
+                    activeSessionId = null;
+                }
+                cleanupComplete = true;
+                if (this.activeTeardown === teardown) {
+                    this.activeTeardown = null;
+                }
+            };
 
-            if (id) {
-                const electron = this.getElectronBridge();
-                const cleanup =
-                    backend === 'ksplayer-metal'
-                        ? electron
-                            ? cleanupKsSession(electron, id)
-                            : undefined
-                        : electron?.disposeEmbeddedMpvSession(id);
-                const trackedCleanup = Promise.resolve(cleanup)
-                    .then(() => undefined)
-                    .catch(() => undefined)
-                    .finally(() => {
-                        if (this.pendingCleanup === trackedCleanup) {
-                            this.pendingCleanup = null;
-                        }
-                    });
-                this.pendingCleanup = trackedCleanup;
-            }
+            const trackedCleanup = cleanup().finally(() => {
+                if (this.pendingCleanup === trackedCleanup) {
+                    this.pendingCleanup = null;
+                }
+                if (teardownPromise === trackedCleanup) {
+                    teardownPromise = null;
+                }
+            });
+            teardownPromise = trackedCleanup;
+            this.pendingCleanup = trackedCleanup;
+            return trackedCleanup;
         };
+        this.activeTeardown = teardown;
+        return teardown;
+    }
+
+    async teardownActiveSessionAndWait(): Promise<void> {
+        await this.activeTeardown?.();
+        const operation = this.pendingOperation?.then(() => undefined);
+        await awaitPlaybackTeardowns([operation ?? Promise.resolve()]);
+        await this.activeTeardown?.();
+        await this.pendingCleanup;
     }
 
     readonly togglePaused = (): Promise<void> => this.commands.togglePaused();
@@ -481,6 +571,14 @@ export class EmbeddedMpvSessionController {
             return;
         }
         this.session.set(this.decorateSession(session, sessionBackend));
+        const pending = this.pendingInitialSeek;
+        if (pending?.sessionId === session.id && sessionBackend === 'ksplayer-metal' &&
+            this.sessionActive() && this.isControlSupported('seek') && !session.seeking &&
+            ['playing', 'paused'].includes(session.status) && (session.durationSeconds ?? 0) > 0) {
+            this.pendingInitialSeek = null;
+            const target = Math.min(pending.seconds, Math.max(0, session.durationSeconds! - 0.1));
+            void this.seekTo(target);
+        }
     }
 
     private decorateSession(
@@ -579,23 +677,48 @@ export class EmbeddedMpvSessionController {
         electron: ElectronBridge,
         sessionId: string | null
     ): Promise<void> {
-        if (
-            sessionId &&
-            typeof electron.disposeKsPlayerMetalSession === 'function'
-        ) {
+        let sessionFailure: unknown;
+        if (sessionId) {
+            if (typeof electron.disposeKsPlayerMetalSession !== 'function') {
+                sessionFailure = new Error('KS Player teardown IPC is unavailable.');
+            } else {
             try {
-                await electron.disposeKsPlayerMetalSession(sessionId);
-            } catch {
-                // Continue to the dispose-all guard below.
+                const session = await electron.disposeKsPlayerMetalSession(sessionId);
+                if (!session || session.status !== 'closed') {
+                    throw new Error('KS Player did not confirm session closure.');
+                }
+            } catch (error) {
+                sessionFailure = error;
+            }
             }
         }
-        if (typeof electron.disposeAllKsPlayerMetal === 'function') {
+        if (!sessionId && typeof electron.disposeAllKsPlayerMetal === 'function') {
             try {
                 await electron.disposeAllKsPlayerMetal();
-            } catch {
-                // Native cleanup is best effort; the caller still publishes a
-                // terminal state for the requested backend.
+                return;
+            } catch (error) {
+                if (sessionFailure === undefined) {
+                    sessionFailure = error;
+                }
             }
+        }
+        if (sessionFailure !== undefined) {
+            try {
+                await electron.disposeAllKsPlayerMetal?.();
+            } catch {
+                // Keep the per-session failure: dispose-all has no session acknowledgement.
+            }
+            throw sessionFailure;
+        }
+    }
+
+    private async disposeEmbeddedSession(
+        electron: ElectronBridge,
+        sessionId: string
+    ): Promise<void> {
+        const session = await electron.disposeEmbeddedMpvSession(sessionId);
+        if (!session || session.status !== 'closed') {
+            throw new Error('Embedded MPV did not confirm closure.');
         }
     }
 

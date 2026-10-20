@@ -415,8 +415,8 @@ function validatePackagedKSPlayerMetal(resourceDir, options = {}) {
   return errors;
 }
 
-function stageKSPlayerMetalMainBundleResources(resourceDir, appPath) {
-  const nativeDir = path.join(
+function stageKSPlayerMetalMainBundleResources(resourceDir, appPath, sourceNativeDir) {
+  const nativeDir = sourceNativeDir ?? path.join(
     resourceDir,
     "app.asar.unpacked",
     "electron-backend",

@@ -121,6 +121,7 @@
                                 @if (getEpisodeProgress(episode) > 0) {
                                     <app-progress-capsule
                                         [progress]="getEpisodeProgress(episode)"
+                                        [isWatched]="isEpisodeWatched(episode)"
                                     />
                                     @if (
                                         getEpisodePositionText(episode);

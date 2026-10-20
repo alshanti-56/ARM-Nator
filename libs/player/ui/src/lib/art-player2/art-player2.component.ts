@@ -1,6 +1,8 @@
+import { toAbsolutePlaybackPosition, toAbsolutePlaybackDuration, toLocalPlaybackPosition } from '../player-controls/playback-timeline';
 import {
   Component,
   ElementRef,
+  inject,
   input,
   OnChanges,
   OnDestroy,
@@ -9,12 +11,13 @@ import {
   signal,
   SimpleChanges,
   viewChild,
+  ChangeDetectionStrategy
 } from "@angular/core";
 import Artplayer from "artplayer";
 import type { Option } from "artplayer";
 import artplayerPluginHlsControl from "artplayer-plugin-hls-control";
 import Hls, { type ErrorData } from "hls.js";
-import type { Channel } from "@arm-nator/shared/interfaces";
+import { createDevLogger, type Channel } from "@arm-nator/shared/interfaces";
 import {
   DEFAULT_ASPECT_PRESETS,
   DEFAULT_PICTURE_SETTINGS,
@@ -34,11 +37,24 @@ import {
   InlinePlaybackPlayer,
   type PlaybackDiagnostic,
 } from "../playback-diagnostics/playback-diagnostics.util";
+import { readBrowserPlaybackEvidence } from "../playback-diagnostics/playback-evidence";
 import {
   ArtPlayer2VodTransport,
   type ArtPlayer2VodSourceMode,
 } from "./art-player2-vod-transport";
 import { seekVideoToLiveEdge } from "../web-video-support/live-edge-resume";
+import { HlsProxySession } from "../web-video-support/hls-proxy-session";
+import { LivePlaybackRecovery } from "../web-video-support/live-playback-recovery";
+import { WorkspacePlayerStateService } from "../workspace-player/workspace-player-state.service";
+import { awaitPlaybackTeardowns } from "../workspace-player/playback-teardown-registry";
+import {
+  clearNativeVideoSources,
+  setNativeVideoSource,
+} from "../web-video-support/web-video-native-source.util";
+import {
+  getPreparedProxyPlayerType,
+  getPreparedProxyMimeType,
+} from "../web-video-support/prepared-proxy-source.util";
 
 type ArtplayerWithHls = Artplayer & { hls?: Hls };
 
@@ -46,6 +62,9 @@ interface BufferMetrics {
   bufferedSeconds: number;
   bufferAheadSeconds: number;
 }
+
+const LIVE_HLS_RECOVERY_BUDGET_MS = 60_000;
+const debugArtPlayer2 = createDevLogger("ArtPlayer2");
 
 /**
  * The stock ArtPlayer 5.4.0 lane with an isolated VOD transport wrapper.
@@ -59,9 +78,13 @@ interface BufferMetrics {
   selector: "app-art-player2",
   imports: [],
   templateUrl: "./art-player2.component.html",
+  changeDetection: ChangeDetectionStrategy.Eager,
   styleUrls: ["./art-player2.component.scss"],
 })
 export class ArtPlayer2Component implements OnInit, OnChanges, OnDestroy {
+  readonly seekOverride = input<((absoluteSeconds: number) => void) | null>(null);
+  readonly timelineOffsetSeconds = input(0);
+  readonly durationSeconds = input<number | null>(null);
   readonly channel = input.required<Channel>();
   readonly volume = input(1);
   readonly showCaptions = input(false);
@@ -85,12 +108,39 @@ export class ArtPlayer2Component implements OnInit, OnChanges, OnDestroy {
   readonly previousEpisodeRequested = output<void>();
   readonly nextEpisodeRequested = output<void>();
 
+  private readonly unregisterPlaybackTeardown = inject(
+    WorkspacePlayerStateService,
+  ).registerPlaybackTeardown(() => this.teardownPlayback(), {
+    repeatable: true,
+  });
+  private teardownInFlight: Promise<void> | null = null;
   readonly playerRoot = viewChild<ElementRef<HTMLElement>>("playerRoot");
   private readonly artplayerContainer =
     viewChild.required<ElementRef<HTMLDivElement>>("artplayer");
   private player: Artplayer | null = null;
+  seekToPosition(positionSeconds: number): boolean {
+    const video = this.player?.video;
+    if (!this.player || !video || this.isLive() || !Number.isFinite(video.duration) || video.duration <= 0 || !Number.isFinite(positionSeconds)) return false;
+    if (this.seekOverride()) { this.seekOverride()!(Math.max(0, positionSeconds)); return true; }
+    this.player.seek = Math.min(video.duration, toLocalPlaybackPosition(positionSeconds, this.timelineOffsetSeconds()));
+    return true;
+  }
   private hls: Hls | null = null;
   private hlsArt: ArtplayerWithHls | null = null;
+  private hlsVideo: HTMLVideoElement | null = null;
+  private hlsUrl = "";
+  private hlsPlayer: Artplayer | null = null;
+  private hlsPlayerGeneration = 0;
+  private hlsSourceGeneration = 0;
+  private readonly hlsProxySession = new HlsProxySession();
+  private readonly hlsRecovery = new LivePlaybackRecovery({
+    isLive: () => this.isLive(),
+    restart: () => this.restartHls(),
+    getRecoveryBudgetMs: () => LIVE_HLS_RECOVERY_BUDGET_MS,
+    onExhausted: ({ reason }) => this.handleHlsRecoveryExhausted(reason),
+  });
+  private lastHlsIssue: PlaybackDiagnostic | null = null;
+  private resumeAfterHlsRecovery = false;
   private readonly vodTransport = new ArtPlayer2VodTransport();
   private vodSource: {
     mode: ArtPlayer2VodSourceMode;
@@ -105,6 +155,7 @@ export class ArtPlayer2Component implements OnInit, OnChanges, OnDestroy {
   private resumeAfterStall = false;
   private resumeAtLiveEdgePending = false;
   private sourceGeneration = 0;
+  private initialPausePending = false;
   private destroyed = false;
   readonly bufferReadout = signal("Buffer —");
   private bufferTimer: number | null = null;
@@ -112,7 +163,9 @@ export class ArtPlayer2Component implements OnInit, OnChanges, OnDestroy {
     [];
 
   ngOnInit(): void {
-    void this.initPlayer();
+    void this.initPlayer().catch((error: unknown) =>
+      debugArtPlayer2("Unable to initialize playback:", error),
+    );
   }
 
   ngOnChanges(changes: SimpleChanges): void {
@@ -142,16 +195,23 @@ export class ArtPlayer2Component implements OnInit, OnChanges, OnDestroy {
   ngOnDestroy(): void {
     this.destroyed = true;
     this.sourceGeneration += 1;
-    this.destroyPlayer();
+    this.hlsRecovery.destroy();
+    void this.teardownPlayback()
+      .then(() => this.unregisterPlaybackTeardown())
+      .catch((error: unknown) =>
+        debugArtPlayer2("Unable to stop playback during component teardown:", error),
+      );
   }
 
   private async initPlayer(): Promise<void> {
     const generation = ++this.sourceGeneration;
+    this.initialPausePending = this.channel().http.startPaused === true;
     const channel = this.channel();
     this.playbackIssue.emit(null);
     const originalUrl = channel.url;
-    const isHls = this.isHlsSource(originalUrl);
-    let sourceUrl = originalUrl;
+    const preparedProxy = channel.http.preparedProxy;
+    const isHls = preparedProxy?.format === "hls" || this.isHlsSource(originalUrl);
+    let sourceUrl = preparedProxy?.url ?? originalUrl;
     const headers = this.getRequestHeaders();
 
     this.destroyPlayer();
@@ -165,12 +225,33 @@ export class ArtPlayer2Component implements OnInit, OnChanges, OnDestroy {
     this.lastObservedTime = 0;
     this.resumeAfterStall = false;
     this.resumeAtLiveEdgePending = false;
+    this.lastHlsIssue = null;
+    this.resumeAfterHlsRecovery = false;
 
-    if (!this.isLive() && !isHls) {
+    if (!this.isLive() && preparedProxy?.format === "progressive") {
       const source = await this.vodTransport.prepare(
         originalUrl,
         headers,
         () => !this.destroyed && generation === this.sourceGeneration,
+        preparedProxy,
+        this.channel().http.direct,
+      );
+      if (this.destroyed || generation !== this.sourceGeneration) {
+        return;
+      }
+      sourceUrl = source.url;
+      this.vodSource = {
+        ...source,
+        sourceUrl: originalUrl,
+        headers,
+      };
+    } else if (!preparedProxy && !this.isLive() && !isHls) {
+      const source = await this.vodTransport.prepare(
+        originalUrl,
+        headers,
+        () => !this.destroyed && generation === this.sourceGeneration,
+        undefined,
+        this.channel().http.direct,
       );
       if (this.destroyed || generation !== this.sourceGeneration) {
         return;
@@ -187,15 +268,22 @@ export class ArtPlayer2Component implements OnInit, OnChanges, OnDestroy {
       return;
     }
 
-    this.createPlayer(sourceUrl, isHls);
+    this.createPlayer(sourceUrl, isHls, preparedProxy);
   }
 
-  private createPlayer(sourceUrl: string, isHls: boolean): void {
+  private createPlayer(
+    sourceUrl: string,
+    isHls: boolean,
+    preparedProxy?: Channel["http"]["preparedProxy"],
+  ): void {
     const options: Option = {
+      ...(this.channel().seekPreviews?.sprite ? {thumbnails:this.channel().seekPreviews?.sprite} : {}),
       container: this.artplayerContainer().nativeElement,
       url: sourceUrl,
+      type: getPreparedProxyPlayerType(preparedProxy) ??
+        (isHls ? "m3u8" : undefined),
       isLive: this.isLive(),
-      autoplay: true,
+      autoplay: !this.initialPausePending,
       autoPlayback: false,
       volume: this.clampVolume(this.volume()),
       setting: true,
@@ -263,12 +351,90 @@ export class ArtPlayer2Component implements OnInit, OnChanges, OnDestroy {
     this.applyVolume(this.volume());
   }
 
-  private startHls(video: HTMLVideoElement, url: string, art: Artplayer): void {
+  private startHls(
+    video: HTMLVideoElement,
+    url: string,
+    art: Artplayer,
+    resumePlayback = false,
+  ): void {
+    if (this.destroyed || this.player !== art) {
+      return;
+    }
     this.destroyHls();
+    this.hlsVideo = video;
+    this.hlsUrl = url;
+    this.hlsPlayer = art;
+    this.hlsPlayerGeneration = this.sourceGeneration;
+    const generation = this.sourceGeneration;
+    const hlsSourceGeneration = this.hlsSourceGeneration;
+    const isCurrent = () =>
+      !this.destroyed &&
+      generation === this.sourceGeneration &&
+      hlsSourceGeneration === this.hlsSourceGeneration;
+    const onProxyFailure = (shouldResume: boolean) => {
+      if (!isCurrent()) {
+        return;
+      }
+      this.destroyHls();
+      const issue = classifyHlsPlaybackIssue(
+        {
+          type: "networkError",
+          details: "Electron HLS proxy initialization failed.",
+          fatal: true,
+        },
+        createPlaybackSourceMetadata({
+          url,
+          mimeType: "application/x-mpegURL",
+          player: InlinePlaybackPlayer.ArtPlayer,
+        }),
+      );
+      this.lastHlsIssue = issue;
+      this.playbackIssue.emit(issue);
+      if (this.isLive()) {
+        this.resumeAfterHlsRecovery = shouldResume || !video.paused;
+        this.hlsRecovery.request("HLS proxy initialization failed.", {
+          cancelOnPlaying: false,
+        });
+      }
+    };
+    const headers = this.getRequestHeaders();
 
     if (!Hls.isSupported()) {
       if (video.canPlayType("application/vnd.apple.mpegurl")) {
-        video.src = url;
+        void this.hlsProxySession
+          .load(
+            {
+              loadSource: (sourceUrl) =>
+                setNativeVideoSource(
+                  video,
+                  sourceUrl,
+                  getPreparedProxyMimeType(this.channel().http.preparedProxy) ??
+                    "application/x-mpegURL",
+                ),
+            },
+            url,
+            headers,
+            isCurrent,
+            this.channel().http.preparedProxy,
+            this.channel().http.requestPolicy,
+            this.channel().http.direct,
+          )
+          .then((loaded) => {
+            if (!loaded) {
+              onProxyFailure(resumePlayback);
+              return;
+            }
+            video.load();
+            if (resumePlayback && !this.initialPausePending) {
+              void video.play().catch(() => undefined);
+            }
+          })
+          .catch((error: unknown) => {
+            debugArtPlayer2("Unable to load the native HLS proxy:", error);
+            if (isCurrent()) {
+              onProxyFailure(resumePlayback);
+            }
+          });
       } else {
         art.notice.show = "Unsupported playback format: m3u8";
       }
@@ -285,7 +451,31 @@ export class ArtPlayer2Component implements OnInit, OnChanges, OnDestroy {
     hls.on(Hls.Events.ERROR, (_event, data: ErrorData) => {
       this.handleHlsError(hls, url, data);
     });
-    hls.loadSource(url);
+    void this.hlsProxySession
+      .load(
+        hls,
+        url,
+        headers,
+        () => isCurrent() && this.hls === hls,
+        this.channel().http.preparedProxy,
+        this.channel().http.requestPolicy,
+        this.channel().http.direct,
+      )
+      .then((loaded) => {
+        if (!loaded && this.hls === hls) {
+          onProxyFailure(resumePlayback);
+          return;
+        }
+        if (loaded && resumePlayback && !this.initialPausePending && this.hls === hls) {
+          void video.play().catch(() => undefined);
+        }
+      })
+      .catch((error: unknown) => {
+        debugArtPlayer2("Unable to load the HLS proxy:", error);
+        if (isCurrent() && this.hls === hls) {
+          onProxyFailure(resumePlayback);
+        }
+      });
   }
 
   private bindNativeEvents(video: HTMLVideoElement): void {
@@ -294,8 +484,8 @@ export class ArtPlayer2Component implements OnInit, OnChanges, OnDestroy {
         this.lastObservedTime = video.currentTime;
       }
       this.timeUpdate.emit({
-        currentTime: video.currentTime,
-        duration: Number.isFinite(video.duration) ? video.duration : 0,
+        currentTime: toAbsolutePlaybackPosition(video.currentTime, this.timelineOffsetSeconds()),
+        duration: toAbsolutePlaybackDuration(video.duration, this.timelineOffsetSeconds(), this.durationSeconds()) ?? 0,
       });
       this.updateBufferReadout(video, this.readBufferMetrics(video));
     };
@@ -310,21 +500,33 @@ export class ArtPlayer2Component implements OnInit, OnChanges, OnDestroy {
       void this.handleNativeError(video);
     };
     const onWaiting: EventListener = () => {
+      if (this.isLive() && this.hls) {
+        this.hlsRecovery.markUnstable();
+      }
       this.resumeAfterStall ||= !video.paused;
       this.scheduleStallRecovery(video);
       this.emitRuntimeSnapshot(video);
     };
     const onStalled: EventListener = () => {
+      if (this.isLive() && this.hls) {
+        this.hlsRecovery.markUnstable();
+      }
       this.resumeAfterStall ||= !video.paused;
       this.scheduleStallRecovery(video);
       this.emitRuntimeSnapshot(video);
     };
     const onPlaying: EventListener = () => {
+      if (this.isLive() && this.hls) {
+        this.hlsRecovery.markPlaying();
+        this.lastHlsIssue = null;
+        this.playbackIssue.emit(null);
+      }
       this.resumeAfterStall = false;
       this.clearStallTimer();
       this.emitRuntimeSnapshot(video);
     };
     const onPlay: EventListener = () => {
+      this.initialPausePending = false;
       if (!this.isLive() || !this.resumeAtLiveEdgePending) {
         return;
       }
@@ -332,6 +534,10 @@ export class ArtPlayer2Component implements OnInit, OnChanges, OnDestroy {
       seekVideoToLiveEdge(video, this.hls?.liveSyncPosition);
     };
     const onPause: EventListener = () => {
+      if (this.isLive() && this.hls) {
+        this.hlsRecovery.markUnstable();
+        this.resumeAfterHlsRecovery = false;
+      }
       this.resumeAtLiveEdgePending = this.isLive();
       this.emitRuntimeSnapshot(video);
     };
@@ -343,6 +549,7 @@ export class ArtPlayer2Component implements OnInit, OnChanges, OnDestroy {
     for (const [event, listener] of [
       ["timeupdate", onTimeUpdate],
       ["seeking", onSeeking],
+      ["seeked", onTimeUpdate],
       ["error", onError],
       ["waiting", onWaiting],
       ["stalled", onStalled],
@@ -358,7 +565,7 @@ export class ArtPlayer2Component implements OnInit, OnChanges, OnDestroy {
 
   private applyStartTime(): void {
     const player = this.player;
-    const startTime = Number(this.startTime());
+    const startTime = toLocalPlaybackPosition(Number(this.startTime()), this.timelineOffsetSeconds());
     if (
       !player ||
       this.isLive() ||
@@ -386,6 +593,12 @@ export class ArtPlayer2Component implements OnInit, OnChanges, OnDestroy {
     this.bufferReadout.set("Buffer —");
     this.clearStallTimer();
     this.destroyHls();
+    this.hlsVideo = null;
+    this.hlsUrl = "";
+    this.hlsPlayer = null;
+    this.hlsPlayerGeneration = 0;
+    this.lastHlsIssue = null;
+    this.resumeAfterHlsRecovery = false;
     this.player?.destroy();
     this.player = null;
     this.vodTransport.release();
@@ -395,6 +608,8 @@ export class ArtPlayer2Component implements OnInit, OnChanges, OnDestroy {
   }
 
   private destroyHls(): void {
+    this.hlsSourceGeneration += 1;
+    this.hlsProxySession.release();
     this.hls?.destroy();
     if (this.hlsArt?.hls === this.hls) {
       delete this.hlsArt.hls;
@@ -404,9 +619,68 @@ export class ArtPlayer2Component implements OnInit, OnChanges, OnDestroy {
   }
 
   private restartPlayer(): void {
+    this.hlsRecovery.reset();
+    const teardown = this.teardownPlayback();
+    const generation = this.sourceGeneration;
+    void teardown
+      .then(() => {
+        if (!this.destroyed && generation === this.sourceGeneration) {
+          void this.initPlayer().catch((error: unknown) =>
+            debugArtPlayer2("Unable to initialize the replacement source:", error),
+          );
+        }
+      })
+      .catch((error: unknown) =>
+        debugArtPlayer2("Unable to stop the previous source:", error),
+      );
+  }
+
+  private teardownPlayback(): Promise<void> {
     this.sourceGeneration += 1;
-    this.destroyPlayer();
-    void this.initPlayer();
+    if (this.teardownInFlight) {
+      return this.teardownInFlight;
+    }
+
+    const player = this.player;
+    const cleanup = (async (): Promise<void> => {
+      if (player) {
+        clearNativeVideoSources(player.video);
+      }
+      this.destroyPlayer();
+      await awaitPlaybackTeardowns([
+        this.hlsProxySession.releaseAndWait(),
+        this.vodTransport.releaseAndWait(),
+      ]);
+    })().finally(() => {
+      this.teardownInFlight = null;
+    });
+    this.teardownInFlight = cleanup;
+    return cleanup;
+  }
+
+  private restartHls(): void {
+    const video = this.hlsVideo;
+    const url = this.hlsUrl;
+    const art = this.hlsPlayer;
+    const generation = this.hlsPlayerGeneration;
+    if (
+      this.destroyed ||
+      !this.isLive() ||
+      !video ||
+      !url ||
+      !art ||
+      this.player !== art ||
+      generation !== this.sourceGeneration ||
+      art.video !== video
+    ) {
+      return;
+    }
+
+    const resumePlayback = this.resumeAfterHlsRecovery;
+    this.resumeAfterHlsRecovery = false;
+    this.lastHlsIssue = null;
+    this.playbackIssue.emit(null);
+    this.startHls(video, url, art, resumePlayback);
   }
 
   private async handleNativeError(video: HTMLVideoElement): Promise<void> {
@@ -415,6 +689,7 @@ export class ArtPlayer2Component implements OnInit, OnChanges, OnDestroy {
       !this.destroyed &&
       !this.isLive() &&
       vodSource?.mode === "direct" &&
+      !this.channel().http.direct &&
       !this.vodFallbackAttempted &&
       !this.vodFallbackInFlight;
 
@@ -493,22 +768,57 @@ export class ArtPlayer2Component implements OnInit, OnChanges, OnDestroy {
     if (this.hls !== hls || !data.fatal) {
       return;
     }
-    this.playbackIssue.emit(
+    const issue = classifyHlsPlaybackIssue(
+      {
+        type: data.type,
+        details: data.details,
+        fatal: data.fatal,
+        message: data.error?.message,
+        error: data.error,
+        response: data.response,
+        networkDetails: data.networkDetails,
+      },
+      createPlaybackSourceMetadata({
+        url,
+        mimeType: "application/x-mpegURL",
+        player: InlinePlaybackPlayer.ArtPlayer,
+      }),
+    );
+    this.lastHlsIssue = issue;
+    if (this.channel().http.providerRecovery && (issue.network?.status === 401 || issue.network?.status === 403)) {
+      this.hlsRecovery.reset(); this.clearStallTimer(); hls.stopLoad();
+      this.playbackIssue.emit(issue);
+      return;
+    }
+    this.playbackIssue.emit(issue);
+    if (this.isLive()) {
+      this.resumeAfterHlsRecovery = !this.player?.video.paused;
+      this.hlsRecovery.request(`${data.type}: ${data.details}`, {
+        cancelOnPlaying: false,
+      });
+    }
+    this.emitRuntimeSnapshot(this.player?.video);
+  }
+
+  private handleHlsRecoveryExhausted(reason: string): void {
+    if (!this.isLive()) {
+      return;
+    }
+    const issue =
+      this.lastHlsIssue ??
       classifyHlsPlaybackIssue(
         {
-          type: data.type,
-          details: data.details,
-          fatal: data.fatal,
-          message: data.error?.message,
-          error: data.error,
+          type: "networkError",
+          details: reason,
+          fatal: true,
         },
         createPlaybackSourceMetadata({
-          url,
+          url: this.hlsUrl || this.channel().url,
           mimeType: "application/x-mpegURL",
           player: InlinePlaybackPlayer.ArtPlayer,
         }),
-      ),
-    );
+      );
+    this.playbackIssue.emit(issue);
     this.emitRuntimeSnapshot(this.player?.video);
   }
 
@@ -516,6 +826,7 @@ export class ArtPlayer2Component implements OnInit, OnChanges, OnDestroy {
     if (
       this.isLive() ||
       this.vodSource?.mode !== "direct" ||
+      this.channel().http.direct ||
       this.vodFallbackAttempted ||
       this.vodFallbackInFlight
     ) {
@@ -538,7 +849,10 @@ export class ArtPlayer2Component implements OnInit, OnChanges, OnDestroy {
 
   private getRequestHeaders(): Record<string, string> {
     const channel = this.channel();
-    const headers = { ...this.requestHeaders() };
+    const headers = {
+      ...(channel.http.headers ?? {}),
+      ...this.requestHeaders(),
+    };
     const channelHeaders = {
       "User-Agent": channel.http["user-agent"],
       Referer: channel.http.referrer,
@@ -600,7 +914,8 @@ export class ArtPlayer2Component implements OnInit, OnChanges, OnDestroy {
     }
 
     const bufferAheadSeconds =
-      metrics?.bufferAheadSeconds ?? this.readBufferMetrics(video).bufferAheadSeconds;
+      metrics?.bufferAheadSeconds ??
+      this.readBufferMetrics(video).bufferAheadSeconds;
     const nextReadout = `Buffer ${Math.floor(bufferAheadSeconds)}s`;
     if (this.bufferReadout() !== nextReadout) {
       this.bufferReadout.set(nextReadout);
@@ -616,10 +931,7 @@ export class ArtPlayer2Component implements OnInit, OnChanges, OnDestroy {
     }
 
     const isLive = this.isLive();
-    const duration =
-      Number.isFinite(video.duration) && video.duration > 0
-        ? video.duration
-        : null;
+    const duration = toAbsolutePlaybackDuration(video.duration, this.timelineOffsetSeconds(), this.durationSeconds());
     const bufferMetrics = metrics ?? this.readBufferMetrics(video);
 
     const status: PlayerControlsState["status"] = video.error
@@ -649,9 +961,8 @@ export class ArtPlayer2Component implements OnInit, OnChanges, OnDestroy {
       status,
       statusMessage: "",
       stalled: status === "loading" && !video.paused && !video.ended,
-      positionSeconds: Number.isFinite(video.currentTime)
-        ? Math.max(0, video.currentTime)
-        : 0,
+      seeking: video.seeking === true,
+      positionSeconds: toAbsolutePlaybackPosition(video.currentTime, this.timelineOffsetSeconds()),
       durationSeconds: duration,
       isLive,
       canSeek: capabilities.seek,
@@ -678,6 +989,7 @@ export class ArtPlayer2Component implements OnInit, OnChanges, OnDestroy {
       bufferAheadSeconds: bufferMetrics.bufferAheadSeconds,
       droppedFrames: quality?.droppedVideoFrames,
       totalFrames: quality?.totalVideoFrames,
+      ...readBrowserPlaybackEvidence(video, quality?.totalVideoFrames),
       eofReason: video.ended ? "media-element-ended" : undefined,
     };
     this.runtimeSnapshotChange.emit({
@@ -693,7 +1005,10 @@ export class ArtPlayer2Component implements OnInit, OnChanges, OnDestroy {
   }
 
   private isHlsSource(url: string): boolean {
-    return /\.m3u8(?:[?#]|$)/i.test(url);
+    return (
+      this.channel().http.preparedProxy?.format === "hls" ||
+      /\.m3u8(?:[?#]|$)/i.test(url)
+    );
   }
 
   private clampVolume(value: number): number {

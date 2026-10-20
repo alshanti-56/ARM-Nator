@@ -58,6 +58,16 @@ const commandChord = (key: string): PlatformShortcutChord => ({
 
 export const APP_KEYBOARD_SHORTCUTS: readonly KeyboardShortcutDefinition[] = [
     {
+        id: 'navigate-back', group: 'navigation', icon: 'arrow_back',
+        labelKey: 'WORKSPACE.SHORTCUTS.ITEMS.NAVIGATE_BACK',
+        keys: [commandChord('['), ['Alt', 'ArrowLeft']], order: 0,
+    },
+    {
+        id: 'navigate-forward', group: 'navigation', icon: 'arrow_forward',
+        labelKey: 'WORKSPACE.SHORTCUTS.ITEMS.NAVIGATE_FORWARD',
+        keys: [commandChord(']'), ['Alt', 'ArrowRight']], order: 1,
+    },
+    {
         id: 'open-keyboard-shortcuts',
         group: 'global',
         labelKey: 'WORKSPACE.SHORTCUTS.ITEMS.OPEN_KEYBOARD_SHORTCUTS',

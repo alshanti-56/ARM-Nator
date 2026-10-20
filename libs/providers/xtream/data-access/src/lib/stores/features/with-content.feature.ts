@@ -1,5 +1,6 @@
 /* eslint-disable max-lines */
-import { computed, inject } from '@angular/core';
+import { computed, DestroyRef, inject } from '@angular/core';
+import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
 import {
     patchState,
     signalStoreFeature,
@@ -371,6 +372,7 @@ export function withContent() {
                     playlistId,
                     credentials: {
                         allowedOutputFormats: playlist.allowedOutputFormats,
+                        playbackServerUrl: playlist.playbackServerUrl,
                         serverUrl: playlist.serverUrl,
                         username: playlist.username,
                         password: playlist.password,
@@ -390,7 +392,8 @@ export function withContent() {
                     dataSource.hasContent(playlistId, toStreamType(type)),
                 ]);
 
-                return hasCategories && hasContent;
+                return (hasCategories && hasContent) ||
+                    await databaseService.getXtreamImportStatus(playlistId, toStreamType(type)) === 'completed';
             };
 
             const hasCachedContentForScope = async (
@@ -406,10 +409,7 @@ export function withContent() {
                 ) {
                     const checks = await Promise.all(
                         types.map((type) =>
-                            dataSource.hasContent(
-                                playlistId,
-                                toStreamType(type)
-                            )
+                            hasCachedContentForType(playlistId, type)
                         )
                     );
                     return checks.some(Boolean);
@@ -1300,6 +1300,16 @@ export function withContent() {
                     patchState(store, initialContentState);
                 },
             };
+
+            databaseService.catalogueChanges$?.pipe(takeUntilDestroyed(inject(DestroyRef))).subscribe(playlistId => {
+                const ctx = getCredentialsFromStore();
+                if (ctx?.playlistId !== playlistId) return;
+                cachedHydrationGeneration++;
+                activeCachedHydrationPromises.clear();
+                // Retain the visible snapshot until its replacement is read.
+                void executeCachedContentHydration(playlistId, 'search', cachedHydrationGeneration)
+                    .catch(error => logger.error('Unable to load refreshed catalogue', error));
+            });
 
             return methods;
         })

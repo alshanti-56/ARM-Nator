@@ -1,4 +1,4 @@
-import { and, asc, desc, eq, inArray, or, sql, type SQL } from 'drizzle-orm';
+import { and, desc, eq, inArray, or, sql, type SQL, type GetColumnData } from 'drizzle-orm';
 import * as schema from '@arm-nator/database/schema';
 import {
     GLOBAL_SEARCH_CONTENT_TYPES,
@@ -23,6 +23,7 @@ import {
     isShortSearchTokenGroup,
     normalizeSearchMatchText,
     scoreSearchTextMatch,
+    createSearchTextScorer,
     shouldUseContentSearchFts,
     shouldUseContentTitlePrefixIndex,
 } from './content-search.util';
@@ -34,6 +35,7 @@ import {
 } from './operation-control';
 
 export { scoreSearchTextMatch } from './content-search.util';
+export { replaceXtreamCatalogue } from './catalogue-refresh.operations';
 
 const DEFAULT_GLOBAL_SEARCH_LIMIT = 50;
 const MAX_GLOBAL_SEARCH_LIMIT = 500;
@@ -174,20 +176,18 @@ function buildContentMetadataSearchConditions(searchTerm: string) {
         .filter((condition) => condition !== undefined);
 }
 
-function scoreXtreamMetadataMatch(
-    item: XtreamMetadataSearchCandidate,
-    searchTerm: string
-): number | null {
-    const titleScore = scoreSearchTextMatch(item.title ?? '', searchTerm);
-    if (titleScore !== null) {
-        return titleScore;
-    }
-
-    const metadataScore = scoreSearchTextMatch(
-        catalogSearchText(item as unknown as Record<string, unknown>),
-        searchTerm
-    );
-    return metadataScore === null ? null : metadataScore + 100;
+function createXtreamMetadataScorer(searchTerm: string) {
+    const scoreText = createSearchTextScorer(searchTerm);
+    // Per-query only: repeated provider versions share title scoring work.
+    const titles = new Map<string, number | null>();
+    return (item: XtreamMetadataSearchCandidate): number | null => {
+        const title = item.title ?? '';
+        if (!titles.has(title)) titles.set(title, scoreText(title));
+        const titleScore = titles.get(title) ?? null;
+        if (titleScore !== null) return titleScore;
+        const metadataScore = scoreText(catalogSearchText(item as unknown as Record<string, unknown>));
+        return metadataScore === null ? null : metadataScore + 100;
+    };
 }
 
 function buildRawContentTitleSearchSql(searchTerm: string): SQL[] {
@@ -262,7 +262,7 @@ async function selectXtreamGlobalSearchCandidatesWithTitleIndex(
         FROM content AS c INDEXED BY idx_content_title
         INNER JOIN categories AS cat ON c.category_id = cat.id
         INNER JOIN playlists AS p ON cat.playlist_id = p.id
-        WHERE c.type IN (${sql.join(
+        WHERE c.available = 1 AND cat.available = 1 AND c.type IN (${sql.join(
             types.map((type) => sql`${type}`),
             sql`, `
         )})
@@ -309,6 +309,7 @@ async function selectXtreamGlobalSearchCandidatesWithFts(
         INNER JOIN categories AS cat ON c.category_id = cat.id
         INNER JOIN playlists AS p ON cat.playlist_id = p.id
         WHERE content_search_fts MATCH ${matchQuery}
+        AND c.available = 1 AND cat.available = 1
         AND c.type IN (${sql.join(
             types.map((type) => sql`${type}`),
             sql`, `
@@ -358,6 +359,7 @@ async function selectXtreamPlaylistSearchCandidatesWithFts(
         INNER JOIN content AS c ON c.id = content_search_fts.rowid
         INNER JOIN categories AS cat ON c.category_id = cat.id
         WHERE content_search_fts MATCH ${matchQuery}
+        AND c.available = 1 AND cat.available = 1
         AND cat.playlist_id = ${playlistId}
         AND c.type IN (${sql.join(
             types.map((type) => sql`${type}`),
@@ -377,6 +379,8 @@ async function selectXtreamGlobalSearchCandidatesWithContentScan(
     candidateLimit: number
 ): Promise<XtreamGlobalSearchCandidate[]> {
     const conditions = [
+        eq(schema.content.available, true),
+        eq(schema.categories.available, true),
         inArray(
             schema.content.type,
             types as Array<'live' | 'movie' | 'series'>
@@ -447,26 +451,21 @@ function selectContentFields() {
     };
 }
 
+type ContentFields = ReturnType<typeof selectContentFields>;
+type CatalogueContentRow = { [K in keyof ContentFields]: GetColumnData<ContentFields[K]> };
+
 export async function hasContent(
     db: AppDatabase,
     playlistId: string,
     type: 'live' | 'movie' | 'series'
 ): Promise<boolean> {
-    const result = await db
-        .select({ count: sql<number>`count(*)` })
-        .from(schema.content)
-        .innerJoin(
-            schema.categories,
-            eq(schema.content.categoryId, schema.categories.id)
-        )
-        .where(
-            and(
-                eq(schema.categories.playlistId, playlistId),
-                eq(schema.content.type, type)
-            )
-        );
-
-    return result[0].count > 0;
+    // Start from this source's categories and stop at its first active item.
+    // Counting all matches caused a full type-index scan across other sources.
+    const row = db.get(sql`SELECT 1 AS found FROM categories AS cat
+        CROSS JOIN content AS c INDEXED BY idx_content_category
+        WHERE cat.playlist_id=${playlistId} AND cat.available=1
+        AND c.category_id=cat.id AND c.type=${type} AND c.available=1 LIMIT 1`);
+    return !!row;
 }
 
 export async function getContent(
@@ -474,23 +473,15 @@ export async function getContent(
     playlistId: string,
     type: 'live' | 'movie' | 'series'
 ) {
-    const baseQuery = db
-        .select(selectContentFields())
-        .from(schema.content)
-        .innerJoin(
-            schema.categories,
-            eq(schema.content.categoryId, schema.categories.id)
-        )
-        .where(
-            and(
-                eq(schema.categories.playlistId, playlistId),
-                eq(schema.content.type, type)
-            )
-        );
-
-    return type === 'live'
-        ? baseQuery.orderBy(asc(schema.content.id))
-        : baseQuery.orderBy(desc(schema.content.added));
+    const fields = Object.entries(selectContentFields()).map(([name, column]) =>
+        sql`${column} AS ${sql.identifier(name)}`);
+    // Read this source through its category index, then sort its own rows.
+    // The global (type, added) index otherwise scans every source to preserve order.
+    return db.all<CatalogueContentRow>(sql`SELECT ${sql.join(fields, sql`, `)}
+        FROM content INDEXED BY idx_content_category
+        WHERE category_id IN(SELECT id FROM categories WHERE playlist_id=${playlistId} AND available=1)
+        AND type=${type} AND available=1
+        ORDER BY ${type === 'live' ? sql`id ASC` : sql`added DESC`}`);
 }
 
 export type RecentlyAddedPlaylistType = 'xtream';
@@ -554,6 +545,8 @@ function getGlobalRecentlyAddedByType(
 ) {
     const whereConditions = [
         eq(schema.content.type, type),
+        eq(schema.content.available, true),
+        eq(schema.categories.available, true),
         eq(schema.categories.hidden, false),
         sql`${schema.content.added} <> ''`,
         sql`${schema.content.added} <= ${getXtreamRecentlyAddedMaxEpochSeconds()}`,
@@ -633,7 +626,7 @@ type XtreamContentSource = Record<string, unknown> & {
     stream_id?: string | number;
 };
 
-function toXtreamContentValue(
+export function toXtreamContentValue(
     stream: Record<string, unknown>,
     type: 'live' | 'movie' | 'series',
     categoryMap: Map<number, number>
@@ -863,6 +856,8 @@ export async function searchContent(
     }
 
     const conditions = [
+        eq(schema.content.available, true),
+        eq(schema.categories.available, true),
         eq(schema.categories.playlistId, playlistId),
         inArray(
             schema.content.type,
@@ -926,17 +921,13 @@ export async function searchContent(
             .limit(candidateLimit);
     }
 
+    const scoreCandidate = createXtreamMetadataScorer(searchTerm);
     return candidates
-        .filter(
-            (item) =>
-                scoreXtreamMetadataMatch(item, searchTerm) !== null
-        )
-        .sort(
-            (left, right) =>
-                (scoreXtreamMetadataMatch(left, searchTerm) ?? Infinity) -
-                (scoreXtreamMetadataMatch(right, searchTerm) ?? Infinity)
-        )
-        .slice(offset, offset + requestedLimit);
+        .map(item => ({ item, score: scoreCandidate(item) }))
+        .filter((value): value is typeof value & { score: number } => value.score !== null)
+        .sort((left, right) => left.score - right.score)
+        .slice(offset, offset + requestedLimit)
+        .map(value => value.item);
 }
 
 export async function globalSearch(
@@ -954,6 +945,7 @@ export async function globalSearch(
     const pagination = normalizeGlobalSearchPagination(options);
     const candidateLimit = getGlobalSearchCandidateLimit();
     const results: ScoredGlobalSearchResult[] = [];
+    const scoreCandidate = createXtreamMetadataScorer(searchTerm);
 
     {
         let candidates: XtreamGlobalSearchCandidate[];
@@ -1015,10 +1007,7 @@ export async function globalSearch(
                     (
                         item
                     ): ScoredGlobalSearchResult<XtreamGlobalSearchResult> | null => {
-                        const score = scoreXtreamMetadataMatch(
-                            item,
-                            searchTerm
-                        );
+                        const score = scoreCandidate(item);
                         if (score === null) {
                             return null;
                         }

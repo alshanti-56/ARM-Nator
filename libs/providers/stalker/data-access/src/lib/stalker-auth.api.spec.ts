@@ -1,3 +1,4 @@
+import { randomUUID } from 'node:crypto';
 import type { DataService } from '@arm-nator/services';
 import type { createLogger } from '@arm-nator/providers/shared/util';
 import { StalkerAuthApi } from './stalker-auth.api';
@@ -27,6 +28,7 @@ describe('StalkerAuthApi', () => {
         Object.defineProperty(globalThis, 'crypto', {
             configurable: true,
             value: {
+                randomUUID,
                 subtle: {
                     digest: jest.fn(
                         async () => new Uint8Array(20).fill(1).buffer
@@ -44,7 +46,7 @@ describe('StalkerAuthApi', () => {
 
     function callsByAction(action: string) {
         return sendIpcEvent.mock.calls.filter(
-            (call) => call[1].params.action === action
+            (call) => call[1]?.params?.action === action
         );
     }
 
@@ -487,4 +489,17 @@ describe('StalkerAuthApi', () => {
             failureBody: 'Unauthorized request.',
         });
     });
+    it('cancels an owned in-flight handshake and never adopts a profile after cancellation', async () => {
+        let resolve!: (value: unknown) => void;
+        sendIpcEvent.mockImplementation((command) => command === 'STALKER_CANCEL_REQUEST' ? Promise.resolve({ cancelled: true }) : new Promise(r => resolve = r));
+        const controller = new AbortController();
+        const pending = api.authenticate(portalUrl, macAddress, {}, { signal: controller.signal });
+        for (let step=0;step<12 && sendIpcEvent.mock.calls.length===0;step++) await Promise.resolve();
+        controller.abort();
+        resolve({ js: { token: 'stale', random: 'r' } });
+        await expect(pending).rejects.toMatchObject({ name: 'AbortError' });
+        expect(sendIpcEvent.mock.calls.some(call => call[0] === 'STALKER_CANCEL_REQUEST')).toBe(true);
+        expect(callsByAction('get_profile')).toHaveLength(0);
+    });
+
 });

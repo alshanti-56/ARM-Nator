@@ -32,6 +32,11 @@ handleWorkerRequest(
 );
 
 handleWorkerRequest(
+    'DB_GET_CONTENT_SERIALIZED',
+    (playlistId: string, type: 'live' | 'movie' | 'series') => ({ playlistId, type })
+);
+
+handleWorkerRequest(
     'DB_GET_GLOBAL_RECENTLY_ADDED',
     (
         kind: 'all' | 'vod' | 'series' = 'all',

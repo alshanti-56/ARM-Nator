@@ -82,6 +82,7 @@ function createController() {
         controller,
         inlinePlayback,
         playbackPositions,
+        portalPlayer,
         selectedVodPosition,
     };
 }
@@ -142,5 +143,58 @@ describe('StalkerVodPlaybackController', () => {
         await Promise.all([olderRequest, newerRequest]);
 
         expect(inlinePlayback()).toBe(newestPlayback);
+    });
+
+    it('passes data-only recovery to external playback when the URL is renewable', async () => {
+        const { controller, portalPlayer } = createController();
+        portalPlayer.isEmbeddedPlayer.mockReturnValue(false);
+        const playback = {
+            streamUrl: 'http://portal.test/temporary/old',
+            title: 'Movie',
+            recovery: {
+                accountRef: 'playlist-1',
+                providerLinkRenewable: true,
+            },
+        };
+        const resolver = jest.fn().mockResolvedValue({
+            streamUrl: 'http://portal.test/temporary/new',
+            title: 'Movie',
+            recovery: playback.recovery,
+        });
+
+        await controller.startVodPlayback(
+            async () => playback,
+            resolver,
+        );
+
+        const context = portalPlayer.openResolvedPlayback.mock.calls[0][2];
+        expect(context.resolvePlayback).toBeDefined();
+        await expect(
+            context.resolvePlayback({
+                signal: new AbortController().signal,
+                reason: 'manual-retry',
+            }),
+        ).resolves.toMatchObject({
+            streamUrl: 'http://portal.test/temporary/new',
+        });
+        expect(resolver).toHaveBeenCalledTimes(1);
+    });
+
+    it('does not attach a recovery resolver to a static URL', async () => {
+        const { controller, portalPlayer } = createController();
+        portalPlayer.isEmbeddedPlayer.mockReturnValue(false);
+
+        await controller.startVodPlayback(
+            async () => ({
+                streamUrl: 'https://cdn.example/movie.mp4',
+                title: 'Movie',
+            }),
+            jest.fn(),
+        );
+
+        expect(
+            portalPlayer.openResolvedPlayback.mock.calls[0][2]
+                ?.resolvePlayback,
+        ).toBeUndefined();
     });
 });

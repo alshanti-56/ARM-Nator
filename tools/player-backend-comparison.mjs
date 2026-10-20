@@ -10,12 +10,26 @@ import {
 import { createServer } from "node:http";
 import { spawnSync } from "node:child_process";
 import { join, resolve } from "node:path";
-import { pathToFileURL } from "node:url";
+import { fileURLToPath, pathToFileURL } from "node:url";
 import { createRequire } from "node:module";
+import {
+  empiricalPercentile,
+  createIsolatedFixture,
+  isSettledBackwardSeek,
+  isConfirmedStartup,
+  resolveFfmpegPath,
+  resolveNativeReleaseDir,
+} from "./testing/player-benchmark-utils.mjs";
 const root = resolve(import.meta.dirname, ".."),
   dir = join(root, "tmp/player-backend-comparison"),
   out = join(dir, "results"),
-  require = createRequire(import.meta.url);
+  require = createRequire(import.meta.url),
+  ffmpegPath = resolveFfmpegPath(process.env),
+  nativeRelease = resolveNativeReleaseDir(root, process.env),
+  requestedIterations = Number.parseInt(process.env.ARM_NATOR_COMPARISON_ITERATIONS ?? "3", 10),
+  startupIterations = Number.isInteger(requestedIterations) && requestedIterations > 0 ? requestedIterations : 3,
+  startupBenchmarkOnly = process.env.ARM_NATOR_STARTUP_BENCHMARK_ONLY === "1",
+  reportPath = resolve(process.env.ARM_NATOR_COMPARISON_OUTPUT ?? join(out, "latest.json"));
 const bounds = { x: 40, y: 40, width: 320, height: 180 },
   ENDURANCE_DURATION_MS = 6_000,
   READY_TIMEOUT_MS = 4_000,
@@ -26,11 +40,19 @@ const bounds = { x: 40, y: 40, width: 320, height: 180 },
 app.on("window-all-closed", () => {});
 function ff(args) {
   const r = spawnSync(
-    "ffmpeg",
+    ffmpegPath,
     ["-hide_banner", "-loglevel", "error", ...args],
     { encoding: "utf8" },
   );
   if (r.status) throw Error(r.stderr);
+}
+function availableEncoders() {
+  const result = spawnSync(ffmpegPath, ["-hide_banner", "-encoders"], { encoding: "utf8" });
+  if (result.status !== 0) throw Error(result.stderr || `Could not inspect ${ffmpegPath}`);
+  return result.stdout;
+}
+function chooseEncoder(list, candidates) {
+  return candidates.find((candidate) => list.includes(candidate)) ?? null;
 }
 function fixtures() {
   mkdirSync(dir, { recursive: true });
@@ -41,13 +63,17 @@ function fixtures() {
     hls = join(hlsDir, "stream.m3u8"),
     subtitleVideo = join(dir, "subtitle-black.mp4"),
     enduranceVideo = join(dir, "endurance-10s.mp4");
+  const encoders = availableEncoders(),
+    h264Encoder = chooseEncoder(encoders, ["h264_videotoolbox", "libx264"]),
+    hevcEncoder = chooseEncoder(encoders, ["hevc_videotoolbox", "libx265"]);
+  if (!h264Encoder) throw Error(`No supported H.264 encoder in ${ffmpegPath}`);
   writeFileSync(
     srt,
     "1\n00:00:00,000 --> 00:00:05,000\nARM-Nator comparison\n\n",
   );
   for (const [file, codec, extra] of [
-    [h264, "libx264", []],
-    [hevc, "libx265", ["-tag:v", "hvc1"]],
+    [h264, h264Encoder, []],
+    ...(hevcEncoder ? [[hevc, hevcEncoder, ["-tag:v", "hvc1"]]] : []),
   ])
     if (!existsSync(file))
       ff([
@@ -76,9 +102,9 @@ function fixtures() {
   // A black fixture makes white subtitle pixels unambiguous. Using testsrc
   // here could falsely "find" subtitle-like bright pixels in the video.
   if (!existsSync(subtitleVideo))
-    ff(["-f", "lavfi", "-i", "color=c=black:size=320x180:rate=30", "-t", "7", "-c:v", "libx264", "-pix_fmt", "yuv420p", "-y", subtitleVideo]);
+    ff(["-f", "lavfi", "-i", "color=c=black:size=320x180:rate=30", "-t", "7", "-c:v", h264Encoder, "-pix_fmt", "yuv420p", "-y", subtitleVideo]);
   if (!existsSync(enduranceVideo))
-    ff(["-f", "lavfi", "-i", "testsrc2=size=320x180:rate=30", "-f", "lavfi", "-i", "sine=frequency=1000:sample_rate=48000", "-t", "10", "-c:v", "libx264", "-pix_fmt", "yuv420p", "-c:a", "aac", "-y", enduranceVideo]);
+    ff(["-f", "lavfi", "-i", "testsrc2=size=320x180:rate=30", "-f", "lavfi", "-i", "sine=frequency=1000:sample_rate=48000", "-t", "10", "-c:v", h264Encoder, "-pix_fmt", "yuv420p", "-c:a", "aac", "-y", enduranceVideo]);
   // This is deliberately a real VOD HLS manifest with MPEG-TS segments, not
   // an MP4 served under an .m3u8 URL. It exercises the network playlist path.
   if (!existsSync(hls)) {
@@ -89,7 +115,7 @@ function fixtures() {
       "-hls_segment_filename", join(hlsDir, "segment-%03d.ts"), "-y", hls,
     ]);
   }
-  return { h264, hevc, srt, hlsDir, hls, subtitleVideo, enduranceVideo };
+  return { h264, hevc: hevcEncoder ? hevc : null, hevcEncoder, h264Encoder, srt, hlsDir, hls, subtitleVideo, enduranceVideo };
 }
 function server(file, hlsDir) {
   const size = statSync(file).size;
@@ -196,26 +222,6 @@ function hasResolution(snapshot) {
     (snapshot?.videoWidth > 0 && snapshot?.videoHeight > 0)
   );
 }
-function isSettledBackwardSeek(
-  first,
-  second,
-  target,
-  preSeekPosition,
-  requiredDiscontinuitySeconds,
-) {
-  const observedDiscontinuity =
-    preSeekPosition - Math.min(pos(first), pos(second));
-  return {
-    accepted:
-      state(first) === "playing" &&
-      state(second) === "playing" &&
-      Math.abs(pos(first) - target) < 0.5 &&
-      Math.abs(pos(second) - target) < 1 &&
-      pos(second) > pos(first) + 0.05 &&
-      observedDiscontinuity >= requiredDiscontinuitySeconds,
-    observedDiscontinuity,
-  };
-}
 async function settledSeek(
   read,
   target,
@@ -253,7 +259,17 @@ async function settledSeek(
 async function one(name, addon, file, srt, iteration, options = {}) {
   let id = `cmp-${name}-${Date.now()}-${iteration}`,
     win = new BrowserWindow({ show: false, width: 500, height: 300 }),
-    read = snap(addon);
+    read = snap(addon),
+    isolatedFixture = null,
+    playbackFile = file;
+  if (file.startsWith("file:")) {
+    isolatedFixture = createIsolatedFixture(
+      fileURLToPath(file),
+      join(dir, "isolated-runs"),
+      `${name}-${iteration}`,
+    );
+    playbackFile = pathToFileURL(isolatedFixture.path).href;
+  }
   const base = await process.getProcessMemoryInfo();
   try {
     const t = performance.now(),
@@ -261,19 +277,15 @@ async function one(name, addon, file, srt, iteration, options = {}) {
     if (name === "ksplayer-metal") {
       const c = addon.createSession(id, handle, bounds);
       if (c.ok === false) throw Error(c.reason);
-      const l = addon.load(id, file);
+      const l = addon.load(id, playbackFile);
       if (l.ok === false) throw Error(l.reason);
     } else {
       id = addon.createSession(handle, bounds);
-      addon.loadPlayback(id, { streamUrl: file });
+      addon.loadPlayback(id, { streamUrl: playbackFile });
     }
     const ready = await until(
       () => read(id),
-      (x) =>
-        state(x) === "playing" &&
-        Number.isFinite(x?.durationSeconds) &&
-        hasResolution(x) &&
-        pos(x) > 0.05,
+      (x) => isConfirmedStartup(x, { audioOnly: options.audioOnly === true }),
     );
     const startup = {
       latencyMs: Math.round(performance.now() - t),
@@ -352,6 +364,7 @@ async function one(name, addon, file, srt, iteration, options = {}) {
       addon.disposeSession(id);
     } catch {}
     win.destroy();
+    isolatedFixture?.cleanup();
   }
 }
 function hostCpuMetric() {
@@ -362,15 +375,25 @@ function hostCpuMetric() {
 async function enduranceCheck(name, addon, file) {
   let id = `endurance-${name}-${Date.now()}`,
     win = new BrowserWindow({ show: false, width: 500, height: 300 }),
-    read = snap(addon);
+    read = snap(addon),
+    isolatedFixture = null,
+    playbackFile = file;
+  if (file.startsWith("file:")) {
+    isolatedFixture = createIsolatedFixture(
+      fileURLToPath(file),
+      join(dir, "isolated-runs"),
+      `endurance-${name}`,
+    );
+    playbackFile = pathToFileURL(isolatedFixture.path).href;
+  }
   try {
     const handle = win.getNativeWindowHandle();
     if (name === "ksplayer-metal") {
       const created = addon.createSession(id, handle, bounds);
       if (created.ok === false) throw Error(created.reason);
-      const loaded = addon.load(id, file);
+      const loaded = addon.load(id, playbackFile);
       if (loaded.ok === false) throw Error(loaded.reason);
-    } else { id = addon.createSession(handle, bounds); addon.loadPlayback(id, { streamUrl: file }); }
+    } else { id = addon.createSession(handle, bounds); addon.loadPlayback(id, { streamUrl: playbackFile }); }
     await until(() => read(id), (x) => state(x) === "playing" && pos(x) > 0.05);
     // Electron documents percentCPUUsage as the process CPU percentage since
     // the previous getAppMetrics call. Prime it, then sample over endurance.
@@ -395,7 +418,7 @@ async function enduranceCheck(name, addon, file) {
       cpu,
     };
   } catch (error) { return { backend: name, fixture: fixtureName(file), status: "failed", durationMs: ENDURANCE_DURATION_MS, error: String(error), cpu: { status: "unavailable", reason: "playback did not remain available long enough to measure" } }; }
-  finally { try { addon.disposeSession(id); } catch {} win.destroy(); }
+  finally { try { addon.disposeSession(id); } catch {} win.destroy(); isolatedFixture?.cleanup(); }
 }
 function median(v) {
   const a = v.filter(Number.isFinite).sort((a, b) => a - b);
@@ -450,12 +473,12 @@ app.whenReady().then(async () => {
     const f = fixtures();
     console.error("comparison: fixtures ready");
     net = await server(f.h264, f.hlsDir);
-    const release = join(root, "apps/electron-backend/native/build/Release"),
+    const release = nativeRelease,
       backends = [
         ["ksplayer-metal", require(join(release, "ksplayer_metal.node"))],
         ["embedded-mpv", require(join(release, "embedded_mpv.node"))],
       ],
-      cases = [pathToFileURL(f.h264).href, pathToFileURL(f.hevc).href, net.url, net.hlsUrl],
+      cases = [pathToFileURL(f.h264).href, ...(f.hevc ? [pathToFileURL(f.hevc).href] : []), net.url, net.hlsUrl],
       runs = [];
     console.error("comparison: functional runs starting");
     async function runCase(label, backend, addon, file, iteration, options) {
@@ -467,13 +490,15 @@ app.whenReady().then(async () => {
     // Three samples are retained only for latency/seek fixtures. Network HLS
     // and subtitle rendering are explicit functional proofs, once per backend.
     for (const [n, a] of backends) {
-      for (const c of cases.slice(0, 2))
-        for (let i = 1; i <= 3; i++) await runCase(`${n}:${fixtureName(c)}:${i}/3`, n, a, c, i, { seek: true });
-      await runCase(`${n}:loopback-hls-mpegts:1/1`, n, a, net.hlsUrl, 1, { seek: false });
-      await runCase(`${n}:rendered-subtitle:1/1`, n, a, pathToFileURL(f.subtitleVideo).href, 1, { seek: false, subtitles: true });
+      for (const c of cases.slice(0, f.hevc ? 2 : 1))
+        for (let i = 1; i <= startupIterations; i++) await runCase(`${n}:${fixtureName(c)}:${i}/${startupIterations}`, n, a, c, i, { seek: !startupBenchmarkOnly });
+      if (!startupBenchmarkOnly) {
+        await runCase(`${n}:loopback-hls-mpegts:1/1`, n, a, net.hlsUrl, 1, { seek: false });
+        await runCase(`${n}:rendered-subtitle:1/1`, n, a, pathToFileURL(f.subtitleVideo).href, 1, { seek: false, subtitles: true });
+      }
     }
     const endurance = [];
-    for (const [n, a] of backends) {
+    for (const [n, a] of startupBenchmarkOnly ? [] : backends) {
       console.error(`comparison: start ${n}:endurance:${ENDURANCE_DURATION_MS}ms`);
       const result = await enduranceCheck(n, a, pathToFileURL(f.enduranceVideo).href);
       endurance.push(result);
@@ -492,17 +517,21 @@ app.whenReady().then(async () => {
       sampleCount: rs.length,
       successfulRuns: rs.filter((r) => r.ok).length,
       medianStartupMs: median(rs.map((r) => r.startup?.latencyMs)),
+      p95StartupMs: empiricalPercentile(rs.map((r) => r.startup?.latencyMs), 0.95),
       medianSeekMs: median(rs.map((r) => r.seek?.latencyMs)),
     }));
     const report = {
-      schemaVersion: 3,
+      schemaVersion: 4,
       generatedAt: new Date().toISOString(),
+      runtime: { nativeRelease, ffmpegPath, startupBenchmarkOnly, startupIterations },
       method:
-        "isolated hidden native-window/session per run; three samples per latency fixture; bounded HLS, subtitle-selection, and endurance proofs",
+        "isolated hidden native-window/session per run; nearest-rank p95 startup over configured samples; bounded HLS, subtitle-selection, and endurance proofs",
       iptvGap:
         "Loopback VOD HLS is covered with an m3u8 manifest and MPEG-TS segments; this is not an authenticated, adaptive, or live IPTV stream.",
       dimensions: {
-        hls: { status: "covered", fixture: "loopback-hls-mpegts", protocol: "HTTP loopback", playlist: "m3u8", segmentFormat: "MPEG-TS", samplesPerBackend: 1 },
+        h264: { status: "covered", encoder: f.h264Encoder, container: "MP4" },
+        hevc: f.hevc ? { status: "covered", encoder: f.hevcEncoder, container: "MP4" } : { status: "not-generated", reason: `No H.265 encoder found in ${ffmpegPath}` },
+        hls: startupBenchmarkOnly ? { status: "not-run", reason: "startup-only comparison" } : { status: "covered", fixture: "loopback-hls-mpegts", protocol: "HTTP loopback", playlist: "m3u8", segmentFormat: "MPEG-TS", samplesPerBackend: 1 },
         subtitles: { status: "unavailable", method: "native-child composited pixel capture is not implemented; track selection remains independently verified" },
         endurance: { durationMs: ENDURANCE_DURATION_MS, fixture: "endurance-10s.mp4", fixtureDurationSeconds: 10, scope: "one isolated session per backend, 500ms advancement samples" },
         cpu: { method: "app.getAppMetrics() host PID cpu.percentCPUUsage over the endurance interval", limitations: "host-process measurement, not decoder-only CPU" },
@@ -512,7 +541,8 @@ app.whenReady().then(async () => {
       summary,
     };
     mkdirSync(out, { recursive: true });
-    writeFileSync(join(out, "latest.json"), JSON.stringify(report, null, 2));
+    mkdirSync(join(reportPath, ".."), { recursive: true });
+    writeFileSync(reportPath, JSON.stringify(report, null, 2));
     console.log(JSON.stringify(report));
     if (
       runs.some((run) => !run.ok) ||

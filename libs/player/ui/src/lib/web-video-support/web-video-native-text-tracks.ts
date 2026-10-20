@@ -1,3 +1,4 @@
+import { inferTrackRole } from '@arm-nator/shared/interfaces';
 import type { PlayerTrack } from '../player-controls/player-controls.model';
 
 const NATIVE_TRACK_EVENTS = ['addtrack', 'removetrack', 'change'] as const;
@@ -74,6 +75,8 @@ export class WebVideoNativeTextTracks {
             id,
             label: track.label || track.language || `Subtitle ${id + 1}`,
             selected: track.mode === 'showing',
+            language: track.language,
+            role: inferTrackRole({ kind: track.kind, label: track.label }),
         }));
     }
 

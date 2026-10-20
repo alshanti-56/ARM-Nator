@@ -1,4 +1,10 @@
-@if (playerMounted()) {
+@if (standaloneRecoveryBusy()) {
+  <div role="status" aria-live="polite">
+    {{ (standaloneRecoveryCountdown() === null ? 'PLAYBACK_RECOVERY.WORKING' : 'PLAYBACK_RECOVERY.COUNTDOWN') | translate: {seconds: standaloneRecoveryCountdown()} }}
+    <button mat-button type="button" (click)="cancelStandaloneRecovery()">{{ 'PLAYBACK_RECOVERY.CANCEL' | translate }}</button>
+  </div>
+}
+@if (playbackEnabled() && playerMounted()) {
   @if (selectedPlayer() === "embedded-mpv" || selectedPlayer() === "ksplayer") {
     <app-embedded-mpv-player
       [playback]="resolvedPlayback()"
@@ -8,7 +14,7 @@
         selectedPlayer() === 'ksplayer' ? 'ksplayer-metal' : 'embedded-mpv'
       "
       (timeUpdate)="timeUpdate.emit($event)"
-      (runtimeSnapshotChange)="runtimeSnapshotChange.emit($event)"
+      (runtimeSnapshotChange)="handleRuntimeSnapshot($event)"
       (playbackEnded)="playbackEnded.emit()"
       (previousEpisodeRequested)="previousEpisodeRequested.emit()"
       (nextEpisodeRequested)="nextEpisodeRequested.emit()"
@@ -21,7 +27,10 @@
       [showCaptions]="showCaptions()"
       [isLive]="resolvedIsLive()"
       [interactionEnabled]="playbackInteractionEnabled()"
-      [startTime]="startTime()"
+      [startTime]="resolvedPlayback().startTime ?? startTime()"
+      [timelineOffsetSeconds]="resolvedPlayback().preparedProxy?.timelineOffsetSeconds ?? 0"
+      [durationSeconds]="resolvedPlayback().preparedProxy?.durationSeconds ?? null"
+      [seekOverride]="companionSeekOverride()"
       [seriesNavigation]="seriesNavigation()"
       [onlineSubtitleUrl]="resolvedPlayback().subtitleUrl ?? ''"
       [onlineSubtitleLabel]="
@@ -29,7 +38,7 @@
       "
       [onlineSubtitleLanguage]="resolvedPlayback().subtitleLanguage ?? 'und'"
       (timeUpdate)="timeUpdate.emit($event)"
-      (runtimeSnapshotChange)="runtimeSnapshotChange.emit($event)"
+      (runtimeSnapshotChange)="handleRuntimeSnapshot($event)"
       (playbackIssue)="handlePlaybackIssue($event)"
       (playbackEnded)="playbackEnded.emit()"
       (previousEpisodeRequested)="previousEpisodeRequested.emit()"
@@ -44,7 +53,10 @@
         [showCaptions]="showCaptions()"
         [isLive]="resolvedIsLive()"
         [interactionEnabled]="playbackInteractionEnabled()"
-        [startTime]="startTime()"
+        [startTime]="resolvedPlayback().startTime ?? startTime()"
+      [timelineOffsetSeconds]="resolvedPlayback().preparedProxy?.timelineOffsetSeconds ?? 0"
+      [durationSeconds]="resolvedPlayback().preparedProxy?.durationSeconds ?? null"
+      [seekOverride]="companionSeekOverride()"
         [requestHeaders]="resolvedPlayback().headers ?? {}"
         [seriesNavigation]="seriesNavigation()"
         [onlineSubtitleUrl]="resolvedPlayback().subtitleUrl ?? ''"
@@ -53,7 +65,7 @@
         "
         [onlineSubtitleLanguage]="resolvedPlayback().subtitleLanguage ?? 'und'"
         (timeUpdate)="timeUpdate.emit($event)"
-        (runtimeSnapshotChange)="runtimeSnapshotChange.emit($event)"
+        (runtimeSnapshotChange)="handleRuntimeSnapshot($event)"
         (playbackIssue)="handlePlaybackIssue($event)"
         (playbackEnded)="playbackEnded.emit()"
         (previousEpisodeRequested)="previousEpisodeRequested.emit()"
@@ -71,7 +83,10 @@
         [showCaptions]="showCaptions()"
         [isLive]="resolvedIsLive()"
         [interactionEnabled]="playbackInteractionEnabled()"
-        [startTime]="startTime()"
+        [startTime]="resolvedPlayback().startTime ?? startTime()"
+      [timelineOffsetSeconds]="resolvedPlayback().preparedProxy?.timelineOffsetSeconds ?? 0"
+      [durationSeconds]="resolvedPlayback().preparedProxy?.durationSeconds ?? null"
+      [seekOverride]="companionSeekOverride()"
         [seriesNavigation]="seriesNavigation()"
         [onlineSubtitleUrl]="resolvedPlayback().subtitleUrl ?? ''"
         [onlineSubtitleLabel]="
@@ -79,7 +94,7 @@
         "
         [onlineSubtitleLanguage]="resolvedPlayback().subtitleLanguage ?? 'und'"
         (timeUpdate)="timeUpdate.emit($event)"
-        (runtimeSnapshotChange)="runtimeSnapshotChange.emit($event)"
+        (runtimeSnapshotChange)="handleRuntimeSnapshot($event)"
         (playbackIssue)="handlePlaybackIssue($event)"
         (playbackEnded)="playbackEnded.emit()"
         (previousEpisodeRequested)="previousEpisodeRequested.emit()"
@@ -169,12 +184,23 @@
         </div>
       }
 
+      @if (issue.network; as network) {
+        <p class="web-player-diagnostic__observed">
+          {{ 'PLAYBACK_RECOVERY.OBSERVED' | translate }}:
+          {{ network.status ? 'HTTP ' + network.status : ('PLAYBACK_RECOVERY.UNKNOWN_STATUS' | translate) }}
+          · {{ 'PLAYBACK_RECOVERY.RESOURCE_' + network.resourceKind | translate }}
+        </p>
+      }
       <div class="web-player-diagnostic__utilities">
         <button
           class="web-player-diagnostic__utility-button"
           type="button"
-          [cdkCopyToClipboard]="resolvedPlayback().streamUrl"
-          [matTooltip]="resolvedPlayback().streamUrl"
+          [cdkCopyToClipboard]="
+            resolvedPlayback().originalStreamUrl ?? resolvedPlayback().streamUrl
+          "
+          [matTooltip]="
+            resolvedPlayback().originalStreamUrl ?? resolvedPlayback().streamUrl
+          "
           data-test-id="playback-copy-url"
         >
           <mat-icon aria-hidden="true">content_copy</mat-icon>
@@ -183,15 +209,12 @@
 
         <span class="web-player-diagnostic__divider" aria-hidden="true"></span>
 
-        <button
-          class="web-player-diagnostic__utility-button"
-          type="button"
-          data-test-id="playback-retry"
-          (click)="retryPlayback()"
-        >
-          <mat-icon aria-hidden="true">refresh</mat-icon>
-          {{ "PLAYBACK_DIAGNOSTICS.ACTION_RETRY" | translate }}
-        </button>
+        <app-playback-recovery-menu
+          [actions]="resolvedRecoveryActions()" [engines]="retryWithPlaybackContext() ? recoveryEngines() : inlineRecoveryEngines()" [busy]="recoveryBusy()"
+          (selected)="executeRecovery($event)" (helpSelected)="recoveryHelp.set($event)" />
+        @if (recoveryHelp(); as cause) {
+          <p role="status">{{ 'PLAYBACK_RECOVERY.HELP_' + cause | translate }}</p>
+        }
 
         <span class="web-player-diagnostic__divider" aria-hidden="true"></span>
 

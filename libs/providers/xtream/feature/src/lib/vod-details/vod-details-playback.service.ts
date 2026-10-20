@@ -1,3 +1,4 @@
+import { readProviderSeekPreviews } from "@arm-nator/shared/interfaces";
 import {
   DestroyRef,
   Injectable,
@@ -12,8 +13,15 @@ import {
   PORTAL_PLAYER,
   createLogger,
   getPortalPlaybackProgressPercent,
+  isPortalPlaybackWatched,
 } from "@arm-nator/providers/shared/util";
-import { XtreamStore } from "@arm-nator/providers/xtream/data-access";
+import {
+  XtreamStore,
+  XtreamUrlService,
+  type XtreamPlaylistData,
+  buildXtreamSavedPlaybackHeaders,
+} from "@arm-nator/providers/xtream/data-access";
+import type { XtreamCredentials } from "@arm-nator/providers/xtream/data-access";
 import { PlaybackPositionRuntimeBridgeService } from "@arm-nator/services";
 import {
   PlaybackPositionData,
@@ -22,6 +30,8 @@ import {
   XtreamVodDetails,
   XtreamVodInfo,
   getXtreamVodInfo,
+  xtreamItemIdentity,
+  describeMovieWork,
 } from "@arm-nator/shared/interfaces";
 import type { PlaybackFallbackRequest } from "@arm-nator/player/ui";
 
@@ -40,6 +50,7 @@ export interface VodDetailsPlaybackBindings {
 @Injectable()
 export class VodDetailsPlaybackService {
   private readonly xtreamStore = inject(XtreamStore);
+  private readonly xtreamUrl = inject(XtreamUrlService);
   private readonly playbackPositions = inject(PORTAL_PLAYBACK_POSITIONS);
   private readonly portalPlayer = inject(PORTAL_PLAYER);
   private readonly externalPlayback = inject(PORTAL_EXTERNAL_PLAYBACK);
@@ -130,7 +141,7 @@ export class VodDetailsPlaybackService {
 
   readonly hasPlaybackPosition = computed(() => {
     const inProgress =
-      this.vodPlaybackProgress() > 0 && this.vodPlaybackProgress() < 90;
+      this.vodPlaybackProgress() > 0 && !isPortalPlaybackWatched(this.vodPlaybackPosition());
     this.logger.debug("hasPlaybackPosition check", {
       vodId: this.bindings()?.vodId(),
       inProgress,
@@ -165,7 +176,7 @@ export class VodDetailsPlaybackService {
     this.bindings.set(bindings);
   }
 
-  playVod(vodItem: XtreamVodDetails | null): void {
+  playVod(vodItem: XtreamVodDetails | null, resumePolicy: 'auto' | 'start-over' = 'auto'): void {
     if (!vodItem) {
       return;
     }
@@ -196,9 +207,23 @@ export class VodDetailsPlaybackService {
     };
     const playback: ResolvedPortalPlayback = {
       streamUrl,
+      recovery: this.xtreamUrl.buildPlaybackRecoveryMetadata(
+        this.getXtreamCredentials(playlist),
+        playlist.id,
+        streamUrl,
+        { savedHeaders: buildXtreamSavedPlaybackHeaders(playlist) },
+      ),
+      requestPolicy: { accountRef: playlist.id, portalCredentials: true },
+      resumePolicy,
+      userAgent: playlist.userAgent,
+      referer: playlist.referrer,
+      origin: playlist.origin,
       title: info?.name ?? vodItem.movie_data?.name ?? "Unknown",
       thumbnail: info?.movie_image,
+      seekPreviews: readProviderSeekPreviews(vodItem),
       contentInfo,
+      itemIdentity: xtreamItemIdentity(playlist.id, 'vod', contentInfo.contentXtreamId),
+      work: describeMovieWork(info?.name ?? vodItem.movie_data?.name ?? 'Unknown', info),
     };
 
     this.startPlayback(playback);
@@ -233,10 +258,23 @@ export class VodDetailsPlaybackService {
     };
     const playback: ResolvedPortalPlayback = {
       streamUrl,
+      recovery: this.xtreamUrl.buildPlaybackRecoveryMetadata(
+        this.getXtreamCredentials(playlist),
+        playlist.id,
+        streamUrl,
+        { savedHeaders: buildXtreamSavedPlaybackHeaders(playlist) },
+      ),
+      requestPolicy: { accountRef: playlist.id, portalCredentials: true },
+      userAgent: playlist.userAgent,
+      referer: playlist.referrer,
+      origin: playlist.origin,
       title: info?.name ?? vodItem.movie_data?.name ?? "Unknown",
       thumbnail: info?.movie_image,
+      seekPreviews: readProviderSeekPreviews(vodItem),
       startTime: resumePosition,
       contentInfo,
+      itemIdentity: xtreamItemIdentity(playlist.id, 'vod', contentInfo.contentXtreamId),
+      work: describeMovieWork(info?.name ?? vodItem.movie_data?.name ?? 'Unknown', info),
     };
 
     this.startPlayback(playback);
@@ -284,6 +322,8 @@ export class VodDetailsPlaybackService {
   handleInlineTimeUpdate(event: {
     currentTime: number;
     duration: number;
+    persistenceHandled?: boolean;
+    action?: 'progress' | 'finished' | 'reset';
   }): void {
     const playback = this.inlinePlayback();
     if (!playback?.contentInfo) return;
@@ -294,12 +334,18 @@ export class VodDetailsPlaybackService {
 
     const position: PlaybackPositionData = {
       ...playback.contentInfo,
-      positionSeconds: Math.floor(event.currentTime),
+      action: event.action,
+      positionSeconds: event.currentTime,
       durationSeconds:
         Number.isFinite(event.duration) && event.duration > 0
-          ? Math.floor(event.duration)
+          ? event.duration
           : undefined,
     };
+    if (event.persistenceHandled) {
+      this.latestInlinePosition = null;
+      this.vodPlaybackPosition.set(position);
+      return;
+    }
     this.latestInlinePosition = position;
 
     const now = Date.now();
@@ -348,6 +394,18 @@ export class VodDetailsPlaybackService {
       onClosed: () => this.closeInlinePlayer(),
       onTimeUpdate: (event) => this.handleInlineTimeUpdate(event),
     });
+  }
+
+  private getXtreamCredentials(
+    playlist: XtreamPlaylistData,
+  ): XtreamCredentials {
+    return {
+      serverUrl: playlist.serverUrl,
+      username: playlist.username,
+      password: playlist.password,
+      playbackServerUrl: playlist.playbackServerUrl,
+      allowedOutputFormats: playlist.allowedOutputFormats,
+    };
   }
 
   private flushLatestInlinePosition(): void {

@@ -89,6 +89,46 @@
     padding: 0 40px;
 }
 
+.shell__detail-back {
+    max-width: var(--content-max-width);
+    margin: 0 auto;
+    padding: 12px 40px 0;
+}
+
+.shell__back-button {
+    display: inline-flex;
+    min-height: 36px;
+    align-items: center;
+    gap: 6px;
+    padding: 4px 8px;
+    border: 1px solid transparent;
+    border-radius: 8px;
+    background: transparent;
+    color: var(--text-secondary);
+    cursor: pointer;
+    font: inherit;
+    font-size: 0.9rem;
+    transition:
+        background-color 150ms ease,
+        color 150ms ease;
+
+    mat-icon {
+        width: 20px;
+        height: 20px;
+        font-size: 20px;
+    }
+
+    &:hover {
+        background: var(--tag-bg);
+        color: var(--text-primary);
+    }
+
+    &:focus-visible {
+        outline: 2px solid var(--text-primary);
+        outline-offset: 2px;
+    }
+}
+
 .shell__about {
     display: block;
     // Air between the last episode row and the section divider.
@@ -120,6 +160,10 @@
 
     .shell__episodes {
         padding: 0 20px;
+    }
+
+    .shell__detail-back {
+        padding: 12px 20px 0;
     }
 
     .shell__extras {

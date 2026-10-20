@@ -15,3 +15,5 @@ export * from './lib/settings-store.service';
 export * from './lib/sort.service';
 export * from './lib/tmdb';
 export * from './lib/xtream-pending-restore.service';
+
+export * from './lib/ui-performance.service';

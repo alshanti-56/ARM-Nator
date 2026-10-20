@@ -1,3 +1,4 @@
+import { PlaybackPositionService } from '@arm-nator/services';
 import { Injectable, inject } from '@angular/core';
 import {
     PORTAL_PLAYBACK_POSITIONS,
@@ -15,6 +16,8 @@ export class AppPortalPlaybackPositionsService
     implements PortalPlaybackPositions
 {
     private readonly dataSource = inject(XTREAM_DATA_SOURCE);
+    private readonly positions = inject(PlaybackPositionService);
+    getViewingHistory(playlistId?: string) { return this.positions.getViewingHistory(playlistId); }
 
     async savePlaybackPosition(
         playlistId: string,

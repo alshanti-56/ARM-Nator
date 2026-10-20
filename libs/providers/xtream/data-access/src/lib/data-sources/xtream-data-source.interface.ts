@@ -28,6 +28,8 @@ export interface XtreamPlaylistData {
     title?: string; // Alias for name, used in some templates
     updateDate?: number;
     serverUrl: string;
+    /** In-memory media endpoint from authenticated account metadata; never persisted. */
+    playbackServerUrl?: string;
     username: string;
     password: string;
     type: string;

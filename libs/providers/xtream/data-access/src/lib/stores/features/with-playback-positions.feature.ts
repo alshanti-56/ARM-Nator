@@ -6,7 +6,7 @@ import {
     withMethods,
     withState,
 } from '@ngrx/signals';
-import { XtreamSerieEpisode } from '@arm-nator/shared/interfaces';
+import { isViewingPositionFinished, XtreamSerieEpisode } from '@arm-nator/shared/interfaces';
 import { PlaybackPositionRuntimeBridgeService } from '@arm-nator/services';
 import {
     PlaybackPositionData,
@@ -89,16 +89,14 @@ export function withPlaybackPositions() {
                 },
 
                 /**
-                 * Check if content is considered "watched" (>90% complete)
+                 * Check if content is considered "watched" (at least 95% of actual duration)
                  */
                 isWatched(
                     contentXtreamId: number,
                     contentType: 'vod' | 'episode'
                 ): boolean {
-                    return (
-                        this.getProgressPercent(contentXtreamId, contentType) >=
-                        90
-                    );
+                    const position = store.playbackPositions().get(getPositionKey(contentType, contentXtreamId));
+                    return isViewingPositionFinished(position);
                 },
 
                 /**
@@ -112,13 +110,7 @@ export function withPlaybackPositions() {
                     const position = store.playbackPositions().get(key);
                     if (!position) return false;
 
-                    const percent = this.getProgressPercent(
-                        contentXtreamId,
-                        contentType
-                    );
-                    const inProgress =
-                        position.positionSeconds > 10 && percent < 90;
-                    return inProgress;
+                    return position.positionSeconds > 10 && !this.isWatched(contentXtreamId, contentType);
                 },
 
                 /**

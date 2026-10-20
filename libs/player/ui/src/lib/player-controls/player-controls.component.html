@@ -138,6 +138,7 @@
 
         <div class="player-controls__timeline">
             @if (capabilities().seek) {
+                <app-seek-preview [duration]="timelineDuration()" [enabled]="state().canSeek && !state().isLive" [source]="seekPreviews()" [cacheKey]="seekPreviewCacheKey()" [videoSurface]="playerSurface()">
                 <input
                     class="player-controls__slider"
                     [style.--slider-progress.%]="timelineProgress()"
@@ -153,6 +154,7 @@
                     (input)="onTimelineInput($event)"
                     (change)="onTimelineCommit($event)"
                 />
+                </app-seek-preview>
             }
             <div class="player-controls__time">
                 <span>{{ formatTime(timelineValue()) }}</span>
@@ -195,6 +197,7 @@
                     (focusin)="onVolumeHoverEnter()"
                     (focusout)="onVolumeHoverLeave()"
                     (wheel)="onVolumeWheel($event)"
+                    (keydown.escape)="closePopovers(); $event.stopPropagation(); $event.preventDefault()"
                 >
                     <button
                         mat-icon-button
@@ -563,6 +566,7 @@
                         type="button"
                         class="player-controls__button"
                         (click)="toggleMenu('settings')"
+                        (keydown.escape)="closePopovers(); $event.stopPropagation(); $event.preventDefault()"
                         [attr.aria-expanded]="menus.settingsOpen()"
                         [attr.aria-label]="
                             'EMBEDDED_MPV.PLAYER.PLAYER_SETTINGS' | translate

@@ -3,6 +3,7 @@ import { randomUUID } from 'crypto';
 import * as path from 'path';
 import { pathToFileURL } from 'url';
 import { Worker } from 'worker_threads';
+import { appendFileSync, mkdirSync } from 'node:fs';
 import type {
     DbOperationEvent,
     DbWorkerMessage,
@@ -205,6 +206,19 @@ export class DatabaseWorkerClient {
 
         this.pendingRequests.delete(message.requestId);
 
+        if (process.env['ARM_NATOR_PERF_CAPTURE'] === '1') {
+            try {
+                const directory = path.join(app.getPath('userData'), 'performance');
+                mkdirSync(directory, { recursive: true });
+                appendFileSync(path.join(directory, 'database-timings.jsonl'), JSON.stringify({
+                    operation: pendingRequest.operation, durationMs: Date.now() - pendingRequest.startedAt,
+                    workDurationMs: message.localWorkDurationMs, at: Date.now(), pid: process.pid,
+                    count: Array.isArray(message.result) ? message.result.length : undefined,
+                    success: message.success,
+                }) + '\n', { mode: 0o600 });
+            } catch (error) { console.error('Unable to record database performance', error); }
+        }
+
         if (message.success) {
             if (isDbTraceEnabled()) {
                 trace('db-request', 'resolved', {
@@ -238,7 +252,7 @@ export class DatabaseWorkerClient {
         );
     }
 
-    private handleWorkerFailure(error: Error): void {
+    private handleWorkerFailure(error: unknown): void {
         if (isDbTraceEnabled()) {
             trace('db-worker', 'error', error);
         }
@@ -280,7 +294,7 @@ export class DatabaseWorkerClient {
         this.readyReject = null;
     }
 
-    private rejectAllPending(error: Error): void {
+    private rejectAllPending(error: unknown): void {
         const pendingRequests = [...this.pendingRequests.values()];
         this.pendingRequests.clear();
 

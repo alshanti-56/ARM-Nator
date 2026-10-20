@@ -1,5 +1,4 @@
 import { inject, Injectable, signal } from '@angular/core';
-import { Router } from '@angular/router';
 import { Store } from '@ngrx/store';
 import { TranslateService } from '@ngx-translate/core';
 import { MatSnackBar } from '@angular/material/snack-bar';
@@ -8,12 +7,11 @@ import {
     DatabaseService,
     type DbOperationEvent,
     isDbAbortError,
-    PlaybackPositionService,
     RuntimeCapabilitiesService,
-    XtreamPendingRestoreService,
 } from '@arm-nator/services';
 import { PlaylistActions } from '@arm-nator/providers/shared/playlist-state';
 import { PlaylistMeta } from '@arm-nator/shared/interfaces';
+import { XtreamCatalogueRefreshService } from './xtream-catalogue-refresh.service';
 
 export interface XtreamRefreshPreparationState {
     playlistId: string;
@@ -25,17 +23,13 @@ export interface XtreamRefreshPreparationState {
 
 @Injectable({ providedIn: 'root' })
 export class PlaylistRefreshActionService {
-    private readonly router = inject(Router);
     private readonly store = inject(Store);
     private readonly translate = inject(TranslateService);
     private readonly snackBar = inject(MatSnackBar);
     private readonly dialogService = inject(DialogService);
     private readonly databaseService = inject(DatabaseService);
-    private readonly playbackPositionService = inject(PlaybackPositionService);
     private readonly runtime = inject(RuntimeCapabilitiesService);
-    private readonly pendingRestoreService = inject(
-        XtreamPendingRestoreService
-    );
+    private readonly catalogueRefresh = inject(XtreamCatalogueRefreshService);
 
     private readonly refreshPreparationState =
         signal<XtreamRefreshPreparationState | null>(null);
@@ -97,46 +91,17 @@ export class PlaylistRefreshActionService {
                     await this.waitForRefreshPreparationPaint();
 
                     const updateDate = Date.now();
-                    const [restoreState, playbackPositions] = await Promise.all(
-                        [
-                            this.databaseService.deleteXtreamPlaylistContent(
-                                item._id,
-                                {
-                                    operationId,
-                                    onEvent: (event) =>
-                                        this.updateRefreshPreparationFromEvent(
-                                            item._id,
-                                            operationId,
-                                            event
-                                        ),
-                                }
-                            ),
-                            this.playbackPositionService.getAllPlaybackPositions(
-                                item._id
-                            ),
-                            this.databaseService.updateXtreamPlaylistDetails({
-                                id: item._id,
-                                updateDate,
-                            }),
-                        ]
-                    );
-
-                    this.pendingRestoreService.set(item._id, {
-                        ...restoreState,
-                        playbackPositions,
+                    const result = await this.catalogueRefresh.refresh(item, {
+                        operationId,
+                        onEvent: event => this.updateRefreshPreparationFromEvent(item._id, operationId, event),
                     });
 
                     this.store.dispatch(
                         PlaylistActions.updatePlaylistMeta({
-                            playlist: { ...item, updateDate },
+                            playlist: { ...item, updateDate, count: result.count },
                         })
                     );
 
-                    await this.router.navigate([
-                        '/workspace',
-                        'xtreams',
-                        item._id,
-                    ]);
                 } catch (error) {
                     if (!isDbAbortError(error)) {
                         console.error(

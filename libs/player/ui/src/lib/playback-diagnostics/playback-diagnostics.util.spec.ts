@@ -68,3 +68,12 @@ test("keeps transient rate-limit responses on the recoverable path", () => {
     true,
   );
 });
+
+test('HLS uses response status as evidence and redacts source tokens from details', async () => {
+  const { classifyHlsPlaybackIssue } = await import('./playback-diagnostics.util');
+  const issue = classifyHlsPlaybackIssue({ type: 'networkError', details: 'fragLoadError', response: { code: 403 }, message: 'failed https://provider.example/live?token=secret' }, metadata);
+  assert.deepEqual(issue.network, { status: 403, resourceKind: 'segment' });
+  assert.ok(!issue.details?.includes('secret'));
+  const opaque = classifyHlsPlaybackIssue({ type: 'networkError', details: 'manifestLoadError', message: '403 could mean expired', response: { code: 0 } }, metadata);
+  assert.equal(opaque.network?.status, null);
+});

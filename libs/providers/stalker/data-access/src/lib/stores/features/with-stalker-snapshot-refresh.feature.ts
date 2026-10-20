@@ -137,7 +137,7 @@ export function withStalkerSnapshotRefresh() {
                             return false;
                         }
 
-                        let fresh: StalkerVodSource | null = null;
+                        let fresh: StalkerVodSource | null;
                         try {
                             const category = toSearchCategory(
                                 snapshot.category_id

@@ -87,6 +87,7 @@ export class XtreamCollectionDetailComponent {
   }
 
   ngOnDestroy(): void {
+    this.initRequestId += 1;
     this.restoreStoreState();
   }
 
@@ -120,6 +121,15 @@ export class XtreamCollectionDetailComponent {
     }
 
     const xtreamPlaylist = this.toXtreamPlaylist(playlist);
+    const currentPlaylist = this.xtreamStore.currentPlaylist();
+    if (
+      currentPlaylist &&
+      this.isSameAccount(currentPlaylist, xtreamPlaylist) &&
+      currentPlaylist.playbackServerUrl
+    ) {
+      xtreamPlaylist.playbackServerUrl = currentPlaylist.playbackServerUrl;
+    }
+
     this.xtreamStore.setPlaylistId(xtreamPlaylist.id);
     this.xtreamStore.setCurrentPlaylist(xtreamPlaylist);
     this.xtreamStore.setSelectedContentType(
@@ -129,6 +139,19 @@ export class XtreamCollectionDetailComponent {
     this.xtreamStore.setSelectedItem(null);
     this.xtreamStore.setIsLoadingDetails(false);
     this.xtreamStore.setDetailsError(null);
+
+    if (!xtreamPlaylist.playbackServerUrl) {
+      try {
+        await this.xtreamStore.checkPortalStatus(
+          () => requestId === this.initRequestId,
+        );
+      } catch {
+        // The configured serverUrl remains a usable fallback for playback.
+      }
+      if (requestId !== this.initRequestId) {
+        return;
+      }
+    }
 
     this.detailComponent.set(
       item.contentType === "movie"
@@ -216,6 +239,18 @@ export class XtreamCollectionDetailComponent {
       referrer: playlist.referrer,
       origin: playlist.origin,
     };
+  }
+
+  private isSameAccount(
+    left: XtreamPlaylistData,
+    right: XtreamPlaylistData,
+  ): boolean {
+    return (
+      left.id === right.id &&
+      left.serverUrl === right.serverUrl &&
+      left.username === right.username &&
+      left.password === right.password
+    );
   }
 
   private resolveXtreamId(item: UnifiedCollectionItem): string | null {

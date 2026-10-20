@@ -1,5 +1,11 @@
+import { isPlaybackShortcutBlocked } from '../player-controls/playback-shortcut-focus';
+
 export interface EmbeddedMpvShortcutHandlers {
     isAvailable: () => boolean;
+    canTogglePaused?: () => boolean;
+    canSeek?: () => boolean;
+    canAdjustVolume?: () => boolean;
+    canToggleFullscreen?: () => boolean;
     /**
      * While true, arrow keys stop seeking/adjusting volume — an open dock
      * chip panel owns them for chip navigation instead.
@@ -33,16 +39,12 @@ export class EmbeddedMpvShortcuts {
 
     private handle(event: KeyboardEvent): void {
         const handlers = this.handlers;
-        if (!handlers) {
+        if (!handlers || isPlaybackShortcutBlocked(event) || !handlers.isAvailable()) {
             return;
         }
 
         if (event.key === 'Escape') {
             handlers.onEscape();
-            return;
-        }
-
-        if (this.shouldIgnore(event) || !handlers.isAvailable()) {
             return;
         }
 
@@ -52,37 +54,39 @@ export class EmbeddedMpvShortcuts {
             case ' ':
             case 'k':
             case 'K':
+                if (handlers.canTogglePaused?.() === false) return;
                 event.preventDefault();
                 handlers.togglePaused();
                 return;
             case 'f':
             case 'F':
+                if (handlers.canToggleFullscreen?.() === false) return;
                 event.preventDefault();
                 handlers.toggleFullscreen();
                 return;
             case 'ArrowLeft':
-                if (arrowsBlocked) {
+                if (arrowsBlocked || handlers.canSeek?.() === false) {
                     return;
                 }
                 event.preventDefault();
                 handlers.seekBy(-5);
                 return;
             case 'ArrowRight':
-                if (arrowsBlocked) {
+                if (arrowsBlocked || handlers.canSeek?.() === false) {
                     return;
                 }
                 event.preventDefault();
                 handlers.seekBy(5);
                 return;
             case 'ArrowUp':
-                if (arrowsBlocked) {
+                if (arrowsBlocked || handlers.canAdjustVolume?.() === false) {
                     return;
                 }
                 event.preventDefault();
                 handlers.adjustVolume(0.05);
                 return;
             case 'ArrowDown':
-                if (arrowsBlocked) {
+                if (arrowsBlocked || handlers.canAdjustVolume?.() === false) {
                     return;
                 }
                 event.preventDefault();
@@ -90,21 +94,11 @@ export class EmbeddedMpvShortcuts {
                 return;
             case 'm':
             case 'M':
+                if (handlers.canAdjustVolume?.() === false) return;
                 event.preventDefault();
                 handlers.toggleMute();
                 return;
         }
     }
 
-    private shouldIgnore(event: KeyboardEvent): boolean {
-        const target = event.target as HTMLElement | null;
-        if (!target) {
-            return false;
-        }
-        const tag = target.tagName;
-        if (tag === 'INPUT' || tag === 'TEXTAREA' || tag === 'SELECT') {
-            return true;
-        }
-        return target.isContentEditable;
-    }
 }

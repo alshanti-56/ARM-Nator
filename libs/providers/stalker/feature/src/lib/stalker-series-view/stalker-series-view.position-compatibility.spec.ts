@@ -331,7 +331,7 @@ describe('StalkerSeriesViewComponent position compatibility', () => {
                         stream: (key: string) => of(key),
                         onLangChange: EMPTY,
                         onTranslationChange: EMPTY,
-                        onDefaultLangChange: EMPTY,
+                        onFallbackLangChange: EMPTY,
                     },
                 },
             ],

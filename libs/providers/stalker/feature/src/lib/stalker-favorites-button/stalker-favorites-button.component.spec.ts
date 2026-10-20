@@ -1,7 +1,7 @@
 import { signal } from '@angular/core';
 import { ComponentFixture, TestBed } from '@angular/core/testing';
 import { NoopAnimationsModule } from '@angular/platform-browser/animations';
-import { TranslateModule } from '@ngx-translate/core';
+import { provideTranslateService } from '@ngx-translate/core';
 import { StalkerStore } from '@arm-nator/providers/stalker/data-access';
 import { PlaylistsService } from '@arm-nator/services';
 import { of } from 'rxjs';
@@ -20,9 +20,9 @@ describe('FavoritesButtonComponent', () => {
             imports: [
                 FavoritesButtonComponent,
                 NoopAnimationsModule,
-                TranslateModule.forRoot(),
             ],
             providers: [
+                ...provideTranslateService(),
                 {
                     provide: StalkerStore,
                     useValue: {

@@ -1,4 +1,5 @@
-<div class="workspace-loading-overlay">
+<div class="workspace-loading-overlay"
+    [class.workspace-loading-overlay--refresh]="xtreamImport.isRefreshPreparationRunning()">
     <div class="workspace-loading-overlay__card">
         <div class="workspace-loading-overlay__header">
             @if (xtreamImport.xtreamImportSourceLabel()) {

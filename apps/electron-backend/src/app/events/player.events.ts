@@ -4,6 +4,8 @@ import {
   ExternalPlayerControlAction,
   PlaybackNetworkInspection,
   PlayerContentInfo,
+  PlaybackRequestPolicy,
+  PlaybackResourceKind,
 } from "@arm-nator/shared/interfaces";
 import {
   MPV_PLAYER_PATH,
@@ -28,6 +30,16 @@ import {
   setVlcReuseInstance,
 } from "./vlc-session.service";
 import { hlsPlaybackProxy } from "../services/hls-playback-proxy.service";
+
+import { createAutomaticPlaybackApi } from "../services/automatic-playback-api";
+import { playbackDiagnostics } from "../services/playback-diagnostics.service";
+import { playbackAccountProfiles } from "../services/playback-account-profile.service";
+
+const automaticPlayback = createAutomaticPlaybackApi(hlsPlaybackProxy, playbackDiagnostics);
+ipcMain.handle("PREPARE_AUTO_PLAYBACK", (event, url: string, headers: Record<string, string> | undefined, isLive: boolean, attemptId: string, policy?: PlaybackRequestPolicy) => automaticPlayback.prepare(url, headers, isLive, attemptId, policy, event.sender.id));
+ipcMain.handle("CANCEL_AUTO_PLAYBACK_PREPARATION", (event, attemptId: string) => automaticPlayback.cancel(attemptId, event.sender.id));
+ipcMain.handle("RELEASE_AUTO_PLAYBACK_SESSION", (event, sessionId: string) => automaticPlayback.release(sessionId, event.sender.id));
+ipcMain.handle("RECORD_AUTOMATIC_PLAYBACK_DECISION", (_event, decision: Parameters<typeof automaticPlayback.recordDecision>[0]) => automaticPlayback.recordDecision(decision));
 
 export {
   buildExternalPlayerSpawnSpec,
@@ -151,35 +163,72 @@ ipcMain.handle("GET_PLAYER_ENGINE_AVAILABILITY", async () => [
 
 ipcMain.handle(
   "CREATE_HLS_PROXY_SESSION",
-  async (_event, url: string, headers?: Record<string, string>) =>
-    hlsPlaybackProxy.createSession({ url, headers }),
+  async (event, url: string, headers?: Record<string, string>, requestPolicy?: PlaybackRequestPolicy) =>
+    hlsPlaybackProxy.createSession({ url, headers, requestPolicy, ownerId: event.sender.id }),
 );
 
 ipcMain.handle(
   "CREATE_PROGRESSIVE_VOD_PROXY_SESSION",
-  async (_event, url: string, headers?: Record<string, string>) =>
-    hlsPlaybackProxy.createProgressiveVodSession({ url, headers }),
+  async (event, url: string, headers?: Record<string, string>, requestPolicy?: PlaybackRequestPolicy) =>
+    hlsPlaybackProxy.createProgressiveVodSession({ url, headers, requestPolicy, ownerId: event.sender.id }),
 );
 
 ipcMain.handle(
   "CREATE_MPEGTS_PROXY_SESSION",
-  async (_event, url: string, headers?: Record<string, string>) =>
-    hlsPlaybackProxy.createMpegTsSession({ url, headers }),
+  async (event, url: string, headers?: Record<string, string>, isLive?: boolean, requestPolicy?: PlaybackRequestPolicy) =>
+    hlsPlaybackProxy.createMpegTsSession({ url, headers, isLive, requestPolicy, ownerId: event.sender.id }),
 );
 
-ipcMain.handle("RELEASE_HLS_PROXY_SESSION", (_event, sessionId: string) => {
-  hlsPlaybackProxy.releaseSession(sessionId);
+ipcMain.handle(
+  "CREATE_DASH_PROXY_SESSION",
+  async (event, url: string, headers?: Record<string, string>, requestPolicy?: PlaybackRequestPolicy) =>
+    hlsPlaybackProxy.createDashSession({ url, headers, requestPolicy, ownerId: event.sender.id }),
+);
+
+ipcMain.handle(
+  "REGISTER_DASH_PROXY_RESOURCE",
+  (event, sessionId: string, targetUrl: string, resourceKind?: PlaybackResourceKind) =>
+    hlsPlaybackProxy.registerDashResource(
+      sessionId,
+      targetUrl,
+      resourceKind,
+      event.sender.id,
+    ),
+);
+
+ipcMain.handle(
+  "REGISTER_DASH_PROXY_LICENSE",
+  (event, sessionId: string, licenseUrl: string, licenseHeaders?: Record<string, string>) =>
+    hlsPlaybackProxy.registerDashLicense(sessionId, licenseUrl, licenseHeaders, event.sender.id),
+);
+
+ipcMain.handle("RELEASE_DASH_PROXY_SESSION", (event, sessionId: string) =>
+  hlsPlaybackProxy.releaseSessionAndWait(sessionId, event.sender.id),
+);
+
+ipcMain.handle("GET_PLAYBACK_RECOVERY_AVAILABILITY", (event, accountRef: string) => {
+  void event;
+  return playbackAccountProfiles.getAvailability(accountRef);
+});
+
+ipcMain.handle("CLEAR_PLAYBACK_ACCOUNT_PROFILE", (event, accountRef: string) => {
+  void event;
+  playbackAccountProfiles.clear(accountRef);
+});
+
+ipcMain.handle("RELEASE_HLS_PROXY_SESSION", (event, sessionId: string) => {
+  return hlsPlaybackProxy.releaseSessionAndWait(sessionId, event.sender.id);
 });
 
 ipcMain.handle(
   "RELEASE_PROGRESSIVE_VOD_PROXY_SESSION",
-  (_event, sessionId: string) => {
-    hlsPlaybackProxy.releaseSession(sessionId);
+  (event, sessionId: string) => {
+    return hlsPlaybackProxy.releaseSessionAndWait(sessionId, event.sender.id);
   },
 );
 
-ipcMain.handle("RELEASE_MPEGTS_PROXY_SESSION", (_event, sessionId: string) => {
-  hlsPlaybackProxy.releaseSession(sessionId);
+ipcMain.handle("RELEASE_MPEGTS_PROXY_SESSION", (event, sessionId: string) => {
+  return hlsPlaybackProxy.releaseSessionAndWait(sessionId, event.sender.id);
 });
 
 ipcMain.handle(

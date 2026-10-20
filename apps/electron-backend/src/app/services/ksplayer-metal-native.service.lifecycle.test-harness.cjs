@@ -44,6 +44,12 @@ Module._load = function loadLifecycleHarnessModule(request, parent, isMain) {
       KSPLAYER_METAL_SESSION_UPDATE: "ksplayer-metal-session-update",
     };
   }
+  if (
+    request === "./playback-diagnostics.service" &&
+    parent?.filename === servicePath
+  ) {
+    return { playbackDiagnostics: { record: () => undefined } };
+  }
   return originalLoad.call(this, request, parent, isMain);
 };
 
@@ -488,6 +494,54 @@ function testSeekFailureAndDisposeRace() {
   }
 }
 
+function testDisposeFailureRetainsSessionOwnershipForRetry() {
+  const fixture = createFixture();
+  try {
+    const window = new FakeBrowserWindow("dispose-failure");
+    const session = play(fixture.service, window);
+    const initialUpdates = window.webContents.sent.length;
+    fixture.addon.disposeSession = () => ({
+      ok: false,
+      reason: "native dispose failed",
+    });
+
+    assert.throws(
+      () => fixture.service.disposeSession(session.id),
+      /native dispose failed/,
+    );
+    assert.equal(fixture.service.sessions.has(session.id), true);
+    assert.equal(
+      window.webContents.sent
+        .slice(initialUpdates)
+        .some(({ payload }) => payload.status === "closed"),
+      false,
+      "failed disposal must not publish a closed snapshot",
+    );
+    assert.equal(fixture.timers.size, 1, "failed disposal retains polling ownership");
+    assert.equal(activePowerBlockers.size, 1, "failed disposal retains the power blocker");
+
+    const previousDisposeAll = fixture.addon.disposeAll;
+    fixture.addon.disposeAll = () => ({ok: false, reason: "strict cleanup failed"});
+    assert.throws(() => fixture.service.shutdown(true), /strict cleanup failed/);
+    assert.equal(fixture.service.sessions.has(session.id), true);
+    fixture.addon.disposeAll = previousDisposeAll;
+    fixture.addon.disposeSession = () => ({ ok: true });
+    const closed = fixture.service.disposeSession(session.id);
+    assert.equal(closed?.status, "closed");
+    assert.equal(fixture.service.sessions.has(session.id), false);
+    assert.equal(
+      window.webContents.sent
+        .slice(initialUpdates)
+        .filter(({ payload }) => payload.status === "closed").length,
+      1,
+      "successful retry publishes one closed snapshot",
+    );
+    assertReleased(fixture, "successful disposal retry");
+  } finally {
+    fixture.cleanup();
+  }
+}
+
 const tests = [
   [
     "close → activate/replacement → play → close/recreate",
@@ -506,6 +560,7 @@ const tests = [
     "rapid seek dispatch, unsupported failure, and dispose race",
     testSeekFailureAndDisposeRace,
   ],
+  ["failed native disposal retains ownership for retry", testDisposeFailureRetainsSessionOwnershipForRetry],
 ];
 
 for (const [name, run] of tests) {

@@ -24,8 +24,16 @@ export * from './lib/workspace-view-command.service';
 export * from './lib/navigation/portal-rail-links';
 export * from './lib/navigation/portal-route.utils';
 export * from './lib/navigation/workspace-portal-navigation';
+export * from './lib/navigation/catalogue-navigation-state';
+export * from './lib/navigation/catalogue-navigation-state.service';
 export * from './lib/collection';
 export * from './lib/dash.utils';
 export * from './lib/playback-media-extension.util';
 export * from './lib/inline-playback-position-writer';
 export * from './lib/strip-country-prefix.util';
+
+export * from "./lib/portal-discovery-coordinator";
+
+export * from "./lib/portal-discovery-adapter";
+
+export * from "./lib/discovery-selection.service";

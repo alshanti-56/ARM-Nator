@@ -33,18 +33,17 @@ import {
     DatabaseService,
     DbOperationEvent,
     isDbAbortError,
-    PlaybackPositionService,
     PlaylistDeleteActionService,
     RuntimeCapabilitiesService,
     SortBy,
     SortService,
-    XtreamPendingRestoreService,
 } from '@arm-nator/services';
 import {
     getPlaylistSourceType,
     PlaylistMeta,
 } from '@arm-nator/shared/interfaces';
 
+import { XtreamCatalogueRefreshService } from '../xtream-catalogue-refresh.service';
 import { EmptyStateComponent } from './empty-state/empty-state.component';
 import type { PlaylistType } from '../add-playlist-menu/playlist-type';
 import { PlaylistInfoComponent } from './playlist-info/playlist-info.component';
@@ -75,7 +74,6 @@ export class RecentPlaylistsComponent {
     private readonly databaseService = inject(DatabaseService);
     private readonly dialog = inject(MatDialog);
     private readonly dialogService = inject(DialogService);
-    private readonly playbackPositionService = inject(PlaybackPositionService);
     private readonly router = inject(Router);
     private readonly snackBar = inject(MatSnackBar);
     private readonly sortService = inject(SortService);
@@ -84,9 +82,7 @@ export class RecentPlaylistsComponent {
     private readonly translate = inject(TranslateService);
     private readonly playlistContext = inject(PlaylistContextFacade);
     private readonly playlistDeleteAction = inject(PlaylistDeleteActionService);
-    private readonly pendingRestoreService = inject(
-        XtreamPendingRestoreService
-    );
+    private readonly catalogueRefresh = inject(XtreamCatalogueRefreshService);
 
     readonly sidebarMode = input(false);
     readonly searchQueryInput = input<string>('');
@@ -275,13 +271,13 @@ export class RecentPlaylistsComponent {
         }
 
         if (item.serverUrl && this.supportsXtreamSqliteDataSource) {
-            // For Xtream playlists, delete and re-import
+            // For Xtream playlists, replace the validated catalogue atomically
             this.refreshXtreamPlaylist(item);
         }
     }
 
     /**
-     * Refresh Xtream playlist by deleting all data and re-importing from remote
+     * Refresh Xtream playlist while retaining its cached catalogue until commit
      * @param item Xtream playlist to refresh
      */
     async refreshXtreamPlaylist(item: PlaylistMeta) {
@@ -320,46 +316,21 @@ export class RecentPlaylistsComponent {
                         { duration: 2000 }
                     );
 
-                    // Delete content/categories and update the timestamp in
-                    // parallel — both operations are fully independent.
+                    // Fetch and validate every catalogue kind before committing.
                     const updateDate = Date.now();
-                    const [restoreState, playbackPositions] = await Promise.all(
-                        [
-                            this.databaseService.deleteXtreamPlaylistContent(
-                                item._id,
-                                {
-                                    operationId,
-                                    onEvent: (workerEvent) =>
-                                        this.updateBusyOperation(
-                                            item._id,
-                                            workerEvent
-                                        ),
-                                }
-                            ),
-                            this.playbackPositionService.getAllPlaybackPositions(
-                                item._id
-                            ),
-                            this.databaseService.updateXtreamPlaylistDetails({
-                                id: item._id,
-                                updateDate,
-                            }),
-                        ]
-                    );
-
-                    this.pendingRestoreService.set(item._id, {
-                        ...restoreState,
-                        playbackPositions,
+                    const result = await this.catalogueRefresh.refresh(item, {
+                        operationId,
+                        onEvent: event => this.updateBusyOperation(item._id, event),
                     });
 
                     // Update the timestamp in NgRx / IndexedDB
                     this.store.dispatch(
                         PlaylistActions.updatePlaylistMeta({
-                            playlist: { ...item, updateDate },
+                            playlist: { ...item, updateDate, count: result.count },
                         })
                     );
 
-                    // Navigate to the playlist to trigger re-import
-                    this.router.navigate(['/workspace', 'xtreams', item._id]);
+                    // Catalogue commit notification refreshes cached views in place.
                 } catch (error) {
                     if (!isDbAbortError(error)) {
                         console.error(

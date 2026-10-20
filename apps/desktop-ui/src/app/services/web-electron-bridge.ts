@@ -266,7 +266,10 @@ async function postJson<T>(path: string, body: unknown): Promise<T> {
         error?: string;
     };
     if (!response.ok) {
-        throw new Error(payload.error ?? `Web API request failed (${response.status})`);
+        throw Object.assign(
+            new Error(payload.error ?? `Web API request failed (${response.status})`),
+            { status: response.status }
+        );
     }
     return Object.prototype.hasOwnProperty.call(payload, 'result')
         ? (payload.result as T)
@@ -305,6 +308,30 @@ function createWebBridge(): ElectronBridgeApi {
 
                 if (property === 'stalkerRequest') {
                     return (payload: unknown) => postJson('/stalker', payload);
+                }
+
+                if (property === 'getPlaybackRecoveryAvailability') {
+                    return (accountRef: string) =>
+                        postJson('/playback/recovery-availability', { accountRef });
+                }
+
+                if (property === 'clearPlaybackAccountProfile') {
+                    return (accountRef: string) =>
+                        postJson('/playback/clear-profile', { accountRef });
+                }
+
+                if (
+                    property === 'createDashProxySession' ||
+                    property === 'registerDashProxyResource' ||
+                    property === 'registerDashProxyLicense'
+                ) {
+                    return async () => {
+                        throw new Error('DASH media proxy sessions require the Electron desktop app.');
+                    };
+                }
+
+                if (property === 'releaseDashProxySession') {
+                    return async () => undefined;
                 }
 
                 if (property === 'onBrowserViewUpdate') {

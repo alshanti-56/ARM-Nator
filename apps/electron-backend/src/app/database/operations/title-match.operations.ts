@@ -82,7 +82,7 @@ export async function matchTitles(
                 INNER JOIN playlists AS p ON cat.playlist_id = p.id
                 WHERE content_title_fts MATCH ${matchQuery}
                 AND c.type IN ('movie', 'series')
-                AND cat.hidden = 0
+                AND cat.hidden = 0 AND cat.available = 1 AND c.available = 1
                 ORDER BY rank, c.title
                 LIMIT ${PER_TITLE_CANDIDATE_LIMIT}
             `)) as TitleMatchRow[];

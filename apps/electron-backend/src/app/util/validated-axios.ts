@@ -32,6 +32,32 @@ export type ValidatedAxiosRequestConfig = Omit<
     agentFactory?: ValidatedRequestAgentFactory;
 };
 
+export interface ValidatedHttpAttempt {
+    requestUrl: string;
+    method: string;
+    requestHeaders: Record<string, unknown>;
+    responseHeaders?: Record<string, unknown>;
+    responseData?: unknown;
+    status?: number;
+    durationMs: number;
+    redirectCount: number;
+    error?: unknown;
+}
+
+export type ValidatedHttpObserver = (attempt: ValidatedHttpAttempt) => void;
+
+function reportAttempt(
+    observer: ValidatedHttpObserver | undefined,
+    createAttempt: () => ValidatedHttpAttempt
+): void {
+    if (!observer) return;
+    try {
+        observer(createAttempt());
+    } catch {
+        // Diagnostics must never change the result of a provider request.
+    }
+}
+
 function copyHeadersWithoutSensitiveValues(
     headers: AxiosRequestConfig['headers']
 ): AxiosRequestConfig['headers'] {
@@ -168,7 +194,8 @@ export async function requestWithValidatedRedirects<T = unknown>(
     rawUrl: string,
     config: ValidatedAxiosRequestConfig = {},
     policy: RemoteUrlPolicy = {},
-    maxRedirects = 5
+    maxRedirects = 5,
+    onAttempt?: ValidatedHttpObserver
 ): Promise<AxiosResponse<T>> {
     const originalValidateStatus =
         config.validateStatus ??
@@ -201,13 +228,48 @@ export async function requestWithValidatedRedirects<T = unknown>(
             validatedUrl,
             addresses
         );
-        const response = await axios<T>({
+        const outgoingConfig = {
             ...pinnedConfig,
             maxRedirects: 0,
             url: validatedUrl.toString(),
-            validateStatus: (status) =>
+            validateStatus: (status: number) =>
                 REDIRECT_STATUSES.has(status) || originalValidateStatus(status),
-        });
+        };
+        const startedAt = performance.now();
+        let response: AxiosResponse<T>;
+        try {
+            response = await axios<T>(outgoingConfig);
+        } catch (error) {
+            const axiosError = axios.isAxiosError(error) ? error : undefined;
+            const failedResponse = axiosError?.response;
+            const failedConfig = axiosError?.config ?? outgoingConfig;
+            reportAttempt(onAttempt, () => ({
+                requestUrl: axios.getUri(failedConfig),
+                method: failedConfig.method?.toUpperCase() ?? 'GET',
+                requestHeaders:
+                    axiosError?.request?.getHeaders?.() ??
+                    axios.AxiosHeaders.from(failedConfig.headers).toJSON(),
+                responseHeaders: failedResponse?.headers,
+                responseData: failedResponse?.data,
+                status: failedResponse?.status,
+                durationMs: performance.now() - startedAt,
+                redirectCount,
+                error,
+            }));
+            throw error;
+        }
+        reportAttempt(onAttempt, () => ({
+            requestUrl: axios.getUri(response.config),
+            method: response.config.method?.toUpperCase() ?? 'GET',
+            requestHeaders:
+                response.request?.getHeaders?.() ??
+                axios.AxiosHeaders.from(response.config.headers).toJSON(),
+            responseHeaders: response.headers,
+            responseData: response.data,
+            status: response.status,
+            durationMs: performance.now() - startedAt,
+            redirectCount,
+        }));
 
         if (!REDIRECT_STATUSES.has(response.status)) {
             return response;

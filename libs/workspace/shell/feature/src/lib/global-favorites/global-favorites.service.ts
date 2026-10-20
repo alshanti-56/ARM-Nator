@@ -92,7 +92,7 @@ export class GlobalFavoritesService {
     private async getXtreamLiveFavorites(): Promise<UnifiedFavoriteChannel[]> {
         if (!window.electron) return [];
 
-        let items: XtreamGlobalFavoriteRow[] = [];
+        let items: XtreamGlobalFavoriteRow[];
         try {
             items =
                 (await this.dbService.getGlobalFavorites()) as XtreamGlobalFavoriteRow[];

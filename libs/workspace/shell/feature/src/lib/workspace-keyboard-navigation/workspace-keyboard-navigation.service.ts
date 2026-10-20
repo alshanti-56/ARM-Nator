@@ -76,6 +76,7 @@ export class WorkspaceKeyboardNavigationService {
             event.metaKey ||
             event.ctrlKey ||
             event.altKey ||
+            (event.target instanceof Element && event.target.closest('.workspace-player')) ||
             this.expandedPlayerOwnsKeyboard() ||
             this.isEditingContext(event.target)
         ) {

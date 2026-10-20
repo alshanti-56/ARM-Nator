@@ -1,10 +1,11 @@
 import {
-    Component,
-    computed,
-    inject,
-    signal,
-    ViewEncapsulation,
-    viewChild,
+  Component,
+  computed,
+  inject,
+  signal,
+  ViewEncapsulation,
+  viewChild,
+  ChangeDetectionStrategy
 } from '@angular/core';
 import { MatButtonModule } from '@angular/material/button';
 import {
@@ -13,7 +14,7 @@ import {
     MatDialogRef,
 } from '@angular/material/dialog';
 import { MatIcon } from '@angular/material/icon';
-import { TranslateModule } from '@ngx-translate/core';
+import { TranslatePipe } from '@ngx-translate/core';
 import { XtreamCodeImportComponent } from '../xtream-code-import/xtream-code-import.component';
 import { StalkerPortalImportComponent } from '../stalker-portal-import/stalker-portal-import.component';
 
@@ -35,13 +36,14 @@ type AddPlaylistMethod = 'xtream' | 'stalker';
         MatButtonModule,
         MatDialogModule,
         MatIcon,
-        TranslateModule,
+        TranslatePipe,
         XtreamCodeImportComponent,
         StalkerPortalImportComponent,
     ],
     selector: 'app-add-playlist',
     templateUrl: './add-playlist-dialog.component.html',
     styleUrl: './add-playlist-dialog.component.scss',
+    changeDetection: ChangeDetectionStrategy.Eager,
     encapsulation: ViewEncapsulation.None,
 })
 export class AddPlaylistDialogComponent {

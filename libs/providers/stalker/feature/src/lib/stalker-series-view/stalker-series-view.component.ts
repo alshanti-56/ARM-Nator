@@ -1,13 +1,14 @@
 import {
-    Component,
-    OnDestroy,
-    computed,
-    effect,
-    inject,
-    input,
-    output,
-    signal,
-    untracked,
+  Component,
+  OnDestroy,
+  computed,
+  effect,
+  inject,
+  input,
+  output,
+  signal,
+  untracked,
+  ChangeDetectionStrategy
 } from '@angular/core';
 import { MatIcon } from '@angular/material/icon';
 import { MatSnackBar } from '@angular/material/snack-bar';
@@ -67,6 +68,7 @@ import {
     type PlaybackFallbackRequest,
     PortalInlinePlayerComponent,
 } from '@arm-nator/player/ui';
+import { createStalkerPlaybackRecoveryContext } from '../stalker-playback-recovery';
 import {
     CrossPortalSimilarItem,
     CrossPortalSimilarService,
@@ -130,6 +132,7 @@ interface StalkerSeriesPlaybackRequestContext {
         SeasonContainerComponent,
         MatIcon,
     ],
+    changeDetection: ChangeDetectionStrategy.Eager,
     providers: [StalkerSeriesTmdbSeasonsService],
 })
 export class StalkerSeriesViewComponent implements OnDestroy {
@@ -188,6 +191,7 @@ export class StalkerSeriesViewComponent implements OnDestroy {
     private readonly seriesPositionReloadKeys = new Set<string>();
     private seriesPositionsLoadGeneration = 0;
     private seriesPlaybackRequestGeneration = 0;
+    private seriesPlaybackAbortController: AbortController | null = null;
     private currentSeriesPlaybackOwnerKey = '';
     private readonly inlinePlaybackEpisodeIdentity =
         signal<StalkerEpisodePlaybackStructuralIdentity | null>(null);
@@ -835,6 +839,8 @@ export class StalkerSeriesViewComponent implements OnDestroy {
 
     closeInlinePlayer(): void {
         this.seriesPlaybackRequestGeneration += 1;
+        this.seriesPlaybackAbortController?.abort();
+        this.seriesPlaybackAbortController = null;
         this.inlinePlayback.set(null);
         this.inlinePlaybackEpisodeIdentity.set(null);
         this.playbackSessionKey.set('');
@@ -844,18 +850,23 @@ export class StalkerSeriesViewComponent implements OnDestroy {
     handleInlineTimeUpdate(event: {
         currentTime: number;
         duration: number;
+        persistenceHandled?: boolean;
     }): void {
         const playback = this.inlinePlayback();
         if (!playback?.contentInfo) return;
 
+        if (event.persistenceHandled) {
+            this.publishSavedSeriesPosition({ ...playback.contentInfo, positionSeconds: event.currentTime, durationSeconds: event.duration > 0 ? event.duration : undefined }, undefined, false);
+            return;
+        }
         const now = Date.now();
         if (now - this.lastSaveTime <= 15000) return;
 
         this.lastSaveTime = now;
         const position: PlaybackPositionData = {
             ...playback.contentInfo,
-            positionSeconds: Math.floor(event.currentTime),
-            durationSeconds: Math.floor(event.duration),
+            positionSeconds: event.currentTime,
+            durationSeconds: event.duration,
         };
         void this.persistSeriesPosition(
             playback.contentInfo.playlistId,
@@ -923,8 +934,14 @@ export class StalkerSeriesViewComponent implements OnDestroy {
         startTime?: number
     ): Promise<void> {
         const generation = ++this.seriesPlaybackRequestGeneration;
+        this.seriesPlaybackAbortController?.abort();
+        const controller = new AbortController();
+        this.seriesPlaybackAbortController = controller;
         const episodeNum = episodeState.episodeNumber;
         const episodeId = Number(episodeState.episode.id);
+        const sourceItem = this.stalkerStore.selectedItem();
+        const playlist = this.stalkerStore.currentPlaylist();
+        const selectedContentType = this.stalkerStore.selectedContentType();
         const request: StalkerSeriesPlaybackRequestContext = {
             generation,
             usesEmbeddedPlayer: this.portalPlayer.isEmbeddedPlayer(),
@@ -938,20 +955,11 @@ export class StalkerSeriesViewComponent implements OnDestroy {
         if (request.usesEmbeddedPlayer && !request.identity) return;
 
         try {
-            const playback = await this.stalkerStore.resolveVodPlayback(
-                cmd,
-                title,
-                thumbnail,
-                episodeNum,
-                episodeId,
-                startTime
-            );
-            if (!this.isPlaybackRequestCurrent(request)) return;
-
-            const resolvedPlayback =
-                episodeState && playback.contentInfo?.contentType === 'episode'
+            const withEpisodeMetadata = (playback: ResolvedPortalPlayback): ResolvedPortalPlayback => {
+                return playback.contentInfo?.contentType === 'episode'
                     ? {
                           ...playback,
+                          work: playback.work ? { ...playback.work, seasonNumber: episodeState.seasonNumber, episodeNumber: episodeState.episodeNumber } : undefined,
                           contentInfo: {
                               ...playback.contentInfo,
                               seasonNumber: episodeState.seasonNumber,
@@ -959,6 +967,20 @@ export class StalkerSeriesViewComponent implements OnDestroy {
                           },
                       }
                     : playback;
+            };
+            const playback = await this.stalkerStore.resolveVodPlayback(
+                cmd, title, thumbnail, episodeNum, episodeId, startTime,
+                { item: sourceItem, playlist, selectedContentType, signal: controller.signal },
+            );
+            if (controller.signal.aborted || !this.isPlaybackRequestCurrent(request)) return;
+            const resolvedPlayback = withEpisodeMetadata(playback);
+            const recoveryContext = createStalkerPlaybackRecoveryContext(
+                resolvedPlayback,
+                ({ signal }) => this.stalkerStore.resolveVodPlayback(
+                    cmd, title, thumbnail, episodeNum, episodeId, startTime,
+                    { item: sourceItem, playlist, selectedContentType, signal, recordRecentlyViewed: false },
+                ).then(withEpisodeMetadata),
+            );
 
             this.lastSaveTime = 0;
             if (request.usesEmbeddedPlayer && request.identity) {
@@ -967,9 +989,13 @@ export class StalkerSeriesViewComponent implements OnDestroy {
             }
 
             this.closeInlinePlayer();
-            void this.portalPlayer.openResolvedPlayback(resolvedPlayback, true);
+            void this.portalPlayer.openResolvedPlayback(
+                resolvedPlayback,
+                true,
+                recoveryContext,
+            );
         } catch (error) {
-            if (!this.isPlaybackRequestCurrent(request)) return;
+            if (controller.signal.aborted || !this.isPlaybackRequestCurrent(request)) return;
             this.logger.error('Failed to start inline series playback', error);
             const errorMessage =
                 error instanceof Error && error.message === 'nothing_to_play'

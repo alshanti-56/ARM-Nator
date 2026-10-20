@@ -16,7 +16,7 @@ import { MatIcon } from "@angular/material/icon";
 import { MatSnackBar } from "@angular/material/snack-bar";
 import { MatDialog } from "@angular/material/dialog";
 import { ActivatedRoute, Router } from "@angular/router";
-import { TranslateModule, TranslateService } from "@ngx-translate/core";
+import { TranslatePipe, TranslateService } from "@ngx-translate/core";
 import {
   DetailActionsTemplateDirective,
   DetailMetaTemplateDirective,
@@ -24,7 +24,7 @@ import {
   PortalDetailShellComponent,
 } from "@arm-nator/ui/components";
 import { SafePipe } from "@arm-nator/pipes";
-import { createLogger } from "@arm-nator/providers/shared/util";
+import { DiscoverySelectionService, createLogger, resolveCatalogueOrigin } from "@arm-nator/providers/shared/util";
 import { XtreamStore } from "@arm-nator/providers/xtream/data-access";
 import { type PlaybackFallbackRequest } from "@arm-nator/player/ui";
 import {
@@ -74,7 +74,7 @@ import {
     SafePipe,
     SlicePipe,
     UpperCasePipe,
-    TranslateModule,
+    TranslatePipe,
   ],
 })
 export class VodDetailsRouteComponent implements OnInit, OnDestroy {
@@ -88,6 +88,7 @@ export class VodDetailsRouteComponent implements OnInit, OnDestroy {
   private readonly dialog = inject(MatDialog);
   private readonly translateService = inject(TranslateService);
   private readonly playback = inject(VodDetailsPlaybackService);
+  private readonly discoverySelection = inject(DiscoverySelectionService);
   private readonly logger = createLogger("VodDetailsRoute");
   /** `playlistId:vodId` of the last initialized detail view */
   private readonly lastInitKey = signal<string | null>(null);
@@ -344,6 +345,19 @@ export class VodDetailsRouteComponent implements OnInit, OnDestroy {
     });
 
     effect(() => {
+      if (!this.discoverySelection.playbackRequest()) return;
+      const playlistId = this.xtreamStore.currentPlaylist()?.id;
+      const vodId = this.selectedVodId();
+      const item = this.selectedItem();
+      const itemId = Number((item as {stream_id?: unknown} | null)?.stream_id ?? item?.movie_data?.stream_id);
+      if (!playlistId || !item || this.isLoadingDetails() || itemId !== vodId) return;
+      untracked(() => {
+        const request = this.discoverySelection.takePlaybackRequest({sourceType:'xtream',playlistId,contentKind:'vod',providerItemId:String(vodId)});
+        if (request) this.playback.playVod(item);
+      });
+    });
+
+    effect(() => {
       const playlistId = this.xtreamStore.currentPlaylist()?.id;
       const vodId = this.selectedVodId();
       const backdropUrl = this.selectedVodInfo()?.backdrop_path?.[0]?.trim();
@@ -387,6 +401,8 @@ export class VodDetailsRouteComponent implements OnInit, OnDestroy {
   openSimilar(item: SimilarCatalogItem): void {
     void this.router.navigate(["../..", item.categoryId, item.id], {
       relativeTo: this.route,
+      queryParamsHandling: "preserve",
+      state: this.location.getState() as Record<string, unknown>,
     });
   }
 
@@ -408,8 +424,8 @@ export class VodDetailsRouteComponent implements OnInit, OnDestroy {
     this.xtreamStore.setSelectedItem(null);
   }
 
-  playVod(vodItem: XtreamVodDetails | null): void {
-    this.playback.playVod(vodItem);
+  playVod(vodItem: XtreamVodDetails | null, resumePolicy: 'auto' | 'start-over' = 'auto'): void {
+    this.playback.playVod(vodItem, resumePolicy);
   }
 
   resumeVod(vodItem: XtreamVodDetails | null): void {
@@ -469,7 +485,22 @@ export class VodDetailsRouteComponent implements OnInit, OnDestroy {
 
   goBack(): void {
     this.playback.closeInlinePlayer();
-    this.location.back();
+    const playlistId = this.xtreamStore.currentPlaylist()?.id;
+    const origin = playlistId ? resolveCatalogueOrigin(this.location.getState(), playlistId, "vod") : null;
+    if (origin) {
+      void this.router.navigateByUrl(origin);
+      return;
+    }
+    const categoryId = this.route.snapshot.paramMap.get("categoryId");
+    if (!categoryId) {
+      this.location.back();
+      return;
+    }
+
+    void this.router.navigate(["../..", categoryId], {
+      relativeTo: this.route,
+      queryParamsHandling: "preserve",
+    });
   }
 
   closeInlinePlayer(): void {

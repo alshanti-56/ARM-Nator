@@ -58,6 +58,12 @@ describe('StalkerSeriesViewComponent playback session key', () => {
             },
         ]);
         vodSeasons.set([]);
+        currentPlaylist.set({
+            _id: 'stalker|playlist',
+            title: 'Portal',
+            portalUrl: 'https://stalker.example',
+            macAddress: '00:1A:79:12:34:56',
+        });
         resolveVodPlayback
             .mockReset()
             .mockImplementation(
@@ -137,11 +143,11 @@ describe('StalkerSeriesViewComponent playback session key', () => {
                         instant: (key: string) => key,
                         get: (key: string) => of(key),
                         stream: (key: string) => of(key),
-                        currentLang: 'en',
-                        defaultLang: 'en',
+                        currentLang: () => 'en',
+                        fallbackLang: () => 'en',
                         onLangChange: EMPTY,
                         onTranslationChange: EMPTY,
-                        onDefaultLangChange: EMPTY,
+                        onFallbackLangChange: EMPTY,
                     },
                 },
             ],
@@ -164,6 +170,19 @@ describe('StalkerSeriesViewComponent playback session key', () => {
         fixture.componentInstance.onEpisodeClicked(episode);
         await fixture.whenStable();
         return episode;
+    }
+
+    function expectedResolutionContext(
+        playlistId: string,
+        selectedType: 'series' | 'vod',
+        itemId = 'series|parent'
+    ) {
+        return expect.objectContaining({
+            item: expect.objectContaining({ id: itemId }),
+            playlist: expect.objectContaining({ _id: playlistId }),
+            selectedContentType: selectedType,
+            signal: expect.any(AbortSignal),
+        });
     }
 
     function setLazySeries(parentId: string, episodeId: string): void {
@@ -296,6 +315,8 @@ describe('StalkerSeriesViewComponent playback session key', () => {
             },
         });
         fixture.componentInstance.onEpisodeClicked(episodeA);
+        const staleRequestSignal = resolveVodPlayback.mock.calls[0][6]
+            .signal as AbortSignal;
 
         serialSeasons.set([
             {
@@ -351,8 +372,14 @@ describe('StalkerSeriesViewComponent playback session key', () => {
             'poster.jpg',
             1,
             Number(episodeB.id),
-            undefined
+            undefined,
+            expectedResolutionContext('stalker|playlist', 'series')
         );
+        expect(staleRequestSignal.aborted).toBe(true);
+        expect(
+            (resolveVodPlayback.mock.calls.at(-1)?.[6].signal as AbortSignal)
+                .aborted
+        ).toBe(false);
         expect(fixture.componentInstance.inlinePlayback()).not.toBeNull();
         expect(fixture.componentInstance.playbackSessionKey()).toBe(
             expectedKey
@@ -392,7 +419,8 @@ describe('StalkerSeriesViewComponent playback session key', () => {
             'poster.jpg',
             1,
             1511026353,
-            undefined
+            undefined,
+            expectedResolutionContext('stalker|playlist', 'series')
         );
         const expectedBKey = createStalkerEpisodePlaybackSessionKey({
             sourceId: 'stalker|playlist',
@@ -521,7 +549,8 @@ describe('StalkerSeriesViewComponent playback session key', () => {
             'poster.jpg',
             3,
             Number(refreshedEpisodes[2].id),
-            undefined
+            undefined,
+            expectedResolutionContext(currentPlaylist()._id, 'series')
         );
     });
 
@@ -613,7 +642,8 @@ describe('StalkerSeriesViewComponent playback session key', () => {
             'poster.jpg',
             3,
             expect.any(Number),
-            undefined
+            undefined,
+            expectedResolutionContext(currentPlaylist()._id, 'vod')
         );
     });
 

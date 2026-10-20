@@ -5,7 +5,7 @@
     min-height: 0;
 }
 
-.workspace-shell {
+.workspace-shell__scene {
     display: grid;
     grid-template-columns: clamp(52px, 5vw, 60px) minmax(0, 1fr);
     grid-template-rows: clamp(52px, 4vw, 56px) minmax(0, 1fr) auto;
@@ -120,3 +120,6 @@ app-workspace-shell-context-sidebar {
         grid-row: 4;
     }
 }
+
+.workspace-shell {display:block;position:relative;width:100%;height:100%;min-height:0;background:var(--app-shell-bg,var(--mat-sys-surface));}
+.workspace-shell--native-composition {background:transparent;}

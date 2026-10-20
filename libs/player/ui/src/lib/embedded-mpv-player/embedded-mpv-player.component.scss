@@ -205,8 +205,11 @@
     gap: 16px;
     align-items: center;
     align-content: center;
+    // Match the HTML dock to the space reserved by the native viewport.
+    box-sizing: border-box;
+    height: var(--embedded-mpv-controls-height);
     min-height: var(--embedded-mpv-controls-height);
-    padding: 8px 16px 10px;
+    padding: 8px 16px;
     opacity: 0;
     pointer-events: none;
     transform: translateY(8px);
@@ -233,7 +236,7 @@
 .embedded-mpv-player__timeline {
     display: flex;
     flex-direction: column;
-    gap: 6px;
+    gap: 4px;
     min-width: 0;
 }
 
@@ -306,6 +309,7 @@
 }
 
 .embedded-mpv-player__volume-group {
+    position: relative;
     display: flex;
     align-items: center;
     min-width: 0;
@@ -313,12 +317,6 @@
 
 .embedded-mpv-player__control-button {
     position: relative;
-}
-
-/* A dock panel morphs the whole controls row into a single full-width
-   cell; the strip keeps its fixed height so MPV bounds stay untouched. */
-.embedded-mpv-player__controls--panel {
-    grid-template-columns: minmax(0, 1fr);
 }
 
 .embedded-mpv-player__slider {
@@ -410,28 +408,42 @@
     box-shadow: none;
 }
 
-/* Volume expands inline next to the mute icon, inside the actions row —
-   never above the strip, so it needs no compositor workarounds. */
+/* Keep the volume button anchored while its slider opens over neighboring
+   actions. The panel stays inside the dock, below the native video surface. */
 .embedded-mpv-player__volume-inline {
+    position: absolute;
+    right: 0;
+    top: 50%;
+    z-index: 3;
     display: flex;
+    width: max-content;
+    height: 48px;
     align-items: center;
     gap: 8px;
+    padding: 0 48px 0 10px;
+    border-radius: 10px;
+    background: var(--mat-sys-surface, #0f1620);
+    box-shadow: 0 2px 12px rgb(0 0 0 / 35%);
+    transform: translateY(-50%);
     overflow: hidden;
     animation: embedded-mpv-volume-in 160ms ease-out;
 }
 
+.embedded-mpv-player__volume-group > button {
+    z-index: 4;
+}
+
 @keyframes embedded-mpv-volume-in {
     from {
-        max-width: 0;
         opacity: 0;
     }
     to {
-        max-width: 200px;
         opacity: 1;
     }
 }
 
 .embedded-mpv-player__volume-inline .embedded-mpv-player__slider--volume {
+    flex: 0 0 auto;
     width: 132px;
 }
 
@@ -454,25 +466,135 @@
 }
 
 @container embedded-mpv-player (max-width: 720px) {
-    .embedded-mpv-player {
-        --embedded-mpv-controls-height: 88px;
+    // Container queries cannot restyle their own container. Put the value on
+    // each child that uses it so the native viewport and HTML controls reserve
+    // the same space, including the detached settings panel.
+    .embedded-mpv-player__viewport,
+    .embedded-mpv-player__controls,
+    .embedded-mpv-player > app-player-settings-panel {
+        --embedded-mpv-controls-height: 128px;
     }
 
     .embedded-mpv-player__controls {
-        grid-template-columns: 1fr;
-        gap: 8px;
+        grid-template-columns: max-content minmax(0, 1fr);
+        grid-template-areas:
+            'transport timeline'
+            'actions actions';
+        gap: 6px 12px;
+    }
+
+    .embedded-mpv-player__transport {
+        grid-area: transport;
+    }
+
+    .embedded-mpv-player__timeline {
+        grid-area: timeline;
     }
 
     .embedded-mpv-player__actions {
+        grid-area: actions;
         justify-content: flex-end;
         min-width: 0;
         max-width: 100%;
         overflow-x: auto;
+        overflow-y: hidden;
         padding-bottom: 2px;
-        scrollbar-width: thin;
+        scrollbar-width: none;
+    }
+
+    .embedded-mpv-player__actions::-webkit-scrollbar {
+        display: none;
     }
 
     .embedded-mpv-player__volume-inline .embedded-mpv-player__slider--volume {
         width: 96px;
     }
+}
+
+/* Dock panels remain one full-width cell at every player width. */
+.embedded-mpv-player__controls--panel {
+    grid-template-columns: minmax(0, 1fr);
+    grid-template-areas: none;
+}
+
+// Foreground composition keeps video geometry stable while overlays are open.
+.embedded-mpv-player--composition { background:#000; }
+.embedded-mpv-player--composition .embedded-mpv-player__viewport { background:#000; }
+.embedded-mpv-player--composition.embedded-mpv-player--frame-visible,
+.embedded-mpv-player--composition.embedded-mpv-player--frame-visible .embedded-mpv-player__viewport { background:transparent; }
+.embedded-mpv-player--composition.embedded-mpv-player--settings-open .embedded-mpv-player__viewport { left:0;right:0; }
+// The compact player can be shorter than the legacy sheet's minimum height.
+// Fit the sheet between the video top and dock without moving native bounds.
+.embedded-mpv-player--composition.embedded-mpv-player--settings-open > app-player-settings-panel {
+    bottom: calc(var(--embedded-mpv-controls-height) + 12px);
+    height: min(520px, max(0px, calc(100% - var(--embedded-mpv-controls-height) - 24px)));
+}
+
+.embedded-mpv-player--composition:fullscreen::backdrop { background:transparent; }
+
+// Only the video viewport is an aperture; the reserved dock remains opaque
+// even while its interactive controls fade out.
+.embedded-mpv-player__dock-mask {
+    position: absolute;
+    inset: auto 0 0;
+    height: var(--embedded-mpv-controls-height);
+    background: #090b10;
+    pointer-events: none;
+}
+@container embedded-mpv-player (max-width: 720px) {
+    .embedded-mpv-player__dock-mask { --embedded-mpv-controls-height: 128px; }
+}
+
+// Composition places native video behind the renderer, so compact controls
+// can sit over the full picture without moving its bounds as they fade.
+.embedded-mpv-player--mini-overlay.embedded-mpv-player--controls-enabled .embedded-mpv-player__viewport {
+    bottom: 0;
+}
+
+.embedded-mpv-player--mini-overlay .embedded-mpv-player__controls {
+    --mat-sys-on-surface: #fff;
+    --mat-sys-surface: #151820;
+    --embedded-mpv-accent: #fff;
+    --embedded-mpv-border: rgb(255 255 255 / 20%);
+    --embedded-mpv-controls-height: 104px;
+
+    grid-template-columns: max-content minmax(0, 1fr);
+    grid-template-areas:
+        'timeline timeline'
+        'transport actions';
+    gap: 4px 8px;
+    padding: 8px 12px;
+    color: #fff;
+    background: linear-gradient(transparent, rgb(0 0 0 / 72%));
+    border-top: 0;
+    backdrop-filter: none;
+}
+
+.embedded-mpv-player--mini-overlay .embedded-mpv-player__transport {
+    grid-area: transport;
+    gap: 2px;
+}
+
+.embedded-mpv-player--mini-overlay .embedded-mpv-player__timeline {
+    grid-area: timeline;
+}
+
+.embedded-mpv-player--mini-overlay .embedded-mpv-player__actions {
+    grid-area: actions;
+    justify-content: flex-end;
+    gap: 2px;
+}
+
+.embedded-mpv-player--mini-overlay .embedded-mpv-player__control-button {
+    --mat-icon-button-state-layer-size: 40px;
+    --mat-icon-button-touch-target-display: none;
+    width: 40px;
+    height: 40px;
+    padding: 8px;
+}
+
+.embedded-mpv-player--mini-overlay .embedded-mpv-player__controls--panel {
+    grid-template-columns: minmax(0, 1fr);
+    grid-template-areas: none;
+    background: rgb(0 0 0 / 85%);
 }

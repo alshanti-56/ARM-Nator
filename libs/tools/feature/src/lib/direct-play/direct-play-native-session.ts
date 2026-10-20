@@ -13,3 +13,16 @@ export function hasStartedEmbeddedMpvSession(
     (Boolean(engine.sessionId) || engine.sessionStatus !== undefined)
   );
 }
+
+/** A workspace engine change is explicit user intent, not a KS fallback. */
+export function isUnexpectedEmbeddedMpvSession(
+  requestedEngine: string,
+  activeEngine: string,
+  snapshot: DirectPlayEngineSnapshot | undefined,
+): boolean {
+  return (
+    requestedEngine === "ksplayer" &&
+    activeEngine === "ksplayer" &&
+    hasStartedEmbeddedMpvSession(snapshot)
+  );
+}

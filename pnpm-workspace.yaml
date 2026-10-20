@@ -1,20 +1,42 @@
-ignoredBuiltDependencies:
-  - '@parcel/watcher'
-  - '@swc/core'
-  - esbuild
-  - lmdb
-  - msgpackr-extract
-  - unrs-resolver
+saveExact: true
+verifyDepsBeforeRun: error
+enablePrePostScripts: true
+pmOnFail: error
+runtimeOnFail: error
+engineStrict: true
+strictPeerDependencies: true
 
-onlyBuiltDependencies:
-  - better-sqlite3
-  - electron
-  - nx
+# Compatibility patches validated by Angular playlist CRUD and Electron builds.
+peerDependencyRules:
+  allowedVersions:
+    'ngx-indexed-db@22.0.0>@angular/common': '22.2.2'
+    'ngx-indexed-db@22.0.0>@angular/core': '22.2.2'
+    'nx-electron@22.0.0>@nx/devkit': '23.3.0'
+    'nx-electron@22.0.0>@nx/workspace': '23.3.0'
+
+packageExtensions:
+  'nx-electron@22.0.0':
+    dependencies:
+      '@nx/js': '23.3.0'
+      webpack-node-externals: '3.0.0'
+
+allowBuilds:
+  '@parcel/watcher': false
+  '@swc/core': false
+  esbuild: false
+  electron-winstaller: false
+  less: false
+  lmdb: false
+  msgpackr-extract: false
+  unrs-resolver: false
+  better-sqlite3: true
+  electron: true
+  nx: true
 overrides:
   '@hono/node-server@1.19.9': 1.19.14
   '@xmldom/xmldom@0.8.11': 0.8.13
   'ajv@6.12.6': 6.14.0
-  'ajv@8.17.1': 8.18.0
+  'ajv@8.17.1': 8.20.0
   'brace-expansion@1.1.12': 1.1.13
   'defu@6.1.4': 6.1.6
   'devalue@5.6.2': 5.6.4
@@ -39,3 +61,12 @@ overrides:
 
 patchedDependencies:
   nx-electron@22.0.0: patches/nx-electron@22.0.0.patch
+minimumReleaseAgeExclude:
+  - '@angular-eslint/builder@22.6.0'
+  - '@angular-eslint/bundled-angular-compiler@22.6.0'
+  - '@angular-eslint/eslint-plugin-template@22.6.0'
+  - '@angular-eslint/eslint-plugin@22.6.0'
+  - '@angular-eslint/schematics@22.6.0'
+  - '@angular-eslint/template-parser@22.6.0'
+  - '@angular-eslint/utils@22.6.0'
+  - angular-eslint@22.6.0

@@ -66,15 +66,78 @@
             </mat-form-field>
         }
         @if (isDesktop) {
-            <mat-form-field class="w-full mb-10">
+            <mat-form-field class="w-full">
                 <mat-label>{{
                     'HOME.PLAYLISTS.INFO_DIALOG.USER_AGENT' | translate
                 }}</mat-label>
-                <input formControlName="userAgent" matInput />
-                <mat-hint>{{
-                    'HOME.PLAYLISTS.INFO_DIALOG.CUSTOM_USER_AGENT' | translate
-                }}</mat-hint>
+                <mat-select
+                    [value]="selectedUserAgentPreset()"
+                    [disabled]="isTestingUserAgents()"
+                    (selectionChange)="selectUserAgentPreset($event.value)"
+                >
+                    @for (preset of userAgentPresets; track preset.id) {
+                        <mat-option [value]="preset.id">{{ preset.label }}</mat-option>
+                    }
+                    <mat-option value="custom">Custom…</mat-option>
+                </mat-select>
             </mat-form-field>
+            @if (selectedUserAgentPreset() === 'custom') {
+                <mat-form-field class="w-full">
+                    <mat-label>Custom user agent</mat-label>
+                    <textarea
+                        formControlName="userAgent"
+                        matInput
+                        rows="3"
+                        [readonly]="isTestingUserAgents()"
+                        placeholder="Paste the exact value from your provider"
+                    ></textarea>
+                </mat-form-field>
+            }
+            <p>Automatic uses the app's default for this source. If your provider specifies a user agent, choose a matching preset or paste it under Custom.</p>
+            @if (playlist.portalUrl) {
+                <section class="user-agent-test" aria-label="Test playback user agents">
+                    <div class="user-agent-test__heading">
+                        <strong>Find a working user agent</strong>
+                        @if (isTestingUserAgents()) {
+                            <button mat-button type="button" (click)="cancelUserAgentTests()">Cancel test</button>
+                        } @else {
+                            <button mat-stroked-button type="button" (click)="testAllUserAgents()">Try all profiles</button>
+                        }
+                    </div>
+                    <p>Tests the saved source with common playback profiles on up to two live channels, one connection at a time. A media result confirms stream access; playback still depends on the player and codec.</p>
+                    @if (userAgentTestResults().length) {
+                        <p class="user-agent-test__status" role="status">{{ userAgentTestProgress }}</p>
+                    }
+                    @if (userAgentTestSamples().length) {
+                        <p class="user-agent-test__status">Samples: {{ userAgentTestSamples().join(' · ') }}</p>
+                    }
+                    @for (result of userAgentTestResults(); track result.profile.id) {
+                        <div class="user-agent-test__result">
+                            <div>
+                                <span>{{ result.profile.label }}</span>
+                                <small>{{ result.detail }}</small>
+                            </div>
+                            @if (result.state === 'working') {
+                                <button mat-button type="button"
+                                    [disabled]="isTestingUserAgents() || playlistDetails.get('userAgent')?.value === result.profile.value"
+                                    (click)="applyTestedUserAgent(result)">
+                                    {{ playlistDetails.get('userAgent')?.value === result.profile.value ? 'Selected' : 'Use this' }}
+                                </button>
+                            }
+                        </div>
+                    }
+                    @if (userAgentTestError()) {
+                        <p class="user-agent-test__error" role="alert">{{ userAgentTestError() }}</p>
+                    }
+                    @if (userAgentTestResults().length && !isTestingUserAgents()) {
+                        @if (hasUserAgentMediaResults) {
+                            <p>Choose “Use this”, then Save to apply. Results cover these sample channels only.</p>
+                        } @else if (!userAgentTestError()) {
+                            <p>None of the tested profiles received recognizable media. Other channels may behave differently; the provider or account may also be rejecting playback.</p>
+                        }
+                    }
+                </section>
+            }
         }
     </mat-dialog-content>
     <mat-dialog-actions align="end">
@@ -86,7 +149,7 @@
             mat-flat-button
             color="primary"
             type="submit"
-            [disabled]="!playlistDetails.valid || playlistDetails.pristine"
+            [disabled]="!playlistDetails.valid || playlistDetails.pristine || isTestingUserAgents()"
         >
             {{ 'HOME.PLAYLISTS.INFO_DIALOG.SAVE' | translate }}
         </button>

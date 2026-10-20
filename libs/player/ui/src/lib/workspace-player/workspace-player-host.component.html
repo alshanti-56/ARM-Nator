@@ -1,24 +1,35 @@
 @if (state.playback() || state.youtube()) {
   <section
+    #floatingFrame
+    cdkDrag
+    cdkDragBoundary=".workspace-shell"
+    [cdkDragDisabled]="!isMini()"
+    [cdkDragFreeDragPosition]="dragPosition()"
+    (cdkDragStarted)="onDragStarted()"
+    (cdkDragMoved)="onFloatingGeometryChange()"
+    (cdkDragEnded)="onDragEnded($event)"
+    (pointermove)="revealHeader()"
+    (pointerenter)="revealHeader()"
+    (pointerdown)="onPlayerPointerDown()"
+    (keydown)="onPlayerKeydown()"
+    (focusin)="revealHeader()"
+    (focusout)="onPlayerFocusOut($event)"
     class="workspace-player"
+    [class.workspace-player--native-composition]="nativeComposition.enabled && !!nativeComposition.aperture()"
     [class.workspace-player--mini]="isMini()"
     [class.workspace-player--expanded]="!isMini()"
+    [class.workspace-player--collapsed]="collapsed()"
+    [class.workspace-player--error]="!!(state.diagnostic() || state.automaticFailure() || state.teardownFailure() || state.recoveryFailure() || selectedEngineBlockedReason())"
+    [class.workspace-player--header-hidden]="!headerVisible()"
+    [class.workspace-player--dragging]="dragging()"
     [class.workspace-player--youtube]="isYouTube()"
+    [class.workspace-player--browser-guest]="isYouTube() && nativeComposition.enabled"
     aria-label="Now playing"
   >
-    <header class="workspace-player__header">
-      <div class="workspace-player__identity">
-        <span>{{
-          isYouTube()
-            ? "YOUTUBE"
-            : state.playback()?.isLive
-              ? "LIVE"
-              : "NOW PLAYING"
-        }}</span>
-        <strong>{{ mediaTitle() }}</strong>
-      </div>
-
-      @if (!isYouTube()) {
+    @if (isMini() && isYouTube() && !collapsed()) {
+      <div class="workspace-player__reveal-strip" aria-hidden="true" (pointerenter)="revealHeader()"></div>
+    }
+    <header class="workspace-player__header" (pointerenter)="headerHovered.set(true)" (pointerleave)="headerHovered.set(false)">
         <mat-menu #engineMenu="matMenu">
           @for (engine of engineAvailability(); track engine.id) {
             <button
@@ -37,6 +48,52 @@
             </button>
           }
         </mat-menu>
+          <mat-menu #alternateVersions="matMenu">
+            @if (discoverySelection.loading()) {
+              <button mat-menu-item disabled>Checking known versions…</button>
+            }
+            @if (discoverySelection.error()) {
+              <button mat-menu-item disabled>Available versions could not be checked.</button>
+              <button mat-menu-item (click)="discoverySelection.loadForPlayback(state.playback())">Check again</button>
+            }
+            @if (!alternativeVersions().length && !discoverySelection.loading() && !discoverySelection.error()) {
+              <button mat-menu-item disabled>{{ state.playback()?.isLive ? 'Versions are available for movies and series.' : state.playback()?.itemIdentity ? 'No other known versions for this title.' : 'This stream has no catalogue identity.' }}</button>
+            }
+            @for(version of alternativeVersions();track version.identity.playlistId + version.identity.providerItemId){
+              <button type="button" mat-menu-item (click)="chooseAlternativeVersion(version)">{{version.providerName}} · {{version.originalTitle}}</button>
+            }
+          </mat-menu>
+            <mat-menu #viewingMenu="matMenu">
+              <button
+                mat-menu-item
+                type="button"
+                (click)="state.markFinished()"
+              >
+                <mat-icon>done_all</mat-icon><span>Mark finished</span>
+              </button>
+              <button mat-menu-item type="button" (click)="startOver()">
+                <mat-icon>replay</mat-icon><span>Start over</span>
+              </button>
+            </mat-menu>
+      <div class="workspace-player__identity"
+        cdkDragHandle
+        [cdkDragHandleDisabled]="!isMini()"
+        [attr.tabindex]="isMini() ? 0 : null"
+        [attr.aria-label]="isMini() ? mediaTitle() + '. Drag to move, or use arrow keys when focused.' : null"
+        (keydown)="onTitleKeydown($event)"
+      >
+        <span>{{
+          isYouTube()
+            ? "YOUTUBE"
+            : state.playback()?.isLive
+              ? "LIVE"
+              : "NOW PLAYING"
+        }}</span>
+        <strong [attr.title]="mediaTitle()">{{ mediaTitle() }}</strong>
+      </div>
+
+      @if (!isYouTube()) {
+
 
         <nav class="workspace-player__engines" aria-label="Player engine">
           @for (engine of engineAvailability(); track engine.id) {
@@ -70,6 +127,17 @@
         </button>
 
         <div class="workspace-player__health">
+          @if (state.playback()?.preparedProxy?.processingMode === 'convert') {
+            <span matTooltip="Compatibility conversion is active. Quality may be reduced." aria-label="Compatibility conversion active">Converted</span>
+          }
+          @if (state.automaticMode()) {
+            <span [matTooltip]="state.automaticReason() ?? 'Preparing playback'"
+              >Auto
+              @if (state.automaticReason()) {
+                · {{ automaticEngineLabelKey() | translate }}
+              }
+            </span>
+          }
           <span matTooltip="Resolution" matTooltipPosition="above">{{
             mediaSummary().resolution
           }}</span>
@@ -87,32 +155,106 @@
 
       <div class="workspace-player__window-actions">
         @if (!isYouTube()) {
+          @if (isMini()) {
+            <app-playback-recovery-menu
+              #compactRecovery
+              [showTrigger]="false"
+              [actions]="recoveryActions()"
+              [engines]="recoveryEngines()"
+              [busy]="state.recoveryBusy()"
+              (selected)="executeRecovery($event)"
+              (helpSelected)="recoveryHelp.set($event)"
+            />
+            <button
+              mat-icon-button
+              type="button"
+              [matMenuTriggerFor]="compactActions"
+              (menuOpened)="headerMenuOpen.set(true)"
+              (menuClosed)="headerMenuOpen.set(false); revealHeader()"
+              aria-label="More player actions"
+              matTooltip="More player actions"
+              matTooltipPosition="above"
+            >
+              <mat-icon>more_horiz</mat-icon>
+            </button>
+            <mat-menu #compactActions="matMenu">
+              <button mat-menu-item type="button" [matMenuTriggerFor]="engineMenu">
+                <mat-icon>tune</mat-icon><span>Player engine</span>
+              </button>
+              <button mat-menu-item type="button" [matMenuTriggerFor]="alternateVersions">
+                <mat-icon>video_library</mat-icon><span>Versions</span>
+              </button>
+              <button mat-menu-item type="button" [matMenuTriggerFor]="compactRecovery.menu() ?? null" [disabled]="state.recoveryBusy()">
+                <mat-icon>refresh</mat-icon><span>Retry</span>
+              </button>
+              <button
+                mat-menu-item
+                type="button"
+                data-test-id="workspace-player-copy-url"
+                [cdkCopyToClipboard]="state.playback()?.originalStreamUrl ?? state.playback()?.streamUrl ?? ''"
+                [disabled]="!state.playback()?.streamUrl"
+              >
+                <mat-icon>content_copy</mat-icon><span>Copy playback URL</span>
+              </button>
+              @if (state.playback()?.isLive !== true && (state.playback()?.itemIdentity || state.playback()?.contentInfo)) {
+                <button mat-menu-item type="button" [matMenuTriggerFor]="viewingMenu" [disabled]="state.viewingActionPending()">
+                  <mat-icon>history</mat-icon><span>Viewing history</span>
+                </button>
+              }
+              <button mat-menu-item type="button" (click)="state.stop()">
+                <mat-icon>stop</mat-icon><span>Stop playback</span>
+              </button>
+            </mat-menu>
+          } @else {
+          <button
+            mat-icon-button
+            type="button"
+            [matMenuTriggerFor]="alternateVersions"
+            aria-label="Versions"
+            [matTooltip]="alternativeVersions().length && (state.diagnostic() || state.automaticFailure()) ? 'Try another version' : 'Versions'"
+            matTooltipPosition="above"
+          >
+            <mat-icon>video_library</mat-icon>
+          </button>
+
+          @if (
+            state.playback()?.isLive !== true &&
+            (state.playback()?.itemIdentity || state.playback()?.contentInfo)
+          ) {
+            <button
+              mat-icon-button
+              type="button"
+              [matMenuTriggerFor]="viewingMenu"
+              aria-label="Viewing history"
+              matTooltip="Viewing history"
+              [disabled]="state.viewingActionPending()"
+            >
+              <mat-icon>more_vert</mat-icon>
+            </button>
+
+          }
           <button
             class="workspace-player__media-action"
             mat-icon-button
             type="button"
             matTooltip="Stop"
+            aria-label="Stop playback"
             matTooltipPosition="above"
             (click)="state.stop()"
           >
             <mat-icon>stop</mat-icon>
           </button>
-          <button
-            class="workspace-player__media-action"
-            mat-icon-button
-            type="button"
-            matTooltip="Restart"
-            matTooltipPosition="above"
-            (click)="state.restart()"
-          >
-            <mat-icon>restart_alt</mat-icon>
-          </button>
+          <app-playback-recovery-menu [actions]="recoveryActions()" [engines]="recoveryEngines()" [busy]="state.recoveryBusy()" (selected)="executeRecovery($event)" (helpSelected)="recoveryHelp.set($event)" />
           <button
             class="workspace-player__media-action"
             mat-icon-button
             type="button"
             data-test-id="workspace-player-copy-url"
-            [cdkCopyToClipboard]="state.playback()?.streamUrl ?? ''"
+            [cdkCopyToClipboard]="
+              state.playback()?.originalStreamUrl ??
+              state.playback()?.streamUrl ??
+              ''
+            "
             [disabled]="!state.playback()?.streamUrl"
             matTooltip="Copy playback URL"
             matTooltipPosition="above"
@@ -120,22 +262,34 @@
           >
             <mat-icon>content_copy</mat-icon>
           </button>
+          }
         }
         @if (isMini()) {
+          @if (collapsed()) {
+            <button mat-icon-button type="button" aria-label="Restore player" matTooltip="Restore player" matTooltipPosition="above" (click)="state.restoreMiniPlayer(); revealHeader()">
+              <mat-icon>picture_in_picture_alt</mat-icon>
+            </button>
+          } @else {
+            <button mat-icon-button type="button" aria-label="Minimize to audio bar" matTooltip="Minimize · audio continues" matTooltipPosition="above" (click)="state.collapseToBar()">
+              <mat-icon>remove</mat-icon>
+            </button>
           <button
             mat-icon-button
             type="button"
             matTooltip="Expand player"
+            aria-label="Expand player"
             matTooltipPosition="above"
             (click)="state.expand()"
           >
             <mat-icon>open_in_full</mat-icon>
           </button>
+          }
         } @else {
           <button
             mat-icon-button
             type="button"
             matTooltip="Mini player"
+            aria-label="Mini player"
             matTooltipPosition="above"
             (click)="state.minimize()"
           >
@@ -143,9 +297,11 @@
           </button>
         }
         <button
+          class="workspace-player__close"
           mat-icon-button
           type="button"
           matTooltip="Close player"
+          aria-label="Close player"
           matTooltipPosition="above"
           (click)="state.close()"
         >
@@ -154,42 +310,92 @@
       </div>
     </header>
 
+
+    @if (state.preferenceFailure()) {
+      <div
+        class="workspace-player__persistence-error"
+        role="status"
+        title="{{ state.preferenceFailure() }}"
+      >
+        Audio or subtitle preferences could not be applied or saved.
+      </div>
+    }
+    @if (state.persistenceFailure()) {
+      <div
+        class="workspace-player__persistence-error"
+        role="status"
+        title="{{ state.persistenceFailure() }}"
+      >
+        Playback progress could not be saved.
+      </div>
+    }
+    @if (state.recoveryBusy()) {
+      <div class="workspace-player__recovery" role="status" aria-live="polite">
+        {{ (state.recoveryCountdown() === null ? 'PLAYBACK_RECOVERY.WORKING' : 'PLAYBACK_RECOVERY.COUNTDOWN') | translate: {seconds: state.recoveryCountdown()} }}
+        <button mat-button type="button" (click)="state.cancelRecovery()">{{ 'PLAYBACK_RECOVERY.CANCEL' | translate }}</button>
+      </div>
+    }
+    @if (state.recoveryFailure(); as failure) { <p role="status">{{ failure | translate }}</p> }
+    @if (recoveryHelp(); as cause) { <p role="status">{{ 'PLAYBACK_RECOVERY.HELP_' + cause | translate }}</p> }
     <div #playerSurface class="workspace-player__surface">
       @if (isYouTube()) {
         <div class="workspace-player__youtube-surface" aria-hidden="true"></div>
+      } @else if (state.teardownFailure(); as failure) {
+        <div class="workspace-player__stopped" role="alert">
+          <mat-icon>error_outline</mat-icon>
+          <strong>Unable to release the previous player</strong>
+          <span>{{ failure }}</span>
+          <app-playback-recovery-menu [actions]="recoveryActions()" [engines]="recoveryEngines()" [busy]="state.recoveryBusy()" (selected)="executeRecovery($event)" (helpSelected)="recoveryHelp.set($event)" />
+        </div>
+      } @else if (state.automaticPreparing()) {
+        <div class="workspace-player__stopped" role="status">
+          <mat-icon>hourglass_top</mat-icon>
+          <strong>Preparing playback</strong>
+          <span>{{ state.automaticReason() || 'Checking the stream and selecting a player…' }}</span>
+          <button mat-button type="button" (click)="state.stop()">Cancel</button>
+        </div>
       } @else if (selectedEngineBlockedReason(); as reason) {
         <div class="workspace-player__stopped" role="status">
           <mat-icon>error_outline</mat-icon>
           <strong>{{ state.engine() }} is unavailable</strong>
           <span>{{ reason }}</span>
+          <app-playback-recovery-menu [actions]="recoveryActions()" [engines]="recoveryEngines()" [busy]="state.recoveryBusy()" (selected)="executeRecovery($event)" (helpSelected)="recoveryHelp.set($event)" />
         </div>
       } @else if (state.stopped()) {
         <div class="workspace-player__stopped">
           <mat-icon>stop_circle</mat-icon>
           <strong>Playback stopped</strong>
-          <button mat-flat-button type="button" (click)="state.restart()">
-            <mat-icon>restart_alt</mat-icon>
-            Restart
-          </button>
+          <app-playback-recovery-menu [actions]="recoveryActions()" [engines]="recoveryEngines()" [busy]="state.recoveryBusy()" (selected)="executeRecovery($event)" (helpSelected)="recoveryHelp.set($event)" />
         </div>
       } @else if (state.playback(); as playback) {
-        <app-web-player-view
-          [streamUrl]="playback.streamUrl"
-          [title]="playback.title"
-          [playback]="playback"
-          [retryWithPlaybackContext]="!!state.context()?.onRetry"
-          [playerOverride]="state.engine()"
-          [seriesNavigation]="playbackNavigation()"
-          [reloadGeneration]="state.reloadGeneration()"
-          (timeUpdate)="onTimeUpdate($event)"
-          (runtimeSnapshotChange)="onRuntimeSnapshot($event)"
-          (playbackDiagnosticChange)="state.onDiagnostic($event)"
-          (playbackRetryRequested)="state.restart()"
-          (playbackEnded)="state.onEnded()"
-          (previousEpisodeRequested)="state.previous()"
-          (nextEpisodeRequested)="state.next()"
-          (externalFallbackRequested)="openFallback($event)"
-        />
+        @for (generation of [state.reloadGeneration()]; track generation) {
+          <app-web-player-view
+            [streamUrl]="playback.streamUrl"
+            [title]="playback.title"
+            [playback]="playback"
+            [retryWithPlaybackContext]="
+              true
+            "
+            [providerRecovery]="!!state.context()?.resolvePlayback"
+            [recoveryActions]="recoveryActions()" [recoveryEngines]="recoveryEngines()" [recoveryBusy]="state.recoveryBusy()"
+            (recoverySelected)="executeRecovery($event)"
+            [playbackEnabled]="!state.automaticFailure()"
+            [initialDiagnostic]="state.automaticFailure()"
+            [playerOverride]="state.engine()"
+            [seriesNavigation]="playbackNavigation()"
+            [reloadGeneration]="state.reloadGeneration()"
+            (timeUpdate)="onTimeUpdate($event)"
+            (runtimeSnapshotChange)="onRuntimeSnapshot($event, generation)"
+            (playbackDiagnosticChange)="onDiagnostic($event, generation)"
+            (playbackRetryRequested)="restart()"
+            (playbackEnded)="
+              generation === state.reloadGeneration() && state.onEnded()
+            "
+            (previousEpisodeRequested)="state.previous()"
+            (nextEpisodeRequested)="state.next()"
+            (externalFallbackRequested)="openFallback($event)"
+          />
+        }
       }
     </div>
   </section>

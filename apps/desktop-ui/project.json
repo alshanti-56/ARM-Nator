@@ -30,6 +30,7 @@
                     "apps/desktop-ui/src/assets"
                 ],
                 "styles": [
+                    "apps/desktop-ui/src/tailwind.css",
                     "apps/desktop-ui/src/styles.scss",
                     "apps/desktop-ui/src/m3-theme.scss"
                 ],

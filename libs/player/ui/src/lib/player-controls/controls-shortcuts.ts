@@ -1,5 +1,8 @@
+import { isPlaybackShortcutBlocked } from './playback-shortcut-focus';
+
 export interface ControlsShortcutHandlers {
     isAvailable: () => boolean;
+    canHandleEscape?: () => boolean;
     canTogglePaused: () => boolean;
     canSeek: () => boolean;
     canAdjustVolume: () => boolean;
@@ -11,27 +14,6 @@ export interface ControlsShortcutHandlers {
     adjustVolume: (delta: number) => void;
     toggleMute: () => void;
 }
-
-const INTERACTIVE_SELECTOR = [
-    'a[href]',
-    'button',
-    'input',
-    'select',
-    'summary',
-    'textarea',
-    '[contenteditable]:not([contenteditable="false"])',
-    '[role="button"]',
-    '[role="checkbox"]',
-    '[role="combobox"]',
-    '[role="link"]',
-    '[role="listbox"]',
-    '[role^="menuitem"]',
-    '[role="option"]',
-    '[role="radio"]',
-    '[role="slider"]',
-    '[role="switch"]',
-    '[role="textbox"]',
-].join(',');
 
 export class ControlsShortcuts {
     private static readonly instances = new Set<ControlsShortcuts>();
@@ -68,25 +50,12 @@ export class ControlsShortcuts {
 
     private handle(event: KeyboardEvent): void {
         const handlers = this.handlers;
-        if (!handlers) {
-            return;
-        }
-
-        // If another mounted controls instance already handled this keypress
-        // (it calls preventDefault below), don't double-execute it here.
-        if (event.defaultPrevented) {
+        if (!handlers || isPlaybackShortcutBlocked(event) || ControlsShortcuts.resolvePlaybackOwner(event.key === 'Escape') !== this) {
             return;
         }
 
         if (event.key === 'Escape') {
             handlers.onEscape();
-            return;
-        }
-
-        if (
-            this.shouldIgnore(event) ||
-            ControlsShortcuts.resolvePlaybackOwner() !== this
-        ) {
             return;
         }
 
@@ -147,45 +116,15 @@ export class ControlsShortcuts {
         }
     }
 
-    /**
-     * Ignore modified playback keys so app/native shortcuts retain ownership,
-     * and ignore events originating from an interactive control anywhere in
-     * the composed path. Escape is handled before this check so it can still
-     * close controls popovers while a modifier key is held.
-     */
-    private shouldIgnore(event: KeyboardEvent): boolean {
-        if (event.metaKey || event.ctrlKey || event.altKey) {
-            return true;
-        }
-
-        const path =
-            typeof event.composedPath === 'function'
-                ? event.composedPath()
-                : [];
-        const nodes = path.length > 0 ? path : [event.target];
-        return nodes.some((node) => {
-            const element = node as HTMLElement | null;
-            if (!element || typeof element.tagName !== 'string') {
-                return false;
-            }
-            if (
-                typeof element.matches === 'function' &&
-                element.matches(INTERACTIVE_SELECTOR)
-            ) {
-                return true;
-            }
-            return element.isContentEditable === true;
-        });
-    }
-
-    private static resolvePlaybackOwner(): ControlsShortcuts | null {
-        if (this.active?.handlers?.isAvailable()) {
+    private static resolvePlaybackOwner(forEscape = false): ControlsShortcuts | null {
+        const available = (instance: ControlsShortcuts): boolean => Boolean(instance.handlers && (instance.handlers.isAvailable() || (forEscape && instance.handlers.canHandleEscape?.())));
+        if (this.active && available(this.active)) {
             return this.active;
         }
 
         let fallback: ControlsShortcuts | null = null;
         for (const instance of this.instances) {
-            if (instance.handlers?.isAvailable()) {
+            if (available(instance)) {
                 fallback = instance;
             }
         }

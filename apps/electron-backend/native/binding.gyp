@@ -6,7 +6,7 @@
         "src/embedded_mpv.mm"
       ],
       "include_dirs": [
-        "<(module_root_dir)/../../../node_modules/.pnpm/node_modules/node-addon-api",
+        "<!@(node -p \"require('node-addon-api').include\")",
         "<!(node -e \"process.stdout.write(process.env.LIBMPV_INCLUDE_DIR || '')\")",
         "src"
       ],
@@ -26,6 +26,16 @@
           "-Wl,-rpath,@loader_path/lib"
         ]
       },
+      "target_conditions": [
+        [
+          "OS==\"mac\"",
+          {
+            "xcode_settings": {
+              "MACOSX_DEPLOYMENT_TARGET": "26.0"
+            }
+          }
+        ]
+      ],
       "libraries": [
         "-framework AppKit",
         "-framework CoreVideo",
@@ -40,7 +50,7 @@
         "src/ksplayer_metal.mm"
       ],
       "include_dirs": [
-        "<(module_root_dir)/../../../node_modules/.pnpm/node_modules/node-addon-api",
+        "<!@(node -p \"require('node-addon-api').include\")",
         "src"
       ],
       "defines": [
@@ -59,6 +69,16 @@
           "-Wl,-rpath,@loader_path/ksplayer-metal"
         ]
       },
+      "target_conditions": [
+        [
+          "OS==\"mac\"",
+          {
+            "xcode_settings": {
+              "MACOSX_DEPLOYMENT_TARGET": "26.0"
+            }
+          }
+        ]
+      ],
       "libraries": [
         "-framework AppKit",
         "-framework Foundation"

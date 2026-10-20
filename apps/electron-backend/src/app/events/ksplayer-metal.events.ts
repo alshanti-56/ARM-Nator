@@ -150,6 +150,6 @@ handleKsPlayerMetal(KSPLAYER_METAL_DISPOSE_ALL, () =>
     getService().disposeAll()
 );
 
-export function shutdownKsPlayerMetal(): void {
-    getService().shutdown();
+export function shutdownKsPlayerMetal(strict = false): void {
+    getService().shutdown(strict);
 }

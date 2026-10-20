@@ -1,7 +1,9 @@
-import { Component, HostListener, inject, viewChild } from '@angular/core';
+import { Component, HostListener, inject, viewChild, ChangeDetectionStrategy } from '@angular/core';
 import { RouterOutlet } from '@angular/router';
+import { Location } from '@angular/common';
+import { historyShortcutDirection, isTypingInInput } from '@arm-nator/providers/shared/util';
 import { ExternalPlaybackDockComponent } from '@arm-nator/ui/components';
-import { WorkspacePlayerHostComponent } from '@arm-nator/player/ui';
+import { NativeCompositionService, WorkspacePlayerHostComponent } from '@arm-nator/player/ui';
 import { WorkspaceShellContextSidebarComponent } from './components/workspace-shell-context-sidebar/workspace-shell-context-sidebar.component';
 import { WorkspaceShellHeaderComponent } from './components/workspace-shell-header/workspace-shell-header.component';
 import { WorkspaceShellImportOverlayComponent } from './components/workspace-shell-import-overlay/workspace-shell-import-overlay.component';
@@ -29,6 +31,7 @@ import { WorkspaceKeyboardNavigationService } from '../workspace-keyboard-naviga
     ],
     templateUrl: './workspace-shell.component.html',
     styleUrl: './workspace-shell.component.scss',
+    changeDetection: ChangeDetectionStrategy.Eager,
     providers: [
         WorkspaceShellFacade,
         WorkspaceShellRouteStateService,
@@ -42,6 +45,8 @@ import { WorkspaceKeyboardNavigationService } from '../workspace-keyboard-naviga
     ],
 })
 export class WorkspaceShellComponent {
+    readonly nativeComposition = inject(NativeCompositionService);
+    private readonly location = inject(Location);
     readonly facade = inject(WorkspaceShellFacade);
     readonly keyboardShortcuts = inject(WorkspaceKeyboardShortcutsService);
     private readonly keyboardNavigation = inject(
@@ -53,6 +58,13 @@ export class WorkspaceShellComponent {
 
     @HostListener('document:keydown', ['$event'])
     onDocumentKeydown(event: KeyboardEvent): void {
+        const historyDirection = historyShortcutDirection(event);
+        if (historyDirection) {
+            event.preventDefault();
+            if (historyDirection === 'back') this.location.back();
+            else this.location.forward();
+            return;
+        }
         if (
             event.defaultPrevented ||
             !this.facade.isElectron ||
@@ -63,7 +75,7 @@ export class WorkspaceShellComponent {
 
         const header = this.header();
         const target = event.target;
-        if (isEditableTarget(target) && !header?.containsSearchInput(target)) {
+        if (isTypingInInput(event) && !header?.containsSearchInput(target)) {
             return;
         }
 
@@ -75,21 +87,6 @@ export class WorkspaceShellComponent {
 
 function isFindShortcut(event: KeyboardEvent): boolean {
     return (event.ctrlKey || event.metaKey) && event.key.toLowerCase() === 'f';
-}
-
-function isEditableTarget(target: EventTarget | null): boolean {
-    if (!(target instanceof HTMLElement)) {
-        return false;
-    }
-
-    if (target.isContentEditable) {
-        return true;
-    }
-
-    const tagName = target.tagName.toLowerCase();
-    return (
-        tagName === 'input' || tagName === 'textarea' || tagName === 'select'
-    );
 }
 
 interface WorkspaceShellHeaderShortcutTarget {

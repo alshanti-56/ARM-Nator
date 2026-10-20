@@ -15,7 +15,10 @@ import {
 } from '../../services/xtream-api.service';
 import { PortalStatusType } from '../../xtream-state';
 import { createLogger } from '@arm-nator/providers/shared/util';
-import { resolveXtreamPortalStatus } from '@arm-nator/shared/interfaces';
+import {
+    deriveXtreamPlaybackServerUrl,
+    resolveXtreamPortalStatus,
+} from '@arm-nator/shared/interfaces';
 
 /**
  * Portal state for managing playlist and portal status
@@ -100,12 +103,35 @@ export function withPortal() {
                 /**
                  * Check portal status via API
                  */
-                async checkPortalStatus(): Promise<PortalStatusType> {
+                async checkPortalStatus(
+                    isCurrentRequest?: () => boolean
+                ): Promise<PortalStatusType> {
                     const playlist = store.currentPlaylist();
                     if (!playlist) {
                         patchState(store, { portalStatus: 'unavailable' });
                         return 'unavailable';
                     }
+                    const requestedPlaylistId = store.playlistId();
+
+                    const isRequestCurrent = (): boolean => {
+                        const current = store.currentPlaylist();
+                        const callerIsCurrent = (() => {
+                            try {
+                                return isCurrentRequest?.() ?? true;
+                            } catch {
+                                return false;
+                            }
+                        })();
+
+                        return (
+                            callerIsCurrent &&
+                            store.playlistId() === requestedPlaylistId &&
+                            current?.id === playlist.id &&
+                            current.serverUrl === playlist.serverUrl &&
+                            current.username === playlist.username &&
+                            current.password === playlist.password
+                        );
+                    };
 
                     const credentials: XtreamCredentials = {
                         serverUrl: playlist.serverUrl,
@@ -118,26 +144,38 @@ export function withPortal() {
                             await apiService.getAccountInfo(credentials);
                         const portalStatus =
                             resolveXtreamPortalStatus(response);
+                        if (!isRequestCurrent()) {
+                            return portalStatus;
+                        }
+
                         const allowedOutputFormats = response?.user_info
                             ?.allowed_output_formats?.length
                             ? response.user_info.allowed_output_formats
                                   .map((format) => format.trim())
                                   .filter(Boolean)
                             : undefined;
-                        patchState(store, { portalStatus });
                         const current = store.currentPlaylist();
-                        if (current) {
-                            patchState(store, {
-                                currentPlaylist: {
-                                    ...current,
-                                    allowedOutputFormats,
-                                },
-                            });
+                        if (!current) {
+                            return portalStatus;
                         }
+
+                        patchState(store, {
+                            portalStatus,
+                            currentPlaylist: {
+                                ...current,
+                                playbackServerUrl:
+                                    deriveXtreamPlaybackServerUrl(response),
+                                allowedOutputFormats,
+                            },
+                        });
                         return portalStatus;
                     } catch (error) {
                         logger.error('Error checking portal status', error);
-                        patchState(store, { portalStatus: 'unavailable' });
+                        if (isRequestCurrent()) {
+                            patchState(store, {
+                                portalStatus: 'unavailable',
+                            });
+                        }
                         return 'unavailable';
                     }
                 },

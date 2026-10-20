@@ -63,11 +63,35 @@ describe('StalkerSessionService watchdog row resolution', () => {
                 { provide: DataService, useValue: { sendIpcEvent } },
                 {
                     provide: PlaylistsService,
-                    useValue: { getPlaylistById },
+                    useValue: { getPlaylistById, updateStalkerSession: jest.fn().mockReturnValue(of(activationSnapshot)) },
                 },
             ],
         });
         service = TestBed.inject(StalkerSessionService);
+    });
+
+    it('retries a shared waiter when search-owned authentication is cancelled', async () => {
+        getPlaylistById.mockReturnValue(of(activationSnapshot));
+        let started!: () => void;
+        const ready = new Promise<void>(resolve => started = resolve);
+        const authenticate = jest.spyOn(service, 'authenticate')
+            .mockImplementationOnce(async (_url, _mac, _identity, options) => {
+                started();
+                return new Promise((_resolve, reject) => options?.signal?.addEventListener('abort', () => {
+                    const error = new Error('search cancelled'); error.name = 'AbortError'; reject(error);
+                }, { once: true }));
+            })
+            .mockResolvedValueOnce({ token: 'replacement' });
+        const controller = new AbortController();
+        const owned = service.ensureToken(activationSnapshot, controller.signal);
+        await ready;
+        const shared = service.ensureToken(activationSnapshot);
+        for(let step=0;step<12;step++)await Promise.resolve();
+        controller.abort();
+        await expect(owned).rejects.toMatchObject({ name: 'AbortError' });
+        await expect(shared).resolves.toMatchObject({ token: 'replacement' });
+        expect(authenticate).toHaveBeenCalledTimes(2);
+        service.setActiveWatchdogPlaylist(null);
     });
 
     it('authenticates watchdog pings as the freshly persisted row, not the activation snapshot', async () => {

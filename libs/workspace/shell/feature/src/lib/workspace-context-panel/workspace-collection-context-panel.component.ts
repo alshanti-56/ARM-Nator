@@ -1,4 +1,4 @@
-import { Component, computed, inject } from '@angular/core';
+import { Component, computed, inject, ChangeDetectionStrategy } from '@angular/core';
 import { TranslatePipe } from '@ngx-translate/core';
 import { PortalCollectionContextService } from '@arm-nator/providers/shared/util';
 import { WorkspaceContextCategoryViewComponent } from './components/workspace-context-category-view.component';
@@ -48,6 +48,7 @@ import { WorkspaceContextCategoryViewComponent } from './components/workspace-co
             />
         </div>
     `,
+    changeDetection: ChangeDetectionStrategy.Eager,
     styleUrl: './workspace-context-panel.component.scss',
 })
 export class WorkspaceCollectionContextPanelComponent {

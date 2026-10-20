@@ -1,6 +1,22 @@
 import fs from 'node:fs';
 import path from 'node:path';
-import { spawnSync } from 'node:child_process';
+import { ensureNativeBuild } from './ensure-native-inputs.mjs';
+import { createRequire } from 'node:module';
+
+const require = createRequire(import.meta.url);
+const {
+    stageKSPlayerMetalMainBundleResources
+} = require('./packaging/ksplayer-metal-packaging.cjs');
+
+function stageElectronResources() {
+    const electronApp = path.resolve(require('electron'), '..', '..', '..');
+    stageKSPlayerMetalMainBundleResources(
+        path.join(electronApp, 'Contents', 'Resources'),
+        electronApp,
+        releaseDirectory
+    );
+    console.log('[dev] KSPlayer Metal resources staged for Electron.');
+}
 
 const workspaceRoot = process.cwd();
 const releaseDirectory = path.join(
@@ -19,24 +35,6 @@ const distNativeDirectory = path.join(
     'native'
 );
 
-// Development should consume the native players already built for the current
-// checkout. The full rebuild remains available through `pnpm dev:native` and
-// is intentionally not part of every renderer restart.
-const requiredArtifacts = [
-    'embedded_mpv.node',
-    'embedded-mpv-runtime.json',
-    'ksplayer_metal.node',
-    'ksplayer-metal-runtime.json',
-    path.join('lib', 'libmpv.2.dylib'),
-    path.join('ksplayer-metal', 'KSPlayerMetalRuntime.dylib'),
-    path.join('ksplayer-metal', 'KSPlayer_KSPlayer.bundle'),
-    path.join('ksplayer-metal', 'Frameworks')
-];
-
-const missingArtifacts = requiredArtifacts.filter(
-    (relativePath) => !fs.existsSync(path.join(releaseDirectory, relativePath))
-);
-
 function removeStaleDistNativeTree() {
     if (!fs.existsSync(distNativeDirectory)) return;
 
@@ -51,28 +49,13 @@ function removeStaleDistNativeTree() {
     });
 }
 
-if (missingArtifacts.length === 0) {
-    console.log('[dev] Native player artifacts are present; skipping native rebuild.');
-    process.exit(0);
+try {
+    const ksplayer = ensureNativeBuild({ root: workspaceRoot, kind: 'ksplayer-metal' });
+    const mpv = ensureNativeBuild({ root: workspaceRoot, kind: 'embedded-mpv' });
+    if (ksplayer.rebuilt || mpv.rebuilt) removeStaleDistNativeTree();
+    stageElectronResources();
+    console.log(`[dev] Native inputs verified; ${ksplayer.rebuilt || mpv.rebuilt ? 'changed inputs rebuilt' : 'reusing native binaries'}.`);
+} catch (error) {
+    console.error('[dev] Native input verification failed:', error);
+    process.exitCode = 1;
 }
-
-removeStaleDistNativeTree();
-
-console.log(
-    `[dev] Native player artifacts missing (${missingArtifacts.join(', ')}); building once...`
-);
-
-const result = spawnSync(
-    'pnpm',
-    ['exec', 'nx', 'run', 'electron-backend:build-native-players'],
-    {
-        cwd: workspaceRoot,
-        stdio: 'inherit'
-    }
-);
-
-if (result.error) {
-    console.error(`[dev] Native player build could not start: ${result.error.message}`);
-}
-
-process.exit(result.status ?? 1);

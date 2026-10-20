@@ -1,3 +1,5 @@
+import { recentVersionIdentity, recentVersionLabel } from "@arm-nator/workspace/dashboard/data-access";
+import { UiPerformanceService } from "@arm-nator/services";
 /* eslint-disable max-lines */
 import {
   ChangeDetectionStrategy,
@@ -16,7 +18,7 @@ import { MatButtonModule } from "@angular/material/button";
 import { MatDialog } from "@angular/material/dialog";
 import { MatIcon } from "@angular/material/icon";
 import { MatSnackBar } from "@angular/material/snack-bar";
-import { RouterLink } from "@angular/router";
+import { Router, RouterLink } from "@angular/router";
 import { Store } from "@ngrx/store";
 import { TranslatePipe, TranslateService } from "@ngx-translate/core";
 import {
@@ -56,7 +58,7 @@ import { resolveDashboardHeroArtwork } from "./dashboard-hero.utils";
 import {
   buildPlaybackPositionReloadKey,
   formatRemainingLabel,
-  isContinueWatchingRecentItem,
+  findDashboardResumeHero,
   playbackProgressPercent,
 } from "./dashboard-playback.utils";
 import {
@@ -92,6 +94,7 @@ import type { DashboardSourceActionId } from "./dashboard-rail.utils";
 })
 export class WorkspaceDashboardRailsComponent {
   readonly data = inject(DashboardDataService);
+  private readonly router = inject(Router);
   private readonly dialog = inject(MatDialog);
   private readonly dialogService = inject(DialogService);
   private readonly playlistDeleteAction = inject(PlaylistDeleteActionService);
@@ -122,8 +125,10 @@ export class WorkspaceDashboardRailsComponent {
     normalizeDashboardRailsSettings(this.settingsStore.dashboardRails?.()),
   );
 
-  private readonly heroRecentItem = computed(
-    () => this.data.globalRecentItems()[0] ?? null,
+  private readonly heroRecentItem = computed(() =>
+    findDashboardResumeHero(this.data.globalRecentItems(), (item) =>
+      this.data.getPlaybackPositionForItem(item),
+    ),
   );
 
   /** TMDB extras for the current hero item, patched in after first paint */
@@ -191,10 +196,29 @@ export class WorkspaceDashboardRailsComponent {
   readonly continueWatchingBaseCards = computed<DashboardRailCard[]>(() => {
     this.languageTick();
     return this.data
-      .globalRecentVodItems()
-      .filter(isContinueWatchingRecentItem)
+      .continueWatchingGroups()
       .slice(0, RAIL_ITEM_LIMIT)
-      .map((item) => this.toRecentCard(item));
+      .map((group) => {
+        const card = {
+          ...this.toRecentCard(group.primary),
+          id: `continue:${group.versions.map(recentVersionIdentity).sort().join("|")}`,
+        };
+        if (group.versions.length < 2) return card;
+        return {
+          ...card,
+          actionsLabel: this.translate.instant("WORKSPACE.DASHBOARD.VERSIONS", {
+            count: group.versions.length,
+          }),
+          actionsIcon: "video_library",
+          subtitle: `${card.subtitle} · ${this.translate.instant("WORKSPACE.DASHBOARD.VERSIONS", { count: group.versions.length })}`,
+          actions: group.versions.map((version) => ({
+            id: `version:${recentVersionIdentity(version)}`,
+            icon: "play_arrow",
+            labelKey: "",
+            label: recentVersionLabel(version),
+          })),
+        };
+      });
   });
 
   readonly continueWatchingCards = computed<DashboardRailCard[]>(() =>
@@ -299,7 +323,12 @@ export class WorkspaceDashboardRailsComponent {
     })),
   );
 
+  private readonly performanceCapture = inject(UiPerformanceService);
+
   constructor() {
+    effect(() => {
+      if (this.ready()) this.performanceCapture.painted("dashboard");
+    });
     // Re-entering the dashboard should pick up any DB-backed recent/favorite
     // changes made while viewing details, including newly backfilled
     // backdrops that do not change recency ordering.
@@ -419,6 +448,20 @@ export class WorkspaceDashboardRailsComponent {
       this.data.getRecentItemTypeLabel(item),
     ].filter((value): value is string => Boolean(value));
     return parts.join(" · ");
+  }
+
+  onContinueVersionSelected(selection: DashboardRailActionSelection): void {
+    const version = this.data
+      .continueWatchingGroups()
+      .flatMap((group) => group.versions)
+      .find(
+        (version) =>
+          `version:${recentVersionIdentity(version)}` === selection.action.id,
+      );
+    if (version)
+      void this.router.navigate(this.data.getRecentItemLink(version), {
+        state: this.data.getRecentItemNavigationState(version),
+      });
   }
 
   private toRecentCard(item: GlobalRecentItem): DashboardRailCard {

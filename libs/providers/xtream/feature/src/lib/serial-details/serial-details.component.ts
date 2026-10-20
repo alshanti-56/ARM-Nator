@@ -9,6 +9,7 @@ import {
   OnInit,
   signal,
   untracked,
+  ChangeDetectionStrategy
 } from "@angular/core";
 import { toSignal } from "@angular/core/rxjs-interop";
 import { MatIcon } from "@angular/material/icon";
@@ -25,6 +26,7 @@ import {
   SeasonContainerPlaybackToggleRequest,
 } from "@arm-nator/ui/components";
 import { SafePipe } from "@arm-nator/pipes";
+import { DiscoverySelectionService, resolveCatalogueOrigin } from "@arm-nator/providers/shared/util";
 import { XtreamStore } from "@arm-nator/providers/xtream/data-access";
 import {
   buildUpNextRailItems,
@@ -75,6 +77,7 @@ import {
     `,
   ],
   providers: [SerialDetailsPlaybackService],
+  changeDetection: ChangeDetectionStrategy.Eager,
   imports: [
     DetailActionsTemplateDirective,
     DetailMetaTemplateDirective,
@@ -97,6 +100,7 @@ export class SerialDetailsComponent implements OnInit, OnDestroy {
   readonly seriesStatusLabelKey = seriesStatusLabelKey;
   private readonly xtreamStore = inject(XtreamStore);
   private readonly playback = inject(SerialDetailsPlaybackService);
+  private readonly discoverySelection = inject(DiscoverySelectionService);
   private readonly snackBar = inject(MatSnackBar);
   private readonly dialog = inject(MatDialog);
   private readonly translateService = inject(TranslateService);
@@ -324,6 +328,21 @@ export class SerialDetailsComponent implements OnInit, OnDestroy {
     });
 
     effect(() => {
+      if (!this.discoverySelection.playbackRequest()) return;
+      const playlistId = this.currentPlaylistId();
+      const item = this.selectedItem();
+      const seriesId = String(this.routeParams().serialId ?? '');
+      if (!playlistId || !item || this.isLoadingDetails() || String(item.series_id) !== seriesId) return;
+      untracked(() => {
+        const request = this.discoverySelection.takePlaybackRequest({sourceType:'xtream',playlistId,contentKind:'series',providerItemId:seriesId});
+        if (!request?.episode) return;
+        const episode = Object.values(item.episodes ?? {}).flat().find(episode => Number(episode.season) === request.episode?.seasonNumber && Number(episode.episode_num) === request.episode?.episodeNumber);
+        if (episode) this.playback.playEpisode(episode);
+        else this.snackBar.open('This version does not contain the same season and episode.', 'Close', {duration:6000});
+      });
+    });
+
+    effect(() => {
       const playlistId = this.currentPlaylistId();
       const selectedItem = this.selectedItem();
       const xtreamId = Number(selectedItem?.series_id ?? 0);
@@ -370,6 +389,8 @@ export class SerialDetailsComponent implements OnInit, OnDestroy {
   openSimilar(item: SimilarCatalogItem): void {
     void this.router.navigate(["../..", item.categoryId, item.id], {
       relativeTo: this.route,
+      queryParamsHandling: "preserve",
+      state: this.location.getState() as Record<string, unknown>,
     });
   }
 
@@ -478,6 +499,12 @@ export class SerialDetailsComponent implements OnInit, OnDestroy {
 
   goBack(): void {
     this.playback.closeInlinePlayer();
+    const playlistId = this.xtreamStore.currentPlaylist()?.id;
+    const origin = playlistId ? resolveCatalogueOrigin(this.location.getState(), playlistId, "series") : null;
+    if (origin) {
+      void this.router.navigateByUrl(origin);
+      return;
+    }
     this.location.back();
   }
 

@@ -1,10 +1,10 @@
-import { Component } from '@angular/core';
+import { Component, ChangeDetectionStrategy } from '@angular/core';
 import { MatButtonModule } from '@angular/material/button';
 import { MatCheckboxModule } from '@angular/material/checkbox';
 import { MatDialogModule } from '@angular/material/dialog';
 import { MatIconModule } from '@angular/material/icon';
 import { RouterLink } from '@angular/router';
-import { TranslateModule } from '@ngx-translate/core';
+import { TranslatePipe } from '@ngx-translate/core';
 
 @Component({
     template: `
@@ -57,13 +57,14 @@ import { TranslateModule } from '@ngx-translate/core';
             }
         `,
     ],
+    changeDetection: ChangeDetectionStrategy.Eager,
     imports: [
         MatButtonModule,
         MatCheckboxModule,
         MatDialogModule,
         MatIconModule,
         RouterLink,
-        TranslateModule,
+        TranslatePipe,
     ],
 })
 export class ExternalPlayerInfoDialogComponent {

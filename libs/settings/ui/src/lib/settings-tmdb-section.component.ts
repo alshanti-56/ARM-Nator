@@ -6,6 +6,7 @@ import {
   signal,
   untracked,
   ViewEncapsulation,
+  ChangeDetectionStrategy
 } from "@angular/core";
 import { FormGroup, ReactiveFormsModule } from "@angular/forms";
 import { MatButtonModule } from "@angular/material/button";
@@ -14,7 +15,7 @@ import { MatFormFieldModule } from "@angular/material/form-field";
 import { MatIconModule } from "@angular/material/icon";
 import { MatInputModule } from "@angular/material/input";
 import { MatProgressSpinnerModule } from "@angular/material/progress-spinner";
-import { TranslateModule } from "@ngx-translate/core";
+import { TranslatePipe } from "@ngx-translate/core";
 import { TmdbApiService, TmdbCacheService } from "@arm-nator/services";
 import type { TmdbCacheStats } from "@arm-nator/shared/interfaces";
 
@@ -30,10 +31,11 @@ type TmdbKeyTestState = "idle" | "testing" | "success" | "error";
     MatInputModule,
     MatProgressSpinnerModule,
     ReactiveFormsModule,
-    TranslateModule,
+    TranslatePipe,
   ],
   templateUrl: "./settings-tmdb-section.component.html",
   encapsulation: ViewEncapsulation.None,
+  changeDetection: ChangeDetectionStrategy.Eager,
   styles: [
     `
       app-settings-tmdb-section {

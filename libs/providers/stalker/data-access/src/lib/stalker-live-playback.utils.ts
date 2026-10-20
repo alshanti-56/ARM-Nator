@@ -3,6 +3,7 @@ import {
     STALKER_MAG_USER_AGENT,
     isStalkerStreamCredentialSafe,
 } from '@arm-nator/shared/interfaces';
+import type { PlaybackRecoveryMetadata } from '@arm-nator/shared/interfaces';
 import {
     buildStalkerSerialCfduid,
     normalizeStalkerSerialNumber,
@@ -61,7 +62,7 @@ export function buildStalkerExternalPlaybackHeaders(
     // never reach a third-party host.
     if (isCrossOriginStalkerStream(playlist, streamUrl)) {
         return {
-            'User-Agent': STALKER_STREAM_USER_AGENT,
+            'User-Agent': playlist.userAgent?.trim() || STALKER_STREAM_USER_AGENT,
             Accept: '*/*',
             Range: 'bytes=0-',
             Connection: 'keep-alive',
@@ -116,4 +117,50 @@ export function buildStalkerExternalPlaybackHeaders(
         },
         {}
     );
+}
+
+/**
+ * Recovery profile data for the main-process player. Persisted header
+ * overrides are kept separate from provider defaults, and session secrets
+ * (MAC cookies, Bearer tokens, and serial-derived values) stay out of this
+ * metadata. The authenticated provider account is addressed by its playlist
+ * id instead.
+ */
+export function buildStalkerPlaybackRecoveryMetadata(
+    playlist: PlaylistMeta | undefined | null,
+    streamUrl?: string,
+    providerLinkRenewable = false
+): PlaybackRecoveryMetadata {
+    const savedHeaders: Record<string, string> = {};
+    const userAgent = playlist?.userAgent?.trim();
+    const referrer = playlist?.referrer?.trim();
+    const originOverride = playlist?.origin?.trim();
+    if (userAgent) savedHeaders['User-Agent'] = userAgent;
+    if (referrer) savedHeaders['Referer'] = referrer;
+    if (originOverride) savedHeaders['Origin'] = originOverride;
+
+    const crossOriginStream = isCrossOriginStalkerStream(playlist, streamUrl);
+    const portalOrigin = getStalkerPortalOrigin(playlist);
+    const defaultHeaders: Record<string, string> = crossOriginStream
+        ? {
+              'User-Agent': STALKER_STREAM_USER_AGENT,
+              Accept: '*/*',
+              Range: 'bytes=0-',
+              Connection: 'keep-alive',
+              'Icy-MetaData': '1',
+          }
+        : {
+              'User-Agent': STALKER_MAG_USER_AGENT,
+              'X-User-Agent': STALKER_MAG_USER_AGENT,
+              ...(portalOrigin
+                  ? { Origin: portalOrigin, Referer: portalOrigin }
+                  : {}),
+          };
+
+    return {
+        ...(providerLinkRenewable ? { providerLinkRenewable: true } : {}),
+        accountRef: playlist?._id || undefined,
+        ...(Object.keys(savedHeaders).length > 0 ? { savedHeaders } : {}),
+        defaultHeaders,
+    };
 }

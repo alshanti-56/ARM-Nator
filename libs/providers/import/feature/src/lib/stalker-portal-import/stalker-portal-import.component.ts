@@ -1,4 +1,4 @@
-import { Component, inject, output, signal } from '@angular/core';
+import { Component, inject, output, signal, ChangeDetectionStrategy } from '@angular/core';
 import { FormControl, FormGroup, FormsModule, ReactiveFormsModule, Validators } from '@angular/forms';
 import { MatButtonModule } from '@angular/material/button';
 import { MatCheckboxModule } from '@angular/material/checkbox';
@@ -60,6 +60,7 @@ type StalkerImportFormValue = {
         MatInputModule,
         TranslatePipe,
     ],
+    changeDetection: ChangeDetectionStrategy.Eager,
     templateUrl: './stalker-portal-import.component.html',
 })
 export class StalkerPortalImportComponent {

@@ -59,13 +59,13 @@
                         }
                     </mat-menu>
                 }
-                @if (isXtreamCategories()) {
+                @if (isXtreamCategories() || isStalkerCategories()) {
                     <button
                         type="button"
                         mat-icon-button
                         class="context-header__action"
                         (click)="openManageCategories()"
-                        [disabled]="!canManageXtreamCategories()"
+                        [disabled]="!canManageCategories()"
                         [matTooltip]="
                             'WORKSPACE.CONTEXT.MANAGE_CATEGORIES' | translate
                         "
@@ -159,6 +159,7 @@
                 [items]="filteredStalkerCategories()"
                 [selectedCategoryId]="stalkerSelectedCategoryId()"
                 [itemCounts]="stalkerCategoryItemCounts()"
+                [partialCountIds]="stalkerPartialCategoryIds()"
                 [showCounts]="true"
                 [omitMissingCounts]="true"
                 [interactionEnabled]="isStalkerCategoryInteractionEnabled()"

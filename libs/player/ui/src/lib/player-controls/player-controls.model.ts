@@ -1,3 +1,4 @@
+import type { TrackRole, PlayerPreferenceIntent } from '@arm-nator/shared/interfaces';
 import type { Signal } from '@angular/core';
 import type {
     OpenSubtitlesDownloadedSubtitle,
@@ -30,6 +31,8 @@ export interface PlayerControlsCapabilities {
 export interface PlayerTrack {
     id: number;
     label: string; // adapter pre-computes the display label
+    language?: string;
+    role?: TrackRole;
     selected: boolean;
 }
 
@@ -56,6 +59,7 @@ export interface PlayerControlsState {
     statusMessage: string;
     stalled: boolean;
     positionSeconds: number;
+    seeking?: boolean;
     durationSeconds: number | null;
     isLive: boolean;
     canSeek: boolean;
@@ -96,6 +100,7 @@ export interface PlayerControlsCommands {
  * fullscreen are NOT here: they are controls-component outputs / DOM affordances.
  */
 export interface PlayerController {
+    observePreferences?(listener: (intent: PlayerPreferenceIntent) => void): () => void;
     readonly capabilities: Signal<PlayerControlsCapabilities>;
     readonly state: Signal<PlayerControlsState>;
     readonly commands: PlayerControlsCommands;
@@ -104,6 +109,14 @@ export interface PlayerController {
 export interface PlayerMediaTelemetry {
     readonly sourceKind?: string;
     readonly resolvedUrl?: string;
+    /** Monotonic browser count of video frames presented to the compositor. */
+    readonly presentedFrames?: number;
+    /** Native backend confirmation that at least one video frame was presented. */
+    readonly frameReady?: boolean;
+    /** True only when the active media has been identified as audio-only. */
+    readonly audioOnly?: boolean;
+    /** Current media mute state when the engine exposes it. */
+    readonly muted?: boolean;
     readonly container?: string;
     readonly videoCodec?: string;
     readonly audioCodec?: string;

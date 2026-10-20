@@ -153,7 +153,8 @@
                         @for (season of seasons(); track season.id ?? $index) {
                             <button
                                 type="button"
-                                [class.season-tabs__active]="selectedSeasonId() === (season['season_id'] ?? season.id)"
+                                [class.season-tabs__active]="isSelectedSeason(season)"
+                                [attr.aria-pressed]="isSelectedSeason(season)"
                                 (click)="selectSeason(season)"
                             >
                                 {{ seasonLabel(season) }}
@@ -162,9 +163,14 @@
                     </div>
                 }
 
-                @if (episodesLoading()) {
-                    <p class="series-details__status">Loading episodes…</p>
-                } @else if (episodes().length > 0) {
+                @if (selectedSeason(); as season) {
+                    <p class="series-details__status">
+                        {{ seasonLabel(season) }} ·
+                        {{ episodesLoading() ? 'Loading episodes…' : episodes().length + ' episodes' }}
+                    </p>
+                }
+
+                @if (!episodesLoading() && episodes().length > 0) {
                     <div class="episode-list">
                         @for (episode of episodes(); track episode.id ?? $index; let index = $index) {
                             <button type="button" class="episode-list__item" (click)="playEpisode(episode)">

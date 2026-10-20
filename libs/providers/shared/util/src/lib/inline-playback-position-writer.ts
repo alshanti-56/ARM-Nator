@@ -6,7 +6,7 @@ import type {
 const SAVE_INTERVAL_MS = 15_000;
 
 export interface InlinePlaybackPositionWriter {
-    handleTimeUpdate(event: { currentTime: number; duration: number }): void;
+    handleTimeUpdate(event: { currentTime: number; duration: number; persistenceHandled?: boolean }): void;
     reset(): void;
 }
 
@@ -39,13 +39,17 @@ export function createInlinePlaybackPositionWriter(
 
             const position: PlaybackPositionData = {
                 ...playback.contentInfo,
-                positionSeconds: Math.floor(event.currentTime),
+                positionSeconds: event.currentTime,
                 durationSeconds:
                     Number.isFinite(event.duration) && event.duration > 0
-                        ? Math.floor(event.duration)
+                        ? event.duration
                         : undefined,
             };
 
+            if (event.persistenceHandled) {
+                config.onSaved?.(position);
+                return;
+            }
             const now = Date.now();
             if (now - lastSaveTime <= SAVE_INTERVAL_MS) return;
 

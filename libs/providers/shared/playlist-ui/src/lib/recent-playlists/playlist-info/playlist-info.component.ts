@@ -1,4 +1,4 @@
-import { Component, inject, signal } from '@angular/core';
+import { Component, DestroyRef, inject, signal, ChangeDetectionStrategy } from '@angular/core';
 import {
     FormControl,
     ReactiveFormsModule,
@@ -13,6 +13,7 @@ import {
     MatDialogRef,
 } from '@angular/material/dialog';
 import { MatInputModule } from '@angular/material/input';
+import { MatSelectModule } from '@angular/material/select';
 import { MatSnackBar } from '@angular/material/snack-bar';
 import { Store } from '@ngrx/store';
 import { TranslatePipe, TranslateService } from '@ngx-translate/core';
@@ -25,6 +26,9 @@ import {
     Playlist,
     PlaylistMeta,
 } from '@arm-nator/shared/interfaces';
+import { USER_AGENT_PROFILES, type UserAgentProfile } from './user-agent-profiles';
+import type { UserAgentTestResult } from './user-agent-test-runner';
+import { PlaylistUserAgentTestService } from './playlist-user-agent-test.service';
 
 interface PlaylistServerPort {
     labelKey: string;
@@ -65,12 +69,22 @@ interface PlaylistServerPort {
                 line-height: 1.45;
             }
 
+            .user-agent-test { border: 1px solid var(--mat-sys-outline-variant); border-radius: 12px; padding: 12px; }
+            .user-agent-test__heading, .user-agent-test__result { display: flex; align-items: center; justify-content: space-between; gap: 12px; }
+            .user-agent-test__result { padding: 8px 0; border-top: 1px solid var(--mat-sys-outline-variant); }
+            .user-agent-test__result small { display: block; color: var(--mat-sys-on-surface-variant); margin-top: 3px; }
+            .user-agent-test__status { margin: 8px 0 !important; }
+            .user-agent-test__error { color: var(--mat-sys-error) !important; }
+
         `,
     ],
+    changeDetection: ChangeDetectionStrategy.Eager,
+    providers: [PlaylistUserAgentTestService],
     imports: [
         MatButton,
         MatDialogModule,
         MatInputModule,
+        MatSelectModule,
         ReactiveFormsModule,
         TranslatePipe,
     ],
@@ -83,6 +97,7 @@ export class PlaylistInfoComponent {
     private translate = inject(TranslateService);
     private runtime = inject(RuntimeCapabilitiesService);
     private xtreamApiService = inject(XtreamApiService);
+    private readonly userAgentTester = inject(PlaylistUserAgentTestService);
     private dialogRef = inject(MatDialogRef<PlaylistInfoComponent>, {
         optional: true,
     });
@@ -100,10 +115,37 @@ export class PlaylistInfoComponent {
 
     readonly availableServerPorts = signal<PlaylistServerPort[]>([]);
     readonly isLoadingServerPorts = signal(false);
+    readonly userAgentPresets = USER_AGENT_PROFILES;
+    readonly selectedUserAgentPreset = signal('automatic');
+    private customUserAgent = '';
+    readonly isTestingUserAgents = signal(false);
+    readonly userAgentTestResults = signal<UserAgentTestResult[]>([]);
+    readonly userAgentTestSamples = signal<string[]>([]);
+    readonly userAgentTestError = signal('');
+    private userAgentTestController: AbortController | null = null;
+
+    get hasUserAgentMediaResults(): boolean {
+        return this.userAgentTestResults().some((result) => result.state === 'working');
+    }
+
+    get userAgentTestProgress(): string {
+        const results = this.userAgentTestResults();
+        const completed = results.filter((result) => result.state === 'working' || result.state === 'failed').length;
+        const current = results.find((result) => result.state === 'testing');
+        if (this.isTestingUserAgents() && this.userAgentTestController?.signal.aborted) return 'Stopping test…';
+        return this.isTestingUserAgents()
+            ? current ? `${completed}/${results.length} checked · Testing ${current.profile.label}…` : 'Loading sample channels…'
+            : `${completed}/${results.length} checked${results.some((result) => result.state === 'cancelled') ? ' · Stopped' : ''}`;
+    }
 
     constructor() {
+        inject(DestroyRef).onDestroy(() => this.cancelUserAgentTests());
         this.playlist = this.playlistData;
         this.createForm();
+        const userAgent = this.playlistDetails.get('userAgent')?.value ?? '';
+        const preset = this.userAgentPresets.find((entry) => entry.value === userAgent);
+        this.selectedUserAgentPreset.set(preset?.id ?? 'custom');
+        this.customUserAgent = preset ? '' : userAgent;
         void this.loadServerDetails();
     }
 
@@ -152,6 +194,68 @@ export class PlaylistInfoComponent {
             username: new FormControl(this.playlist.username),
             password: new FormControl(this.playlist.password),
         });
+    }
+
+    selectUserAgentPreset(id: string): void {
+        const control = this.playlistDetails.get('userAgent');
+        if (!control) return;
+        const preset = this.userAgentPresets.find((entry) => entry.id === id);
+        if (id !== 'custom' && !preset) return;
+        if (this.selectedUserAgentPreset() === 'custom') {
+            this.customUserAgent = String(control.value ?? '');
+        }
+        this.selectedUserAgentPreset.set(id);
+        const value = id === 'custom' ? this.customUserAgent : preset!.value;
+        if (control.value !== value) {
+            control.setValue(value);
+            control.markAsDirty();
+        }
+    }
+
+    async testAllUserAgents(): Promise<void> {
+        if (this.isTestingUserAgents()) return;
+        const controller = new AbortController();
+        this.userAgentTestController = controller;
+        const signal = AbortSignal.any([controller.signal, AbortSignal.timeout(240_000)]);
+        const custom = this.selectedUserAgentPreset() === 'custom'
+            ? String(this.playlistDetails.get('userAgent')?.value ?? '') : this.customUserAgent;
+        const profiles: UserAgentProfile[] = [...this.userAgentPresets];
+        if (custom.trim() && !profiles.some((profile) => profile.value === custom)) {
+            profiles.push({ id: 'custom', label: 'Your custom user agent', value: custom });
+        }
+        this.userAgentTestResults.set(profiles.map((profile) => ({ profile, state: 'queued', detail: 'Waiting' })));
+        this.userAgentTestSamples.set([]);
+        this.userAgentTestError.set('');
+        this.isTestingUserAgents.set(true);
+        try {
+            await this.userAgentTester.run(this.playlist, profiles, signal,
+                (result) => this.userAgentTestResults.update((rows) => rows.map((row) => row.profile.id === result.profile.id ? result : row)),
+                (names) => this.userAgentTestSamples.set(names),
+            );
+        } catch {
+            if (!signal.aborted) this.userAgentTestError.set('Could not authenticate or load sample streams. Check this source’s portal access and try again.');
+        } finally {
+            if (signal.aborted && !controller.signal.aborted) this.userAgentTestError.set('The test time limit was reached. Some profiles were not tested.');
+            this.userAgentTestResults.update((rows) => rows.map((row) => row.state === 'queued' || row.state === 'testing'
+                ? { ...row, state: 'cancelled', detail: 'Not tested' } : row));
+            this.isTestingUserAgents.set(false);
+            this.userAgentTestController = null;
+        }
+    }
+
+    cancelUserAgentTests(): void {
+        this.userAgentTestController?.abort();
+    }
+
+    applyTestedUserAgent(result: UserAgentTestResult): void {
+        if (result.state !== 'working' || this.isTestingUserAgents()) return;
+        this.selectUserAgentPreset(result.profile.id);
+        if (result.profile.id === 'custom') {
+            this.customUserAgent = result.profile.value;
+            const control = this.playlistDetails.get('userAgent');
+            control?.setValue(result.profile.value);
+            control?.markAsDirty();
+        }
     }
 
     private async loadServerDetails(): Promise<void> {

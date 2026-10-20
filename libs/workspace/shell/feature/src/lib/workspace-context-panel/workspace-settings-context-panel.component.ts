@@ -1,13 +1,14 @@
 import { Location } from '@angular/common';
-import { Component, inject } from '@angular/core';
+import { Component, inject, ChangeDetectionStrategy } from '@angular/core';
 import { MatIconModule } from '@angular/material/icon';
-import { TranslateModule } from '@ngx-translate/core';
+import { TranslatePipe } from '@ngx-translate/core';
 import { SettingsContextService } from '@arm-nator/workspace/shell/util';
 
 @Component({
     selector: 'app-workspace-settings-context-panel',
-    imports: [MatIconModule, TranslateModule],
+    imports: [MatIconModule, TranslatePipe],
     styleUrls: ['./workspace-settings-context-panel.component.scss'],
+    changeDetection: ChangeDetectionStrategy.Eager,
     template: `
         <h2 class="panel-title">{{ 'SETTINGS.TITLE' | translate }}</h2>
         <div class="settings-panel-body">

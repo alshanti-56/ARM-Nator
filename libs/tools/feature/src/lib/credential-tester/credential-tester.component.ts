@@ -43,6 +43,7 @@ import {
     createRandomId,
     type Playlist,
 } from '@arm-nator/shared/interfaces';
+import { createValidatedStalkerPlaylist } from './stalker-playlist-save';
 import { ElectronCredentialTesterAdapter } from './electron-credential-tester.adapter';
 import { StalkerPortalDiscoveryService } from '@arm-nator/providers/stalker/data-access';
 import {
@@ -376,6 +377,7 @@ export class CredentialTesterComponent implements OnDestroy {
                         const expired = expiresAt !== undefined && expiresAt > 0 && expiresAt * 1000 < Date.now();
                         this.patchStalkerResults([result.id], {
                             status: expired ? 'expired' : 'working',
+                            resolvedPortalUrl: outcome.portalUrl,
                             message: outcome.isFullStalkerPortal ? 'Portal authenticated successfully.' : 'Portal responded without a session token.',
                             responseTimeMs: elapsed,
                             tokenMode: outcome.isFullStalkerPortal ? 'authenticated' : 'token-free',
@@ -505,17 +507,7 @@ export class CredentialTesterComponent implements OnDestroy {
     }
 
     private createStalkerPlaylist(result: StalkerTestResult): Playlist {
-        const now = new Date().toISOString();
-        return {
-            _id: createRandomId(), title: result.candidate.portalUrl, count: 0,
-            importDate: now, lastUsage: now, autoRefresh: false,
-            portalUrl: result.candidate.portalUrl, macAddress: result.candidate.macAddress,
-            isFullStalkerPortal: result.isFullStalkerPortal,
-            stalkerToken: result.stalkerToken,
-            stalkerWatchdogTimeout: result.watchdogTimeoutSeconds,
-            stalkerTimeslot: result.timeslotSeconds,
-            stalkerAccountInfo: result.accountInfo,
-        };
+        return createValidatedStalkerPlaylist(result);
     }
 
     private stalkerSourceKey(candidate: StalkerCredentialCandidate): string {

@@ -1,16 +1,17 @@
 import {
-    Component,
-    DestroyRef,
-    ElementRef,
-    HostListener,
-    computed,
-    effect,
-    inject,
-    input,
-    output,
-    signal,
-    untracked,
-    viewChild,
+  Component,
+  DestroyRef,
+  ElementRef,
+  HostListener,
+  computed,
+  effect,
+  inject,
+  input,
+  output,
+  signal,
+  untracked,
+  viewChild,
+  ChangeDetectionStrategy
 } from '@angular/core';
 import { extractDominantColor } from './extract-color';
 import { FormsModule } from '@angular/forms';
@@ -159,6 +160,7 @@ import { ChannelActions } from '@arm-nator/providers/shared/playlist-state';
         </div>
     `,
     styleUrls: ['./audio-player.component.scss'],
+    changeDetection: ChangeDetectionStrategy.Eager,
     imports: [
         FormsModule,
         MatButtonModule,

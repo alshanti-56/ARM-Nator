@@ -30,11 +30,6 @@ const nativeRoot = path.join(
 const outputDir = path.join(nativeRoot, "build", "Release");
 const outputPaths = runtimePaths(outputDir);
 const swiftBuildRoot = path.join(packageRoot, ".build");
-const swiftReleaseDir = path.join(
-  swiftBuildRoot,
-  "arm64-apple-macosx",
-  "release",
-);
 const ksPlayerPatches = [
   {
     path: path.join(packageRoot, "patches", "ksplayer", "picture-adjustments.patch"),
@@ -107,6 +102,29 @@ const ksPlayerPatches = [
       ],
     ],
   },
+  {
+    path: path.join(packageRoot, "patches", "ksplayer", "frame-presentation.patch"),
+    files: ["Sources/KSPlayer/MEPlayer/MetalPlayView.swift", "Sources/KSPlayer/Metal/MetalRender.swift"],
+    markers: [["Sources/KSPlayer/MEPlayer/MetalPlayView.swift", "hasPresentedFrame"], ["Sources/KSPlayer/Metal/MetalRender.swift", "drawable.addPresentedHandler"]],
+  },
+  {
+    path: path.join(
+      packageRoot,
+      "patches",
+      "ksplayer",
+      "embedded-picture-in-picture-lifecycle.patch",
+    ),
+    files: [
+      "Sources/KSPlayer/AVPlayer/KSOptions.swift",
+      "Sources/KSPlayer/MEPlayer/KSMEPlayer.swift",
+    ],
+    markers: [
+      ["Sources/KSPlayer/AVPlayer/KSOptions.swift", "public var isPictureInPictureEnabled = true"],
+      ["Sources/KSPlayer/MEPlayer/KSMEPlayer.swift", "guard options.isPictureInPictureEnabled else { return nil }"],
+      ["Sources/KSPlayer/MEPlayer/KSMEPlayer.swift", "(_pipController as? KSPictureInPictureController)?.invalidatePlaybackState()"],
+    ],
+  },
+
 ];
 function log(message) {
   process.stdout.write(`[ksplayer-metal] ${message}\n`);
@@ -327,6 +345,18 @@ function checkouts() {
   };
 }
 
+function resolveSwiftReleaseDir() {
+  const releaseDir = run(
+    "swift",
+    ["build", "--show-bin-path", "--arch", "arm64", "--configuration", "release"],
+    { cwd: packageRoot },
+  ).trim();
+  if (!releaseDir || !fs.existsSync(releaseDir)) {
+    fail(`SwiftPM did not report a valid release directory: ${releaseDir}`);
+  }
+  return releaseDir;
+}
+
 function compileMetalLibrary(ksPlayerCheckout) {
   const sourcePath = path.join(
     ksPlayerCheckout,
@@ -383,7 +413,7 @@ function copyBundleWithMetal(sourceBundle, destinationBundle, metallibPath) {
   addMetalToBundle(destinationBundle, sourceBundle, metallibPath);
 }
 
-function stageFrameworks() {
+function stageFrameworks(swiftReleaseDir) {
   fs.rmSync(outputPaths.frameworkDir, { recursive: true, force: true });
   fs.mkdirSync(outputPaths.frameworkDir, { recursive: true });
   const sourceFrameworks = fs
@@ -445,7 +475,7 @@ function adHocSign(binaryPath) {
   ]);
 }
 
-function stageRuntime(ksPlayerCheckout) {
+function stageRuntime(ksPlayerCheckout, swiftReleaseDir) {
   const sourceDylib = path.join(
     swiftReleaseDir,
     "libKSPlayerMetalRuntime.dylib",
@@ -462,7 +492,7 @@ function stageRuntime(ksPlayerCheckout) {
   // compiled library there too; packaged builds use the copied main-bundle
   // resource staged by electron-after-pack.
   addMetalToBundle(sourceBundle, sourceBundle, metallibPath);
-  stageFrameworks();
+  stageFrameworks(swiftReleaseDir);
   patchDylibRuntimePaths(outputPaths.dylibPath);
   adHocSign(outputPaths.dylibPath);
 }
@@ -561,7 +591,7 @@ function main() {
       cwd: packageRoot,
       stdio: "inherit",
     });
-    stageRuntime(ksPlayer);
+    stageRuntime(ksPlayer, resolveSwiftReleaseDir());
     buildAddon();
     writeManifest();
     const validationErrors = validateKSPlayerMetalRuntime(outputDir, {
@@ -577,7 +607,7 @@ function main() {
       error instanceof Error ? error.message : String(error)
     }`;
     cleanOutput();
-    throw new Error(reason);
+    throw new Error(reason, { cause: error });
   }
 
   log(`Built ${path.relative(workspaceRoot, outputPaths.addonPath)}.`);

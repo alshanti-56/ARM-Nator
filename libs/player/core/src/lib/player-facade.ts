@@ -2,11 +2,19 @@ import { InjectionToken } from "@angular/core";
 import {
   ExternalPlayerSession,
   ResolvedPortalPlayback,
+  PlaybackRecoveryIdentity,
   VideoPlayer,
 } from "@arm-nator/shared/interfaces";
 import type { ExternalPlayerName } from "@arm-nator/shared/interfaces";
 
 export interface PlayerOpenContext {
+  /** Resolves only; must not open playback, navigate, or select another item. */
+  readonly resolvePlayback?: (request: {
+    signal: AbortSignal;
+    reason: 'manual-retry' | 'media-auth-failure';
+  }) => Promise<ResolvedPortalPlayback>;
+  /** Internal handoff: preserves selection-scoped recovery across source replacement. */
+  readonly recoveryIdentity?: PlaybackRecoveryIdentity;
   readonly canPrevious?: boolean;
   readonly canNext?: boolean;
   readonly autoplayNext?: boolean;
@@ -19,6 +27,9 @@ export interface PlayerOpenContext {
   readonly onTimeUpdate?: (event: {
     currentTime: number;
     duration: number;
+    /** The workspace already persisted this confirmed sample; feature callbacks update local state only. */
+    persistenceHandled?: boolean;
+    action?: "progress" | "finished" | "reset";
   }) => void;
 }
 
@@ -28,6 +39,15 @@ export interface PlayerOpenContext {
  */
 export interface PlayerFacade {
   isEmbeddedPlayer(isLive?: boolean): boolean;
+  openAutomaticPlayback?(
+    playback: ResolvedPortalPlayback,
+    context?: PlayerOpenContext,
+  ): Promise<void>;
+  handleAutomaticDiagnostic?(issue: {
+    attemptToken?: number;
+    code: string;
+    sourceUrl?: string;
+  }): Promise<boolean>;
   openPlayer(
     streamUrl: string,
     title: string,
@@ -50,10 +70,12 @@ export interface PlayerFacade {
     playback: ResolvedPortalPlayback,
     engine?: VideoPlayer,
     context?: PlayerOpenContext,
-  ): void;
+    transition?: number,
+  ): Promise<void>;
   openExternalPlayback(
     playback: ResolvedPortalPlayback,
     player: ExternalPlayerName,
+    transition?: number,
   ): Promise<ExternalPlayerSession | void>;
 }
 

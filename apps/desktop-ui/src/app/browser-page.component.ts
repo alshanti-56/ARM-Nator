@@ -1,3 +1,4 @@
+import { BrowserGuestHostService } from './browser-guest-host.service';
 import {
     AfterViewInit,
     ChangeDetectionStrategy,
@@ -37,6 +38,7 @@ import type {
 })
 export class BrowserPageComponent implements AfterViewInit, OnDestroy {
     private readonly route = inject(ActivatedRoute);
+    private readonly guests = inject(BrowserGuestHostService);
     private readonly router = inject(Router);
     private readonly viewport = viewChild<ElementRef<HTMLElement>>('browserViewport');
     private resizeObserver: ResizeObserver | null = null;
@@ -83,7 +85,10 @@ export class BrowserPageComponent implements AfterViewInit, OnDestroy {
             }
             if (state.displayMode === 'mini') {
                 this.lastBounds = '';
-            } else if (wasMini) {
+            } else if (wasMini || state.bounds.width <= 1 || state.bounds.height <= 1) {
+                // The initial resize may precede attachment; retry once a surface exists,
+                // even while its first navigation is still loading.
+                this.lastBounds = '';
                 this.syncBounds(viewport);
             }
         });
@@ -96,6 +101,7 @@ export class BrowserPageComponent implements AfterViewInit, OnDestroy {
 
     ngOnDestroy(): void {
         this.openAttempt += 1;
+        this.guests.cancelPending(this.mode);
         if (this.openTimeout) {
             clearTimeout(this.openTimeout);
             this.openTimeout = null;
@@ -167,7 +173,10 @@ export class BrowserPageComponent implements AfterViewInit, OnDestroy {
 
         try {
             const state = await Promise.race([
-                window.electron.openBrowserView(this.mode),
+                this.guests.ensure(this.mode).then(() => {
+                    if (attempt !== this.openAttempt) throw new Error('Browser opening was cancelled.');
+                    return window.electron.openBrowserView(this.mode);
+                }),
                 timeout,
             ]);
             if (attempt !== this.openAttempt) {

@@ -12,12 +12,43 @@ export interface XtreamPortalStatusResponseLike {
     } | null;
 }
 
+interface XtreamPlaybackServerInfoLike {
+    url?: unknown;
+    server_protocol?: unknown;
+    port?: unknown;
+    https_port?: unknown;
+}
+
+interface XtreamPlaybackAccountInfoLike {
+    user_info?: {
+        auth?: boolean | number | string | null;
+    } | null;
+    server_info?: XtreamPlaybackServerInfoLike | null;
+}
+
 export interface XtreamCredentialsFromUrl {
     password: string;
     username: string;
 }
 
 const XTREAM_API_ENDPOINT_PATTERN = /\/(?:get|player_api)\.php$/i;
+
+/**
+ * Account action variants can help when a panel rejects an unsupported action.
+ * Changing the action cannot repair authentication, throttling, or a connection
+ * failure, so those errors (including errors with no status) must stop the probe.
+ */
+export function canTryNextXtreamAccountAction(error: unknown): boolean {
+    if (error === null || typeof error !== 'object') {
+        return false;
+    }
+
+    const { name, status } = error as { name?: unknown; status?: unknown };
+    return (
+        name !== 'AbortError' &&
+        (status === 400 || status === 404 || status === 405 || status === 501)
+    );
+}
 
 function getExplicitUrlPort(value: string): string | undefined {
     const authority = /^https?:\/\/([^/?#]*)/i.exec(value.trim())?.[1];
@@ -100,6 +131,132 @@ export function normalizeXtreamServerUrl(value: string): string {
             : url.origin;
 
     return `${origin}${basePath}`;
+}
+
+/**
+ * Returns a validated media server URL from an authenticated account response.
+ * Undefined tells callers to keep using the playlist's configured API URL.
+ */
+export function deriveXtreamPlaybackServerUrl(
+    response: XtreamPlaybackAccountInfoLike | null | undefined
+): string | undefined {
+    const auth = response?.user_info?.auth;
+    if (!(auth === true || auth === 1 || auth === '1')) {
+        return undefined;
+    }
+
+    const serverInfo = response?.server_info;
+    const urlValue = serverInfo?.url;
+    if (typeof urlValue !== 'string') {
+        return undefined;
+    }
+
+    const rawUrl = urlValue.trim();
+    if (!rawUrl) {
+        return undefined;
+    }
+
+    const protocolValue = serverInfo?.server_protocol;
+    if (
+        protocolValue !== null &&
+        protocolValue !== undefined &&
+        typeof protocolValue !== 'string'
+    ) {
+        return undefined;
+    }
+
+    const protocol =
+        typeof protocolValue === 'string'
+            ? protocolValue.trim().toLowerCase()
+            : undefined;
+    const explicitScheme =
+        /^([a-z][a-z\d+.-]*):\/\//i.exec(rawUrl)?.[1]?.toLowerCase();
+    const hasExplicitScheme = Boolean(explicitScheme);
+    if (
+        (protocol && protocol !== 'http' && protocol !== 'https') ||
+        (!protocol && !hasExplicitScheme)
+    ) {
+        return undefined;
+    }
+
+    const resolvedProtocol = protocol || explicitScheme;
+    const httpsPortValue = serverInfo?.https_port;
+    const hasHttpsPort =
+        httpsPortValue !== null &&
+        httpsPortValue !== undefined &&
+        !(typeof httpsPortValue === 'string' && !httpsPortValue.trim());
+    const portValue =
+        resolvedProtocol === 'https' && hasHttpsPort
+            ? httpsPortValue
+            : serverInfo?.port;
+    if (
+        portValue !== null &&
+        portValue !== undefined &&
+        typeof portValue !== 'string' &&
+        typeof portValue !== 'number'
+    ) {
+        return undefined;
+    }
+    const port =
+        portValue === null || portValue === undefined
+            ? ''
+            : String(portValue).trim();
+    if (
+        port &&
+        (!/^\d{1,5}$/.test(port) || Number(port) < 1 || Number(port) > 65535)
+    ) {
+        return undefined;
+    }
+
+    const candidate = buildXtreamServerUrl(
+        rawUrl,
+        protocol || undefined,
+        port || undefined
+    );
+    try {
+        const authority = /^[a-z][a-z\d+.-]*:\/\/([^/?#]*)/i.exec(
+            candidate
+        )?.[1];
+        const parsed = new URL(candidate);
+        if (
+            (parsed.protocol !== 'http:' && parsed.protocol !== 'https:') ||
+            !authority ||
+            authority.includes('@') ||
+            parsed.username ||
+            parsed.password ||
+            !isSaneXtreamHostname(parsed.hostname) ||
+            (parsed.port !== '' && Number(parsed.port) < 1) ||
+            parsed.search ||
+            parsed.hash
+        ) {
+            return undefined;
+        }
+
+        if (protocol && parsed.protocol !== `${protocol}:`) {
+            return undefined;
+        }
+
+        return normalizeXtreamServerUrl(candidate);
+    } catch {
+        return undefined;
+    }
+}
+
+function isSaneXtreamHostname(hostname: string): boolean {
+    if (!hostname || hostname.length > 253) {
+        return false;
+    }
+
+    if (hostname.startsWith('[') && hostname.endsWith(']')) {
+        return /^[\da-f:.]+$/i.test(hostname.slice(1, -1));
+    }
+
+    return hostname.split('.').every(
+        (label) =>
+            label.length > 0 &&
+            label.length <= 63 &&
+            /^[a-z\d](?:[a-z\d-]*[a-z\d])?$/i.test(label)
+    );
 }
 
 export function extractXtreamCredentialsFromUrl(

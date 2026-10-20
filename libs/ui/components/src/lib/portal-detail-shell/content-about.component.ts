@@ -1,6 +1,6 @@
 import { NgTemplateOutlet } from '@angular/common';
-import { Component, TemplateRef, input } from '@angular/core';
-import { TranslateModule } from '@ngx-translate/core';
+import { Component, TemplateRef, input, ChangeDetectionStrategy } from '@angular/core';
+import { TranslatePipe } from '@ngx-translate/core';
 
 /**
  * Watch-state metadata block ("About the show / movie"). Rendered by
@@ -14,7 +14,7 @@ import { TranslateModule } from '@ngx-translate/core';
 @Component({
     selector: 'app-content-about',
     standalone: true,
-    imports: [NgTemplateOutlet, TranslateModule],
+    imports: [NgTemplateOutlet, TranslatePipe],
     template: `
         <section class="about">
             <h3 class="about__heading">{{ 'PORTALS.ABOUT' | translate }}</h3>
@@ -48,6 +48,7 @@ import { TranslateModule } from '@ngx-translate/core';
             </div>
         </section>
     `,
+    changeDetection: ChangeDetectionStrategy.OnPush,
     styleUrls: ['./content-about.component.scss'],
 })
 export class ContentAboutComponent {

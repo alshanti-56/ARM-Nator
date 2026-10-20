@@ -1,4 +1,4 @@
-import { Component, EventEmitter, Output, inject } from '@angular/core';
+import { Component, EventEmitter, Output, inject, ChangeDetectionStrategy } from '@angular/core';
 import {
     AbstractControl,
     FormControl,
@@ -49,6 +49,7 @@ function xtreamServerUrlValidator(
     ],
     selector: 'app-xtream-code-import',
     templateUrl: './xtream-code-import.component.html',
+    changeDetection: ChangeDetectionStrategy.Eager,
     styles: [
         `
             :host {

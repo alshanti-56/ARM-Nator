@@ -1,7 +1,7 @@
 import { ComponentFixture, TestBed } from '@angular/core/testing';
 import { MAT_DIALOG_DATA } from '@angular/material/dialog';
 import { NoopAnimationsModule } from '@angular/platform-browser/animations';
-import { TranslateModule } from '@ngx-translate/core';
+import { provideTranslateService } from '@ngx-translate/core';
 import { of, throwError } from 'rxjs';
 import { StalkerAccountInfoService } from '@arm-nator/providers/stalker/data-access';
 import { PlaylistsService } from '@arm-nator/services';
@@ -45,9 +45,9 @@ describe('StalkerAccountInfoComponent', () => {
             imports: [
                 StalkerAccountInfoComponent,
                 NoopAnimationsModule,
-                TranslateModule.forRoot(),
             ],
             providers: [
+                ...provideTranslateService(),
                 { provide: MAT_DIALOG_DATA, useValue: { playlist } },
                 {
                     provide: StalkerAccountInfoService,
@@ -204,9 +204,9 @@ describe('StalkerAccountInfoComponent', () => {
             imports: [
                 StalkerAccountInfoComponent,
                 NoopAnimationsModule,
-                TranslateModule.forRoot(),
             ],
             providers: [
+                ...provideTranslateService(),
                 {
                     provide: MAT_DIALOG_DATA,
                     useValue: {

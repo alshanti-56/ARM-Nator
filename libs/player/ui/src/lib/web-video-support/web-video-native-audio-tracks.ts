@@ -1,3 +1,4 @@
+import { inferTrackRole } from '@arm-nator/shared/interfaces';
 import type { PlayerTrack } from '../player-controls/player-controls.model';
 
 const NATIVE_AUDIO_TRACK_EVENTS = ['addtrack', 'removetrack', 'change'] as const;
@@ -81,6 +82,8 @@ export class WebVideoNativeAudioTracks {
                 track.id ||
                 `Audio ${index + 1}`,
             selected: track.enabled,
+            language: track.language,
+            role: inferTrackRole({ label: track.label }),
         }));
     }
 

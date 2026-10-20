@@ -207,7 +207,7 @@ export class PlaylistSwitcherComponent {
     readonly currentLocale = computed(() => {
         this.languageTick();
         return normalizeDateLocale(
-            this.translate.currentLang || this.translate.defaultLang
+            this.translate.currentLang() || this.translate.fallbackLang()
         );
     });
 

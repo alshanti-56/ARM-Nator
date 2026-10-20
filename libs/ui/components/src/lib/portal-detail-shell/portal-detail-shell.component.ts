@@ -1,13 +1,15 @@
 import { NgTemplateOutlet } from '@angular/common';
+import { MatIcon } from '@angular/material/icon';
 import {
-    Component,
-    ElementRef,
-    computed,
-    contentChild,
-    effect,
-    inject,
-    input,
-    output,
+  Component,
+  ElementRef,
+  computed,
+  contentChild,
+  effect,
+  inject,
+  input,
+  output,
+  ChangeDetectionStrategy
 } from '@angular/core';
 import { ContentHeroComponent } from '../content-hero/content-hero.component';
 import { ContentAboutComponent } from './content-about.component';
@@ -33,9 +35,15 @@ import {
 @Component({
     selector: 'app-portal-detail-shell',
     standalone: true,
-    imports: [ContentHeroComponent, ContentAboutComponent, NgTemplateOutlet],
+    imports: [
+        ContentHeroComponent,
+        ContentAboutComponent,
+        MatIcon,
+        NgTemplateOutlet,
+    ],
     templateUrl: './portal-detail-shell.component.html',
     styleUrls: ['./portal-detail-shell.component.scss'],
+    changeDetection: ChangeDetectionStrategy.OnPush,
     host: {
         '[class.shell-host--watch]': 'isWatch()',
         '(document:keydown.escape)': 'onEscape($event)',

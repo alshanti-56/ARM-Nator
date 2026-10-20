@@ -1,8 +1,17 @@
 import { inject, Injectable } from '@angular/core';
 import { firstValueFrom } from 'rxjs';
 import { PlaylistsService } from '@arm-nator/services';
-import { Playlist, ResolvedPortalPlayback } from '@arm-nator/shared/interfaces';
-import { XtreamUrlService } from '@arm-nator/providers/xtream/data-access';
+import {
+    deriveXtreamPlaybackServerUrl,
+    Playlist,
+    ResolvedPortalPlayback,
+} from '@arm-nator/shared/interfaces';
+import {
+    XtreamApiService,
+    XtreamCredentials,
+    XtreamUrlService,
+    buildXtreamSavedPlaybackHeaders,
+} from '@arm-nator/providers/xtream/data-access';
 import { UnifiedCollectionItem } from '@arm-nator/providers/shared/util';
 
 export interface ResolvedLiveCollectionDetail {
@@ -12,6 +21,7 @@ export interface ResolvedLiveCollectionDetail {
 @Injectable({ providedIn: 'root' })
 export class StreamResolverService {
     private readonly playlistsService = inject(PlaylistsService);
+    private readonly xtreamApi = inject(XtreamApiService);
     private readonly xtreamUrl = inject(XtreamUrlService);
 
     async resolvePlayback(
@@ -23,9 +33,9 @@ export class StreamResolverService {
     async resolveLiveDetail(
         item: UnifiedCollectionItem
     ): Promise<ResolvedLiveCollectionDetail> {
-        const playlist = await firstValueFrom(
+        const playlist = (await firstValueFrom(
             this.playlistsService.getPlaylistById(item.playlistId)
-        ) as Playlist | undefined;
+        )) as Playlist | undefined;
         if (!playlist?.serverUrl || !playlist.username || !playlist.password) {
             throw new Error('Missing Xtream credentials');
         }
@@ -33,19 +43,59 @@ export class StreamResolverService {
             throw new Error('Missing Xtream stream ID');
         }
 
+        const credentials: XtreamCredentials = {
+            serverUrl: playlist.serverUrl,
+            username: playlist.username,
+            password: playlist.password,
+        };
+        let playbackCredentials = credentials;
+        try {
+            const account = await this.xtreamApi.getAccountInfo(credentials);
+            const auth: unknown = account?.user_info?.auth;
+            const formats = account?.user_info?.allowed_output_formats;
+            playbackCredentials = {
+                ...credentials,
+                playbackServerUrl: deriveXtreamPlaybackServerUrl(account),
+                allowedOutputFormats:
+                    (auth === true || auth === 1 || auth === '1') &&
+                    Array.isArray(formats)
+                        ? formats.filter(
+                              (format) =>
+                                  typeof format === 'string' && format.trim()
+                          )
+                        : undefined,
+            };
+        } catch {
+            // The media URL can still work while the account API is unavailable.
+        }
+
+        const streamUrl = this.xtreamUrl.constructLiveUrl(
+            playbackCredentials,
+            item.xtreamId
+        );
         return {
             playback: {
-                streamUrl: this.xtreamUrl.constructLiveUrl(
+                streamUrl,
+                recovery: this.xtreamUrl.buildPlaybackRecoveryMetadata(
+                    playbackCredentials,
+                    playlist._id,
+                    streamUrl,
                     {
-                        serverUrl: playlist.serverUrl,
-                        username: playlist.username,
-                        password: playlist.password,
-                    },
-                    item.xtreamId
+                        liveStreamId: item.xtreamId,
+                        savedHeaders:
+                            buildXtreamSavedPlaybackHeaders(playlist),
+                    }
                 ),
+                requestPolicy: {
+                    accountRef: playlist._id,
+                    portalCredentials: true,
+                },
                 title: item.name,
                 thumbnail: item.logo ?? null,
                 isLive: true,
+                userAgent: playlist.userAgent,
+                referer: playlist.referrer,
+                origin: playlist.origin,
             },
         };
     }

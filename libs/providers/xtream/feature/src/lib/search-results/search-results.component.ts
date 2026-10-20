@@ -1,3 +1,14 @@
+import {
+  AdvancedSearchComponent,
+  type AdvancedSearchFields,
+} from "./advanced-search.component";
+import { UnifiedDiscoveryState } from "./unified-discovery-state.service";
+import {
+  PortalDiscoveryControlsComponent,
+  UnifiedDiscoveryResultsComponent,
+} from "./unified-discovery.component";
+import { xtreamDiscoveryVersion } from "@arm-nator/shared/interfaces";
+import type { DiscoveryVersion } from "@arm-nator/shared/interfaces";
 /* eslint-disable max-lines */
 import {
   AfterViewInit,
@@ -10,6 +21,7 @@ import {
   Optional,
   signal,
   viewChild,
+  untracked,
 } from "@angular/core";
 import { Location } from "@angular/common";
 import { FormsModule } from "@angular/forms";
@@ -20,16 +32,17 @@ import {
   MatDialogModule,
   MatDialogRef,
 } from "@angular/material/dialog";
-import { MatFormFieldModule } from "@angular/material/form-field";
+
 import { MatIcon } from "@angular/material/icon";
 import { MatProgressSpinner } from "@angular/material/progress-spinner";
-import { MatSelectModule } from "@angular/material/select";
+
 import { ActivatedRoute, Router } from "@angular/router";
 import { TranslatePipe } from "@ngx-translate/core";
 import {
   ActorFilmographyCredit,
   CatalogTitleMatchService,
   DatabaseService,
+  UiPerformanceService,
   TmdbEnrichmentService,
   TmdbDetails,
   TmdbPersonDetails,
@@ -40,7 +53,6 @@ import {
 } from "@arm-nator/services";
 import {
   ContentCardComponent,
-  SearchFormComponent,
   SearchLayoutComponent,
 } from "@arm-nator/providers/shared/ui";
 import {
@@ -154,20 +166,24 @@ function groupResultsByPlaylistId(
     MatButtonModule,
     MatCheckboxModule,
     MatDialogModule,
-    MatFormFieldModule,
     MatIcon,
     MatIconButton,
     MatProgressSpinner,
-    MatSelectModule,
-    SearchFormComponent,
     SearchLayoutComponent,
+    AdvancedSearchComponent,
+    PortalDiscoveryControlsComponent,
+    UnifiedDiscoveryResultsComponent,
     TranslatePipe,
   ],
-  providers: [],
+  providers: [UnifiedDiscoveryState],
   templateUrl: "./search-results.component.html",
-  styleUrls: ["./search-results.component.scss"],
+  styleUrls: [
+    "./search-results.component.scss",
+    "./search-library.component.scss",
+  ],
 })
 export class SearchResultsComponent implements AfterViewInit {
+  readonly discovery = inject(UnifiedDiscoveryState);
   readonly tmdbGenreOptions = STRUCTURED_SEARCH_GENRE_OPTIONS;
   readonly tmdbYearOptions = structuredSearchYearOptions();
   readonly searchLayoutComponent = viewChild(SearchLayoutComponent);
@@ -201,6 +217,16 @@ export class SearchResultsComponent implements AfterViewInit {
   readonly isLoadingMoreGlobalResults = signal(false);
   readonly hasMorePortalResults = signal(false);
   readonly isLoadingMorePortalResults = signal(false);
+  readonly showSearchOptions = signal(false);
+  readonly advancedFields = computed(() => ({
+    title: this.tmdbTitleSearchTerm(),
+    actor: this.tmdbActorSearchTerm(),
+    year: this.tmdbYearSearchTerm(),
+    genre: this.tmdbGenreSearchTerm(),
+  }));
+  readonly allTypesSelected = computed(
+    () => this.filters().movie && this.filters().series && this.filters().live,
+  );
   readonly tmdbTitleSearchTerm = signal("");
   readonly tmdbActorSearchTerm = signal("");
   readonly tmdbYearSearchTerm = signal("");
@@ -210,6 +236,8 @@ export class SearchResultsComponent implements AfterViewInit {
   readonly tmdbSelectedActorName = signal("");
   readonly tmdbSearchResults = signal<GlobalSearchResult[]>([]);
   readonly isTmdbSearching = signal(false);
+  readonly tmdbSearchError = signal<string | null>(null);
+  private readonly performanceCapture = inject(UiPerformanceService);
   private tmdbSearchRequestVersion = 0;
 
   private static readonly GROUP_BY_STORAGE_KEY =
@@ -223,8 +251,8 @@ export class SearchResultsComponent implements AfterViewInit {
 
   /** Whether to group global search results by playlist */
   readonly groupByPlaylist = signal(
-    localStorage.getItem(SearchResultsComponent.GROUP_BY_STORAGE_KEY) !==
-      "false",
+    localStorage.getItem(SearchResultsComponent.GROUP_BY_STORAGE_KEY) ===
+      "true",
   );
 
   /** Whether to exclude content from hidden categories */
@@ -272,11 +300,15 @@ export class SearchResultsComponent implements AfterViewInit {
 
   /** Keeps the shared layout in its results state while the TMDB box is active. */
   readonly layoutResultsCount = computed(() => {
-    const localCount = this.xtreamStore.searchResults().length;
-    if (
-      !this.isGlobalSearch ||
-      !this.hasTmdbSearchTarget()
-    ) {
+    const localCount =
+      this.xtreamStore.searchResults().length +
+      (this.isGlobalSearch
+        ? Math.max(
+            this.discovery.snapshot().versions.length,
+            this.discovery.snapshot().statuses.length ? 1 : 0,
+          )
+        : 0);
+    if (!this.isGlobalSearch || !this.hasTmdbSearchTarget()) {
       return localCount;
     }
     return Math.max(1, localCount + this.tmdbSearchResults().length);
@@ -312,6 +344,22 @@ export class SearchResultsComponent implements AfterViewInit {
         this.xtreamStore.setSearchTerm(initialQuery);
       }
     }
+
+    effect(() => {
+      if (!this.isGlobalSearch) return;
+      const types = Object.entries(this.filters())
+        .filter(([, enabled]) => enabled)
+        .map(([type]) => type) as ("movie" | "series" | "live")[];
+      const advanced = this.hasTmdbSearchTarget();
+      this.discovery.update(
+        advanced ? JSON.stringify(this.advancedFields()) : this.searchTerm(),
+        types,
+        (advanced
+          ? this.tmdbSearchResults()
+          : (this.xtreamStore.searchResults() as GlobalSearchResult[])
+        ).map(xtreamDiscoveryVersion),
+      );
+    });
 
     effect((onCleanup) => {
       const term = this.searchTerm();
@@ -349,11 +397,12 @@ export class SearchResultsComponent implements AfterViewInit {
       }
 
       const queryTerm = this.routeSearchTerm();
-      if (queryTerm === this.searchTerm()) {
-        return;
-      }
-
-      this.xtreamStore.setSearchTerm(queryTerm);
+      untracked(() => {
+        if (queryTerm === this.searchTerm()) return;
+        if (this.isGlobalSearch && this.hasTmdbSearchTarget())
+          this.clearAdvancedSearch();
+        this.xtreamStore.setSearchTerm(queryTerm);
+      });
     });
   }
 
@@ -384,9 +433,41 @@ export class SearchResultsComponent implements AfterViewInit {
    * Update search term in the store
    */
   updateSearchTerm(term: string) {
+    if (this.isGlobalSearch && this.hasTmdbSearchTarget())
+      this.clearAdvancedSearch();
     this.xtreamStore.setSearchTerm(term);
+    if (this.isGlobalSearch && this.isWorkspaceLayout) {
+      void this.router.navigate([], {
+        relativeTo: this.activatedRoute,
+        queryParams: { q: term || null },
+        queryParamsHandling: "merge",
+        replaceUrl: true,
+      });
+    }
   }
 
+  applyAdvancedSearch(fields: AdvancedSearchFields): void {
+    this.clearTmdbResults();
+    this.updateTmdbActorSearchTerm(fields.actor.trim());
+    this.tmdbTitleSearchTerm.set(fields.title.trim());
+    this.tmdbYearSearchTerm.set(fields.year);
+    this.tmdbGenreSearchTerm.set(fields.genre);
+  }
+  clearAdvancedSearch(): void {
+    this.applyAdvancedSearch({ title: "", actor: "", year: "", genre: "" });
+  }
+  selectSearchType(type: keyof SearchFilters | "all"): void {
+    this.xtreamStore.setSearchFilters({
+      movie: type === "all" || type === "movie",
+      series: type === "all" || type === "series",
+      live: type === "all" || type === "live",
+    });
+    localStorage.setItem(
+      SearchResultsComponent.TYPE_FILTERS_STORAGE_KEY,
+      JSON.stringify(this.filters()),
+    );
+    this.executeSearch();
+  }
   updateTmdbTitleSearchTerm(term: string) {
     this.tmdbTitleSearchTerm.set(term);
   }
@@ -460,6 +541,7 @@ export class SearchResultsComponent implements AfterViewInit {
   }
 
   private clearTmdbResults() {
+    this.tmdbSearchError.set(null);
     this.tmdbSearchRequestVersion++;
     this.isTmdbSearching.set(false);
     this.tmdbSearchResults.set([]);
@@ -500,6 +582,7 @@ export class SearchResultsComponent implements AfterViewInit {
     }
 
     const requestVersion = ++this.globalSearchRequestVersion;
+    const searchStartedAt = performance.timeOrigin + performance.now();
     const offset = append ? this.getCurrentGlobalSearchResults().length : 0;
 
     if (append) {
@@ -525,7 +608,10 @@ export class SearchResultsComponent implements AfterViewInit {
         },
       );
 
-      if (requestVersion !== this.globalSearchRequestVersion) {
+      if (
+        requestVersion !== this.globalSearchRequestVersion ||
+        trimmedTerm !== this.searchTerm().trim()
+      ) {
         return;
       }
 
@@ -535,6 +621,7 @@ export class SearchResultsComponent implements AfterViewInit {
           GLOBAL_SEARCH_PAGE_SIZE,
         ) as GlobalSearchResult[];
         this.hasMoreGlobalResults.set(results.length > GLOBAL_SEARCH_PAGE_SIZE);
+        this.performanceCapture.painted("search", searchStartedAt);
         this.xtreamStore.setGlobalSearchResults(
           append
             ? [...this.getCurrentGlobalSearchResults(), ...visibleResults]
@@ -545,7 +632,10 @@ export class SearchResultsComponent implements AfterViewInit {
         this.hasMoreGlobalResults.set(false);
       }
     } catch (error) {
-      if (requestVersion !== this.globalSearchRequestVersion) {
+      if (
+        requestVersion !== this.globalSearchRequestVersion ||
+        trimmedTerm !== this.searchTerm().trim()
+      ) {
         return;
       }
 
@@ -599,6 +689,32 @@ export class SearchResultsComponent implements AfterViewInit {
       this.excludeHidden(),
       true,
     );
+  }
+
+  selectDiscoveryVersion(version: DiscoveryVersion): void {
+    if (version.identity.sourceType === "xtream") {
+      const item = [
+        ...this.xtreamStore.searchResults(),
+        ...this.tmdbSearchResults(),
+      ].find(
+        (item) =>
+          item.playlist_id === version.identity.playlistId &&
+          String(item.xtream_id) === version.identity.providerItemId &&
+          item.type === version.contentType,
+      );
+      if (item) {
+        this.selectItem(item);
+        return;
+      }
+    }
+    this.dialogRef?.close();
+    void this.router.navigate(version.navigation, {
+      state: {
+        ...version.navigationState,
+        title: version.originalTitle,
+        imageUrl: version.posterUrl,
+      },
+    });
   }
 
   selectItem(item: XtreamSearchResultItem) {
@@ -754,7 +870,10 @@ export class SearchResultsComponent implements AfterViewInit {
           offset,
         },
       });
-      if (requestVersion !== this.portalSearchRequestVersion) {
+      if (
+        requestVersion !== this.portalSearchRequestVersion ||
+        term.trim() !== this.searchTerm().trim()
+      ) {
         return;
       }
 
@@ -767,7 +886,10 @@ export class SearchResultsComponent implements AfterViewInit {
           : visibleResults,
       );
     } catch (error) {
-      if (requestVersion !== this.portalSearchRequestVersion) {
+      if (
+        requestVersion !== this.portalSearchRequestVersion ||
+        term.trim() !== this.searchTerm().trim()
+      ) {
         return;
       }
 
@@ -793,6 +915,12 @@ export class SearchResultsComponent implements AfterViewInit {
     selectedActorId: number | null,
   ): Promise<void> {
     const requestVersion = ++this.tmdbSearchRequestVersion;
+    this.tmdbSearchError.set(null);
+    if (!this.tmdbEnrichment.isEnabled()) {
+      this.tmdbSearchError.set(
+        "Enable TMDB metadata in Settings to use Advanced search. Regular title search is still available.",
+      );
+    }
     if (
       (!query.titleQuery && !query.actorQuery) ||
       !this.tmdbEnrichment.isEnabled() ||
@@ -810,8 +938,9 @@ export class SearchResultsComponent implements AfterViewInit {
         if (selectedActorId !== null) {
           person = await this.tmdbEnrichment.getPersonDetails(selectedActorId);
         } else {
-          const candidates =
-            await this.tmdbEnrichment.searchPersonCandidates(query.actorQuery);
+          const candidates = await this.tmdbEnrichment.searchPersonCandidates(
+            query.actorQuery,
+          );
           const normalizedActorQuery = normalizePersonSearchText(
             query.actorQuery,
           );
@@ -847,6 +976,9 @@ export class SearchResultsComponent implements AfterViewInit {
     } catch (error) {
       if (requestVersion === this.tmdbSearchRequestVersion) {
         this.logger.error("Error in TMDB search", error);
+        this.tmdbSearchError.set(
+          "Advanced search could not finish. Check your connection and try again.",
+        );
         this.tmdbSearchResults.set([]);
       }
     } finally {
@@ -866,7 +998,8 @@ export class SearchResultsComponent implements AfterViewInit {
         ((credit.mediaType === "movie" && types.includes("movie")) ||
           (credit.mediaType === "tv" && types.includes("series"))) &&
         (query.year === null || credit.year === query.year) &&
-        (!query.titleQuery || titleMatchesSearch(credit.title, query.titleQuery)),
+        (!query.titleQuery ||
+          titleMatchesSearch(credit.title, query.titleQuery)),
     );
     const matches = await this.titleMatch.matchTitles(
       credits.map((credit) => credit.title),
@@ -933,10 +1066,7 @@ export class SearchResultsComponent implements AfterViewInit {
           ),
         ),
       )
-    ).reduce<GlobalSearchResult[]>(
-      (all, results) => all.concat(results),
-      [],
-    );
+    ).reduce<GlobalSearchResult[]>((all, results) => all.concat(results), []);
 
     const deduplicated = Array.from(
       new Map<string, GlobalSearchResult>(

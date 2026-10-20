@@ -16,3 +16,5 @@ export * from './lib/progress-capsule/progress-capsule.component';
 export * from './lib/resizable/resizable.directive';
 export * from './lib/season-container/season-container.component';
 export * from './lib/watched-badge/watched-badge.component';
+
+export * from './lib/category-visibility-dialog/category-visibility-dialog.component';

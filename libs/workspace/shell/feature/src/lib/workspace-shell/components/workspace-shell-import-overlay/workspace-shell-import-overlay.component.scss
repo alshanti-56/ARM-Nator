@@ -49,6 +49,23 @@
     }
 }
 
+// Atomic refresh retains a usable catalogue; progress must not block browsing.
+.workspace-loading-overlay--refresh {
+    inset: auto auto 24px 24px;
+    width: min(320px, calc(100vw - 48px));
+    padding: 0;
+    background: none;
+    backdrop-filter: none;
+    pointer-events: none;
+
+    .workspace-loading-overlay__card {
+        gap: 8px;
+        padding: 16px;
+
+        h3 { font-size: 1.1rem; }
+    }
+}
+
 .workspace-loading-overlay__header {
     display: grid;
     gap: 10px;

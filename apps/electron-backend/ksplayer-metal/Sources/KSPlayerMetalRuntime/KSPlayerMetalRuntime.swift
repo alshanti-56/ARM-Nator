@@ -382,7 +382,7 @@ private enum KSPlayerMetalEmbeddingLayout {
         configure(containerView)
 
         childCounts.hostBeforeAttach = hostView.subviews.count
-        hostView.addSubview(containerView, positioned: .above, relativeTo: nil)
+        hostView.addSubview(containerView, positioned: ProcessInfo.processInfo.environment["ARM_NATOR_NATIVE_COMPOSITION"] == "1" ? .below : .above, relativeTo: nil)
         childCounts.hostAfterAttach = hostView.subviews.count
 
         childCounts.containerBeforePlayerAttach = containerView.subviews.count
@@ -842,6 +842,7 @@ private struct Snapshot: Encodable {
     // existing EmbeddedMpvSession TypeScript lane. `state` and `resolution`
     // remain the canonical KSPlayer Metal fields.
     let status: String
+    let frameReady: Bool
     let streamUrl: String?
     let positionSeconds: Double?
     let durationSeconds: Double?
@@ -879,6 +880,7 @@ private struct Snapshot: Encodable {
         Snapshot(
             state: "error",
             status: "error",
+            frameReady: false,
             streamUrl: nil,
             positionSeconds: nil,
             durationSeconds: nil,
@@ -1067,6 +1069,9 @@ private final class KSPlayerMetalSession: NSObject, MediaPlayerDelegate {
 
         detachPlayer()
         let options = MetalOnlyOptions()
+        // The app owns its floating playback window. Avoid creating a second,
+        // unused system PiP controller that can retain the native player.
+        options.isPictureInPictureEnabled = false
         if startTime.isFinite, startTime > 0 {
             options.startPlayTime = startTime
         }
@@ -1423,6 +1428,7 @@ private final class KSPlayerMetalSession: NSObject, MediaPlayerDelegate {
         return Snapshot(
             state: externalState,
             status: externalState,
+            frameReady: derivedState != .error && derivedState != .disposed && (KSPlayerMetalEmbeddingLayout.findMetalPlayView(in: playerView) as? MetalPlayView)?.hasPresentedFrame == true,
             streamUrl: streamURL,
             positionSeconds: currentTime,
             durationSeconds: duration,

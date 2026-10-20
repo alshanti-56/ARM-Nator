@@ -43,6 +43,13 @@ export interface StalkerPlayableItemLike
     has_files?: unknown;
 }
 
+function throwIfAborted(signal?: AbortSignal): void {
+    if (!signal?.aborted) return;
+    const error = new Error('Stalker playback resolution was aborted');
+    error.name = 'AbortError';
+    throw error;
+}
+
 export async function fetchStalkerPlaybackLink(
     deps: StalkerPlayerRequestDeps,
     options: {
@@ -58,8 +65,11 @@ export async function fetchStalkerPlaybackLink(
          * `cmd` and never touch the portal.
          */
         linkFlags?: StalkerLinkFlagSource | null;
+        /** Stops a stale caller from consuming a response after selection changes. */
+        signal?: AbortSignal;
     }
 ): Promise<string> {
+    throwIfAborted(options.signal);
     // An episode is selected server-side by the `series` parameter, so a
     // series request has no static answer even when the parent row is
     // unflagged — the static `cmd` addresses the series, not the episode.
@@ -88,6 +98,7 @@ export async function fetchStalkerPlaybackLink(
                     staticUrl
                 )
             ) {
+                throwIfAborted(options.signal);
                 return staticUrl;
             }
 
@@ -98,6 +109,7 @@ export async function fetchStalkerPlaybackLink(
             // carries its own token and is the only path that can observe a
             // failure and trigger the lazy portal repair.
             if (await ensureStalkerSession(deps, options.playlist)) {
+                throwIfAborted(options.signal);
                 return staticUrl;
             }
         }
@@ -105,6 +117,7 @@ export async function fetchStalkerPlaybackLink(
 
     const contentType =
         options.forcedContentType ?? options.selectedContentType;
+    throwIfAborted(options.signal);
     const response = await executeStalkerRequest<StalkerPlayerResponse>(
         deps,
         options.playlist,
@@ -118,6 +131,7 @@ export async function fetchStalkerPlaybackLink(
             ...(options.series ? { series: String(options.series) } : {}),
         }
     );
+    throwIfAborted(options.signal);
 
     if (response.js?.error) {
         throw new Error(response.js.error);

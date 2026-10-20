@@ -86,7 +86,11 @@ export interface EmbeddedMpvSession {
     title: string;
     streamUrl: string;
     status: EmbeddedMpvSessionStatus;
+    /** Current load has actually presented a native video frame. */
+    frameReady?: boolean;
     positionSeconds: number;
+    /** True until the engine completes a seek; its target is not confirmed progress. */
+    seeking?: boolean;
     durationSeconds: number | null;
     volume: number;
     audioTracks: EmbeddedMpvAudioTrack[];

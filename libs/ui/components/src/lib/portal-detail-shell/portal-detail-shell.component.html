@@ -49,6 +49,20 @@
     <ng-content select="[detail-episodes]"></ng-content>
 </div>
 
+@if (isWatch()) {
+    <div class="shell__detail-back">
+        <button
+            class="shell__back-button"
+            type="button"
+            aria-label="Back to category"
+            (click)="backClicked.emit()"
+        >
+            <mat-icon aria-hidden="true">arrow_back</mat-icon>
+            <span>Back</span>
+        </button>
+    </div>
+}
+
 <!-- About block — watch state only, metadata moves here -->
 @if (isWatch() && !isLoading() && !errorMessage()) {
     <app-content-about

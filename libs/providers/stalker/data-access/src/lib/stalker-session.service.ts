@@ -1,3 +1,5 @@
+import { throwIfStalkerRequestAborted } from './abortable-stalker-request';
+import type { StalkerSearchContext } from '@arm-nator/shared/interfaces';
 import { Injectable, Injector, inject } from '@angular/core';
 import {
     isFullStalkerPortalPlaylist,
@@ -112,7 +114,7 @@ export class StalkerSessionService {
     private readonly requestClient = new StalkerAuthenticatedRequestClient(
         this.dataService,
         this.tokens,
-        (playlist) => this.ensureToken(playlist),
+        (playlist, signal) => signal ? this.ensureToken(playlist, signal) : this.ensureToken(playlist),
         (playlist, sessionFingerprint) => {
             this.portalRepairDiscoveries.assertAvailable(playlist._id);
             this.editedSessions.assertCurrent(playlist, sessionFingerprint);
@@ -308,8 +310,10 @@ export class StalkerSessionService {
      * Returns the token to use for requests, and the serial number to store.
      */
     async ensureToken(
-        playlist: Playlist
+        playlist: Playlist,
+        signal?: AbortSignal
     ): Promise<{ token: string | null; serialNumber?: string }> {
+        throwIfStalkerRequestAborted(signal);
         const pendingRepair = this.portalRepairDiscoveries.waitIfPending(
             playlist._id
         );
@@ -317,6 +321,7 @@ export class StalkerSessionService {
             await pendingRepair;
         }
         const fingerprint = await this.editedSessions.guard(playlist);
+        throwIfStalkerRequestAborted(signal);
         this.portalRepairDiscoveries.assertAvailable(playlist._id);
 
         // If not a full stalker portal, no token needed
@@ -340,7 +345,10 @@ export class StalkerSessionService {
         if (pendingEntry) {
             if (pendingEntry.identityFingerprint === fingerprint) {
                 this.logger.debug('Waiting for pending authentication...');
-                return pendingEntry.promise;
+                return pendingEntry.promise.catch(error => {
+                    if(error instanceof Error && error.name === 'AbortError' && !signal?.aborted) return this.ensureToken(playlist, signal);
+                    throw error;
+                });
             }
 
             // An authentication for a DIFFERENT (pre-edit) identity is in
@@ -352,7 +360,7 @@ export class StalkerSessionService {
                 'Waiting out an authentication for a different identity...'
             );
             await pendingEntry.promise.catch(() => undefined);
-            return this.ensureToken(playlist);
+            return this.ensureToken(playlist, signal);
         }
 
         if (!playlist.portalUrl || !playlist.macAddress) {
@@ -382,11 +390,13 @@ export class StalkerSessionService {
                 // session read yielded. Its fence will drain this published
                 // slot; abort before putting another get_profile on the wire.
                 this.portalRepairDiscoveries.assertAvailable(playlist._id);
+                throwIfStalkerRequestAborted(signal);
                 const result = await this.authenticate(
                     portalUrl,
                     macAddress,
                     identity,
                     {
+                        ...(signal ? { signal } : {}),
                         storedToken: stored.token,
                         credentials: {
                             username: playlist.username,
@@ -404,6 +414,7 @@ export class StalkerSessionService {
                 );
                 this.portalRepairDiscoveries.assertAvailable(playlist._id);
                 this.editedSessions.assertCurrent(playlist, fingerprint);
+                throwIfStalkerRequestAborted(signal);
                 this.setCachedToken(playlist._id, result.token, playlist);
                 this.applySessionOutcome(
                     playlist._id,
@@ -573,12 +584,13 @@ export class StalkerSessionService {
     async makeAuthenticatedRequest<T>(
         playlist: Playlist,
         params: Record<string, string | number>,
-        retryOnAuthFailure = true
+        retryOnAuthFailure = true,
+        options?: { signal?: AbortSignal; timeoutMs?: number; discovery?: StalkerSearchContext }
     ): Promise<T> {
         return this.requestClient.request<T>(
             playlist,
             params,
-            retryOnAuthFailure
+            retryOnAuthFailure, options
         );
     }
 }

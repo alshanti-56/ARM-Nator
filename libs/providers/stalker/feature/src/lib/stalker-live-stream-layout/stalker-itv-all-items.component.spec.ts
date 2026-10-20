@@ -1,5 +1,5 @@
 import { ComponentFixture, TestBed } from '@angular/core/testing';
-import { TranslateModule } from '@ngx-translate/core';
+import { provideTranslateService } from '@ngx-translate/core';
 import { StalkerItvChannel } from '@arm-nator/providers/stalker/data-access';
 import { StalkerItvAllItemsComponent } from './stalker-itv-all-items.component';
 
@@ -20,10 +20,8 @@ describe('StalkerItvAllItemsComponent', () => {
 
     beforeEach(async () => {
         await TestBed.configureTestingModule({
-            imports: [
-                StalkerItvAllItemsComponent,
-                TranslateModule.forRoot(),
-            ],
+            imports: [StalkerItvAllItemsComponent],
+            providers: [...provideTranslateService()],
         }).compileComponents();
 
         fixture = TestBed.createComponent(StalkerItvAllItemsComponent);

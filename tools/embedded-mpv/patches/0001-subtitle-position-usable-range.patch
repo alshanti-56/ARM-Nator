@@ -1,0 +1,20 @@
+diff --git a/libass/ass_render.c b/libass/ass_render.c
+--- a/libass/ass_render.c
++++ b/libass/ass_render.c
+@@ -2953,9 +2953,14 @@
+             scr_bottom =
+                 y2scr_sub(state,
+                           render_priv->track->PlayResY - MarginV);
+             scr_top = y2scr_top(state, 0); //xxx not always 0?
+-            device_y = scr_bottom + (scr_top - scr_bottom) * line_pos / 100.0;
+-            device_y -= text_info->height;
++            // Map the subtitle across the range where its full text block fits.
++            // Subtracting the block height after interpolation clamps small
++            // positions to the top and creates a text-height-sized dead zone.
++            double usable_bottom = scr_bottom - text_info->height;
++            if (line_pos > 0 && usable_bottom < scr_top)
++                usable_bottom = scr_top;
++            device_y = usable_bottom + (scr_top - usable_bottom) * line_pos / 100.0;
+             device_y += text_info->lines[0].asc;
+             // clip to top to avoid confusion if line_position is very high,
+             // turning the subtitle into a toptitle

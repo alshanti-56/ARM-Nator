@@ -1,3 +1,4 @@
+import { toAbsolutePlaybackPosition, toAbsolutePlaybackDuration, toLocalPlaybackPosition } from '../player-controls/playback-timeline';
 import {
   Component,
   ElementRef,
@@ -11,10 +12,12 @@ import {
   signal,
   SimpleChanges,
   viewChild,
+  ChangeDetectionStrategy
 } from "@angular/core";
 import Artplayer from "artplayer";
 import { Channel, createDevLogger } from "@arm-nator/shared/interfaces";
 import type { PlaybackDiagnostic } from "../playback-diagnostics/playback-diagnostics.util";
+import { readBrowserPlaybackEvidence } from "../playback-diagnostics/playback-evidence";
 import {
   PlayerControlsComponent,
   type PlayerMediaTitle,
@@ -31,6 +34,8 @@ import {
 import { ArtPlayerSourceSession } from "./art-player-source-session";
 import { ArtPlayerVideoSession } from "./art-player-video-session";
 import { syncOnlineSubtitleTrack } from "../web-video-support/online-subtitle-track";
+import { clearNativeVideoSources } from "../web-video-support/web-video-native-source.util";
+import { WorkspacePlayerStateService } from "../workspace-player/workspace-player-state.service";
 
 const debugArtPlayer = createDevLogger("ArtPlayer");
 
@@ -39,6 +44,7 @@ const debugArtPlayer = createDevLogger("ArtPlayer");
   imports: [PlayerControlsComponent],
   providers: [WebVideoControlsAdapter],
   templateUrl: "./art-player.component.html",
+  changeDetection: ChangeDetectionStrategy.Eager,
   styleUrls: ["./art-player.component.scss"],
 })
 export class ArtPlayerComponent implements OnInit, OnDestroy, OnChanges {
@@ -46,6 +52,9 @@ export class ArtPlayerComponent implements OnInit, OnDestroy, OnChanges {
   readonly volume = input(1);
   readonly showCaptions = input(false);
   readonly startTime = input(0);
+  readonly seekOverride = input<((absoluteSeconds: number) => void) | null>(null);
+  readonly timelineOffsetSeconds = input(0);
+  readonly durationSeconds = input<number | null>(null);
   readonly seriesNavigation = input<SeriesPlaybackNavigation | null>(null);
   readonly isLive = input(true);
   readonly interactionEnabled = input(true);
@@ -65,15 +74,26 @@ export class ArtPlayerComponent implements OnInit, OnDestroy, OnChanges {
   readonly runtimeSnapshotChange = output<PlayerRuntimeSnapshot>();
 
   readonly controlsAdapter = inject(WebVideoControlsAdapter);
+  private readonly unregisterPlaybackTeardown = inject(
+    WorkspacePlayerStateService,
+  ).registerPlaybackTeardown(() => this.teardownPlayback(), {
+    repeatable: true,
+  });
   private readonly runtimeSnapshotEffect = effect(() => {
+    const state = this.controlsAdapter.state();
+    const capabilities = this.controlsAdapter.capabilities();
+    const media = this.controlsAdapter.mediaTelemetry();
     this.runtimeSnapshotChange.emit({
-      state: this.controlsAdapter.state(),
-      capabilities: this.controlsAdapter.capabilities(),
-      media: this.controlsAdapter.mediaTelemetry(),
+      state,
+      capabilities,
+      media: {
+        ...media,
+        ...readBrowserPlaybackEvidence(this.player?.video),
+      },
       engine: {
         engine: "artplayer",
         available: true,
-        sessionStatus: this.controlsAdapter.state().status,
+        sessionStatus: state.status,
       },
     });
   });
@@ -86,11 +106,17 @@ export class ArtPlayerComponent implements OnInit, OnDestroy, OnChanges {
   private player: Artplayer | null = null;
   private sourceSession: ArtPlayerSourceSession | null = null;
   private videoSession: ArtPlayerVideoSession | null = null;
+  private teardownInFlight: Promise<void> | null = null;
+  private destroyed = false;
+  private lifecycleGeneration = 0;
 
   ngOnInit(): void {
     this.seriesNavigationSignal.set(this.seriesNavigation());
     this.controlsAdapter.setContext({
       seriesNavigation: this.seriesNavigationSignal,
+      getTimelineOffsetSeconds: () => this.timelineOffsetSeconds(),
+      getReportedDurationSeconds: () => this.durationSeconds(),
+      ...(this.seekOverride() ? { onTimelineSeek: (seconds: number) => this.seekOverride()?.(seconds) } : {}),
     });
     this.initPlayer();
   }
@@ -106,9 +132,10 @@ export class ArtPlayerComponent implements OnInit, OnDestroy, OnChanges {
       changes["isLive"] &&
       !changes["isLive"].firstChange &&
       changes["isLive"].previousValue !== changes["isLive"].currentValue;
-    if (this.player && (channelChanged || authoritativeLiveChanged)) {
-      this.destroyPlayer();
-      this.initPlayer();
+    if (channelChanged || authoritativeLiveChanged) {
+      void this.restartPlayerAfterTeardown().catch((error: unknown) =>
+        debugArtPlayer("Unable to stop the previous source:", error),
+      );
     }
 
     if (changes["showCaptions"]) {
@@ -135,23 +162,36 @@ export class ArtPlayerComponent implements OnInit, OnDestroy, OnChanges {
   }
 
   ngOnDestroy(): void {
-    this.destroyPlayer();
+    this.destroyed = true;
+    this.lifecycleGeneration += 1;
+    void this.teardownPlayback()
+      .then(() => this.unregisterPlaybackTeardown())
+      .catch(() => undefined);
   }
 
   private initPlayer(): void {
+    if (this.destroyed) {
+      return;
+    }
     this.playbackIssue.emit(null);
     const channel = this.channel();
     const sourceUrl = channel.url;
     const requestHeaders = this.getRequestHeaders(channel);
+    const preparedProxy = channel.http.preparedProxy;
     const sourceSession = new ArtPlayerSourceSession({
       controlsAdapter: this.controlsAdapter,
       isLive: () => this.isLive(),
       showCaptions: () => this.showCaptions(),
       emitPlaybackIssue: (issue) => this.playbackIssue.emit(issue),
       getDrm: () => this.channel().drm,
+      providerRecovery: () => this.channel().http.providerRecovery === true,
+      startPaused: channel.http.startPaused,
       hlsRequestHeaders: requestHeaders,
       mediaRequestHeaders: requestHeaders,
       mpegTsRequestHeaders: requestHeaders,
+      preparedProxy,
+      requestPolicy: channel.http.requestPolicy,
+      direct: channel.http.direct,
     });
     this.sourceSession = sourceSession;
 
@@ -160,8 +200,8 @@ export class ArtPlayerComponent implements OnInit, OnDestroy, OnChanges {
       url: sourceUrl,
       volume: this.clampVolume(this.volume()),
       isLive: resolveArtPlayerIsLive(this.isLive()),
-      autoplay: true,
-      type: getArtPlayerVideoType(channel.url),
+      autoplay: !channel.http.startPaused,
+      type: getArtPlayerVideoType(channel.url, preparedProxy),
       playsInline: true,
       backdrop: true,
       mutex: true,
@@ -177,13 +217,16 @@ export class ArtPlayerComponent implements OnInit, OnDestroy, OnChanges {
       player,
       sourceUrl: channel.url,
       isLive: () => this.isLive(),
-      getStartTime: () => this.startTime(),
+      getStartTime: () => toLocalPlaybackPosition(this.startTime(), this.timelineOffsetSeconds()),
       getDuration: () => sourceSession.resolveDuration(player.duration),
       persistSharedVolume: true,
       emitPlaybackIssue: (issue) => this.playbackIssue.emit(issue),
       shouldDeferNativePlaybackError: (errorCode) =>
         sourceSession.shouldDeferNativePlaybackError(errorCode),
-      emitTimeUpdate: (value) => this.timeUpdate.emit(value),
+      emitTimeUpdate: (value) => this.timeUpdate.emit({
+        currentTime: toAbsolutePlaybackPosition(value.currentTime, this.timelineOffsetSeconds()),
+        duration: toAbsolutePlaybackDuration(value.duration, this.timelineOffsetSeconds(), this.durationSeconds()) ?? 0,
+      }),
       emitPlaybackEnded: () => this.playbackEnded.emit(),
     });
     this.videoSession = videoSession;
@@ -206,18 +249,45 @@ export class ArtPlayerComponent implements OnInit, OnDestroy, OnChanges {
     });
   }
 
-  private destroyPlayer(): void {
-    const sourceSession = this.sourceSession;
-    this.sourceSession = null;
-    sourceSession?.destroy();
+  private async restartPlayerAfterTeardown(): Promise<void> {
+    const generation = ++this.lifecycleGeneration;
+    await this.teardownPlayback();
+    if (!this.destroyed && generation === this.lifecycleGeneration) {
+      this.initPlayer();
+    }
+  }
 
-    const videoSession = this.videoSession;
-    this.videoSession = null;
-    videoSession?.destroy();
+  private teardownPlayback(): Promise<void> {
+    if (this.teardownInFlight) {
+      return this.teardownInFlight;
+    }
 
     const player = this.player;
-    this.player = null;
-    player?.destroy();
+    const sourceSession = this.sourceSession;
+    const videoSession = this.videoSession;
+    const cleanup = (async (): Promise<void> => {
+      if (player) {
+        clearNativeVideoSources(player.video);
+        player.destroy();
+        if (this.player === player) {
+          this.player = null;
+        }
+      }
+      if (videoSession) {
+        videoSession.destroy();
+        if (this.videoSession === videoSession) {
+          this.videoSession = null;
+        }
+      }
+      await sourceSession?.quiesce();
+      if (this.sourceSession === sourceSession) {
+        this.sourceSession = null;
+      }
+    })();
+    this.teardownInFlight = cleanup.finally(() => {
+      this.teardownInFlight = null;
+    });
+    return this.teardownInFlight;
   }
 
   private applyVolume(value: number): void {

@@ -1,3 +1,5 @@
+import type { PlayerPreferenceIntent } from '@arm-nator/shared/interfaces';
+import { PlayerPreferenceListeners } from './player-preference-listeners';
 import { Injectable, type Signal, computed, signal } from '@angular/core';
 import {
     createEmptyControlsState,
@@ -38,6 +40,11 @@ import {
     type WebVideoMetadataOptions,
     WEB_VIDEO_EVENTS,
 } from './web-video-controls.media-helpers';
+import {
+    toAbsolutePlaybackDuration,
+    toAbsolutePlaybackPosition,
+    toLocalPlaybackPosition,
+} from './playback-timeline';
 
 const NOISY_MEDIA_REFRESH_DELAY_MS = 250;
 
@@ -46,6 +53,12 @@ const NOISY_MEDIA_REFRESH_DELAY_MS = 250;
  * audio & subtitle tracks without importing hls.js or artplayer.
  */
 export interface WebVideoControlsOptions extends WebVideoMetadataOptions {
+    /** Absolute source time represented by local media time zero. */
+    getTimelineOffsetSeconds?: () => number;
+    /** Duration of the companion's local output segment, when known. */
+    getReportedDurationSeconds?: () => number | null;
+    /** Handles user seeks that require replacing a segmented conversion session. */
+    onTimelineSeek?: (absoluteSeconds: number) => void;
     getAudioTracks?: () => PlayerTrack[];
     setAudioTrack?: (id: number) => void | Promise<void>;
     getSubtitleTracks?: () => PlayerTrack[];
@@ -54,6 +67,9 @@ export interface WebVideoControlsOptions extends WebVideoMetadataOptions {
 }
 
 interface WebVideoControlsContext {
+    getTimelineOffsetSeconds?: () => number;
+    getReportedDurationSeconds?: () => number | null;
+    onTimelineSeek?: (absoluteSeconds: number) => void;
     seriesNavigation: Signal<SeriesPlaybackNavigation | null>;
 }
 
@@ -70,6 +86,7 @@ export type WebVideoPlaybackIntentListener = (
 export class WebVideoControlsAdapter implements PlayerController {
     private video: HTMLVideoElement | null = null;
     private opts: WebVideoControlsOptions = {};
+    private timelineContext: Partial<WebVideoControlsContext> = {};
     private detachFn: (() => void) | null = null;
     private readonly playbackIntentListeners = new Set<WebVideoPlaybackIntentListener>();
     private bindingGeneration = 0;
@@ -139,9 +156,15 @@ export class WebVideoControlsAdapter implements PlayerController {
         }
 
         const isLive = readVideoIsLive(video, this.opts);
-        const duration = normalizeVideoDuration(
+        const localDuration = normalizeVideoDuration(
             readVideoDuration(video, this.opts),
             isLive,
+        );
+        const timelineOffset = this.getTimelineOffsetSeconds();
+        const duration = toAbsolutePlaybackDuration(
+            localDuration,
+            timelineOffset,
+            this.timelineContext.getReportedDurationSeconds?.() ?? this.opts.getReportedDurationSeconds?.(),
         );
         const seriesNav = this.seriesNavigation();
         const seriesNavCapable = seriesNav !== null;
@@ -152,7 +175,11 @@ export class WebVideoControlsAdapter implements PlayerController {
             status: mapVideoStatus(video),
             statusMessage: '',
             stalled: isVideoStalled(video),
-            positionSeconds: Math.max(0, video?.currentTime ?? 0),
+            positionSeconds: toAbsolutePlaybackPosition(
+                video.currentTime,
+                timelineOffset,
+            ),
+            seeking: video?.seeking === true,
             durationSeconds: duration,
             isLive,
             canSeek: canSeekFiniteVideo(video, duration, isLive),
@@ -251,6 +278,10 @@ export class WebVideoControlsAdapter implements PlayerController {
         };
     });
 
+    private readonly preferences = new PlayerPreferenceListeners();
+    observePreferences(listener: (intent: PlayerPreferenceIntent) => void): () => void { return this.preferences.subscribe(listener); }
+    noteTrackPreference(kind: 'audio' | 'subtitle', id: number): void { this.preferences.track(kind, id, this.state()); }
+
     readonly commands: PlayerControlsCommands = {
         togglePlay: () => {
             const video = this.video;
@@ -264,25 +295,20 @@ export class WebVideoControlsAdapter implements PlayerController {
             }
             toggleVideoPlay(video);
         },
-        seekTo: (seconds) =>
-            applyVideoCurrentTime(this.video, seconds, () =>
-                readVideoDuration(this.video, this.opts),
-            ),
+        seekTo: (seconds) => this.seekToTimelinePosition(seconds),
         seekBy: (delta) =>
-            applyVideoCurrentTime(
-                this.video,
-                (this.video?.currentTime ?? 0) + delta,
-                () => readVideoDuration(this.video, this.opts),
+            this.seekToTimelinePosition(
+                this.state().positionSeconds + delta,
             ),
         setVolume: (value) => applyVideoVolume(this.video, value),
-        setAudioTrack: (id) =>
-            applyTrackSelection(this.opts.setAudioTrack, id, () =>
-                this.refresh(),
-            ),
-        setSubtitleTrack: (id) =>
-            applyTrackSelection(this.opts.setSubtitleTrack, id, () =>
-                this.refresh(),
-            ),
+        setAudioTrack: (id) => {
+            this.noteTrackPreference('audio', id);
+            applyTrackSelection(this.opts.setAudioTrack, id, () => this.refresh());
+        },
+        setSubtitleTrack: (id) => {
+            this.noteTrackPreference('subtitle', id);
+            applyTrackSelection(this.opts.setSubtitleTrack, id, () => this.refresh());
+        },
         setPlaybackSpeed: (speed) => applyVideoSpeed(this.video, speed),
         setAspectRatio: (value) => {
             this.aspectRatio.set(value);
@@ -299,6 +325,7 @@ export class WebVideoControlsAdapter implements PlayerController {
             this.refresh();
         },
         setSubtitleSettings: (value) => {
+            this.preferences.settings(value);
             this.subtitle.set(value);
             this.subtitleAdjustments?.apply(value);
             this.refresh();
@@ -417,5 +444,32 @@ export class WebVideoControlsAdapter implements PlayerController {
     /** Pushes reactive context (series navigation) used for capability gating. */
     setContext(context: WebVideoControlsContext): void {
         this.seriesNavigationSource.set(context.seriesNavigation);
+        this.timelineContext = context;
+    }
+
+    private getTimelineOffsetSeconds(): number {
+        const value = this.timelineContext.getTimelineOffsetSeconds?.() ?? this.opts.getTimelineOffsetSeconds?.() ?? 0;
+        return Number.isFinite(value) ? Math.max(0, value) : 0;
+    }
+
+    private seekToTimelinePosition(absoluteSeconds: number): void {
+        const video = this.video;
+        if (!video || !Number.isFinite(absoluteSeconds)) {
+            return;
+        }
+        const duration = this.state().durationSeconds;
+        const target = duration === null
+            ? Math.max(0, absoluteSeconds)
+            : Math.min(duration, Math.max(0, absoluteSeconds));
+        const seekOverride = this.timelineContext.onTimelineSeek ?? this.opts.onTimelineSeek;
+        if (seekOverride) {
+            seekOverride(target);
+            return;
+        }
+        applyVideoCurrentTime(
+            video,
+            toLocalPlaybackPosition(target, this.getTimelineOffsetSeconds()),
+            () => readVideoDuration(video, this.opts),
+        );
     }
 }

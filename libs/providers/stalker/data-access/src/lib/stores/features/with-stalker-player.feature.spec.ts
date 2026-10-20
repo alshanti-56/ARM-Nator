@@ -193,6 +193,12 @@ describe('withStalkerPlayer', () => {
         );
         expect(ngrxStore.dispatch).toHaveBeenCalled();
         expect(playback.streamUrl).toBe('http://cdn.example/video_77.mpg');
+        expect(playback.recovery).toEqual(
+            expect.objectContaining({
+                providerLinkRenewable: true,
+                accountRef: PLAYLIST._id,
+            })
+        );
         expect(playback.contentInfo).toEqual({
             playlistId: PLAYLIST._id,
             contentXtreamId: 22,
@@ -242,6 +248,55 @@ describe('withStalkerPlayer', () => {
             contentType: 'episode',
             seriesXtreamId: 30000,
         });
+    });
+
+    it('resolves recovery against the captured playlist and item without changing recents', async () => {
+        const capturedPlaylist = {
+            ...PLAYLIST,
+            _id: 'playlist-captured',
+            portalUrl: 'https://captured.example/stalker_portal/server/load.php',
+        };
+        const capturedItem = {
+            id: '44',
+            cmd: 'ffrt4://series/44/season/2',
+            category_id: 'series',
+            title: 'Captured Series',
+        };
+        dataService.sendIpcEvent.mockResolvedValueOnce({
+            js: { cmd: 'ffmpeg https://captured.example/tmp/episode.m3u8' },
+        });
+
+        const playback = await store.resolveVodPlayback(
+            capturedItem.cmd,
+            'Episode 2',
+            'episode.jpg',
+            2,
+            4402,
+            undefined,
+            {
+                item: capturedItem,
+                playlist: capturedPlaylist,
+                selectedContentType: 'series',
+                recordRecentlyViewed: false,
+            },
+        );
+
+        expect(dataService.sendIpcEvent).toHaveBeenCalledWith(
+            expect.anything(),
+            expect.objectContaining({
+                url: capturedPlaylist.portalUrl,
+                macAddress: capturedPlaylist.macAddress,
+                params: expect.objectContaining({
+                    action: StalkerPortalActions.CreateLink,
+                    type: 'vod',
+                    series: '2',
+                }),
+            }),
+        );
+        expect(playlistService.addPortalRecentlyViewed).not.toHaveBeenCalled();
+        expect(playback.recovery?.accountRef).toBe('playlist-captured');
+        expect(playback.itemIdentity?.playlistId).toBe('playlist-captured');
+        expect(playback.seriesIdentity?.providerItemId).toBe('44');
     });
 
     it('resolves direct radio stream commands without external player side effects', async () => {
@@ -362,6 +417,13 @@ describe('withStalkerPlayer', () => {
                 'http://cdn.example/live/10001.m3u8'
             );
             expect(playback.isLive).toBe(true);
+            expect(playback.recovery).toEqual(
+                expect.objectContaining({
+                    accountRef: PLAYLIST._id,
+                    defaultHeaders: expect.any(Object),
+                })
+            );
+            expect(playback.recovery?.providerLinkRenewable).toBeUndefined();
         });
 
         it.each(['use_http_tmp_link', 'use_load_balancing'] as const)(
@@ -390,6 +452,8 @@ describe('withStalkerPlayer', () => {
                 expect(playback.streamUrl).toBe(
                     'http://cdn.example/tmp/10001.m3u8'
                 );
+                expect(playback.recovery?.providerLinkRenewable).toBe(true);
+                expect(playback.recovery?.accountRef).toBe(PLAYLIST._id);
             }
         );
 

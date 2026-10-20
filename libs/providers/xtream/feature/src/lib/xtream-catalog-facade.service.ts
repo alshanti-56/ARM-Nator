@@ -38,6 +38,7 @@ export class XtreamCatalogFacadeService implements PortalCatalogFacade<
   private readonly tmdbEnrichment = inject(TmdbEnrichmentService);
   private loadedPositionsPlaylistId: string | null = null;
   private personSearchVersion = 0;
+  private lastPersonSearchKey: string | null = null;
 
   readonly provider = "xtream" as const;
   readonly pageSizeOptions = [10, 25, 50, 100] as const;
@@ -121,6 +122,9 @@ export class XtreamCatalogFacadeService implements PortalCatalogFacade<
   }
 
   setSearchQuery(query: string): void {
+    const key = JSON.stringify([this.xtreamStore.currentPlaylist()?.id, this.contentType(), query]);
+    if (key === this.lastPersonSearchKey && this.xtreamStore.categorySearchTerm() === query) return;
+    this.lastPersonSearchKey = key;
     this.xtreamStore.setCategorySearchTerm(query);
     const normalized = query.trim();
     const version = ++this.personSearchVersion;

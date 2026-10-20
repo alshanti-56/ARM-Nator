@@ -4,29 +4,29 @@
  * matching). Pure functions — no Angular/Node dependencies.
  */
 
-import { SEASON_WORD_ALTERNATIVES } from './season-marker.util';
+import { SEASON_WORD_ALTERNATIVES } from "./season-marker.util";
 
 const QUALITY_TAGS = new Set([
-    '4k',
-    'uhd',
-    'fhd',
-    'hd',
-    'sd',
-    'hdr',
-    'hevc',
-    'h264',
-    'h265',
-    'x264',
-    'x265',
-    '480p',
-    '720p',
-    '1080p',
-    '2160p',
-    'multi',
-    'multisub',
-    'vostfr',
-    'vf',
-    'dubbed',
+  "4k",
+  "uhd",
+  "fhd",
+  "hd",
+  "sd",
+  "hdr",
+  "hevc",
+  "h264",
+  "h265",
+  "x264",
+  "x265",
+  "480p",
+  "720p",
+  "1080p",
+  "2160p",
+  "multi",
+  "multisub",
+  "vostfr",
+  "vf",
+  "dubbed",
 ]);
 
 /**
@@ -51,14 +51,14 @@ const WRAPPED_TAG_PREFIX = /^\s*\|(?=[0-9+]*[A-Z])[A-Z0-9+]{2,5}\|\s*/;
  *   - colon ("EN: "): 2–3 chars — longer acronyms are franchise titles
  *     ("NCIS: LA")
  */
-const SEG = '(?=[0-9+]*[A-Z])[A-Z0-9+]';
+const SEG = "(?=[0-9+]*[A-Z])[A-Z0-9+]";
 const COMPOUND_TAG = `${SEG}{2,5}(?:-${SEG}{2,6}){1,2}`;
 const LANGUAGE_PREFIX = new RegExp(
-    '^(?:' +
-        `(?:${COMPOUND_TAG}|${SEG}{2,3})\\s*-\\s+` +
-        `|(?:${COMPOUND_TAG}|${SEG}{2,5})\\s*\\|\\s+` +
-        `|${SEG}{2,3}\\s*:\\s+` +
-        ')'
+  "^(?:" +
+    `(?:${COMPOUND_TAG}|${SEG}{2,3})\\s*-\\s+` +
+    `|(?:${COMPOUND_TAG}|${SEG}{2,5})\\s*\\|\\s+` +
+    `|${SEG}{2,3}\\s*:\\s+` +
+    ")",
 );
 
 /**
@@ -69,10 +69,48 @@ const LANGUAGE_PREFIX = new RegExp(
  * suffixes ("NCIS: LA"). US/USA/UK/LA are deliberately absent.
  */
 const TRAILING_TAG_VOCABULARY = new Set([
-    'AF', 'AL', 'ALB', 'AR', 'BY', 'DE', 'DUB', 'EN', 'ENG', 'ES', 'ESP',
-    'EXYU', 'FR', 'FRA', 'GE', 'GR', 'HU', 'IN', 'IR', 'IS', 'IT', 'ITA',
-    'KA', 'KU', 'LAT', 'ML', 'MSUB', 'MULTI', 'NL', 'PL', 'PT', 'RO', 'RU',
-    'SC', 'SE', 'SUB', 'SUBS', 'SW', 'TA', 'TL', 'TR', 'TUR',
+  "AF",
+  "AL",
+  "ALB",
+  "AR",
+  "BY",
+  "DE",
+  "DUB",
+  "EN",
+  "ENG",
+  "ES",
+  "ESP",
+  "EXYU",
+  "FR",
+  "FRA",
+  "GE",
+  "GR",
+  "HU",
+  "IN",
+  "IR",
+  "IS",
+  "IT",
+  "ITA",
+  "KA",
+  "KU",
+  "LAT",
+  "ML",
+  "MSUB",
+  "MULTI",
+  "NL",
+  "PL",
+  "PT",
+  "RO",
+  "RU",
+  "SC",
+  "SE",
+  "SUB",
+  "SUBS",
+  "SW",
+  "TA",
+  "TL",
+  "TR",
+  "TUR",
 ]);
 
 /**
@@ -81,7 +119,7 @@ const TRAILING_TAG_VOCABULARY = new Set([
  * spaced/uppercase form), never in the weak joined-dash/underscore forms
  * where "X-in"/"X_in" reads as a title, not a tag.
  */
-const WEAK_JOIN_EXCLUSIONS = new Set(['IN']);
+const WEAK_JOIN_EXCLUSIONS = new Set(["IN"]);
 
 const DOUBLE_DASH_SUFFIX = /[-–]{2}[A-Za-z]{2,5}\s*$/;
 const UNDERSCORE_SUFFIX = /_([A-Za-z]{2,5})\s*$/;
@@ -90,7 +128,7 @@ const TRAILING_TAG_SUFFIX = /\s([A-Z]{2,5})\s*$/;
 
 /** Tag tokens are case-uniform; real title words are Capitalized. */
 function isCaseUniform(token: string): boolean {
-    return token === token.toLowerCase() || token === token.toUpperCase();
+  return token === token.toLowerCase() || token === token.toUpperCase();
 }
 
 /**
@@ -100,17 +138,17 @@ function isCaseUniform(token: string): boolean {
  * "drive-in", and "Plug-in" intact while stripping "_eng", "-DE", "-it".
  */
 function isJoinedTag(token: string): boolean {
-    const upper = token.toUpperCase();
-    return (
-        TRAILING_TAG_VOCABULARY.has(upper) &&
-        !WEAK_JOIN_EXCLUSIONS.has(upper) &&
-        isCaseUniform(token)
-    );
+  const upper = token.toUpperCase();
+  return (
+    TRAILING_TAG_VOCABULARY.has(upper) &&
+    !WEAK_JOIN_EXCLUSIONS.has(upper) &&
+    isCaseUniform(token)
+  );
 }
 
 /** ES2015-safe trailing-whitespace trim (the lib target predates trimEnd). */
 function trimRight(value: string): string {
-    return value.replace(/\s+$/, '');
+  return value.replace(/\s+$/, "");
 }
 
 /**
@@ -122,49 +160,49 @@ function trimRight(value: string): string {
  * token per pass, so stripping repeats to a fixpoint.
  */
 function stripTrailingTags(value: string): string {
-    let result = value;
-    for (let pass = 0; pass < 3; pass++) {
-        const next = stripTrailingTagOnce(result);
-        if (next === result) break;
-        result = next;
-    }
-    return result;
+  let result = value;
+  for (let pass = 0; pass < 3; pass++) {
+    const next = stripTrailingTagOnce(result);
+    if (next === result) break;
+    result = next;
+  }
+  return result;
 }
 
 function stripTrailingTagOnce(value: string): string {
-    const result = trimRight(value);
-    const hasLowercase = /\p{Ll}/u.test(result);
+  const result = trimRight(value);
+  const hasLowercase = /\p{Ll}/u.test(result);
 
-    // "The Last of Us--esp": no real title contains a double dash.
-    if (DOUBLE_DASH_SUFFIX.test(result)) {
-        return trimRight(result.replace(DOUBLE_DASH_SUFFIX, ''));
-    }
+  // "The Last of Us--esp": no real title contains a double dash.
+  if (DOUBLE_DASH_SUFFIX.test(result)) {
+    return trimRight(result.replace(DOUBLE_DASH_SUFFIX, ""));
+  }
 
-    // "Fallout_eng" — but not "The_Last_of_Us" (underscores as spaces, only
-    // strip a sole underscore) and not "Mr_Robot"/"Cowboy_Bebop" (the tail
-    // must be a known tag, so the segment is real-title evidence otherwise).
-    const underscore = result.match(UNDERSCORE_SUFFIX);
-    if (
-        underscore &&
-        result.indexOf('_') === result.lastIndexOf('_') &&
-        isJoinedTag(underscore[1])
-    ) {
-        return trimRight(result.replace(UNDERSCORE_SUFFIX, ''));
-    }
+  // "Fallout_eng" — but not "The_Last_of_Us" (underscores as spaces, only
+  // strip a sole underscore) and not "Mr_Robot"/"Cowboy_Bebop" (the tail
+  // must be a known tag, so the segment is real-title evidence otherwise).
+  const underscore = result.match(UNDERSCORE_SUFFIX);
+  if (
+    underscore &&
+    result.indexOf("_") === result.lastIndexOf("_") &&
+    isJoinedTag(underscore[1])
+  ) {
+    return trimRight(result.replace(UNDERSCORE_SUFFIX, ""));
+  }
 
-    // "Breaking Bad-eng", "The Last of Us-DE" — but not "drive-in"/"Plug-in".
-    // hasLowercase gates ALL-CAPS titles out (no casing signal to trust).
-    const joined = result.match(JOINED_DASH_SUFFIX);
-    if (joined && hasLowercase && isJoinedTag(joined[1])) {
-        return trimRight(result.replace(JOINED_DASH_SUFFIX, ''));
-    }
+  // "Breaking Bad-eng", "The Last of Us-DE" — but not "drive-in"/"Plug-in".
+  // hasLowercase gates ALL-CAPS titles out (no casing signal to trust).
+  const joined = result.match(JOINED_DASH_SUFFIX);
+  if (joined && hasLowercase && isJoinedTag(joined[1])) {
+    return trimRight(result.replace(JOINED_DASH_SUFFIX, ""));
+  }
 
-    const trailing = result.match(TRAILING_TAG_SUFFIX);
-    if (trailing && hasLowercase && TRAILING_TAG_VOCABULARY.has(trailing[1])) {
-        return trimRight(result.replace(TRAILING_TAG_SUFFIX, ''));
-    }
+  const trailing = result.match(TRAILING_TAG_SUFFIX);
+  if (trailing && hasLowercase && TRAILING_TAG_VOCABULARY.has(trailing[1])) {
+    return trimRight(result.replace(TRAILING_TAG_SUFFIX, ""));
+  }
 
-    return result;
+  return result;
 }
 
 const YEAR_PATTERN = /\b(19\d{2}|20\d{2})\b/;
@@ -186,12 +224,12 @@ const TRAILING_YEAR_PATTERN = /(?:^|\s)(19\d{2}|20\d{2})$/;
  * ASCII-only and never fire next to Cyrillic letters.
  */
 const SEASON_SUFFIX_PATTERN = new RegExp(
-    '(?:^|\\s)(?:' +
-        's\\d{1,2}' +
-        `|(?:${SEASON_WORD_ALTERNATIVES})\\s*\\d{1,2}` +
-        `|\\d{1,2}\\s*(?:st|nd|rd|th|й|и|я|ой|ои)?\\s+(?:${SEASON_WORD_ALTERNATIVES})` +
-        ')$',
-    'iu'
+  "(?:^|\\s)(?:" +
+    "s\\d{1,2}" +
+    `|(?:${SEASON_WORD_ALTERNATIVES})\\s*\\d{1,2}` +
+    `|\\d{1,2}\\s*(?:st|nd|rd|th|й|и|я|ой|ои)?\\s+(?:${SEASON_WORD_ALTERNATIVES})` +
+    ")$",
+  "iu",
 );
 
 /**
@@ -202,65 +240,65 @@ const SEASON_SUFFIX_PATTERN = new RegExp(
  * form when the stripped year does not contradict the other side's year.
  */
 export interface NormalizedTitleKeys {
-    /** Fully normalized, trailing year KEPT ("blade runner 2049") */
-    exact: string;
-    /** Trailing year stripped ("blade runner"); equals `exact` if none */
-    base: string;
-    /** The trailing year removed in `base`, when there was one */
-    trailingYear: number | null;
+  /** Fully normalized, trailing year KEPT ("blade runner 2049") */
+  exact: string;
+  /** Trailing year stripped ("blade runner"); equals `exact` if none */
+  base: string;
+  /** The trailing year removed in `base`, when there was one */
+  trailingYear: number | null;
 }
 
 export function normalizeTitleKeys(
-    raw: string | null | undefined
+  raw: string | null | undefined,
 ): NormalizedTitleKeys {
-    if (!raw) {
-        return { exact: '', base: '', trailingYear: null };
-    }
+  if (!raw) {
+    return { exact: "", base: "", trailingYear: null };
+  }
 
-    const cleaned = stripTrailingTags(
-        raw
-            .replace(WRAPPED_TAG_PREFIX, '')
-            // Inner classes exclude the opening delimiter too, so runaway
-            // inputs like "[[[[[..." backtrack linearly (CodeQL js/polynomial-redos)
-            .replace(/\[[^\][]*\]|\([^()]*\)|\{[^{}]*\}/g, ' ')
-            .replace(LANGUAGE_PREFIX, '')
-    )
-        .normalize('NFD')
-        .replace(/[\u0300-\u036F]/g, '')
-        .toLowerCase()
-        .replace(/[^\p{L}\p{N}]+/gu, ' ')
-        .split(' ')
-        .filter((token) => token !== '' && !QUALITY_TAGS.has(token))
-        .join(' ')
-        .trim();
+  const cleaned = stripTrailingTags(
+    raw
+      .replace(WRAPPED_TAG_PREFIX, "")
+      // Inner classes exclude the opening delimiter too, so runaway
+      // inputs like "[[[[[..." backtrack linearly (CodeQL js/polynomial-redos)
+      .replace(/\[[^\][]*\]|\([^()]*\)|\{[^{}]*\}/g, " ")
+      .replace(LANGUAGE_PREFIX, ""),
+  )
+    .normalize("NFD")
+    .replace(/[\u0300-\u036F]/g, "")
+    .toLowerCase()
+    .replace(/[^\p{L}\p{N}]+/gu, " ")
+    .split(" ")
+    .filter((token) => token !== "" && !QUALITY_TAGS.has(token))
+    .join(" ")
+    .trim();
 
-    // Portal series list titles carry season suffixes ("The Boys s05");
-    // TMDB knows only the show title.
-    const stripSeason = (value: string) =>
-        value.replace(SEASON_SUFFIX_PATTERN, '').trim() || value;
+  // Portal series list titles carry season suffixes ("The Boys s05");
+  // TMDB knows only the show title.
+  const stripSeason = (value: string) =>
+    value.replace(SEASON_SUFFIX_PATTERN, "").trim() || value;
 
-    const exact = stripSeason(cleaned);
+  const exact = stripSeason(cleaned);
 
-    // Trailing years are release tags ("The Matrix 1999"), but a year can
-    // also BE the title ("2012") — never normalize down to an empty string.
-    const yearMatch = cleaned.match(TRAILING_YEAR_PATTERN);
-    const withoutYear = cleaned
-        .replace(TRAILING_YEAR_PATTERN, '')
-        .replace(/\s+/g, ' ')
-        .trim();
-    if (!yearMatch || !withoutYear) {
-        return { exact, base: exact, trailingYear: null };
-    }
+  // Trailing years are release tags ("The Matrix 1999"), but a year can
+  // also BE the title ("2012") — never normalize down to an empty string.
+  const yearMatch = cleaned.match(TRAILING_YEAR_PATTERN);
+  const withoutYear = cleaned
+    .replace(TRAILING_YEAR_PATTERN, "")
+    .replace(/\s+/g, " ")
+    .trim();
+  if (!yearMatch || !withoutYear) {
+    return { exact, base: exact, trailingYear: null };
+  }
 
-    return {
-        exact,
-        base: stripSeason(withoutYear),
-        trailingYear: Number(yearMatch[1]),
-    };
+  return {
+    exact,
+    base: stripSeason(withoutYear),
+    trailingYear: Number(yearMatch[1]),
+  };
 }
 
 export function normalizeTitle(raw: string | null | undefined): string {
-    return normalizeTitleKeys(raw).base;
+  return normalizeTitleKeys(raw).base;
 }
 
 /**
@@ -268,28 +306,64 @@ export function normalizeTitle(raw: string | null | undefined): string {
  * the known years of both sides. Unknown years never block a match.
  */
 export function titleYearsCompatible(
-    a: number | null | undefined,
-    b: number | null | undefined
+  a: number | null | undefined,
+  b: number | null | undefined,
 ): boolean {
-    return (
-        a === null ||
-        a === undefined ||
-        b === null ||
-        b === undefined ||
-        Math.abs(a - b) <= 1
-    );
+  return (
+    a === null ||
+    a === undefined ||
+    b === null ||
+    b === undefined ||
+    Math.abs(a - b) <= 1
+  );
 }
 
 /** Extract a release year from a date string or from tags in a raw title */
 export function extractYear(
-    releaseDate: string | null | undefined,
-    rawTitle?: string | null
+  releaseDate: string | null | undefined,
+  rawTitle?: string | null,
 ): number | null {
-    const fromDate = releaseDate?.match(YEAR_PATTERN)?.[0];
-    if (fromDate) {
-        return Number(fromDate);
-    }
+  const fromDate = releaseDate?.match(YEAR_PATTERN)?.[0];
+  if (fromDate) {
+    return Number(fromDate);
+  }
 
-    const fromTitle = rawTitle?.match(YEAR_PATTERN)?.[0];
-    return fromTitle ? Number(fromTitle) : null;
+  const fromTitle = rawTitle?.match(YEAR_PATTERN)?.[0];
+  return fromTitle ? Number(fromTitle) : null;
+}
+
+/** Case-preserving presentation; original provider strings stay on each source option. */
+export function displayProviderTitle(
+  raw: string,
+  releaseYear?: number | null,
+): string {
+  let title = raw
+    .trim()
+    .replace(WRAPPED_TAG_PREFIX, "")
+    .replace(LANGUAGE_PREFIX, "");
+  title = title.replace(
+    /\[([^\][]*)\]|\(([^()]*)\)/g,
+    (block, square: string, round: string) => {
+      const text = (square ?? round).trim();
+      const tokens = text.toLowerCase().split(/\s+/);
+      return tokens.every(
+        (token) =>
+          QUALITY_TAGS.has(token) ||
+          token === "multi-sub" ||
+          token === String(releaseYear),
+      )
+        ? " "
+        : block;
+    },
+  );
+  title = stripTrailingTags(title)
+    .split(/\s+/)
+    .filter((token) => !QUALITY_TAGS.has(token.toLowerCase()))
+    .join(" ");
+  if (releaseYear)
+    title = title.replace(
+      new RegExp("(?:\\s+[-–—]\\s*|\\s+)" + releaseYear + "\\s*$"),
+      "",
+    );
+  return title.trim() || raw;
 }

@@ -1,16 +1,17 @@
 import {
-    Component,
-    DestroyRef,
-    ElementRef,
-    effect,
-    inject,
-    input,
-    signal,
-    untracked,
-    viewChild,
+  Component,
+  DestroyRef,
+  ElementRef,
+  effect,
+  inject,
+  input,
+  signal,
+  untracked,
+  viewChild,
+  ChangeDetectionStrategy
 } from '@angular/core';
 import { MatIconModule } from '@angular/material/icon';
-import { TranslateModule } from '@ngx-translate/core';
+import { TranslatePipe } from '@ngx-translate/core';
 
 /**
  * Line-clamped text with a "Show more / Show less" toggle that appears only
@@ -20,7 +21,7 @@ import { TranslateModule } from '@ngx-translate/core';
 @Component({
     selector: 'app-expandable-text',
     standalone: true,
-    imports: [MatIconModule, TranslateModule],
+    imports: [MatIconModule, TranslatePipe],
     template: `
         <p
             #textEl
@@ -46,6 +47,7 @@ import { TranslateModule } from '@ngx-translate/core';
             </button>
         }
     `,
+    changeDetection: ChangeDetectionStrategy.OnPush,
     styles: [
         `
             :host {

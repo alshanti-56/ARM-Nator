@@ -1,4 +1,4 @@
-import { Component, input, output } from '@angular/core';
+import { Component, input, output, ChangeDetectionStrategy } from '@angular/core';
 import { MatButtonModule } from '@angular/material/button';
 import { MatIcon } from '@angular/material/icon';
 import { TranslatePipe } from '@ngx-translate/core';
@@ -76,6 +76,7 @@ const SOURCE_CARDS: readonly SourceCard[] = [
         './empty-state.responsive.scss',
         './empty-state.themes.scss',
     ],
+    changeDetection: ChangeDetectionStrategy.Eager,
     imports: [MatButtonModule, MatIcon, TranslatePipe],
 })
 export class EmptyStateComponent {

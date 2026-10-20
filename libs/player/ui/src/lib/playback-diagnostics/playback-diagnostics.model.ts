@@ -1,3 +1,4 @@
+import type { PlaybackNetworkFailure } from '@arm-nator/shared/interfaces';
 import type {
     ExternalPlayerName,
     ResolvedPortalPlayback,
@@ -60,6 +61,8 @@ export interface NativePlaybackErrorInput {
 }
 
 export interface HlsPlaybackErrorInput {
+    readonly response?: { code?: number; text?: string };
+    readonly networkDetails?: unknown;
     readonly type?: string;
     readonly details?: string;
     readonly fatal?: boolean;
@@ -77,6 +80,8 @@ export interface MpegTsPlaybackErrorInput {
 }
 
 export interface PlaybackDiagnostic {
+    readonly attemptToken?: number;
+    readonly network?: PlaybackNetworkFailure;
     readonly code: PlaybackDiagnosticCode;
     readonly source: PlaybackDiagnosticSource;
     readonly sourceUrl: string;

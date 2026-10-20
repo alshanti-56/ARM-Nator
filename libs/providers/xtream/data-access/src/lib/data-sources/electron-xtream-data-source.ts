@@ -159,12 +159,12 @@ export class ElectronXtreamDataSource implements IXtreamDataSource {
         const importType = this.mapCategoryTypeToImportType(type);
         const importStatus = await this.getImportStatus(playlistId, importType);
         // Fetch from DB directly — avoids a separate 'has' round-trip.
-        // An empty result means the cache is cold; proceed to fetch from API.
+        // A completed import is valid even when this content kind is empty.
         const cached = await this.dbService.getXtreamCategories(
             playlistId,
             dbType
         );
-        if (importStatus === 'completed' && cached.length > 0) {
+        if (importStatus === 'completed') {
             return cached;
         }
 
@@ -301,9 +301,9 @@ export class ElectronXtreamDataSource implements IXtreamDataSource {
     ): Promise<XtreamContentItem[]> {
         const importStatus = await this.getImportStatus(playlistId, type);
         // Fetch from DB directly — avoids a separate 'has' round-trip.
-        // An empty result means the cache is cold; proceed to fetch from API.
+        // A completed import is valid even when this content kind is empty.
         const cached = await this.dbService.getXtreamContent(playlistId, type);
-        if (importStatus === 'completed' && cached.length > 0) {
+        if (importStatus === 'completed') {
             return cached;
         }
 

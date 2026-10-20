@@ -5,6 +5,10 @@ import os from 'node:os';
 import path from 'node:path';
 import { spawnSync } from 'node:child_process';
 import { fileURLToPath } from 'node:url';
+import {
+    hasRequiredLibassPatches,
+    hasRequiredMpvPatches
+} from './runtime-patches.mjs';
 
 const toolDirectory = path.dirname(fileURLToPath(import.meta.url));
 const workspaceRoot = path.resolve(toolDirectory, '..', '..');
@@ -21,14 +25,30 @@ const buildPrefix = path.join(
 );
 
 function runtimeExists() {
-    return (
+    const filesExist =
         fs.existsSync(path.join(runtimeRoot, 'include', 'mpv', 'client.h')) &&
         ['libmpv.2.dylib', 'libmpv.dylib'].some((name) =>
             fs.existsSync(path.join(runtimeRoot, 'lib', name))
         ) &&
         fs.existsSync(path.join(runtimeRoot, 'bin', 'ffmpeg')) &&
-        fs.existsSync(path.join(runtimeRoot, 'runtime-manifest.json'))
-    );
+        fs.existsSync(path.join(runtimeRoot, 'runtime-manifest.json'));
+    if (!filesExist) {
+        return false;
+    }
+    try {
+        const manifest = JSON.parse(
+            fs.readFileSync(
+                path.join(runtimeRoot, 'runtime-manifest.json'),
+                'utf8'
+            )
+        );
+        return (
+            hasRequiredMpvPatches(manifest) &&
+            hasRequiredLibassPatches(manifest)
+        );
+    } catch {
+        return false;
+    }
 }
 
 function run(script, args) {
@@ -56,7 +76,7 @@ if (runtimeExists()) {
 }
 
 console.log(
-    'Portable embedded MPV runtime is missing; building pinned LGPL sources.'
+    'Portable embedded MPV runtime is missing or outdated; building patched LGPL sources.'
 );
 run('build-macos-runtime.mjs', [buildPrefix]);
 run('stage-macos-runtime.mjs', [buildPrefix]);

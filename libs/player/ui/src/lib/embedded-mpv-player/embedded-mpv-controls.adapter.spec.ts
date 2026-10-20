@@ -30,7 +30,7 @@ test("KSPlayer Metal does not advertise frame stepping", () => {
   const translate = {
     onLangChange: translateChanges,
     onTranslationChange: translateChanges,
-    onDefaultLangChange: translateChanges,
+    onFallbackLangChange: translateChanges,
     instant: (key: string) => key,
   };
   const injector = Injector.create({

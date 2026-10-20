@@ -1,19 +1,20 @@
 import {
-    Component,
-    DestroyRef,
-    computed,
-    effect,
-    inject,
-    input,
-    output,
-    signal,
-    untracked,
-    viewChild,
-    ElementRef,
+  Component,
+  DestroyRef,
+  computed,
+  effect,
+  inject,
+  input,
+  output,
+  signal,
+  untracked,
+  viewChild,
+  ElementRef,
+  ChangeDetectionStrategy
 } from '@angular/core';
 import { MatButtonModule } from '@angular/material/button';
 import { MatIconModule } from '@angular/material/icon';
-import { TranslateModule } from '@ngx-translate/core';
+import { TranslatePipe } from '@ngx-translate/core';
 import { NgxSkeletonLoaderComponent } from 'ngx-skeleton-loader';
 
 @Component({
@@ -23,9 +24,10 @@ import { NgxSkeletonLoaderComponent } from 'ngx-skeleton-loader';
         MatIconModule,
         MatButtonModule,
         NgxSkeletonLoaderComponent,
-        TranslateModule,
+        TranslatePipe,
     ],
     templateUrl: './content-hero.component.html',
+    changeDetection: ChangeDetectionStrategy.OnPush,
     styleUrls: ['./content-hero.component.scss'],
 })
 export class ContentHeroComponent {

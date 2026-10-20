@@ -118,8 +118,8 @@ export class WorkspaceShellXtreamImportService {
         const formatNumber = (value: number): string =>
             formatLocalizedNumber(
                 value,
-                this.translate.currentLang,
-                this.translate.defaultLang
+                this.translate.currentLang(),
+                this.translate.fallbackLang()
             );
         const preparation = this.activeRefreshPreparation();
 

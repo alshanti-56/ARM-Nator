@@ -7,16 +7,17 @@ import {
   withState,
 } from "@ngrx/signals";
 import { StorageMap } from "@ngx-pwa/local-storage";
-import { firstValueFrom } from "rxjs";import { DEFAULT_DASHBOARD_RAILS_SETTINGS, DEFAULT_DIRECT_PLAY_PREFERENCES, DEFAULT_TMDB_SETTINGS, ElectronBridgeTrustOptions, Language, Settings, StartupBehavior, STORE_KEY, StreamFormat, Theme, VideoPlayer, normalizeDashboardRailsSettings, normalizeDirectPlayPreferences, normalizeVideoPlayer } from "@arm-nator/shared/interfaces";
+import { firstValueFrom } from "rxjs";import { DEFAULT_DASHBOARD_RAILS_SETTINGS, DEFAULT_DIRECT_PLAY_PREFERENCES, DEFAULT_TMDB_SETTINGS, ElectronBridgeTrustOptions, Language, Settings, StartupBehavior, STORE_KEY, StreamFormat, Theme, VideoPlayer, normalizeDashboardRailsSettings, normalizeDirectPlayPreferences, normalizeMediaCompanionSettings, normalizeVideoPlayer } from "@arm-nator/shared/interfaces";
 
 import { isInlinePlayer } from "@arm-nator/player/core";
 
 const DEFAULT_SETTINGS: Settings = {
-  player: VideoPlayer.ArtPlayer,
-  livePlayer: VideoPlayer.ArtPlayer,
-  vodPlayer: VideoPlayer.ArtPlayer,
+  player: VideoPlayer.Auto,
+  livePlayer: VideoPlayer.Auto,
+  vodPlayer: VideoPlayer.Auto,
   directPlay: DEFAULT_DIRECT_PLAY_PREFERENCES,
   playerAmbientMode: false,
+  mediaCompanion: normalizeMediaCompanionSettings(),
   playerUpNextRail: true,
   streamFormat: StreamFormat.AutoStreamFormat,
   openStreamOnDoubleClick: false,
@@ -199,6 +200,7 @@ export const SettingsStore = signalStore(
             store.trustedInsecureTlsHosts?.() ??
             DEFAULT_SETTINGS.trustedInsecureTlsHosts,
           tmdb: store.tmdb?.() ?? DEFAULT_SETTINGS.tmdb,
+          mediaCompanion: normalizeMediaCompanionSettings(store.mediaCompanion?.()),
         };
       },
 

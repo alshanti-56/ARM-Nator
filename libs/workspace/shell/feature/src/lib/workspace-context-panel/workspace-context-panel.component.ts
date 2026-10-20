@@ -1,13 +1,14 @@
 import {
-    Component,
-    computed,
-    DestroyRef,
-    effect,
-    inject,
-    input,
-    signal,
-    viewChild,
-    ElementRef,
+  Component,
+  computed,
+  DestroyRef,
+  effect,
+  inject,
+  input,
+  signal,
+  viewChild,
+  ElementRef,
+  ChangeDetectionStrategy
 } from '@angular/core';
 import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
 import { MatIconButton } from '@angular/material/button';
@@ -24,7 +25,9 @@ import {
     sortPortalCategoryItems,
 } from '@arm-nator/providers/shared/util';
 import { XtreamStore } from '@arm-nator/providers/xtream/data-access';
-import { StalkerStore } from '@arm-nator/providers/stalker/data-access';
+import { StalkerStore, StalkerContentType, updateStalkerCategoryVisibility, buildStalkerCategoryCounts } from '@arm-nator/providers/stalker/data-access';
+import { PlaylistsService } from '@arm-nator/services';
+import { firstValueFrom } from 'rxjs';
 import { WorkspaceContextCategoryViewComponent } from './components/workspace-context-category-view.component';
 import { hasActiveLiveCategoryRoute } from './workspace-context-panel-route.utils';
 
@@ -58,6 +61,7 @@ interface WorkspaceCategoryLike {
         WorkspaceContextCategoryViewComponent,
     ],
     templateUrl: './workspace-context-panel.component.html',
+    changeDetection: ChangeDetectionStrategy.Eager,
     styleUrl: './workspace-context-panel.component.scss',
 })
 export class WorkspaceContextPanelComponent {
@@ -66,6 +70,7 @@ export class WorkspaceContextPanelComponent {
     private readonly xtreamStore = inject(XtreamStore);
     private readonly stalkerStore = inject(StalkerStore);
     private readonly dialog = inject(MatDialog);
+    private readonly playlistsService = inject(PlaylistsService);
     private readonly destroyRef = inject(DestroyRef);
     private readonly translate = inject(TranslateService);
 
@@ -120,58 +125,23 @@ export class WorkspaceContextPanelComponent {
                   ? 'All series'
                   : 'All channels';
 
+        const hidden = new Set(this.stalkerStore.currentPlaylist()?.hiddenStalkerCategoryIds?.[this.section() as StalkerContentType] ?? []);
         return [
             { category_id: '*', category_name: label },
             ...this.stalkerStore
                 .getCategoryResource()
-                .filter((category) => String(category.category_id) !== '*'),
+                .filter((category) => String(category.category_id) !== '*' && !hidden.has(String(category.category_id))),
         ];
     });
-    readonly stalkerCategoryItemCounts = computed(() => {
-        const counts = new Map<number, number>();
-        const allCount = this.stalkerStore.totalContentItems();
-        const selectedCategory = this.stalkerStore.selectedCategoryId() ?? '*';
-
-        for (const category of this.stalkerStore.getCategoryResource()) {
-            const categoryId = Number(category.category_id);
-            const reportedCount = Number(category.count);
-            if (Number.isFinite(categoryId) && Number.isFinite(reportedCount)) {
-                counts.set(categoryId, Math.max(0, reportedCount));
-            }
-        }
-
-        if (selectedCategory === '*') {
-            // Some portals omit total_items for the unfiltered request. Once
-            // per-category totals arrive, their sum is a better all-items
-            // count than the first page length.
-            const categoryTotal = Array.from(counts.values()).reduce(
-                (total, count) => total + count,
-                0,
-            );
-            const resolvedAllCount = Math.max(allCount, categoryTotal);
-            if (resolvedAllCount > 0) {
-                // Number('*') is NaN, which is a valid Map key and is how the
-                // category view identifies the synthetic "All" row.
-                counts.set(Number.NaN, resolvedAllCount);
-            }
-        } else if (allCount > 0 && Number.isFinite(Number(selectedCategory))) {
-            counts.set(Number(selectedCategory), allCount);
-        }
-
-        // ITV portals return the complete channel list, so these counts are
-        // exact. For paged VOD/series responses this still gives useful
-        // counts for categories represented on the loaded pages.
-        for (const item of this.stalkerStore.getPaginatedContent()) {
-            const categoryId = Number(
-                item.tv_genre_id ?? item.category_id ?? item['genre_id'],
-            );
-            if (Number.isFinite(categoryId) && !counts.has(categoryId)) {
-                counts.set(categoryId, (counts.get(categoryId) ?? 0) + 1);
-            }
-        }
-
-        return counts;
-    });
+    readonly stalkerCategoryCounts = computed(() => buildStalkerCategoryCounts({
+        type: this.stalkerStore.selectedContentType(),
+        selectedCategory: this.stalkerStore.selectedCategoryId() ?? '*',
+        totalItems: this.stalkerStore.totalContentItems(),
+        categories: this.stalkerStore.getCategoryResource(),
+        items: this.stalkerStore.getPaginatedContent(),
+    }));
+    readonly stalkerCategoryItemCounts = computed(() => this.stalkerCategoryCounts().counts);
+    readonly stalkerPartialCategoryIds = computed(() => this.stalkerCategoryCounts().partialIds);
     readonly stalkerSelectedCategoryId = computed(
         () => this.stalkerStore.selectedCategoryId() ?? '*'
     );
@@ -192,6 +162,12 @@ export class WorkspaceContextPanelComponent {
     );
     readonly canManageXtreamCategories = computed(
         () => this.isXtreamCategories() && this.xtreamSelectedTypeCountsReady()
+    );
+    readonly canManageCategories = computed(() =>
+        this.isXtreamCategories() ? this.canManageXtreamCategories() :
+        this.isStalkerCategories() && this.isStalkerCategoryInteractionEnabled() &&
+        !this.stalkerStore.isPaginatedContentLoading() &&
+        this.stalkerStore.getCategoryResource().some((c) => String(c.category_id) !== '*')
     );
     readonly xtreamStatusText = computed(() => {
         if (
@@ -364,6 +340,10 @@ export class WorkspaceContextPanelComponent {
     }
 
     openManageCategories(): void {
+        if (this.isStalkerCategories()) {
+            void this.openManageStalkerCategories();
+            return;
+        }
         if (!this.canManageXtreamCategories()) {
             return;
         }
@@ -389,6 +369,7 @@ export class WorkspaceContextPanelComponent {
                                 this.xtreamStore.getCategoryItemCounts(),
                         },
                         width: '500px',
+                        maxWidth: 'calc(100vw - 32px)',
                         maxHeight: '90vh',
                     }
                 );
@@ -403,6 +384,42 @@ export class WorkspaceContextPanelComponent {
                     });
             }
         );
+    }
+
+    private async openManageStalkerCategories(): Promise<void> {
+        if (!this.canManageCategories()) return;
+        const playlistId = this.context().playlistId;
+        const section = this.section() as StalkerContentType;
+        const hidden = new Set(this.stalkerStore.currentPlaylist()?.hiddenStalkerCategoryIds?.[section] ?? []);
+        const categories = this.stalkerStore.getCategoryResource()
+            .filter((c) => String(c.category_id) !== '*')
+            .map((c) => ({
+                id: String(c.category_id),
+                name: c.category_name,
+                count: this.stalkerCategoryItemCounts().get(String(c.category_id)),
+                countIsPartial: this.stalkerPartialCategoryIds().has(String(c.category_id)),
+                hidden: hidden.has(String(c.category_id)),
+            }));
+        const { CategoryVisibilityDialogComponent } = await import('@arm-nator/ui/components');
+        this.dialog.open(CategoryVisibilityDialogComponent, {
+            width: '500px', maxWidth: 'calc(100vw - 32px)', maxHeight: '90vh',
+            data: {
+                categories,
+                save: async (hiddenIds: string[]) => {
+                    const saved = await firstValueFrom(this.playlistsService.transformPlaylistMeta(playlistId, (current) => ({
+                        ...current,
+                        hiddenStalkerCategoryIds: updateStalkerCategoryVisibility(current.hiddenStalkerCategoryIds, section, categories.map((c) => c.id), hiddenIds),
+                    })));
+                    if (!saved) throw new Error('The source is no longer available.');
+                    // Apply only this preference to the current source; keep its current session state.
+                    this.stalkerStore.currentPlaylist.update((current) => current?._id === playlistId
+                        ? { ...current, hiddenStalkerCategoryIds: saved.hiddenStalkerCategoryIds } : current);
+                    if (this.context().playlistId === playlistId && this.section() === section && hiddenIds.includes(this.stalkerSelectedCategoryId())) {
+                        this.onStalkerCategoryClicked({ category_id: '*' });
+                    }
+                },
+            },
+        });
     }
 
     onXtreamCategoryClicked(category: XtreamCategoryLike): void {

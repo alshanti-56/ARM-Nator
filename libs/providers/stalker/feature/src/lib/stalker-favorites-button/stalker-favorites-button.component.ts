@@ -1,8 +1,8 @@
 import { AsyncPipe } from '@angular/common';
-import { Component, inject, input } from '@angular/core';
+import { Component, inject, input, ChangeDetectionStrategy } from '@angular/core';
 import { MatIconModule } from '@angular/material/icon';
 import { MatSnackBar } from '@angular/material/snack-bar';
-import { TranslateModule, TranslateService } from '@ngx-translate/core';
+import { TranslatePipe, TranslateService } from '@ngx-translate/core';
 import { BehaviorSubject, map, of, switchMap } from 'rxjs';
 import { PlaylistsService } from '@arm-nator/services';
 import { StalkerPortalItem } from '@arm-nator/shared/interfaces';
@@ -23,7 +23,8 @@ type FavoriteButtonItem = StalkerSelectedVodItem & {
     selector: 'app-favorites-button',
     templateUrl: './stalker-favorites-button.component.html',
     styleUrls: ['./stalker-favorites-button.component.scss'],
-    imports: [AsyncPipe, MatIconModule, TranslateModule],
+    changeDetection: ChangeDetectionStrategy.Eager,
+    imports: [AsyncPipe, MatIconModule, TranslatePipe],
 })
 export class FavoritesButtonComponent {
     private playlistService = inject(PlaylistsService);

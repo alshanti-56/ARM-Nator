@@ -1,5 +1,6 @@
 const RETRY_DELAYS_MS = [250, 500, 1_000, 2_000, 4_000, 8_000] as const;
 const STABLE_PLAYBACK_MS = 15_000;
+const EXHAUSTED_WINDOW_COOLDOWN_MS = 30_000;
 
 export interface LiveRecoveryScheduled {
   readonly attempt: number;
@@ -27,6 +28,7 @@ export class LivePlaybackRecovery {
   private stableTimer: ReturnType<typeof setTimeout> | undefined;
   private destroyed = false;
   private recoveryStartedAt = 0;
+  private cooldownUntil = 0;
   private cancelReconnectOnPlaying = true;
 
   constructor(
@@ -57,6 +59,21 @@ export class LivePlaybackRecovery {
 
     this.markUnstable();
     const now = Date.now();
+    if (now < this.cooldownUntil) {
+      // Keep automatic recovery available without resetting a rejected
+      // source back to the fastest retry every time its budget runs out.
+      const delayMs = this.cooldownUntil - now;
+      this.cancelReconnectOnPlaying = options.cancelOnPlaying !== false;
+      this.config.onScheduled?.({ attempt: 0, delayMs, reason });
+      this.reconnectTimer = setTimeout(() => {
+        this.reconnectTimer = undefined;
+        this.cooldownUntil = 0;
+        this.request(reason, {
+          cancelOnPlaying: this.cancelReconnectOnPlaying,
+        });
+      }, delayMs);
+      return true;
+    }
     if (!this.recoveryStartedAt) {
       this.recoveryStartedAt = now;
     }
@@ -111,6 +128,7 @@ export class LivePlaybackRecovery {
       this.stableTimer = undefined;
       this.attempt = 0;
       this.recoveryStartedAt = 0;
+      this.cooldownUntil = 0;
     }, STABLE_PLAYBACK_MS);
   }
 
@@ -123,6 +141,7 @@ export class LivePlaybackRecovery {
     this.clearStableTimer();
     this.attempt = 0;
     this.recoveryStartedAt = 0;
+    this.cooldownUntil = 0;
   }
 
   destroy(): void {
@@ -147,6 +166,7 @@ export class LivePlaybackRecovery {
     const attempts = this.attempt;
     this.attempt = 0;
     this.recoveryStartedAt = 0;
+    this.cooldownUntil = Date.now() + EXHAUSTED_WINDOW_COOLDOWN_MS;
     this.cancelReconnectOnPlaying = true;
     this.config.onExhausted?.({ attempts, reason });
   }

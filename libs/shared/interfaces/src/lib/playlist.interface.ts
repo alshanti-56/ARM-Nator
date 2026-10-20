@@ -69,4 +69,6 @@ export interface Playlist {
     };
     recentlyViewed?: PlaylistRecentlyViewedItem[];
     hiddenGroupTitles?: string[];
+    /** Hidden portal category IDs, scoped to this source and content section. */
+    hiddenStalkerCategoryIds?: Partial<Record<'itv' | 'vod' | 'series', string[]>>;
 }

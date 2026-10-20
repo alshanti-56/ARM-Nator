@@ -1,5 +1,7 @@
 import { Injectable, inject } from '@angular/core';
 import {
+    canTryNextXtreamAccountAction,
+    isStalkerAuthFailureResponse,
     normalizeXtreamServerUrl,
     resolveXtreamPortalStatus,
     STALKER_REQUEST,
@@ -16,6 +18,9 @@ export type PortalStatus =
 
 interface XtreamPortalStatusResponse {
     payload?: XtreamPortalStatusResponseLike;
+    type?: string;
+    status?: number;
+    message?: string;
 }
 
 interface PortalStatusCacheEntry {
@@ -323,12 +328,23 @@ export class PortalStatusService {
                             suppressErrorLog: true,
                         }
                     );
+                if (
+                    response?.type === 'ERROR' ||
+                    (!response?.payload && response?.message)
+                ) {
+                    if (!canTryNextXtreamAccountAction(response)) {
+                        return 'unavailable';
+                    }
+                    continue;
+                }
                 const status = resolveXtreamPortalStatus(response?.payload);
                 if (status !== 'unavailable') {
                     return status;
                 }
-            } catch {
-                // Try the next Xtream account-info action variant.
+            } catch (error) {
+                if (!canTryNextXtreamAccountAction(error)) {
+                    return 'unavailable';
+                }
             }
         }
 
@@ -342,7 +358,7 @@ export class PortalStatusService {
         serialNumber?: string
     ): Promise<PortalStatus> {
         try {
-            await this.dataService.sendIpcEvent(STALKER_REQUEST, {
+            const response = await this.dataService.sendIpcEvent(STALKER_REQUEST, {
                 url: portalUrl,
                 macAddress,
                 token,
@@ -354,7 +370,21 @@ export class PortalStatusService {
                 },
                 silent: true,
             });
-            return 'active';
+            if (isStalkerAuthFailureResponse(response)) {
+                return 'unavailable';
+            }
+            const js =
+                response !== null && typeof response === 'object'
+                    ? (response as { js?: unknown }).js
+                    : undefined;
+            const genreEnvelope = js as { data?: unknown; error?: unknown } | null;
+            const hasGenres =
+                Array.isArray(js) ||
+                (genreEnvelope !== null &&
+                    typeof genreEnvelope === 'object' &&
+                    Array.isArray(genreEnvelope.data) &&
+                    genreEnvelope.error === undefined);
+            return hasGenres ? 'active' : 'unavailable';
         } catch {
             return 'unavailable';
         }

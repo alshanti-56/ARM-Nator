@@ -126,15 +126,20 @@ export class VodSeekController {
   private clampTarget(target: number): number {
     const duration = this.config.getDuration();
     if (Number.isFinite(duration) && duration > 0) {
-      return Math.max(0, Math.min(target, duration));
+      target = Math.max(0, Math.min(target, duration));
     }
 
     try {
       const seekable = this.config.video.seekable;
       if (seekable.length > 0) {
-        const start = seekable.start(0);
-        const end = seekable.end(seekable.length - 1);
-        return Math.max(start, Math.min(target, end));
+        let nearest = seekable.start(0);
+        for (let index = 0; index < seekable.length; index++) {
+          const start = seekable.start(index);
+          const end = seekable.end(index);
+          if (target >= start && target <= end) return target;
+          for (const boundary of [start, end]) if (Math.abs(boundary - target) < Math.abs(nearest - target)) nearest = boundary;
+        }
+        return nearest;
       }
     } catch {
       // The media ranges may change while they are being read.

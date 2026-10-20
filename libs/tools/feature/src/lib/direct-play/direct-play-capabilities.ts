@@ -80,6 +80,8 @@ export function getDirectPlayStaticCapabilities(
   isLive: boolean,
 ): readonly string[] {
   switch (engine) {
+    case VideoPlayer.Auto:
+      return ["Automatic playback is available in the workspace player"];
     case VideoPlayer.EmbeddedMpv:
       return [
         "Play / pause",

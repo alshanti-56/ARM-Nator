@@ -1,4 +1,4 @@
-import { Component, inject, input } from '@angular/core';
+import { Component, inject, input, ChangeDetectionStrategy } from '@angular/core';
 import { MatIcon } from '@angular/material/icon';
 import { MatListModule } from '@angular/material/list';
 import { MatTooltip } from '@angular/material/tooltip';
@@ -14,6 +14,7 @@ import { PortalRailLink, PortalRailSection } from '@arm-nator/providers/shared/u
     selector: 'app-portal-rail-links',
     imports: [MatIcon, MatListModule, MatTooltip, RouterLink, RouterLinkActive],
     templateUrl: './portal-rail-links.component.html',
+    changeDetection: ChangeDetectionStrategy.Eager,
     styleUrl: './portal-rail-links.component.scss',
 })
 export class PortalRailLinksComponent {

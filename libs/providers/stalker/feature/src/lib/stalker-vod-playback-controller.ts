@@ -8,6 +8,10 @@ import type {
 } from '@arm-nator/providers/shared/util';
 import type { PlaybackFallbackRequest } from '@arm-nator/player/ui';
 import {
+    createStalkerPlaybackRecoveryContext,
+    type StalkerPlaybackResolver,
+} from './stalker-playback-recovery';
+import {
     PlaybackPositionData,
     ResolvedPortalPlayback,
 } from '@arm-nator/shared/interfaces';
@@ -28,21 +32,35 @@ export class StalkerVodPlaybackController {
     private lastInlineSaveTime = 0;
     private loadSelectedVodPositionRequestId = 0;
     private playbackRequestId = 0;
+    private playbackRequestController: AbortController | null = null;
 
     constructor(private readonly config: StalkerVodPlaybackControllerConfig) {}
 
     async startVodPlayback(
-        resolvePlayback: () => Promise<ResolvedPortalPlayback>
+        resolvePlayback: (signal?: AbortSignal) => Promise<ResolvedPortalPlayback>,
+        recoveryResolver?: StalkerPlaybackResolver,
     ): Promise<void> {
+        this.playbackRequestController?.abort();
+        const controller = new AbortController();
+        this.playbackRequestController = controller;
         const requestId = ++this.playbackRequestId;
         const usesEmbeddedPlayer = this.config.portalPlayer.isEmbeddedPlayer();
         const playbackOwnerKey = this.config.playbackOwnerKey?.();
         try {
-            const playback = await resolvePlayback();
-            if (!this.isPlaybackRequestCurrent(requestId, playbackOwnerKey)) {
+            const playback = await resolvePlayback(controller.signal);
+            if (
+                controller.signal.aborted ||
+                !this.isPlaybackRequestCurrent(requestId, playbackOwnerKey)
+            ) {
                 return;
             }
 
+            const recoveryContext = recoveryResolver
+                ? createStalkerPlaybackRecoveryContext(
+                      playback,
+                      recoveryResolver,
+                  )
+                : {};
             this.lastInlineSaveTime = 0;
             if (usesEmbeddedPlayer) {
                 this.config.inlinePlayback.set(playback);
@@ -50,9 +68,14 @@ export class StalkerVodPlaybackController {
             }
 
             this.closeInlinePlayer();
-            void this.config.portalPlayer.openResolvedPlayback(playback, true);
+            void this.config.portalPlayer.openResolvedPlayback(playback, true, {
+                ...recoveryContext,
+            });
         } catch (error) {
-            if (!this.isPlaybackRequestCurrent(requestId, playbackOwnerKey)) {
+            if (
+                controller.signal.aborted ||
+                !this.isPlaybackRequestCurrent(requestId, playbackOwnerKey)
+            ) {
                 return;
             }
             this.config.logger.error(
@@ -100,12 +123,17 @@ export class StalkerVodPlaybackController {
     handleInlineTimeUpdate(event: {
         currentTime: number;
         duration: number;
+        persistenceHandled?: boolean;
     }): void {
         const playback = this.config.inlinePlayback();
         if (!playback?.contentInfo) {
             return;
         }
 
+        if (event.persistenceHandled) {
+            this.config.selectedVodPosition.set({ ...playback.contentInfo, positionSeconds: event.currentTime, durationSeconds: event.duration > 0 ? event.duration : undefined });
+            return;
+        }
         const now = Date.now();
         if (now - this.lastInlineSaveTime <= 15000) {
             return;
@@ -114,8 +142,8 @@ export class StalkerVodPlaybackController {
         this.lastInlineSaveTime = now;
         const position: PlaybackPositionData = {
             ...playback.contentInfo,
-            positionSeconds: Math.floor(event.currentTime),
-            durationSeconds: Math.floor(event.duration),
+            positionSeconds: event.currentTime,
+            durationSeconds: event.duration,
         };
 
         void this.config.playbackPositions.savePlaybackPosition(
@@ -127,6 +155,8 @@ export class StalkerVodPlaybackController {
 
     closeInlinePlayer(): void {
         this.playbackRequestId += 1;
+        this.playbackRequestController?.abort();
+        this.playbackRequestController = null;
         this.config.inlinePlayback.set(null);
         this.lastInlineSaveTime = 0;
     }

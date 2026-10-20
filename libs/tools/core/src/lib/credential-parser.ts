@@ -26,14 +26,14 @@ function labeledCredentialValue(
   value: string,
   label: "username" | "password",
 ): string | null {
-  const labels = label === "username" ? "username|user" : "password|pass";
-  const match = value.match(new RegExp(`^(?:${labels})\\s*[:=]\\s*(.+)$`, "i"));
+  const labels = label === "username" ? "username|user|u" : "password|pass|p";
+  const match = value.match(new RegExp(`^(?:${labels})\\s*(?::|={1,2})\\s*(.+)$`, "i"));
   return match?.[1] ? trimToken(match[1]) : null;
 }
 
 function labeledServerValue(value: string): string | null {
   const match = value.match(
-    /^(?:(?:xtream\s+)?(?:host|server))\s*[:=]\s*(https?:\/\/[^\s,;]+)\s*$/i,
+    /^(?:(?:xtream\s+)?(?:host|server)|url)\s*[:=]\s*(https?:\/\/[^\s,;]+)\s*$/i,
   );
   return match?.[1] ? trimToken(match[1]) : null;
 }
@@ -222,23 +222,8 @@ function splitInput(rawInput: string): string[] {
       continue;
     }
 
-    const labeledServer = labeledServerValue(serverLine);
-    if (labeledServer) {
-      const username = lines[index + 1]
-        ? labeledCredentialValue(lines[index + 1], "username")
-        : null;
-      const password = lines[index + 2]
-        ? labeledCredentialValue(lines[index + 2], "password")
-        : null;
-
-      if (username && password) {
-        entries.push(`${labeledServer} ${username} ${password}`);
-        index += 2;
-        continue;
-      }
-    }
-
-    if (!/^https?:\/\/[^\s,;]+$/i.test(serverLine)) {
+    const server = labeledServerValue(serverLine) ?? serverLine;
+    if (!/^https?:\/\/[^\s,;]+$/i.test(server)) {
       entries.push(serverLine);
       continue;
     }
@@ -253,7 +238,7 @@ function splitInput(rawInput: string): string[] {
       standaloneCredentialValue(passwordLine);
 
     if (username && password) {
-      entries.push(`${serverLine} ${username} ${password}`);
+      entries.push(`${server} ${username} ${password}`);
       index += 2;
       continue;
     }

@@ -1,3 +1,4 @@
+import { readProviderSeekPreviews } from "@arm-nator/shared/interfaces";
 import {
   computed,
   DestroyRef,
@@ -15,12 +16,20 @@ import {
   PORTAL_PLAYER,
   getSeriesQuickStartAction,
 } from "@arm-nator/providers/shared/util";
-import { XtreamStore } from "@arm-nator/providers/xtream/data-access";
+import {
+  XtreamStore,
+  XtreamUrlService,
+  type XtreamPlaylistData,
+  buildXtreamSavedPlaybackHeaders,
+} from "@arm-nator/providers/xtream/data-access";
+import type { XtreamCredentials } from "@arm-nator/providers/xtream/data-access";
 import { PlaybackPositionRuntimeBridgeService } from "@arm-nator/services";
 import {
   PlaybackPositionData,
   PlayerContentInfo,
   ResolvedPortalPlayback,
+  xtreamItemIdentity,
+  describeMovieWork,
   XtreamSerieDetails,
   XtreamSerieEpisode,
 } from "@arm-nator/shared/interfaces";
@@ -52,6 +61,7 @@ interface SerialDetailsPlaybackBindings {
 export class SerialDetailsPlaybackService {
   private readonly route = inject(ActivatedRoute);
   private readonly xtreamStore = inject(XtreamStore);
+  private readonly xtreamUrl = inject(XtreamUrlService);
   private readonly playbackPositions = inject(PORTAL_PLAYBACK_POSITIONS);
   private readonly playbackPositionBridge = inject(
     PlaybackPositionRuntimeBridgeService,
@@ -195,7 +205,7 @@ export class SerialDetailsPlaybackService {
       return;
     }
 
-    this.addToRecentlyViewed(this.route.snapshot.params.serialId);
+    this.addToRecentlyViewed(this.route.snapshot.params['serialId']);
 
     const streamUrl = this.xtreamStore.constructEpisodeStreamUrl(episode);
     const contentInfo: PlayerContentInfo = {
@@ -211,10 +221,25 @@ export class SerialDetailsPlaybackService {
 
     const playback: ResolvedPortalPlayback = {
       streamUrl,
+      recovery: this.xtreamUrl.buildPlaybackRecoveryMetadata(
+        this.getXtreamCredentials(playlist),
+        playlist.id,
+        streamUrl,
+        { savedHeaders: buildXtreamSavedPlaybackHeaders(playlist) },
+      ),
+      requestPolicy: { accountRef: playlist.id, portalCredentials: true },
+      userAgent: playlist.userAgent,
+      referer: playlist.referrer,
+      origin: playlist.origin,
       title: episode.title,
       thumbnail: selectedItem.info.cover,
+      seekPreviews: readProviderSeekPreviews(episode),
       startTime: position?.positionSeconds,
       contentInfo,
+      itemIdentity: xtreamItemIdentity(playlist.id, 'episode', contentInfo.contentXtreamId),
+      seriesIdentity: xtreamItemIdentity(playlist.id, 'series', contentInfo.seriesXtreamId ?? Number(selectedItem.series_id)),
+      work: { kind: 'episode', title: episode.title, seasonNumber: contentInfo.seasonNumber, episodeNumber: contentInfo.episodeNumber,
+        series: { ...describeMovieWork(selectedItem.info.name, selectedItem.info), kind: 'series' } },
     };
 
     this.startPlayback(playback);
@@ -261,18 +286,25 @@ export class SerialDetailsPlaybackService {
   handleInlineTimeUpdate(event: {
     currentTime: number;
     duration: number;
+    persistenceHandled?: boolean;
+    action?: 'progress' | 'finished' | 'reset';
   }): void {
     const playback = this.inlinePlayback();
     if (!playback?.contentInfo) return;
 
+    if (event.persistenceHandled) {
+      this.playbackPositionState.update({ ...playback.contentInfo, action: event.action, positionSeconds: event.currentTime, durationSeconds: event.duration > 0 ? event.duration : undefined });
+      return;
+    }
     const now = Date.now();
     if (now - this.lastSaveTime <= 15000) return;
 
     this.lastSaveTime = now;
     const position: PlaybackPositionData = {
       ...playback.contentInfo,
-      positionSeconds: Math.floor(event.currentTime),
-      durationSeconds: Math.floor(event.duration),
+      action: event.action,
+      positionSeconds: event.currentTime,
+      durationSeconds: event.duration,
     };
     void this.playbackPositions.savePlaybackPosition(
       playback.contentInfo.playlistId,
@@ -365,6 +397,18 @@ export class SerialDetailsPlaybackService {
       onClosed: () => this.closeInlinePlayer(),
       onTimeUpdate: (event) => this.handleInlineTimeUpdate(event),
     });
+  }
+
+  private getXtreamCredentials(
+    playlist: XtreamPlaylistData,
+  ): XtreamCredentials {
+    return {
+      serverUrl: playlist.serverUrl,
+      username: playlist.username,
+      password: playlist.password,
+      playbackServerUrl: playlist.playbackServerUrl,
+      allowedOutputFormats: playlist.allowedOutputFormats,
+    };
   }
 
   private getInlineEpisodeState(): SeriesPlaybackEpisodeState<XtreamSerieEpisode> | null {

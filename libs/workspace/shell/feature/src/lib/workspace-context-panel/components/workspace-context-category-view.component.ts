@@ -26,7 +26,8 @@ interface WorkspaceCategoryViewItem {
 export class WorkspaceContextCategoryViewComponent {
     readonly items = input<ReadonlyArray<WorkspaceCategoryViewItem>>([]);
     readonly selectedCategoryId = input<string | number | null | undefined>();
-    readonly itemCounts = input<Map<number, number>>(new Map());
+    readonly itemCounts = input<ReadonlyMap<string | number, number>>(new Map());
+    readonly partialCountIds = input<ReadonlySet<string>>(new Set());
     readonly showCounts = input(false);
     readonly countDisplayMode = input<'loading' | 'ready'>('ready');
     /**
@@ -50,8 +51,8 @@ export class WorkspaceContextCategoryViewComponent {
     }
 
     getItemCount(item: WorkspaceCategoryViewItem): number {
-        const itemId = Number(item.id ?? item.category_id);
-        return this.itemCounts().get(itemId) ?? item.count ?? 0;
+        const itemId = String(item.id ?? item.category_id);
+        return this.itemCounts().get(itemId) ?? this.itemCounts().get(Number(itemId)) ?? item.count ?? 0;
     }
 
     hasItemCount(item: WorkspaceCategoryViewItem): boolean {
@@ -61,9 +62,14 @@ export class WorkspaceContextCategoryViewComponent {
 
         // NaN (from the "*" all-category id) is a valid Map key here.
         return (
+            this.itemCounts().has(String(item.id ?? item.category_id)) ||
             this.itemCounts().has(Number(item.id ?? item.category_id)) ||
             item.count !== undefined
         );
+    }
+
+    isPartialCount(item: WorkspaceCategoryViewItem): boolean {
+        return this.partialCountIds().has(String(item.id ?? item.category_id));
     }
 
     onCategoryClick(item: WorkspaceCategoryViewItem): void {

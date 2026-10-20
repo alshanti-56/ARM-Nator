@@ -1,8 +1,10 @@
 /** Helpers for driving the native `<video>` element source list. */
 
 export function clearNativeVideoSources(element: HTMLVideoElement): void {
+    element.pause();
     element.removeAttribute('src');
     element.replaceChildren();
+    element.load();
 }
 
 /**

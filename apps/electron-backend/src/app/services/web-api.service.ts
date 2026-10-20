@@ -12,6 +12,7 @@ import {
 } from '../workers/database-worker.types';
 import { assertRemoteUrlAllowed } from '../events/url-safety';
 import { requestWithValidatedRedirects } from '../util/validated-axios';
+import { playbackAccountProfiles } from './playback-account-profile.service';
 
 export const webApiHost = '127.0.0.1';
 export const webApiPort = Number.parseInt(
@@ -117,6 +118,7 @@ function buildXtreamApiUrl(
 async function requestXtream(payload: {
     url: string;
     params: Record<string, string>;
+    accountRef?: string;
 }): Promise<{ payload: unknown; action?: string }> {
     const apiUrl = buildXtreamApiUrl(payload.url, payload.params);
     const config: AxiosRequestConfig = {
@@ -134,6 +136,36 @@ async function requestXtream(payload: {
         config,
         { allowPrivateNetworks: true }
     );
+
+    const username = payload.params.username;
+    const password = payload.params.password;
+    const isXtreamLogout = payload.params.action?.toLowerCase() === 'logout';
+    if (isXtreamLogout && payload.accountRef && response.status < 400) {
+        playbackAccountProfiles.clear(payload.accountRef);
+    } else if (
+        typeof username === 'string' &&
+        typeof password === 'string' &&
+        payload.accountRef &&
+        response.status < 400
+    ) {
+        playbackAccountProfiles.replacePortalCredentials(payload.accountRef, {
+            username,
+            password,
+        });
+        if (!payload.params.action) {
+            const rawSetCookie = response.headers['set-cookie'];
+            const setCookieHeaders = Array.isArray(rawSetCookie)
+                ? rawSetCookie
+                : typeof rawSetCookie === 'string'
+                    ? [rawSetCookie]
+                    : undefined;
+            playbackAccountProfiles.captureLoginCookies(
+                payload.accountRef,
+                response.request?.res?.responseUrl ?? apiUrl.toString(),
+                setCookieHeaders,
+            );
+        }
+    }
 
     if (response.status >= 400) {
         throw Object.assign(new Error(`HTTP Error: ${response.statusText}`), {
@@ -153,6 +185,7 @@ async function requestStalker(payload: {
     params: Record<string, string | number>;
     token?: string;
     serialNumber?: string;
+    accountRef?: string;
 }): Promise<unknown> {
     const { requestParams, headers } = buildStalkerIdentityRequestContext({
         macAddress: payload.macAddress,
@@ -174,6 +207,34 @@ async function requestStalker(payload: {
         },
         { allowPrivateNetworks: true }
     );
+
+    const isPortalLogin = requestParams.action === 'do_auth';
+    const isPortalLogout = requestParams.action === 'do_logout';
+    const portalAuthSucceeded = response.status < 400 &&
+        !(response.data && typeof response.data === 'object' &&
+            'js' in response.data && response.data.js === false);
+    if (isPortalLogout && payload.accountRef && portalAuthSucceeded) {
+        playbackAccountProfiles.clear(payload.accountRef);
+    } else if (payload.accountRef && portalAuthSucceeded) {
+        const portalOrigin = new URL(payload.url).origin;
+        playbackAccountProfiles.replacePortalHeaders(
+            payload.accountRef,
+            { ...headers, Origin: portalOrigin, Referer: portalOrigin },
+        );
+    }
+    if (isPortalLogin && payload.accountRef && portalAuthSucceeded) {
+            const rawSetCookie = response.headers['set-cookie'];
+            const setCookieHeaders = Array.isArray(rawSetCookie)
+                ? rawSetCookie
+                : typeof rawSetCookie === 'string'
+                    ? [rawSetCookie]
+                    : undefined;
+            playbackAccountProfiles.captureLoginCookies(
+                payload.accountRef,
+                response.request?.res?.responseUrl ?? fullUrl,
+                setCookieHeaders,
+            );
+    }
 
     if (response.status >= 400) {
         throw Object.assign(
@@ -226,7 +287,46 @@ async function handleRequest(
             operation as DbWorkerOperation,
             payload ?? {}
         );
+        const operationPayload = payload && typeof payload === 'object'
+            ? payload as JsonObject
+            : {};
+        if (operation === 'DB_DELETE_PLAYLIST' && typeof operationPayload.playlistId === 'string') {
+            playbackAccountProfiles.clear(operationPayload.playlistId);
+        } else if (operation === 'DB_DELETE_ALL_PLAYLISTS') {
+            playbackAccountProfiles.clearAll();
+        } else if (
+            operation === 'DB_UPDATE_PLAYLIST' &&
+            typeof operationPayload.playlistId === 'string' &&
+            operationPayload.updates && typeof operationPayload.updates === 'object' &&
+            ['serverUrl', 'username', 'password'].some((key) =>
+                Object.prototype.hasOwnProperty.call(operationPayload.updates as object, key)
+            )
+        ) {
+            playbackAccountProfiles.clear(operationPayload.playlistId);
+        }
         sendJson(response, 200, { result }, origin);
+        return;
+    }
+
+    if (requestUrl.pathname === `${webApiPath}/playback/recovery-availability`) {
+        const accountRef = (body as JsonObject).accountRef;
+        sendJson(
+            response,
+            200,
+            playbackAccountProfiles.getAvailability(
+                typeof accountRef === 'string' ? accountRef : undefined
+            ),
+            origin,
+        );
+        return;
+    }
+
+    if (requestUrl.pathname === `${webApiPath}/playback/clear-profile`) {
+        const accountRef = (body as JsonObject).accountRef;
+        if (typeof accountRef === 'string') {
+            playbackAccountProfiles.clear(accountRef);
+        }
+        sendJson(response, 200, { success: true }, origin);
         return;
     }
 
@@ -261,6 +361,7 @@ async function handleRequest(
         const result = await requestXtream({
             url: payload.url,
             params: payload.params as Record<string, string>,
+            accountRef: typeof payload.accountRef === 'string' ? payload.accountRef : undefined,
         });
         sendJson(response, 200, result, origin);
         return;
@@ -288,6 +389,10 @@ async function handleRequest(
                 typeof payload.serialNumber === 'string'
                     ? payload.serialNumber
                     : undefined,
+            accountRef:
+                typeof payload.accountRef === 'string'
+                    ? payload.accountRef
+                    : undefined,
         });
         sendJson(response, 200, { result }, origin);
         return;
@@ -306,7 +411,17 @@ export async function startWebApi(): Promise<void> {
             const message = error instanceof Error ? error.message : String(error);
             console.error('[Web API] Request failed:', message);
             if (!response.headersSent) {
-                sendJson(response, 500, { error: message }, getOrigin(request));
+                const upstreamStatus = axios.isAxiosError(error)
+                    ? error.response?.status
+                    : (error as { status?: unknown } | null)?.status;
+                const status =
+                    typeof upstreamStatus === 'number' &&
+                    Number.isInteger(upstreamStatus) &&
+                    upstreamStatus >= 400 &&
+                    upstreamStatus <= 599
+                        ? upstreamStatus
+                        : 500;
+                sendJson(response, status, { error: message }, getOrigin(request));
             } else {
                 response.destroy();
             }

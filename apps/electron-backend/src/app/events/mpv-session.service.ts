@@ -27,6 +27,11 @@ import {
     sendPlayerErrorNotification,
     traceExternalPlayer,
 } from './external-player-runtime';
+import {
+    closeMpvSessionProcess,
+    sendMpvIpcCommand,
+    terminateMpvProcessAndWait,
+} from './mpv-session-teardown';
 
 export interface OpenExternalPlayerRequest {
     url: string;
@@ -43,6 +48,8 @@ export interface OpenExternalPlayerRequest {
 
 let mpvProcess: ChildProcess | null = null;
 let mpvSocketPath: string | null = null;
+let mpvActiveProcess: ChildProcess | null = null;
+let mpvActiveSessionId: string | null = null;
 let positionPollingInterval: NodeJS.Timeout | null = null;
 
 function getMpvPath(options: PlayerPathOptions = {}): string {
@@ -185,32 +192,68 @@ function startPositionPolling(
 
 function sendMpvCommand(
     command: string,
-    args: Array<string | number>
+    args: Array<string | number>,
+    socketPath = mpvSocketPath
 ): Promise<void> {
-    return new Promise((resolve, reject) => {
-        if (!mpvSocketPath) {
-            reject(new Error('No MPV socket path available'));
-            return;
-        }
-
-        const client = createConnection(mpvSocketPath);
-        const request = JSON.stringify({ command: [command, ...args] }) + '\n';
-
-        client.on('connect', () => {
-            traceExternalPlayer('mpv ipc command', {
-                command,
-                argsCount: args.length,
-            });
-            client.write(request);
-            client.end();
-            resolve();
-        });
-
-        client.on('error', (err) => {
-            console.error('MPV socket error:', err);
-            reject(err);
-        });
+    if (!socketPath) {
+        return Promise.reject(new Error('No MPV socket path available'));
+    }
+    traceExternalPlayer('mpv ipc command', {
+        command,
+        argsCount: args.length,
     });
+    return sendMpvIpcCommand(socketPath, command, args).catch((error) => {
+        console.error('MPV socket command failed:', error);
+        throw error;
+    });
+}
+
+function clearMpvProcessReferences(process: ChildProcess): void {
+    if (mpvProcess === process) {
+        mpvProcess = null;
+        mpvSocketPath = null;
+    }
+    if (mpvActiveProcess === process) {
+        mpvActiveProcess = null;
+        mpvActiveSessionId = null;
+        stopPositionPolling();
+    }
+}
+
+async function closeMpvSession(
+    sessionId: string,
+    process: ChildProcess,
+    socketPath: string | null,
+    reuseInstance: boolean
+): Promise<void> {
+    const isReusableOwner =
+        reuseInstance &&
+        Boolean(socketPath) &&
+        mpvProcess === process &&
+        mpvSocketPath === socketPath;
+
+    const outcome = await closeMpvSessionProcess({
+        sessionId,
+        process,
+        socketPath,
+        isReusableOwner,
+        activeSessionId: mpvActiveSessionId,
+        stopPlayback: (path) => sendMpvCommand('stop', [], path),
+    });
+    if (outcome === 'superseded') {
+        return;
+    }
+    if (outcome === 'terminated') {
+        clearMpvProcessReferences(process);
+        traceExternalPlayer('terminated mpv process after session close');
+    } else {
+        traceExternalPlayer('stopped media in reusable mpv instance');
+    }
+
+    if (mpvActiveProcess === process && mpvActiveSessionId === sessionId) {
+        mpvActiveSessionId = null;
+        stopPositionPolling();
+    }
 }
 
 function killStoredMpvProcess(reason: string): void {
@@ -320,31 +363,58 @@ export async function openMpvPlayer({
                 parseExternalPlayerArguments(customMpvArguments).length,
         });
 
+        const existingProcess = mpvActiveProcess;
+        const reusableProcessAvailable =
+            reuseInstance &&
+            existingProcess !== null &&
+            existingProcess === mpvProcess &&
+            !existingProcess.killed &&
+            Boolean(mpvSocketPath);
+        if (existingProcess && !reusableProcessAvailable) {
+            const existingSessionId = mpvActiveSessionId;
+            if (existingSessionId) {
+                await closeMpvSession(
+                    existingSessionId,
+                    existingProcess,
+                    existingProcess === mpvProcess ? mpvSocketPath : null,
+                    false
+                );
+                externalPlayerSessions.markClosed(existingSessionId);
+            } else {
+                await terminateMpvProcessAndWait(existingProcess);
+                clearMpvProcessReferences(existingProcess);
+            }
+        }
+
         if (
             reuseInstance &&
             mpvProcess &&
+            mpvActiveProcess === mpvProcess &&
             !mpvProcess.killed &&
             mpvSocketPath
         ) {
+            const reusedProcess = mpvProcess;
+            const reusedSocketPath = mpvSocketPath;
+            const replacedSessionId = mpvActiveSessionId;
             traceExternalPlayer('reuse existing mpv instance');
             try {
                 if (effectiveUserAgent) {
                     await sendMpvCommand('set_property', [
                         'user-agent',
                         effectiveUserAgent,
-                    ]);
+                    ], reusedSocketPath);
                 }
                 if (effectiveReferer) {
                     await sendMpvCommand('set_property', [
                         'referrer',
                         effectiveReferer,
-                    ]);
+                    ], reusedSocketPath);
                 }
                 if (headerFields.length > 0) {
                     await sendMpvCommand('set_property', [
                         'http-header-fields',
                         headerFields.join(','),
-                    ]);
+                    ], reusedSocketPath);
                 }
 
                 const loadFileArgs: Array<string | number> = [url, 'replace'];
@@ -357,29 +427,32 @@ export async function openMpvPlayer({
                     loadFileArgs.push(-1, loadFileOptions.join(','));
                 }
 
-                await sendMpvCommand('loadfile', loadFileArgs);
+                await sendMpvCommand('loadfile', loadFileArgs, reusedSocketPath);
                 traceExternalPlayer('loaded new url in existing mpv instance');
-
-                externalPlayerSessions.attachCloser(session.id, async () => {
-                    try {
-                        await sendMpvCommand('quit', []);
-                    } catch {
-                        if (mpvProcess && !mpvProcess.killed) {
-                            mpvProcess.kill();
-                        }
-                    }
-                });
+                mpvActiveProcess = reusedProcess;
+                mpvActiveSessionId = session.id;
+                if (replacedSessionId && replacedSessionId !== session.id) {
+                    externalPlayerSessions.markClosed(replacedSessionId);
+                }
+                externalPlayerSessions.attachCloser(session.id, () =>
+                    closeMpvSession(
+                        session.id,
+                        reusedProcess,
+                        reusedSocketPath,
+                        true
+                    )
+                );
 
                 if (startTime) {
                     await sendMpvCommand('seek', [
                         String(startTime),
                         'absolute',
-                    ]);
+                    ], reusedSocketPath);
                 }
 
                 if (contentInfo) {
                     startPositionPolling(
-                        mpvSocketPath,
+                        reusedSocketPath,
                         contentInfo,
                         session.id
                     );
@@ -390,9 +463,11 @@ export async function openMpvPlayer({
                 return externalPlayerSessions.markOpened(session.id) ?? session;
             } catch (err) {
                 console.error('Failed to send command to existing MPV:', err);
-                mpvProcess = null;
-                mpvSocketPath = null;
-                stopPositionPolling();
+                await terminateMpvProcessAndWait(reusedProcess);
+                clearMpvProcessReferences(reusedProcess);
+                if (replacedSessionId) {
+                    externalPlayerSessions.markClosed(replacedSessionId);
+                }
             }
         }
 
@@ -503,9 +578,7 @@ export async function openMpvPlayer({
 
             proc.on('error', (err) => {
                 console.error('Failed to start MPV player:', err);
-                mpvProcess = null;
-                mpvSocketPath = null;
-                stopPositionPolling();
+                clearMpvProcessReferences(proc);
                 externalPlayerSessions.markError(
                     session.id,
                     `Failed to start MPV player: ${err.message}`
@@ -515,9 +588,11 @@ export async function openMpvPlayer({
 
             proc.on('exit', (code) => {
                 traceExternalPlayer('mpv exited', { code });
-                mpvProcess = null;
-                mpvSocketPath = null;
-                stopPositionPolling();
+                const isCurrentProcess = mpvActiveProcess === proc;
+                const endedSessionId = isCurrentProcess
+                    ? mpvActiveSessionId ?? session.id
+                    : session.id;
+                clearMpvProcessReferences(proc);
 
                 if (code !== 0 && code !== null) {
                     console.error(
@@ -528,16 +603,18 @@ export async function openMpvPlayer({
                         `MPV player closed unexpectedly (exit code: ${code})`
                     );
                     externalPlayerSessions.markError(
-                        session.id,
+                        endedSessionId,
                         `MPV player closed unexpectedly (exit code: ${code})`
                     );
                     return;
                 }
 
-                externalPlayerSessions.markClosed(session.id);
+                externalPlayerSessions.markClosed(endedSessionId);
             });
 
-            if (socketPath) {
+            mpvActiveProcess = proc;
+            mpvActiveSessionId = session.id;
+            if (reuseInstance && socketPath) {
                 mpvProcess = proc;
                 mpvSocketPath = socketPath;
                 traceExternalPlayer('stored mpv process for reuse', {
@@ -547,11 +624,9 @@ export async function openMpvPlayer({
                 proc.unref();
             }
 
-            externalPlayerSessions.attachCloser(session.id, async () => {
-                if (!proc.killed) {
-                    proc.kill();
-                }
-            });
+            externalPlayerSessions.attachCloser(session.id, () =>
+                closeMpvSession(session.id, proc, socketPath, reuseInstance)
+            );
 
             if (useMpvSocketBridge && socketPath) {
                 startPositionPolling(socketPath, contentInfo, session.id);
@@ -571,9 +646,6 @@ export async function openMpvPlayer({
         return externalPlayerSessions.markOpened(session.id) ?? session;
     } catch (error) {
         console.error('Error opening MPV player:', error);
-        mpvProcess = null;
-        mpvSocketPath = null;
-        stopPositionPolling();
         externalPlayerSessions.markError(
             session.id,
             error instanceof Error ? error.message : String(error)

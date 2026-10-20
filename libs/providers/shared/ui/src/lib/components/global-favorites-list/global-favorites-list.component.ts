@@ -23,7 +23,7 @@ import {
   sortFavoriteChannelItems,
   UnifiedFavoriteChannel,
 } from "@arm-nator/providers/shared/util";
-import { TranslateModule } from "@ngx-translate/core";
+import { TranslatePipe } from "@ngx-translate/core";
 
 export type EnrichedUnifiedFavorite = UnifiedFavoriteChannel;
 
@@ -39,7 +39,7 @@ export type GlobalFavoritesListMode = "favorites" | "recent";
     DragDropModule,
     MatIconModule,
     MatMenuModule,
-    TranslateModule,
+    TranslatePipe,
   ],
 })
 export class GlobalFavoritesListComponent {

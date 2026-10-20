@@ -3,6 +3,8 @@ import { existsSync, readFileSync } from "fs";
 import { createRequire } from "module";
 import path from "path";
 import App from "../app";
+import { playbackDiagnostics } from "./playback-diagnostics.service";
+import { nativeProgressivePlaybackUrl } from "./progressive-response-recovery";
 import {
   EmbeddedMpvAudioTrack,
   EmbeddedMpvBounds,
@@ -619,10 +621,16 @@ export class KsPlayerMetalNativeService {
     session.title = playback.title ?? session.title;
     session.streamUrl = playback.streamUrl;
     session.updatedAt = new Date().toISOString();
-    assertNativeOperation(
-      this.getAddon().load(sessionId, playback.streamUrl, headers),
-      "load",
-    );
+    playbackDiagnostics.record({ event: "native-load", transport: BACKEND, sessionId, sourceUrl: playback.streamUrl, requestHeaders: headers, activeSessions: this.sessions.size });
+    try {
+      assertNativeOperation(
+        this.getAddon().load(sessionId, nativeProgressivePlaybackUrl(playback.streamUrl), headers),
+        "load",
+      );
+    } catch (error) {
+      playbackDiagnostics.record({ event: "native-error", transport: BACKEND, sessionId, sourceUrl: playback.streamUrl, error });
+      throw error;
+    }
     if (playback.subtitleUrl) {
       assertNativeOperation(
         this.getAddon().setSubtitleFile(sessionId, playback.subtitleUrl),
@@ -797,15 +805,17 @@ export class KsPlayerMetalNativeService {
       );
     } catch (error) {
       console.warn("[KSPlayer Metal] disposeSession failed:", error);
-    } finally {
-      this.sessions.delete(sessionId);
-      this.pollFailuresLogged.delete(sessionId);
-      const closed = this.createClosedSession(session);
-      this.sendSessionUpdate(closed);
-      this.stopPollingIfIdle();
-      this.updatePowerBlocker();
-      return closed;
+      throw error;
     }
+
+    this.sessions.delete(sessionId);
+    playbackDiagnostics.record({ event: "native-release", transport: BACKEND, sessionId, sourceUrl: session.streamUrl, activeSessions: this.sessions.size });
+    this.pollFailuresLogged.delete(sessionId);
+    const closed = this.createClosedSession(session);
+    this.sendSessionUpdate(closed);
+    this.stopPollingIfIdle();
+    this.updatePowerBlocker();
+    return closed;
   }
 
   disposeAll(): void {
@@ -813,26 +823,36 @@ export class KsPlayerMetalNativeService {
     try {
       if (this.addon) {
         assertNativeOperation(this.addon.disposeAll(), "disposeAll");
+      } else if (sessions.length > 0) {
+        throw new Error("KS Player addon is unavailable while sessions are active.");
       }
     } catch (error) {
       console.warn("[KSPlayer Metal] disposeAll failed:", error);
-    } finally {
-      this.sessions.clear();
-      this.pollFailuresLogged.clear();
-      sessions.forEach((session) =>
-        this.sendSessionUpdate(this.createClosedSession(session)),
-      );
-      if (this.pollingTimer) {
-        clearInterval(this.pollingTimer);
-        this.pollingTimer = null;
-      }
-      this.updatePowerBlocker();
+      throw error;
     }
+
+    this.sessions.clear();
+    this.pollFailuresLogged.clear();
+    sessions.forEach((session) =>
+      this.sendSessionUpdate(this.createClosedSession(session)),
+    );
+    if (this.pollingTimer) {
+      clearInterval(this.pollingTimer);
+      this.pollingTimer = null;
+    }
+    this.updatePowerBlocker();
   }
 
-  shutdown(): void {
-    this.disposeAll();
+  shutdown(strict = false): void {
+    let failure: unknown;
+    try {
+      this.disposeAll();
+    } catch (error) {
+      failure = error;
+      console.warn("[KSPlayer Metal] Shutdown could not dispose all sessions:", error);
+    }
     this.detachRendererLifecycleWatch();
+    if (strict && failure) throw failure;
   }
 
   private ensurePolling(): void {
@@ -942,7 +962,14 @@ export class KsPlayerMetalNativeService {
         `[KSPlayer Metal] Disposing ${this.sessions.size} session(s): renderer ${reason}`,
       );
     }
-    this.disposeAll();
+    try {
+      this.disposeAll();
+    } catch (error) {
+      console.warn(
+        `[KSPlayer Metal] Renderer ${reason} cleanup failed; retaining session ownership:`,
+        error,
+      );
+    }
   }
 
   private detachRendererLifecycleWatch(
@@ -1024,6 +1051,7 @@ export class KsPlayerMetalNativeService {
         snapshot.status ?? snapshot.state,
         snapshot.paused,
       ),
+      frameReady: snapshot.frameReady === true,
       positionSeconds: this.nonNegativeNumber(snapshot.positionSeconds),
       durationSeconds:
         typeof snapshot.durationSeconds === "number"
@@ -1082,6 +1110,9 @@ export class KsPlayerMetalNativeService {
     session.streamUrl = payload.streamUrl;
     session.volume = payload.volume;
     session.updatedAt = payload.updatedAt;
+    if (session.lastStatus !== payload.status) {
+      playbackDiagnostics.record({ event: "native-state", transport: BACKEND, sessionId, sourceUrl: payload.streamUrl, state: payload.status, error: payload.error, activeSessions: this.sessions.size });
+    }
     session.lastStatus = payload.status;
     const nextPayloadKey = JSON.stringify({ ...payload, updatedAt: "" });
     if (session.lastPayloadKey !== nextPayloadKey) {

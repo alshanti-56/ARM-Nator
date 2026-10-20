@@ -20,6 +20,7 @@ export interface StalkerTestResult {
   status: StalkerTestStatus;
   message: string;
   selected: boolean;
+  resolvedPortalUrl?: string;
   responseTimeMs?: number;
   accountStatus?: string;
   expiresAt?: number;

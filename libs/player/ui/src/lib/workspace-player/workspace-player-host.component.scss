@@ -3,19 +3,37 @@
 }
 
 .workspace-player {
+    // Toolbar chrome follows the app theme; the picture remains a black surface.
+    --player-toolbar-bg: var(--app-widget-bg);
+    --player-toolbar-fg: var(--app-heading-color);
+    --player-toolbar-muted: var(--app-body-color);
+    --player-toolbar-border: var(--app-separator);
+    --player-toolbar-button-bg: var(--app-card-hover-bg);
+    --player-toolbar-hover-bg: color-mix(in srgb, var(--app-heading-color) 10%, var(--app-widget-bg));
     position: fixed;
-    z-index: 1200;
-    display: grid;
+    // Above browser guests (100), below CDK menus and dialogs (1000).
+    z-index: 900;
+    display: flex;
+    flex-direction: column;
     overflow: hidden;
     container-type: inline-size;
     container-name: workspace-player;
-    border: 1px solid rgb(255 255 255 / 14%);
+    border: 1px solid var(--player-toolbar-border);
     border-radius: 14px;
     background: #090b10;
     box-shadow: 0 24px 80px rgb(0 0 0 / 58%);
     color: #f5f7fb;
     pointer-events: auto;
-    grid-template-rows: auto minmax(0, 1fr);
+}
+
+// Recovery notices must keep their natural height. Only the video
+// surface grows; an optional sibling must never consume its grid row.
+.workspace-player > * {
+    flex: 0 0 auto;
+}
+
+.workspace-player > .workspace-player__surface {
+    flex: 1 1 0;
 }
 
 .workspace-player--expanded {
@@ -25,8 +43,15 @@
 .workspace-player--mini {
     right: 22px;
     bottom: 22px;
-    width: min(460px, calc(100vw - 44px));
-    height: min(330px, calc(100vh - 88px));
+    width: min(560px, calc(100vw - 44px));
+    height: min(390px, calc(100vh - 88px));
+}
+
+.workspace-player__header {
+    --mat-icon-button-icon-color: var(--player-toolbar-fg);
+    --mat-icon-button-state-layer-color: var(--player-toolbar-fg);
+    --mat-button-text-label-text-color: var(--player-toolbar-fg);
+    --mat-button-text-state-layer-color: var(--player-toolbar-fg);
 }
 
 .workspace-player__header {
@@ -44,8 +69,9 @@
     column-gap: 12px;
     row-gap: 2px;
     padding: 8px 10px 8px 14px;
-    border-bottom: 1px solid rgb(255 255 255 / 9%);
-    background: rgb(20 23 31 / 98%);
+    border-bottom: 1px solid var(--player-toolbar-border);
+    background: var(--player-toolbar-bg);
+    color: var(--player-toolbar-fg);
     app-region: no-drag;
     -webkit-app-region: no-drag;
 }
@@ -58,7 +84,7 @@
 }
 
 .workspace-player__identity span {
-    color: #ff6577;
+    color: var(--player-toolbar-muted);
     font-size: 0.65rem;
     font-weight: 800;
     letter-spacing: 0.12em;
@@ -97,7 +123,7 @@
     border: 0;
     border-radius: 7px;
     background: transparent;
-    color: rgb(255 255 255 / 58%);
+    color: var(--player-toolbar-muted);
     cursor: pointer;
     font: inherit;
     font-size: 0.72rem;
@@ -108,8 +134,8 @@
 
 .workspace-player__engines button:hover,
 .workspace-player__engines button.is-active {
-    background: rgb(107 151 255 / 18%);
-    color: #dce7ff;
+    background: var(--player-toolbar-button-bg);
+    color: var(--player-toolbar-fg);
 }
 
 .workspace-player__engines button:disabled {
@@ -133,8 +159,8 @@
     overflow: hidden;
     padding: 4px 7px;
     border-radius: 6px;
-    background: rgb(255 255 255 / 6%);
-    color: rgb(255 255 255 / 68%);
+    background: var(--player-toolbar-button-bg);
+    color: var(--player-toolbar-muted);
     font-size: 0.68rem;
     text-overflow: ellipsis;
     white-space: nowrap;
@@ -145,9 +171,9 @@
     display: flex;
     flex: 0 0 auto;
     align-items: center;
-    gap: 2px;
+    gap: 4px;
     padding-left: 4px;
-    border-left: 1px solid rgb(255 255 255 / 10%);
+    border-left: 1px solid var(--player-toolbar-border);
 }
 
 .workspace-player__engine-menu-trigger {
@@ -160,6 +186,29 @@
     width: 34px;
     height: 34px;
     padding: 5px;
+    border-radius: 8px;
+    color: var(--player-toolbar-fg);
+}
+
+.workspace-player__window-actions button:hover:not(:disabled),
+.workspace-player__engine-menu-trigger:hover {
+    background: var(--player-toolbar-hover-bg);
+}
+
+.workspace-player__window-actions button:disabled {
+    color: var(--player-toolbar-muted);
+    opacity: 0.45;
+}
+
+.workspace-player__window-actions .workspace-player__close:hover {
+    color: var(--app-live-color);
+    background: color-mix(in srgb, var(--app-live-color) 12%, var(--player-toolbar-bg));
+}
+
+.workspace-player__header button:focus-visible,
+.workspace-player__header app-playback-recovery-menu:focus-within {
+    outline: 2px solid var(--app-selection-color);
+    outline-offset: 2px;
 }
 
 .workspace-player__window-actions mat-icon {
@@ -168,14 +217,26 @@
     font-size: 19px;
 }
 
-.workspace-player__window-actions
-    .workspace-player__media-action[data-test-id='workspace-player-copy-url'] {
-    color: #c9d8ff;
+.workspace-player__window-actions app-playback-recovery-menu {
+    border: 1px solid var(--player-toolbar-border);
+    border-radius: 8px;
+    background: var(--player-toolbar-button-bg);
+    color: var(--player-toolbar-fg);
+}
+
+.workspace-player__window-actions app-playback-recovery-menu {
+    display: inline-flex;
+}
+
+.workspace-player__window-actions app-playback-recovery-menu:hover {
+    background: var(--player-toolbar-hover-bg);
 }
 
 .workspace-player__surface {
     min-height: 0;
     background: #000;
+    // Player overlays must stay below the window header and its close button.
+    isolation: isolate;
 }
 
 .workspace-player__youtube-surface {
@@ -206,8 +267,107 @@
     font-size: 42px;
 }
 
+.workspace-player--mini {
+    --workspace-player-mini-header-height: 38px;
+}
+
 .workspace-player--mini .workspace-player__header {
-    min-height: 46px;
+    position: absolute;
+    inset: 0 0 auto;
+    z-index: 4;
+    grid-template-columns: minmax(0, 1fr) auto;
+    grid-template-rows: auto;
+    grid-template-areas: 'identity actions';
+    box-sizing: border-box;
+    height: var(--workspace-player-mini-header-height);
+    min-height: var(--workspace-player-mini-header-height);
+    padding: 2px 6px 2px 12px;
+    transition: opacity 180ms ease-out;
+}
+
+.workspace-player--mini .workspace-player__identity {
+    cursor: grab;
+    touch-action: none;
+    user-select: none;
+}
+
+.workspace-player--mini .workspace-player__identity:focus-visible {
+    outline: 2px solid var(--app-selection-color);
+    outline-offset: 2px;
+    border-radius: 4px;
+}
+
+.workspace-player--dragging .workspace-player__identity {
+    cursor: grabbing;
+}
+
+.workspace-player--header-hidden .workspace-player__header {
+    opacity: 0;
+    pointer-events: none;
+}
+
+.workspace-player__reveal-strip {
+    position: absolute;
+    inset: 0 0 auto;
+    z-index: 3;
+    height: 10px;
+    pointer-events: auto;
+}
+
+.workspace-player--collapsed {
+    width: min(340px, calc(100vw - 44px));
+    height: var(--workspace-player-mini-header-height);
+}
+
+.workspace-player--collapsed .workspace-player__header {
+    position: relative;
+    border-bottom: 0;
+}
+
+.workspace-player--collapsed > .workspace-player__surface {
+    position: absolute;
+    inset: 0;
+    visibility: hidden;
+    pointer-events: none;
+}
+
+@media (prefers-reduced-motion: reduce) {
+    .workspace-player--mini .workspace-player__header { transition: none; }
+}
+
+.workspace-player--mini .workspace-player__identity span {
+    display: none;
+}
+
+.workspace-player--mini .workspace-player__identity strong {
+    font-size: 0.8rem;
+    font-weight: 600;
+}
+
+.workspace-player--mini .workspace-player__window-actions {
+    gap: 0;
+    padding-left: 4px;
+    border-left: 0;
+}
+
+.workspace-player--mini .workspace-player__window-actions button {
+    --mat-icon-button-state-layer-size: 32px;
+    --mat-icon-button-touch-target-display: none;
+    width: 32px;
+    height: 32px;
+    padding: 6px;
+}
+
+.workspace-player--mini .workspace-player__window-actions app-playback-recovery-menu {
+    display: none;
+}
+
+// The mini header overlays the video during playback. Error content begins at
+// the top of the surface too, so reserve the header's space to keep its banner
+// and first line readable when a diagnostic is visible.
+.workspace-player--mini.workspace-player--error .workspace-player__surface {
+    box-sizing: border-box;
+    padding-block-start: var(--workspace-player-mini-header-height);
 }
 
 .workspace-player--mini .workspace-player__identity {
@@ -232,18 +392,21 @@
         inset: 58px 8px 8px;
     }
 
-    // The full engine list is still useful at this width, but it needs to
-    // wrap instead of scrolling off-screen beside the title and actions.
-    .workspace-player__engines {
-        flex-wrap: wrap;
-        align-content: center;
-        max-height: 58px;
-        overflow-x: hidden;
-        overflow-y: hidden;
+    // Use the existing engine menu once the title, engine list and window
+    // actions no longer fit. Wrapping inside a clipped height hid engines.
+    .workspace-player__header {
+        grid-template-columns: minmax(0, 1fr) auto auto;
+        grid-template-rows: auto;
+        grid-template-areas: 'identity engines actions';
     }
 
+    .workspace-player__engines,
     .workspace-player__health {
         display: none;
+    }
+
+    .workspace-player__engine-menu-trigger {
+        display: inline-flex;
     }
 }
 
@@ -283,4 +446,36 @@
         width: 32px;
         height: 32px;
     }
+}
+
+.workspace-player__persistence-error {
+    position: absolute;
+    z-index: 3;
+    bottom: 4px;
+    left: 12px;
+    max-width: calc(100% - 24px);
+    padding: 4px 8px;
+    border-radius: 6px;
+    background: #452e14;
+    color: #ffdca1;
+    font-size: 0.72rem;
+    pointer-events: none;
+}
+
+.workspace-player--native-composition,
+.workspace-player--native-composition .workspace-player__surface { background:transparent; }
+
+// The DOM guest sits below this HTML chrome. Keep its picture and hit testing
+// exposed while retaining interactive, opaque window controls.
+.workspace-player--browser-guest {
+    background: transparent;
+    pointer-events: none;
+}
+.workspace-player--browser-guest .workspace-player__surface,
+.workspace-player--browser-guest .workspace-player__youtube-surface {
+    background: transparent;
+    pointer-events: none;
+}
+.workspace-player--browser-guest .workspace-player__header {
+    pointer-events: auto;
 }

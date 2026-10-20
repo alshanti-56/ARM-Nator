@@ -1,13 +1,27 @@
+:host {
+    display: flex;
+    flex-direction: column;
+    min-width: 0;
+    max-height: 90vh;
+}
+
 .mat-mdc-dialog-content {
     display: flex;
     gap: 10px;
     flex-direction: column;
+    flex: 1 1 auto;
     box-sizing: border-box;
-    overflow: auto !important;
-    width: min(600px, calc(100vw - 32px));
+    width: 100%;
     min-width: 0;
-    max-width: calc(100vw - 32px);
-    max-height: 85vh !important;
+    min-height: 0;
+    max-height: none;
+    overflow: hidden;
+}
+
+.header-actions,
+.search-inline {
+    flex: 0 0 auto;
+    min-width: 0;
 }
 
 .header-actions {
@@ -29,6 +43,8 @@
 
 .bulk-actions {
     display: flex;
+    flex-wrap: wrap;
+    min-width: 0;
     gap: 8px;
 
     button {
@@ -109,7 +125,7 @@
 
 .groups-list {
     flex: 1;
-    min-height: 200px;
+    min-height: 0;
     overflow-y: auto;
     border: 1px solid var(--mat-sys-outline-variant);
     border-radius: 8px;
@@ -139,6 +155,7 @@
 
 .group-name {
     flex: 1;
+    min-width: 0;
     overflow: hidden;
     text-overflow: ellipsis;
     white-space: nowrap;
@@ -146,6 +163,7 @@
 }
 
 .item-count {
+    flex-shrink: 0;
     font-size: 0.8rem;
     color: var(--mat-sys-on-surface-variant);
 }
@@ -162,7 +180,4 @@
         gap: 8px;
     }
 
-    .groups-list {
-        min-height: 140px;
-    }
 }

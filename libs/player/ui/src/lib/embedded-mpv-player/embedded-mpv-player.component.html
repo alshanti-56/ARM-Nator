@@ -1,6 +1,9 @@
 <div
     #playerRoot
     class="embedded-mpv-player"
+    [class.embedded-mpv-player--composition]="composition.enabled"
+    [class.embedded-mpv-player--mini-overlay]="miniOverlay()"
+    [class.embedded-mpv-player--frame-visible]="frameVisible()"
     [class.embedded-mpv-player--fullscreen]="isFullscreen()"
     [class.embedded-mpv-player--settings-open]="menus.pictureOpen()"
     [class.embedded-mpv-player--controls-enabled]="
@@ -14,6 +17,9 @@
     (dblclick)="onPlayerDblClick($event)"
     (focusin)="onPlayerInteraction()"
 >
+    @if (composition.enabled && !miniOverlay() && showControls() && isSupported()) {
+        <div class="embedded-mpv-player__dock-mask" aria-hidden="true"></div>
+    }
     <div
         #viewport
         class="embedded-mpv-player__viewport"
@@ -84,6 +90,7 @@
 
     @if (showControls() && isSupported()) {
         <div
+            #controls
             class="embedded-mpv-player__controls"
             [class.embedded-mpv-player__controls--visible]="
                 controlsAreVisible()
@@ -123,7 +130,7 @@
                                 : 'EMBEDDED_MPV.PLAYER.PAUSE'
                             ) | translate
                         "
-                        matTooltipPosition="below"
+                        [matTooltipPosition]="composition.enabled ? 'above' : 'after'"
                     >
                         <mat-icon>{{
                             isPaused() ? 'play_arrow' : 'pause'
@@ -146,7 +153,7 @@
                                 'EMBEDDED_MPV.PLAYER.PREVIOUS_EPISODE'
                                     | translate
                             "
-                            matTooltipPosition="below"
+                            [matTooltipPosition]="composition.enabled ? 'above' : 'after'"
                         >
                             <mat-icon>skip_previous</mat-icon>
                         </button>
@@ -164,7 +171,7 @@
                             [matTooltip]="
                                 'EMBEDDED_MPV.PLAYER.NEXT_EPISODE' | translate
                             "
-                            matTooltipPosition="below"
+                            [matTooltipPosition]="composition.enabled ? 'above' : 'after'"
                         >
                             <mat-icon>skip_next</mat-icon>
                         </button>
@@ -182,7 +189,7 @@
                         [matTooltip]="
                             'EMBEDDED_MPV.PLAYER.BACK_10_SECONDS' | translate
                         "
-                        matTooltipPosition="below"
+                        [matTooltipPosition]="composition.enabled ? 'above' : 'after'"
                     >
                         <mat-icon>replay_10</mat-icon>
                     </button>
@@ -199,13 +206,14 @@
                         [matTooltip]="
                             'EMBEDDED_MPV.PLAYER.FORWARD_10_SECONDS' | translate
                         "
-                        matTooltipPosition="below"
+                        [matTooltipPosition]="composition.enabled ? 'above' : 'after'"
                     >
                         <mat-icon>forward_10</mat-icon>
                     </button>
                 </div>
 
                 <div class="embedded-mpv-player__timeline">
+                    <app-seek-preview [duration]="session()?.durationSeconds ?? 0" [enabled]="canSeek() && !isLivePlayback()" [source]="playback().seekPreviews" [cacheKey]="seekPreviewCacheKey()" [dock]="!composition.enabled" [dockSurface]="controls">
                     <input
                         class="embedded-mpv-player__slider"
                         [style.--slider-progress.%]="
@@ -225,11 +233,12 @@
                         (input)="onTimelineInput($event)"
                         (change)="onTimelineCommit($event)"
                     />
+                    </app-seek-preview>
                     <div class="embedded-mpv-player__time">
                         <span>{{ formatTime(timelineValue()) }}</span>
                         @if (canSeek()) {
                             <span>{{
-                                formatTime(session()?.durationSeconds)
+                                formatTime($safeNavigationMigration(session()?.durationSeconds))
                             }}</span>
                         } @else if (isLivePlayback()) {
                             <span
@@ -256,7 +265,7 @@
                         <span
                             class="embedded-mpv-player__buffer"
                             [matTooltip]="'Buffer ' + buffer"
-                            matTooltipPosition="below"
+                            [matTooltipPosition]="composition.enabled ? 'above' : 'before'"
                             >Buffer {{ buffer }}</span
                         >
                     }
@@ -268,6 +277,7 @@
                         (focusin)="onVolumeHoverEnter()"
                         (focusout)="onVolumeHoverLeave()"
                         (wheel)="onVolumeWheel($event)"
+                        (keydown.escape)="menus.closeAll(); $event.stopPropagation(); $event.preventDefault()"
                     >
                         <button
                             mat-icon-button
@@ -286,7 +296,7 @@
                                     : 'EMBEDDED_MPV.PLAYER.MUTE'
                                 ) | translate
                             "
-                            matTooltipPosition="below"
+                            [matTooltipPosition]="composition.enabled ? 'above' : 'before'"
                         >
                             <mat-icon>{{ volumeIcon() }}</mat-icon>
                         </button>
@@ -332,7 +342,7 @@
                             [matTooltip]="
                                 'EMBEDDED_MPV.PLAYER.AUDIO_TRACKS' | translate
                             "
-                            matTooltipPosition="below"
+                            [matTooltipPosition]="composition.enabled ? 'above' : 'before'"
                         >
                             <mat-icon>graphic_eq</mat-icon>
                         </button>
@@ -352,7 +362,7 @@
                             [matTooltip]="
                                 'EMBEDDED_MPV.PLAYER.SUBTITLES' | translate
                             "
-                            matTooltipPosition="below"
+                            [matTooltipPosition]="composition.enabled ? 'above' : 'before'"
                         >
                             <mat-icon>{{
                                 selectedSubtitleTrackId() === null
@@ -362,7 +372,7 @@
                         </button>
                     }
 
-                    @if (capabilities().playbackSpeed) {
+                    @if (showSpeedShortcut()) {
                         <button
                             mat-icon-button
                             type="button"
@@ -385,13 +395,13 @@
                                               ),
                                           }
                             "
-                            matTooltipPosition="below"
+                            [matTooltipPosition]="composition.enabled ? 'above' : 'before'"
                         >
                             <mat-icon>speed</mat-icon>
                         </button>
                     }
 
-                    @if (capabilities().aspectRatio) {
+                    @if (showAspectShortcut()) {
                         <button
                             mat-icon-button
                             type="button"
@@ -414,7 +424,7 @@
                                               ),
                                           }
                             "
-                            matTooltipPosition="below"
+                            [matTooltipPosition]="composition.enabled ? 'above' : 'before'"
                         >
                             <mat-icon>aspect_ratio</mat-icon>
                         </button>
@@ -426,6 +436,7 @@
                             type="button"
                             class="embedded-mpv-player__control-button"
                             data-embedded-mpv-menu-button="picture"
+                            (keydown.escape)="closePictureSettings(); $event.stopPropagation(); $event.preventDefault()"
                             (click)="togglePictureMenu()"
                             [attr.aria-expanded]="menus.pictureOpen()"
                             [attr.aria-label]="
@@ -436,7 +447,7 @@
                                 'EMBEDDED_MPV.PLAYER.PLAYER_SETTINGS'
                                     | translate
                             "
-                            matTooltipPosition="below"
+                            [matTooltipPosition]="composition.enabled ? 'above' : 'before'"
                         >
                             <mat-icon>settings</mat-icon>
                         </button>
@@ -450,7 +461,7 @@
                         (click)="toggleFullscreen()"
                         [attr.aria-label]="fullscreenLabel()"
                         [matTooltip]="fullscreenLabel()"
-                        matTooltipPosition="below"
+                        [matTooltipPosition]="composition.enabled ? 'above' : 'before'"
                     >
                         <mat-icon>{{
                             isFullscreen() ? 'fullscreen_exit' : 'fullscreen'

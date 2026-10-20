@@ -1,10 +1,10 @@
-import { Component, inject, input } from "@angular/core";
+import { Component, inject, input, ChangeDetectionStrategy } from "@angular/core";
 import { MatButtonModule } from "@angular/material/button";
 import { MatDialog } from "@angular/material/dialog";
 import { MatIconModule } from "@angular/material/icon";
 import { Router, RouterLink } from "@angular/router";
 import { Store } from "@ngrx/store";
-import { TranslateModule, TranslateService } from "@ngx-translate/core";
+import { TranslatePipe, TranslateService } from "@ngx-translate/core";
 import { PlaylistInfoComponent } from "@arm-nator/providers/shared/playlist-ui";
 import { PlaylistContextFacade } from "@arm-nator/providers/shared/playlist-util";
 import { DialogService } from "@arm-nator/ui/components";
@@ -14,7 +14,8 @@ import { PlaylistActions } from "@arm-nator/providers/shared/playlist-state";
   selector: "app-playlist-error-view",
   templateUrl: "./playlist-error-view.component.html",
   styleUrls: ["./playlist-error-view.component.scss"],
-  imports: [MatButtonModule, MatIconModule, RouterLink, TranslateModule],
+  changeDetection: ChangeDetectionStrategy.Eager,
+  imports: [MatButtonModule, MatIconModule, RouterLink, TranslatePipe],
 })
 export class PlaylistErrorViewComponent {
   private dialog = inject(MatDialog);

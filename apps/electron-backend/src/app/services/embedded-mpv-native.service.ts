@@ -19,10 +19,14 @@ import {
 import { toNativeViewBounds } from './embedded-mpv-bounds.util';
 import { getEmbeddedMpvAddonCandidatePaths } from './embedded-mpv-platform.util';
 import { isEmbeddedMpvFeatureEnabled } from './embedded-mpv-runtime-policy.util';
+import { playbackDiagnostics } from './playback-diagnostics.service';
+import { nativeProgressivePlaybackUrl } from './progressive-response-recovery';
 
 export interface NativeEmbeddedMpvSessionSnapshot {
     status: EmbeddedMpvSessionStatus;
+    frameReady?: boolean;
     positionSeconds: number;
+    seeking?: boolean;
     durationSeconds: number | null;
     volume: number;
     streamUrl: string;
@@ -322,7 +326,25 @@ export class EmbeddedMpvNativeService {
         session.title = playback.title ?? session.title;
         session.streamUrl = playback.streamUrl ?? session.streamUrl;
         session.updatedAt = new Date().toISOString();
-        addon.loadPlayback(sessionId, playback);
+        playbackDiagnostics.record({
+            event: 'native-load', transport: 'embedded-mpv', sessionId,
+            sourceUrl: playback.streamUrl,
+            requestHeaders: {
+                ...(playback.headers ?? {}),
+                ...(playback.userAgent ? { 'User-Agent': playback.userAgent } : {}),
+                ...(playback.referer ? { Referer: playback.referer } : {}),
+            },
+            activeSessions: this.sessions.size,
+        });
+        try {
+            addon.loadPlayback(sessionId, {
+                ...playback,
+                streamUrl: nativeProgressivePlaybackUrl(playback.streamUrl),
+            });
+        } catch (error) {
+            playbackDiagnostics.record({ event: 'native-error', transport: 'embedded-mpv', sessionId, sourceUrl: playback.streamUrl, error });
+            throw error;
+        }
         this.refreshSession(sessionId);
     }
 
@@ -451,51 +473,70 @@ export class EmbeddedMpvNativeService {
             return null;
         }
 
-        try {
-            const addon = this.getAddon();
-            addon.disposeSession(sessionId);
-        } finally {
-            this.sessions.delete(sessionId);
-            this.pollFailuresLogged.delete(sessionId);
-            const payload: EmbeddedMpvSession = {
-                id: session.id,
-                title: session.title,
-                streamUrl: session.streamUrl,
-                status: 'closed',
-                positionSeconds: 0,
-                durationSeconds: null,
-                volume: 1,
-                audioTracks: [],
-                selectedAudioTrackId: null,
-                subtitleTracks: [],
-                selectedSubtitleTrackId: null,
-                playbackSpeed: 1,
-                aspectOverride: 'no',
-                picture: {
-                    brightness: 0,
-                    contrast: 0,
-                    blackLevel: 0,
-                    saturation: 0,
-                    gamma: 0,
-                },
-                startedAt: session.startedAt,
-                updatedAt: new Date().toISOString(),
-            };
-            this.sendSessionUpdate(payload);
-            this.stopPollingIfIdle();
-            this.updatePowerBlocker();
-            return payload;
-        }
+        // Keep ownership until the native addon confirms release. A caller
+        // can retry this operation after a failure, and no closed snapshot is
+        // emitted while the native player may still be alive.
+        this.getAddon().disposeSession(sessionId);
+
+        this.sessions.delete(sessionId);
+        playbackDiagnostics.record({
+            event: 'native-release',
+            transport: 'embedded-mpv',
+            sessionId,
+            sourceUrl: session.streamUrl,
+            activeSessions: this.sessions.size,
+        });
+        this.pollFailuresLogged.delete(sessionId);
+        const payload: EmbeddedMpvSession = {
+            id: session.id,
+            title: session.title,
+            streamUrl: session.streamUrl,
+            status: 'closed',
+            positionSeconds: 0,
+            durationSeconds: null,
+            volume: 1,
+            audioTracks: [],
+            selectedAudioTrackId: null,
+            subtitleTracks: [],
+            selectedSubtitleTrackId: null,
+            playbackSpeed: 1,
+            aspectOverride: 'no',
+            picture: {
+                brightness: 0,
+                contrast: 0,
+                blackLevel: 0,
+                saturation: 0,
+                gamma: 0,
+            },
+            startedAt: session.startedAt,
+            updatedAt: new Date().toISOString(),
+        };
+        this.sendSessionUpdate(payload);
+        this.stopPollingIfIdle();
+        this.updatePowerBlocker();
+        return payload;
     }
 
-    shutdown(): void {
+    shutdown(strict = false): void {
+        const errors: unknown[] = [];
         const sessionIds = [...this.sessions.keys()];
-        sessionIds.forEach((sessionId) => this.disposeSession(sessionId));
-        if (this.pollingTimer) {
+        sessionIds.forEach((sessionId) => {
+            try {
+                this.disposeSession(sessionId);
+            } catch (error) {
+                errors.push(error);
+                console.warn(
+                    `[Embedded MPV] Shutdown could not dispose session "${sessionId}":`,
+                    error
+                );
+            }
+        });
+        if (this.sessions.size === 0 && this.pollingTimer) {
             clearInterval(this.pollingTimer);
             this.pollingTimer = null;
         }
         this.updatePowerBlocker();
+        if (strict && errors.length) throw new AggregateError(errors, 'Native player cleanup failed');
     }
 
     private ensurePolling(): void {
@@ -606,10 +647,12 @@ export class EmbeddedMpvNativeService {
             title: session.title,
             streamUrl: snapshot.streamUrl || session.streamUrl,
             status: snapshot.status,
-            positionSeconds: Math.max(0, Math.floor(snapshot.positionSeconds)),
+            frameReady: snapshot.frameReady === true,
+            positionSeconds: Number.isFinite(snapshot.positionSeconds) ? Math.max(0, snapshot.positionSeconds) : 0,
+            seeking: snapshot.seeking === true,
             durationSeconds:
-                typeof snapshot.durationSeconds === 'number'
-                    ? Math.max(0, Math.floor(snapshot.durationSeconds))
+                typeof snapshot.durationSeconds === 'number' && Number.isFinite(snapshot.durationSeconds)
+                    ? Math.max(0, snapshot.durationSeconds)
                     : null,
             volume: typeof snapshot.volume === 'number' ? snapshot.volume : 1,
             ...(typeof snapshot.videoWidth === 'number' &&
@@ -684,6 +727,9 @@ export class EmbeddedMpvNativeService {
 
         session.streamUrl = payload.streamUrl;
         session.updatedAt = payload.updatedAt;
+        if (session.lastStatus !== payload.status) {
+            playbackDiagnostics.record({ event: 'native-state', transport: 'embedded-mpv', sessionId, sourceUrl: payload.streamUrl, state: payload.status, error: payload.error, activeSessions: this.sessions.size });
+        }
         session.lastStatus = payload.status;
         // The refresh timestamp must not participate in the diff key,
         // otherwise every poll tick looks like a change and the renderer

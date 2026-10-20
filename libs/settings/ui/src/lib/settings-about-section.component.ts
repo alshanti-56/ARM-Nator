@@ -1,12 +1,13 @@
-import { Component, computed, input, ViewEncapsulation } from "@angular/core";
+import { Component, computed, input, ViewEncapsulation, ChangeDetectionStrategy } from "@angular/core";
 import { MatIconModule } from "@angular/material/icon";
-import { TranslateModule } from "@ngx-translate/core";
+import { TranslatePipe } from "@ngx-translate/core";
 
 @Component({
   selector: "app-settings-about-section",
-  imports: [MatIconModule, TranslateModule],
+  imports: [MatIconModule, TranslatePipe],
   templateUrl: "./settings-about-section.component.html",
   encapsulation: ViewEncapsulation.None,
+  changeDetection: ChangeDetectionStrategy.Eager,
   styles: [
     ":host { display: contents; }",
     ".version-block .build-commit { opacity: 0.65; font-size: 0.85em; }",

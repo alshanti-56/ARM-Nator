@@ -1,4 +1,4 @@
-import { Component, input, output, signal } from '@angular/core';
+import { Component, input, output, signal, ChangeDetectionStrategy } from '@angular/core';
 import { ComponentFixture, TestBed } from '@angular/core/testing';
 import { By } from '@angular/platform-browser';
 import { MatSnackBar } from '@angular/material/snack-bar';
@@ -14,6 +14,7 @@ import {
     PlaylistsService,
 } from '@arm-nator/services';
 import { VodDetailsComponent } from '@arm-nator/player/ui';
+import { StalkerStore } from '@arm-nator/providers/stalker/data-access';
 import { EMPTY, of } from 'rxjs';
 import { StalkerCatalogFacadeService } from '../stalker-catalog-facade.service';
 import { StalkerSeriesViewComponent } from '../stalker-series-view/stalker-series-view.component';
@@ -30,7 +31,8 @@ function deferred<T>() {
     return { promise, reject, resolve };
 }
 
-@Component({ selector: 'app-vod-details', template: '' })
+@Component({ selector: 'app-vod-details', changeDetection: ChangeDetectionStrategy.Eager,
+ template: '' })
 class StubVodDetailsComponent {
     readonly playbackSessionKey = input.required<string>();
     readonly item = input.required<unknown>();
@@ -49,7 +51,8 @@ class StubVodDetailsComponent {
     readonly inlineExternalFallbackRequested = output<unknown>();
 }
 
-@Component({ selector: 'app-stalker-series-view', template: '' })
+@Component({ selector: 'app-stalker-series-view', changeDetection: ChangeDetectionStrategy.Eager,
+ template: '' })
 class StubStalkerSeriesViewComponent {
     readonly vodWithSeries = input<unknown>(null);
     readonly providerOnly = input(false);
@@ -98,6 +101,16 @@ describe('StalkerCatalogDetailComponent provider presentation', () => {
                     },
                 },
                 {
+                    provide: StalkerStore,
+                    useValue: {
+                        currentPlaylist: () => ({
+                            _id: 'stalker-1',
+                            portalUrl: 'https://portal.example/load.php',
+                            macAddress: '00:1A:79:00:00:01',
+                        }),
+                    },
+                },
+                {
                     provide: PORTAL_PLAYBACK_POSITIONS,
                     useValue: {
                         getPlaybackPosition: jest.fn().mockResolvedValue(null),
@@ -128,7 +141,7 @@ describe('StalkerCatalogDetailComponent provider presentation', () => {
                         instant: (key: string) => key,
                         onLangChange: EMPTY,
                         onTranslationChange: EMPTY,
-                        onDefaultLangChange: EMPTY,
+                        onFallbackLangChange: EMPTY,
                     },
                 },
             ],

@@ -7,7 +7,7 @@ import {
 } from '@angular/core';
 import { MatIcon } from '@angular/material/icon';
 import { MatMenuModule } from '@angular/material/menu';
-import { TranslateModule } from '@ngx-translate/core';
+import { TranslatePipe } from '@ngx-translate/core';
 import { ExpandableTextComponent } from '../expandable-text/expandable-text.component';
 
 /** Above this count the pill row becomes a dropdown selector. */
@@ -24,7 +24,7 @@ const MAX_SEASON_PILLS = 6;
     templateUrl: './season-tabs.component.html',
     styleUrls: ['./season-tabs.component.scss'],
     changeDetection: ChangeDetectionStrategy.OnPush,
-    imports: [ExpandableTextComponent, MatIcon, MatMenuModule, TranslateModule],
+    imports: [ExpandableTextComponent, MatIcon, MatMenuModule, TranslatePipe],
 })
 export class SeasonTabsComponent {
     /** Season keys, already sorted in display order. */

@@ -141,6 +141,6 @@ handleEmbeddedMpv(EMBEDDED_MPV_DISPOSE_SESSION, (sessionId: string) =>
     getService().disposeSession(sessionId)
 );
 
-export function shutdownEmbeddedMpv(): void {
-    getService().shutdown();
+export function shutdownEmbeddedMpv(strict = false): void {
+    getService().shutdown(strict);
 }

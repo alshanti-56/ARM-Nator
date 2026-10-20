@@ -1,13 +1,14 @@
 import { DragDropModule } from '@angular/cdk/drag-drop';
 import { DatePipe } from '@angular/common';
 import {
-    Component,
-    Input,
-    OnInit,
-    computed,
-    inject,
-    input,
-    output,
+  Component,
+  Input,
+  OnInit,
+  computed,
+  inject,
+  input,
+  output,
+  ChangeDetectionStrategy
 } from '@angular/core';
 import { toSignal } from '@angular/core/rxjs-interop';
 import { MatButtonModule, MatIconButton } from '@angular/material/button';
@@ -33,6 +34,7 @@ import {
     selector: 'app-playlist-item',
     templateUrl: './playlist-item.component.html',
     styleUrls: ['./playlist-item.component.scss'],
+    changeDetection: ChangeDetectionStrategy.Eager,
     imports: [
         DatePipe,
         DragDropModule,
@@ -81,7 +83,7 @@ export class PlaylistItemComponent implements OnInit {
     readonly currentLocale = computed(() => {
         this.languageTick();
         return normalizeDateLocale(
-            this.translate.currentLang || this.translate.defaultLang
+            this.translate.currentLang() || this.translate.fallbackLang()
         );
     });
 

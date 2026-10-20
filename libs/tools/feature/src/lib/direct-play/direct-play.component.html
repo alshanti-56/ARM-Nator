@@ -88,7 +88,7 @@
             <mat-select
               id="direct-play-engine"
               [ngModel]="selectedEngine()"
-              (ngModelChange)="selectEngine($event)"
+              (ngModelChange)="switchEngine($event)"
             >
               @for (engine of engineAvailability(); track engine.engine) {
                 <mat-option
@@ -264,11 +264,11 @@
             </div>
             <div>
               <dt>FPS</dt>
-              <dd>{{ runtime.media?.fps | number: "1.0-2" }}</dd>
+              <dd>{{ $safeNavigationMigration(runtime.media?.fps) | number: "1.0-2" }}</dd>
             </div>
             <div>
               <dt>Bitrate</dt>
-              <dd>{{ formatBitrate(runtime.media?.bitrate) }}</dd>
+              <dd>{{ formatBitrate($safeNavigationMigration(runtime.media?.bitrate)) }}</dd>
             </div>
             <div>
               <dt>Codecs</dt>
@@ -280,7 +280,7 @@
             <div>
               <dt>Buffer ahead</dt>
               <dd>
-                {{ runtime.media?.bufferAheadSeconds | number: "1.0-2" }}s
+                {{ $safeNavigationMigration(runtime.media?.bufferAheadSeconds) | number: "1.0-2" }}s
               </dd>
             </div>
             <div>

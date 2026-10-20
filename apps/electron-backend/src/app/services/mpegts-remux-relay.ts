@@ -120,7 +120,7 @@ export async function relayMpegTsWithFfmpeg(
   const combinedSignal = AbortSignal.any([options.signal, relayAbort.signal]);
   let stderr = "";
   let childClosed = false;
-  let upstreamConnections = 0;
+  let upstreamConnections: number;
   let outputBytes = 0;
   let rendererBytes = 0;
 
@@ -303,14 +303,13 @@ export function readMpegTsPcrSeconds(
 async function waitForChildStartup(
   child: ChildProcessWithoutNullStreams,
 ): Promise<void> {
-  await Promise.race([
-    once(child, "spawn").then(() => undefined),
-    once(child, "error").then(([error]) => {
-      throw new MpegTsRemuxStartupError(
-        `Unable to start the MPEG-TS remuxer: ${String(error)}`,
-      );
-    }),
-  ]);
+  try {
+    await once(child, "spawn");
+  } catch (error) {
+    throw new MpegTsRemuxStartupError(
+      `Unable to start the MPEG-TS remuxer: ${String(error)}`,
+    );
+  }
 }
 
 async function feedUpstreams(

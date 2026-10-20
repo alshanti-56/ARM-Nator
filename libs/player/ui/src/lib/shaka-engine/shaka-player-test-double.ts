@@ -4,6 +4,8 @@ import type {
     ShakaModuleLoader,
     ShakaNetworkingEngineLike,
     ShakaPlayerLike,
+    ShakaRequestLike,
+    ShakaResponseLike,
     ShakaTextTrackLike,
 } from './shaka-module.types';
 
@@ -37,11 +39,21 @@ export class FakeShakaPlayer implements ShakaPlayerLike {
     loadResult: Promise<unknown> = Promise.resolve();
     private pendingLoadReject: ((error: unknown) => void) | null = null;
     readonly requestFilters: Array<
-        (type: number, request: { uris: string[]; headers: Record<string, string> }) => void
+        (type: number, request: ShakaRequestLike) => void | Promise<void>
+    > = [];
+    readonly responseFilters: Array<
+        (
+            type: number,
+            response: ShakaResponseLike,
+            request: ShakaRequestLike
+        ) => void | Promise<void>
     > = [];
     private readonly networkingEngine: ShakaNetworkingEngineLike = {
         registerRequestFilter: (filter) => {
             this.requestFilters.push(filter);
+        },
+        registerResponseFilter: (filter) => {
+            this.responseFilters.push(filter);
         },
     };
 

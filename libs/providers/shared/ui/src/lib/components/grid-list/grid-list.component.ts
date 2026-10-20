@@ -137,7 +137,7 @@ function normalizeArtworkUrl(value: string | undefined): string | undefined {
                   />
                 }
                 @if (i.progress && i.progress > 0) {
-                  <app-progress-capsule [progress]="i.progress" />
+                  <app-progress-capsule [progress]="i.progress" [isWatched]="i.isWatched ?? false" />
                 }
                 @if (i.isWatched) {
                   <app-watched-badge [isWatched]="true" icon="check_circle" />

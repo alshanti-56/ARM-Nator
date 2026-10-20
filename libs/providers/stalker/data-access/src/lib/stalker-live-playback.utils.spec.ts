@@ -3,6 +3,7 @@ import {
     STALKER_MAG_USER_AGENT,
     STALKER_STREAM_USER_AGENT,
     buildStalkerExternalPlaybackHeaders,
+    buildStalkerPlaybackRecoveryMetadata,
     isCrossOriginStalkerStream,
 } from './stalker-live-playback.utils';
 import { STALKER_SERIAL_NUMBER } from './stalker-session.service';
@@ -123,6 +124,18 @@ describe('buildStalkerExternalPlaybackHeaders', () => {
         expect(headers['Authorization']).toBeUndefined();
     });
 
+    it('honors a chosen user agent on foreign streams without forwarding portal credentials', () => {
+        const headers = buildStalkerExternalPlaybackHeaders(
+            createPlaylist({ userAgent: 'VLC/3.0.21 LibVLC/3.0.21' }),
+            'TOKEN',
+            'http://cdn.other.test/live/ch1.ts'
+        );
+        expect(headers['User-Agent']).toBe('VLC/3.0.21 LibVLC/3.0.21');
+        expect(headers['Cookie']).toBeUndefined();
+        expect(headers['Authorization']).toBeUndefined();
+        expect(headers['X-User-Agent']).toBeUndefined();
+    });
+
     it('uses the credential-free profile on an https→http downgrade', () => {
         const headers = buildStalkerExternalPlaybackHeaders(
             createPlaylist({
@@ -135,6 +148,52 @@ describe('buildStalkerExternalPlaybackHeaders', () => {
         expect(headers['User-Agent']).toBe(STALKER_STREAM_USER_AGENT);
         expect(headers['Cookie']).toBeUndefined();
         expect(headers['Authorization']).toBeUndefined();
+    });
+});
+
+describe('buildStalkerPlaybackRecoveryMetadata', () => {
+    it('describes the playlist identity and saved/default header profiles without exposing portal secrets', () => {
+        const metadata = buildStalkerPlaybackRecoveryMetadata(
+            createPlaylist({
+                userAgent: 'Custom MAG/1.0',
+                referrer: 'https://saved.example/watch',
+                origin: 'https://saved.example',
+                stalkerToken: 'must-not-be-copied',
+            }),
+            'http://portal.test:8080/live/ch1.ts'
+        );
+
+        expect(metadata.accountRef).toBe('playlist-1');
+        expect(metadata.providerLinkRenewable).toBeUndefined();
+        expect(metadata.portalCredentialsAvailable).toBeUndefined();
+        expect(metadata.savedHeaders).toEqual({
+            'User-Agent': 'Custom MAG/1.0',
+            Referer: 'https://saved.example/watch',
+            Origin: 'https://saved.example',
+        });
+        expect(metadata.defaultHeaders).toEqual({
+            'User-Agent': STALKER_MAG_USER_AGENT,
+            'X-User-Agent': STALKER_MAG_USER_AGENT,
+            Origin: 'http://portal.test',
+            Referer: 'http://portal.test',
+        });
+        expect(JSON.stringify(metadata)).not.toContain('must-not-be-copied');
+        expect(JSON.stringify(metadata)).not.toContain('00:1A:79:AA:BB:CC');
+    });
+
+    it('uses the credential-free defaults for a foreign stream host', () => {
+        const metadata = buildStalkerPlaybackRecoveryMetadata(
+            createPlaylist(),
+            'https://cdn.example/live/ch1.ts'
+        );
+
+        expect(metadata.defaultHeaders).toEqual({
+            'User-Agent': STALKER_STREAM_USER_AGENT,
+            Accept: '*/*',
+            Range: 'bytes=0-',
+            Connection: 'keep-alive',
+            'Icy-MetaData': '1',
+        });
     });
 });
 

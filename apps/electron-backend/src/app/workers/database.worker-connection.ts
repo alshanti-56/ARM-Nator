@@ -15,7 +15,6 @@ import {
     trace,
 } from '../services/debug-trace';
 
-let Database: typeof BetterSqlite3;
 let drizzleFactory:
     | (typeof import('drizzle-orm/better-sqlite3'))['drizzle']
     | undefined;
@@ -57,7 +56,7 @@ function getDrizzleFactory(): (typeof import('drizzle-orm/better-sqlite3'))['dri
     return drizzleFactory;
 }
 
-Database = loadBetterSqlite3();
+const Database = loadBetterSqlite3();
 
 let db: AppDatabase | null = null;
 let sqlite: BetterSqlite3.Database | null = null;

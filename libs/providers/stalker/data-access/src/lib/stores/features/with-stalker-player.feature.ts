@@ -1,3 +1,5 @@
+import { readProviderSeekPreviews } from "@arm-nator/shared/interfaces";
+import { optionalStalkerViewingItem } from '@arm-nator/shared/interfaces';
 import { inject } from '@angular/core';
 import { MatSnackBar } from '@angular/material/snack-bar';
 import { signalStoreFeature, withMethods } from '@ngrx/signals';
@@ -8,10 +10,12 @@ import { DataService, PlaylistsService } from '@arm-nator/services';
 import {
     PlaylistMeta,
     ResolvedPortalPlayback,
+    describeMovieWork,
     StalkerPortalItem,
 } from '@arm-nator/shared/interfaces';
 import {
     buildStalkerExternalPlaybackHeaders,
+    buildStalkerPlaybackRecoveryMetadata,
     getStalkerPortalOrigin,
     isCrossOriginStalkerStream,
     STALKER_MAG_USER_AGENT,
@@ -23,6 +27,7 @@ import {
     normalizeStalkerEntityIdAsNumber,
 } from '../../stalker-vod.utils';
 import {
+    type StalkerContentType,
     StalkerPlayerFeatureStoreContract,
     StalkerRecentlyViewedItem,
 } from '../stalker-store.contracts';
@@ -33,6 +38,7 @@ import {
     fetchStalkerMovieFileId,
     fetchStalkerPlaybackLink,
     hasStalkerLinkFlagEvidence,
+    resolveStalkerStaticPlaybackUrl,
     shouldResolveMovieFileId,
     type StalkerLinkFlagSource,
 } from '../utils';
@@ -42,6 +48,22 @@ type StalkerPlayableItem = StalkerPortalItem &
         cmd?: string;
         has_files?: unknown;
     };
+
+export interface StalkerPlaybackResolutionOptions {
+    readonly item?: StalkerPlayableItem | null;
+    readonly playlist?: PlaylistMeta | null;
+    readonly selectedContentType?: StalkerContentType;
+    readonly signal?: AbortSignal;
+    /** Recovery must not write another recent-item record or change selection. */
+    readonly recordRecentlyViewed?: boolean;
+}
+
+function throwIfAborted(signal?: AbortSignal): void {
+    if (!signal?.aborted) return;
+    const error = new Error('Stalker playback resolution was aborted');
+    error.name = 'AbortError';
+    throw error;
+}
 
 /**
  * Playback/link/player concern methods.
@@ -154,19 +176,25 @@ export function withStalkerPlayer() {
                     thumbnail?: string,
                     episodeNum?: number,
                     episodeId?: number,
-                    startTime?: number
+                    startTime?: number,
+                    options?: StalkerPlaybackResolutionOptions
                 ): Promise<ResolvedPortalPlayback> => {
-                    const item = storeState.selectedItem() as
+                    const item = (options?.item ?? storeState.selectedItem()) as
                         | StalkerPlayableItem
                         | null
                         | undefined;
                     let cmdToUse = cmd ?? item?.cmd;
+                    const selectedContentType =
+                        options?.selectedContentType ??
+                        storeState.selectedContentType();
+                    const playlist =
+                        options?.playlist ?? storeState.currentPlaylist();
 
+                    throwIfAborted(options?.signal);
                     if (!cmdToUse) {
                         throw new Error('nothing_to_play');
                     }
 
-                    const playlist = storeState.currentPlaylist();
                     if (!playlist?.portalUrl || !playlist.macAddress) {
                         throw new Error('nothing_to_play');
                     }
@@ -178,24 +206,29 @@ export function withStalkerPlayer() {
                             playlist,
                             itemId
                         );
+                        throwIfAborted(options?.signal);
                         if (fileId) {
                             cmdToUse = `/media/file_${fileId}.mpg`;
                         }
                     }
 
+                    throwIfAborted(options?.signal);
                     const streamUrl = await fetchStalkerPlaybackLink(
                         requestDeps,
                         {
                             playlist,
-                            selectedContentType:
-                                storeState.selectedContentType(),
+                            selectedContentType,
                             cmd: cmdToUse,
                             series: episodeNum,
                             linkFlags: item,
+                            signal: options?.signal,
                         }
                     );
+                    throwIfAborted(options?.signal);
 
-                    recordRecentlyViewed(item, cmd, thumbnail, title);
+                    if (options?.recordRecentlyViewed !== false) {
+                        recordRecentlyViewed(item, cmd, thumbnail, title);
+                    }
 
                     const isEpisode =
                         episodeNum !== undefined || episodeId !== undefined;
@@ -217,13 +250,39 @@ export function withStalkerPlayer() {
                         streamUrl
                     );
                     const portalOrigin = getStalkerPortalOrigin(playlist);
+                    const staticStreamUrl =
+                        episodeNum === undefined
+                            ? resolveStalkerStaticPlaybackUrl(item, cmdToUse)
+                            : null;
+                    const canResolveAgain =
+                        episodeNum !== undefined ||
+                        !staticStreamUrl ||
+                        streamUrl !== staticStreamUrl;
 
+                    const viewing = optionalStalkerViewingItem(playlist._id, item ?? {}, {
+                        episodeNumber: episodeNum,
+                        episodeProviderId: episodeId,
+                        seasonNumber: typeof item?.['season_number'] === 'number' ? item['season_number'] : undefined,
+                        parent: isEpisode && item?.id != null ? { id: String(item.id), work: { ...describeMovieWork(String(item.name ?? title ?? ''), item), kind: 'series' } } : undefined,
+                    });
                     return {
+                        ...(viewing ? { itemIdentity: viewing.identity, seriesIdentity: viewing.seriesIdentity, work: viewing.work, historyContext: viewing.activity } : {}),
                         streamUrl,
                         title: title ?? '',
+                        seekPreviews: readProviderSeekPreviews(item),
                         thumbnail,
                         startTime,
                         headers,
+                        recovery: buildStalkerPlaybackRecoveryMetadata(
+                            playlist,
+                            streamUrl,
+                            canResolveAgain
+                        ),
+                        requestPolicy: {
+                            accountRef: playlist._id,
+                            loginCookies: true,
+                            portalCredentials: true,
+                        },
                         userAgent:
                             headers['User-Agent'] ||
                             playlist.userAgent ||
@@ -234,7 +293,7 @@ export function withStalkerPlayer() {
                         origin: crossOriginStream
                             ? undefined
                             : playlist.origin || portalOrigin,
-                        contentInfo: {
+                        contentInfo: viewing ? {
                             playlistId: playlist._id,
                             contentXtreamId:
                                 isEpisode && episodeId
@@ -244,7 +303,7 @@ export function withStalkerPlayer() {
                             seriesXtreamId: isEpisode
                                 ? selectedItemId
                                 : undefined,
-                        },
+                        } : undefined,
                     };
                 };
 
@@ -283,6 +342,12 @@ export function withStalkerPlayer() {
                         streamUrl
                     );
                     const portalOrigin = getStalkerPortalOrigin(playlist);
+                    const staticStreamUrl = resolveStalkerStaticPlaybackUrl(
+                        item,
+                        item.cmd
+                    );
+                    const canResolveAgain =
+                        !staticStreamUrl || streamUrl !== staticStreamUrl;
 
                     recordRecentlyViewed(
                         item,
@@ -296,6 +361,16 @@ export function withStalkerPlayer() {
                         title: item.o_name || item.name || item.title || '',
                         thumbnail: item.logo ?? item.cover ?? null,
                         isLive: true,
+                        recovery: buildStalkerPlaybackRecoveryMetadata(
+                            playlist,
+                            streamUrl,
+                            canResolveAgain
+                        ),
+                        requestPolicy: {
+                            accountRef: playlist._id,
+                            loginCookies: true,
+                            portalCredentials: true,
+                        },
                         headers,
                         userAgent:
                             headers['User-Agent'] ||
@@ -370,11 +445,27 @@ export function withStalkerPlayer() {
                         streamUrl
                     );
                     const portalOrigin = getStalkerPortalOrigin(playlist);
+                    const staticStreamUrl = resolveStalkerStaticPlaybackUrl(
+                        radioLinkFlags,
+                        item.cmd
+                    );
+                    const canResolveAgain =
+                        !staticStreamUrl || streamUrl !== staticStreamUrl;
 
                     return {
                         streamUrl,
                         title: item.o_name || item.name || item.title || '',
                         thumbnail: item.logo ?? item.cover ?? null,
+                        recovery: buildStalkerPlaybackRecoveryMetadata(
+                            playlist,
+                            streamUrl,
+                            canResolveAgain
+                        ),
+                        requestPolicy: {
+                            accountRef: playlist._id,
+                            loginCookies: true,
+                            portalCredentials: true,
+                        },
                         headers,
                         userAgent:
                             headers['User-Agent'] ||
@@ -445,7 +536,8 @@ export function withStalkerPlayer() {
                         thumbnail?: string,
                         episodeNum?: number,
                         episodeId?: number,
-                        startTime?: number
+                        startTime?: number,
+                        options?: StalkerPlaybackResolutionOptions
                     ): Promise<ResolvedPortalPlayback> {
                         return resolveVodPlaybackInternal(
                             cmd,
@@ -453,7 +545,8 @@ export function withStalkerPlayer() {
                             thumbnail,
                             episodeNum,
                             episodeId,
-                            startTime
+                            startTime,
+                            options
                         );
                     },
                     async resolveItvPlayback(
@@ -474,6 +567,13 @@ export function withStalkerPlayer() {
                         episodeId?: number,
                         startTime?: number
                     ) {
+                        const sourceItem = storeState.selectedItem() as
+                            | StalkerPlayableItem
+                            | null
+                            | undefined;
+                        const sourcePlaylist = storeState.currentPlaylist();
+                        const sourceContentType =
+                            storeState.selectedContentType();
                         try {
                             const playback = await resolveVodPlaybackInternal(
                                 cmd,
@@ -481,12 +581,38 @@ export function withStalkerPlayer() {
                                 thumbnail,
                                 episodeNum,
                                 episodeId,
-                                startTime
+                                startTime,
+                                {
+                                    item: sourceItem,
+                                    playlist: sourcePlaylist,
+                                    selectedContentType: sourceContentType,
+                                }
                             );
 
                             void playerService.openResolvedPlayback(
                                 playback,
-                                true
+                                true,
+                                playback.recovery
+                                    ? {
+                                          resolvePlayback: ({ signal }) =>
+                                              resolveVodPlaybackInternal(
+                                            cmd,
+                                            title,
+                                            thumbnail,
+                                            episodeNum,
+                                            episodeId,
+                                            startTime,
+                                            {
+                                                item: sourceItem,
+                                                playlist: sourcePlaylist,
+                                                selectedContentType:
+                                                    sourceContentType,
+                                                signal,
+                                                recordRecentlyViewed: false,
+                                            }
+                                              ),
+                                      }
+                                    : undefined
                             );
                         } catch (error) {
                             logger.error('Failed to get playback URL', error);

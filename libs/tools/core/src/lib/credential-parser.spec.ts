@@ -2,6 +2,38 @@ import assert from 'node:assert/strict';
 import test from 'node:test';
 import { parseIptvCredentials } from './credential-parser';
 
+for (const server of ['host: http://provider.test:80', 'URL = http://provider.test:80', 'http://provider.test:80']) {
+    for (const credentials of [
+        ['00:11:22:33:44:55', '001234'],
+        ['Username = alice', 'Password = secret'],
+        ['U== alice', 'P== secret'],
+    ]) {
+        test(`parses ${server} with ${credentials[0]} across blank lines`, () => {
+            const parsed = parseIptvCredentials([server, ...credentials].join('\n\n'));
+            assert.equal(parsed.invalidEntries.length, 0);
+            assert.equal(parsed.candidates.length, 1);
+            assert.equal(parsed.candidates[0].serverUrl, 'http://provider.test');
+            assert.equal(parsed.candidates[0].username, credentials[0].includes('=') ? 'alice' : '00:11:22:33:44:55');
+            assert.equal(parsed.candidates[0].password, credentials[1].includes('=') ? 'secret' : '001234');
+        });
+    }
+}
+
+test('deduplicates mixed pasted block formats and playlist links', () => {
+    const parsed = parseIptvCredentials([
+        'http://provider.test/get.php?username=alice&password=secret&type=m3u_plus',
+        'host: http://provider.test:80', 'alice', 'secret', '',
+        'http://provider.test', 'U== alice', 'P== secret', '',
+        'URL = http://provider-two.test:8080', 'Username = bob', 'Password = 001234',
+    ].join('\n'));
+    assert.equal(parsed.invalidEntries.length, 0);
+    assert.equal(parsed.duplicates.length, 2);
+    assert.deepEqual(parsed.candidates.map(({serverUrl, username, password}) => ({serverUrl, username, password})), [
+        {serverUrl: 'http://provider.test', username: 'alice', password: 'secret'},
+        {serverUrl: 'http://provider-two.test:8080', username: 'bob', password: '001234'},
+    ]);
+});
+
 test('normalizes Xtream hosts and reports duplicates without losing credentials', () => {
     const parsed = parseIptvCredentials(
         [

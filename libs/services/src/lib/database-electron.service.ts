@@ -5,7 +5,13 @@
  */
 
 import { Injectable } from '@angular/core';
+import { Subject } from 'rxjs';
+import { InFlightCatalogueReads } from './in-flight-catalogue-reads';
+import { decodeCatalogueContent } from './serialized-catalogue';
 import type {
+    XtreamCatalogueSnapshot,
+    XtreamCatalogueAccountIdentity,
+    XtreamCatalogueRefreshResult,
     GlobalSearchPaginationOptions,
     GlobalSearchResult,
     GlobalSearchResultSource,
@@ -144,6 +150,9 @@ export interface GlobalRecentlyAddedItem extends XtreamContent {
     providedIn: 'root',
 })
 export class DatabaseService {
+    private readonly catalogueReads = new InFlightCatalogueReads();
+    private readonly catalogueChanges = new Subject<string>();
+    readonly catalogueChanges$ = this.catalogueChanges.asObservable();
     private buildXtreamImportStateKey(
         playlistId: string,
         type: 'live' | 'movie' | 'series'
@@ -264,10 +273,14 @@ export class DatabaseService {
         }
     }
 
-    /**
-     * Delete all content and categories for an Xtream playlist (for refresh).
-     * Keeps the playlist entry but removes all imported data.
-     */
+    /** Replace a complete validated snapshot while preserving provider identities. */
+    async replaceXtreamCatalogue(playlistId: string, snapshot: XtreamCatalogueSnapshot, account: XtreamCatalogueAccountIdentity, options?: DbOperationOptions): Promise<XtreamCatalogueRefreshResult> {
+        const result = await this.runWithOperationEvents('catalogue-refresh', 'refresh-catalogue', operationId => window.electron.dbReplaceXtreamCatalogue(playlistId, snapshot, account, operationId), options);
+        this.catalogueReads.clear();
+        this.catalogueChanges.next(playlistId);
+        return result;
+    }
+
     async deleteXtreamPlaylistContent(
         playlistId: string,
         options?: DbOperationOptions
@@ -391,7 +404,7 @@ export class DatabaseService {
         playlistId: string,
         type: 'live' | 'movies' | 'series'
     ): Promise<XCategoryFromDb[]> {
-        return await window.electron.dbGetCategories(playlistId, type);
+        return this.catalogueReads.run(JSON.stringify(['categories', playlistId, type]), () => window.electron.dbGetCategories(playlistId, type));
     }
 
     /**
@@ -458,7 +471,17 @@ export class DatabaseService {
         playlistId: string,
         type: 'live' | 'movie' | 'series'
     ): Promise<XtreamContent[]> {
-        return await window.electron.dbGetContent(playlistId, type);
+        return this.catalogueReads.run(JSON.stringify(['content', playlistId, type]), async () => {
+            const startedAt = performance.timeOrigin + performance.now();
+            const result = window.electron.dbGetContentSerialized
+                ? decodeCatalogueContent(await window.electron.dbGetContentSerialized(playlistId, type), type)
+                : await window.electron.dbGetContent(playlistId, type);
+            if (window.electron.performanceCaptureEnabled) window.electron.reportUiPerformance?.({
+                name: 'category', phase: 'catalogue-read', startedAt,
+                paintedAt: performance.timeOrigin + performance.now(),
+            });
+            return result;
+        });
     }
 
     /**

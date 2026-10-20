@@ -1,9 +1,12 @@
+import { readProviderSeekPreviews } from "@arm-nator/shared/interfaces";
+import { optionalStalkerViewingItem } from '@arm-nator/shared/interfaces';
 import { computed, inject, Injectable, signal } from '@angular/core';
 import { DataService, TmdbEnrichmentService } from '@arm-nator/services';
 import { createLogger } from '@arm-nator/providers/shared/util';
 import {
     PlaylistMeta,
     ResolvedPortalPlayback,
+    describeMovieWork,
     STALKER_REQUEST,
 } from '@arm-nator/shared/interfaces';
 import { StalkerCategoryItem, StalkerItvChannel } from './models';
@@ -15,6 +18,7 @@ import {
 import { isStalkerAuthorizationFailure } from './stalker-response-classification';
 import {
     buildStalkerExternalPlaybackHeaders,
+    buildStalkerPlaybackRecoveryMetadata,
     getStalkerPortalOrigin,
     isCrossOriginStalkerStream,
     STALKER_STREAM_USER_AGENT,
@@ -472,8 +476,16 @@ export class StalkerStore {
     async resolveItvPlayback(
         item: StalkerCatalogRow,
         refreshStaleItv = false,
+        signal?: AbortSignal,
+        options?: {
+            readonly playlist?: PlaylistMeta | null;
+            readonly selectedContentType?: StalkerContentType;
+        },
     ): Promise<ResolvedPortalPlayback> {
-        const playlist = this.currentPlaylist();
+        this.throwIfPlaybackAborted(signal);
+        const playlist = options?.playlist ?? this.currentPlaylist();
+        const selectedContentType =
+            options?.selectedContentType ?? this.selectedContentType();
         if (!playlist?.portalUrl || !playlist.macAddress) {
             throw new Error('Stalker portal credentials are missing');
         }
@@ -498,12 +510,13 @@ export class StalkerStore {
         // only tokenized ITV rows after the catalog has aged; ordinary static
         // CDN commands and VOD/series playback keep the fast path.
         if (
-            this.selectedContentType() === 'itv' &&
+            selectedContentType === 'itv' &&
             staticStreamUrl &&
             refreshStaleItv &&
             this.shouldRefreshItvPlayback(staticStreamUrl)
         ) {
             const refreshed = await this.refreshItvChannel(playableItem);
+            this.throwIfPlaybackAborted(signal);
             if (refreshed) {
                 playableItem = refreshed;
                 command = String(
@@ -520,6 +533,7 @@ export class StalkerStore {
         }
 
         let normalizedStreamUrl: string;
+        const canResolveAgain = !staticStreamUrl;
         if (staticStreamUrl) {
             // Ministra/Stalker rows normally contain a complete `cmd` and
             // explicitly set both temporary-link flags to zero. Calling
@@ -535,15 +549,17 @@ export class StalkerStore {
             // may be playable even while the portal handshake is offline.
             if (!isCrossOriginStalkerStream(playlist, staticStreamUrl)) {
                 await this.authenticate(playlist).catch(() => undefined);
+                this.throwIfPlaybackAborted(signal);
             }
             normalizedStreamUrl = staticStreamUrl;
         } else {
+            this.throwIfPlaybackAborted(signal);
             const response = await this.request(playlist, 'create_link', {
                 cmd: command,
                 type:
-                    this.selectedContentType() === 'series'
+                    selectedContentType === 'series'
                         ? 'vod'
-                        : this.selectedContentType(),
+                        : selectedContentType,
                 disable_ad: '0',
                 download: '0',
                 JsHttpRequest: '1-xml',
@@ -551,6 +567,7 @@ export class StalkerStore {
                     ? {}
                     : { series: episodeNumber }),
             });
+            this.throwIfPlaybackAborted(signal);
             const responseCommand = String(
                 response?.js?.cmd ?? response?.cmd ?? '',
             ).trim();
@@ -571,7 +588,7 @@ export class StalkerStore {
         const effectivePlaylist = playlist;
         const headers = buildStalkerExternalPlaybackHeaders(
             effectivePlaylist,
-            this.token,
+            this.currentTokenFor(effectivePlaylist),
             normalizedStreamUrl,
         );
         const crossOriginStream = isCrossOriginStalkerStream(
@@ -582,8 +599,12 @@ export class StalkerStore {
         const parentId = this.numericContentId(playableItem);
         const isEpisode = episodeNumber !== undefined;
 
+        const seasonNumber = isEpisode ? this.seasonNumber(item) : undefined;
+        const viewing = selectedContentType === 'itv' ? null : optionalStalkerViewingItem(effectivePlaylist._id, playableItem, { episodeNumber, seasonNumber, categoryId: this.selectedCategoryId() ?? '*' });
         return {
+            ...(viewing ? { itemIdentity: viewing.identity, seriesIdentity: viewing.seriesIdentity, work: viewing.work, historyContext: viewing.activity } : {}),
             streamUrl: normalizedStreamUrl,
+            seekPreviews: readProviderSeekPreviews(playableItem),
             title: this.playbackTitle(playableItem),
             thumbnail: this.readString(
                 playableItem,
@@ -591,7 +612,17 @@ export class StalkerStore {
                 'stream_icon',
                 'logo',
             ),
-            isLive: this.selectedContentType() === 'itv',
+            isLive: selectedContentType === 'itv',
+            recovery: buildStalkerPlaybackRecoveryMetadata(
+                effectivePlaylist,
+                normalizedStreamUrl,
+                canResolveAgain
+            ),
+            requestPolicy: {
+                accountRef: effectivePlaylist._id,
+                loginCookies: true,
+                portalCredentials: true,
+            },
             userAgent:
                 headers['User-Agent'] ||
                 effectivePlaylist.userAgent ||
@@ -604,7 +635,7 @@ export class StalkerStore {
                 ? undefined
                 : effectivePlaylist.origin || portalOrigin,
             contentInfo:
-                this.selectedContentType() === 'itv'
+                !viewing
                     ? undefined
                     : {
                           playlistId: effectivePlaylist._id,
@@ -652,6 +683,13 @@ export class StalkerStore {
             });
 
         return this.loadingPromise;
+    }
+
+    private throwIfPlaybackAborted(signal?: AbortSignal): void {
+        if (!signal?.aborted) return;
+        const error = new Error('Stalker playback resolution was aborted');
+        error.name = 'AbortError';
+        throw error;
     }
 
     private async loadContentRequest(

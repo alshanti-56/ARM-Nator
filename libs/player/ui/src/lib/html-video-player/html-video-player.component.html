@@ -2,13 +2,15 @@
     <video
         #videoPlayer
         id="video-player"
-        autoplay
+        [autoplay]="channel?.http?.startPaused !== true"
         playsinline
         preload="auto"
     ></video>
 
     <app-player-controls
         [controller]="controlsAdapter"
+        [seekPreviews]="channel.seekPreviews"
+        [seekPreviewCacheKey]="channel.seekPreviewCacheKey ?? ''"
         [playerSurface]="playerRoot"
         [mediaTitle]="mediaTitle()"
         [media]="controlsAdapter.mediaTelemetry()"

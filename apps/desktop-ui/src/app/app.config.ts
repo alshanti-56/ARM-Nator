@@ -1,7 +1,10 @@
+import { OverlayContainer, FullscreenOverlayContainer } from '@angular/cdk/overlay';
+import { AppPortalDiscoveryService } from './services/portal-discovery.service';
+import { PORTAL_DISCOVERY_ADAPTER } from '@arm-nator/providers/shared/util';
 import {
-    HttpClient,
-    provideHttpClient,
-    withInterceptorsFromDi,
+  provideHttpClient,
+  withInterceptorsFromDi,
+  withXhr
 } from '@angular/common/http';
 import {
     ApplicationConfig,
@@ -17,12 +20,8 @@ import { provideEffects } from '@ngrx/effects';
 import { provideRouterStore, routerReducer } from '@ngrx/router-store';
 import { provideStore } from '@ngrx/store';
 import { provideStoreDevtools } from '@ngrx/store-devtools';
-import {
-    TranslateLoader,
-    TranslateModule,
-    TranslateService,
-} from '@ngx-translate/core';
-import { TranslateHttpLoader } from '@ngx-translate/http-loader';
+import { TranslateService, provideTranslateService } from '@ngx-translate/core';
+import { provideTranslateHttpLoader } from '@ngx-translate/http-loader';
 import { PlaylistEffects, playlistReducer } from '@arm-nator/providers/shared/playlist-state';
 import { NgxIndexedDBModule } from 'ngx-indexed-db';
 import { NgxSkeletonLoaderModule } from 'ngx-skeleton-loader';
@@ -46,11 +45,6 @@ import {
 } from './services/portal-navigation-actions.service';
 import { providePortalPlaybackPositions } from './services/portal-playback-positions.service';
 import { provideWorkspaceShellActions } from './services/workspace-shell-actions.service';
-
-// AoT requires an exported function for factories
-export function HttpLoaderFactory(http: HttpClient): TranslateHttpLoader {
-    return new TranslateHttpLoader(http, './assets/i18n/', '.json');
-}
 
 /**
  * Synchronously read the user's preferred language from localStorage. English
@@ -81,10 +75,11 @@ installWebElectronBridge();
 
 export const appConfig: ApplicationConfig = {
     providers: [
+        { provide: OverlayContainer, useClass: FullscreenOverlayContainer },
         provideZoneChangeDetection({ eventCoalescing: true }),
         provideRouter(routes, withComponentInputBinding()),
         provideAnimations(),
-        provideHttpClient(withInterceptorsFromDi()),
+        provideHttpClient(withXhr(), withInterceptorsFromDi()),
         provideStore({
             router: routerReducer,
             playlistState: playlistReducer,
@@ -97,19 +92,19 @@ export const appConfig: ApplicationConfig = {
             NgxSkeletonLoaderModule.forRoot({
                 animation: 'pulse',
                 loadingText: 'This item is actually loading...',
-            }),
-            TranslateModule.forRoot({
-                // Always resolve missing keys from English, regardless of
-                // the user's active language.
-                defaultLanguage: Language.ENGLISH,
-                useDefaultLang: true,
-                loader: {
-                    provide: TranslateLoader,
-                    useFactory: HttpLoaderFactory,
-                    deps: [HttpClient],
-                },
             })
         ),
+        provideTranslateService({
+            // Always resolve missing keys from English, regardless of the
+            // user's active language. Keep loader failures fatal, matching
+            // ngx-translate v17 behavior for missing translation files.
+            fallbackLang: Language.ENGLISH,
+            loader: provideTranslateHttpLoader({
+                prefix: './assets/i18n/',
+                suffix: '.json',
+                failOnError: true,
+            }),
+        }),
         provideAppInitializer(() =>
             inject(TranslateService).use(getInitialLanguage())
         ),
@@ -126,6 +121,7 @@ export const appConfig: ApplicationConfig = {
             useExisting: ExternalPlaybackService,
         },
         ...providePortalPlaybackPositions(),
+        { provide: PORTAL_DISCOVERY_ADAPTER, useExisting: AppPortalDiscoveryService },
         ...providePortalNavigationActions(),
         {
             provide: PLAYLIST_PLAYER_ACTIONS,

@@ -1,0 +1,58 @@
+--- a/Sources/KSPlayer/MEPlayer/MetalPlayView.swift
++++ b/Sources/KSPlayer/MEPlayer/MetalPlayView.swift
+@@ -26,6 +26,7 @@
+ }
+ 
+ public final class MetalPlayView: UIView, VideoOutput {
++    public private(set) var hasPresentedFrame = false
+     public var displayLayer: AVSampleBufferDisplayLayer {
+         displayView.displayLayer
+     }
+@@ -219,7 +220,9 @@
+                     metalView.metalLayer.edrMetadata = frame.edrMetadata
+                 }
+                 #endif
+-                metalView.draw(pixelBuffer: pixelBuffer, display: options.display, size: size)
++                metalView.draw(pixelBuffer: pixelBuffer, display: options.display, size: size, onPresented: { [weak self] in
++                    Task { @MainActor [weak self] in self?.hasPresentedFrame = true }
++                })
+             }
+             renderSource?.setVideo(time: cmtime, position: frame.position)
+         }
+@@ -279,7 +282,7 @@
+         }
+     }
+ 
+-    func draw(pixelBuffer: PixelBufferProtocol, display: DisplayEnum, size: CGSize) {
++    func draw(pixelBuffer: PixelBufferProtocol, display: DisplayEnum, size: CGSize, onPresented: @escaping @Sendable () -> Void) {
+         metalLayer.drawableSize = size
+         metalLayer.pixelFormat = KSOptions.colorPixelFormat(bitDepth: pixelBuffer.bitDepth)
+         let colorspace = pixelBuffer.colorspace
+@@ -305,7 +308,7 @@
+             KSLog("[video] CAMetalLayer not readyForMoreMediaData")
+             return
+         }
+-        render.draw(pixelBuffer: pixelBuffer, display: display, drawable: drawable)
++        render.draw(pixelBuffer: pixelBuffer, display: display, drawable: drawable, onPresented: onPresented)
+     }
+ }
+ 
+--- a/Sources/KSPlayer/Metal/MetalRender.swift
++++ b/Sources/KSPlayer/Metal/MetalRender.swift
+@@ -93,7 +93,7 @@
+     }
+ 
+     @MainActor
+-    func draw(pixelBuffer: PixelBufferProtocol, display: DisplayEnum = .plane, drawable: CAMetalDrawable) {
++    func draw(pixelBuffer: PixelBufferProtocol, display: DisplayEnum = .plane, drawable: CAMetalDrawable, onPresented: @escaping @Sendable () -> Void) {
+         let inputTextures = pixelBuffer.textures()
+         renderPassDescriptor.colorAttachments[0].texture = drawable.texture
+         guard !inputTextures.isEmpty, let commandBuffer = commandQueue?.makeCommandBuffer(), let encoder = commandBuffer.makeRenderCommandEncoder(descriptor: renderPassDescriptor) else {
+@@ -114,6 +114,7 @@
+         display.set(encoder: encoder)
+         encoder.popDebugGroup()
+         encoder.endEncoding()
++        drawable.addPresentedHandler { _ in onPresented() }
+         commandBuffer.present(drawable)
+         commandBuffer.commit()
+         // Keep rendering asynchronous so the main/display-link thread can

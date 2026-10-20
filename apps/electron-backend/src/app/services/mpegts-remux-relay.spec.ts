@@ -303,14 +303,38 @@ test("keeps one remux process alive across upstream reconnects", async () => {
   const executable = path.join(directory, "ffmpeg-fixture");
   await writeFile(
     executable,
-    "#!/usr/bin/env node\nprocess.stdin.pipe(process.stdout);\n",
+    // This fixture only echoes bytes. A cold Node runtime can exceed the real
+    // remuxer's one-second exit grace when the suite is under CPU pressure.
+    "#!/bin/sh\nexec /bin/cat\n",
     "utf8",
   );
   await chmod(executable, 0o755);
 
   const output = new PassThrough();
   const outputChunks: Buffer[] = [];
-  output.on("data", (chunk: Buffer) => outputChunks.push(Buffer.from(chunk)));
+  let capturedOutputBytes = 0;
+  output.on("data", (chunk: Buffer) => {
+    const copy = Buffer.from(chunk);
+    outputChunks.push(copy);
+    capturedOutputBytes += copy.length;
+  });
+  const waitForOutputBytes = (minimumBytes: number): Promise<void> => {
+    if (capturedOutputBytes >= minimumBytes) return Promise.resolve();
+    return new Promise((resolve) => {
+      let timer: ReturnType<typeof setTimeout>;
+      const onData = () => {
+        if (capturedOutputBytes < minimumBytes) return;
+        clearTimeout(timer);
+        output.off("data", onData);
+        resolve();
+      };
+      timer = setTimeout(() => {
+        output.off("data", onData);
+        resolve();
+      }, 5_000);
+      output.on("data", onData);
+    });
+  };
   let reopenCount = 0;
   let started = false;
   try {
@@ -323,9 +347,15 @@ test("keeps one remux process alive across upstream reconnects", async () => {
       ),
       reopenUpstream: async () => {
         reopenCount += 1;
-        return reopenCount === 1
-          ? response(packet(0x21), packet(0x22), Buffer.alloc(23, 0xbb))
-          : new Response(null, { status: 403 });
+        if (reopenCount === 1) {
+          return response(
+            packet(0x21),
+            packet(0x22),
+            Buffer.alloc(23, 0xbb),
+          );
+        }
+        await waitForOutputBytes(PACKET_BYTES * 4);
+        return new Response(null, { status: 403 });
       },
       output,
       signal: new AbortController().signal,

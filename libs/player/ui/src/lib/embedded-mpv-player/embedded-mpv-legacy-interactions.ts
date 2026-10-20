@@ -92,11 +92,11 @@ export class EmbeddedMpvLegacyInteractions {
     }
 
     onViewportClick(event: MouseEvent): void {
-        if (!this.deps.isAvailable()) {
+        if (!this.deps.isAvailable() || event.defaultPrevented) {
             return;
         }
         const target = event.target as HTMLElement | null;
-        if (target?.closest('button, input, [role="slider"]')) {
+        if (target?.closest('button, input, textarea, select, a, [contenteditable="true"], [role="slider"], [role="menu"], [role="dialog"]')) {
             return;
         }
         if (this.deps.menus.anyOpen()) {
@@ -120,11 +120,11 @@ export class EmbeddedMpvLegacyInteractions {
     }
 
     onPlayerDblClick(event: MouseEvent): void {
-        if (!this.deps.isAvailable()) {
+        if (!this.deps.isAvailable() || event.defaultPrevented) {
             return;
         }
         const target = event.target as HTMLElement | null;
-        if (target?.closest('button, input, [role="slider"]')) {
+        if (target?.closest('button, input, textarea, select, a, [contenteditable="true"], [role="slider"], [role="menu"], [role="dialog"]')) {
             return;
         }
         this.clearViewportClickTimer();

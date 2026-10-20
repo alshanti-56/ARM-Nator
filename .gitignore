@@ -103,3 +103,6 @@ vendor/embedded-mpv/*/runtime-manifest.json
 # MemPalace per-project files (issue #185)
 mempalace.yaml
 entities.json
+
+# Local implementation ledgers, snapshots and synthetic data
+.superpowers/

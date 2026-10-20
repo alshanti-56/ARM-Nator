@@ -21,31 +21,41 @@ concurrency:
 jobs:
   release:
     name: Build and publish macOS release
-    runs-on: macos-15
+    runs-on: macos-26
     timeout-minutes: 90
     env:
       RELEASE_TAG: ${{ github.event_name == 'workflow_dispatch' && inputs.release_tag || github.ref_name }}
 
     steps:
       - name: Check out release source
-        uses: actions/checkout@v4
+        uses: actions/checkout@v7.0.1
         with:
           # Tag pushes build the immutable tag. Manual reruns build the
           # selected branch so workflow fixes can rerun an existing release
           # without moving or rewriting its tag.
           ref: ${{ github.ref }}
 
-      - name: Set up pnpm
-        uses: pnpm/action-setup@v4
-
       - name: Set up Node.js
-        uses: actions/setup-node@v4
+        uses: actions/setup-node@v7.1.0
         with:
-          node-version: 22.23.1
-          cache: pnpm
+          node-version-file: .nvmrc
+          package-manager-cache: false
+
+      - name: Install pinned pnpm directly
+        run: npm install --global --allow-scripts=pnpm "pnpm@$(node -p "require('./package.json').engines.pnpm")"
+
+      - name: Locate pnpm store
+        id: pnpm-store
+        run: echo "path=$(pnpm store path)" >> "$GITHUB_OUTPUT"
+
+      - name: Cache pnpm store
+        uses: actions/cache@v6.1.0
+        with:
+          path: ${{ steps.pnpm-store.outputs.path }}
+          key: ${{ runner.os }}-arm64-pnpm-${{ hashFiles('pnpm-lock.yaml') }}
 
       - name: Verify build environment
-        run: pnpm verify:environment
+        run: node tools/verify-environment.mjs
 
       - name: Verify Apple Silicon runner
         run: |
@@ -70,7 +80,7 @@ jobs:
           HOMEBREW_NO_AUTO_UPDATE=1 brew install meson ninja pkg-config
 
       - name: Restore Embedded MPV cache
-        uses: actions/cache@v4
+        uses: actions/cache@v6.1.0
         with:
           path: |
             vendor/embedded-mpv/darwin-arm64
@@ -78,7 +88,7 @@ jobs:
           key: ${{ runner.os }}-macos-26-arm64-embedded-mpv-${{ hashFiles('tools/embedded-mpv/build-macos-runtime.mjs', 'tools/embedded-mpv/ensure-macos-runtime.mjs', 'tools/embedded-mpv/stage-macos-runtime.mjs') }}
 
       - name: Restore KSPlayer SwiftPM cache
-        uses: actions/cache@v4
+        uses: actions/cache@v6.1.0
         with:
           path: apps/electron-backend/ksplayer-metal/.build
           key: ${{ runner.os }}-macos-26-arm64-ksplayer-${{ hashFiles('apps/electron-backend/ksplayer-metal/Package.swift', 'apps/electron-backend/ksplayer-metal/Package.resolved', 'apps/electron-backend/ksplayer-metal/Sources/**/*.swift', 'apps/electron-backend/build-ksplayer-metal.js', 'tools/packaging/ksplayer-metal-packaging.cjs', 'apps/electron-backend/native/binding.gyp') }}

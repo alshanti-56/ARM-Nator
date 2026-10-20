@@ -1,3 +1,6 @@
+import type { PlayerPreferenceIntent } from '@arm-nator/shared/interfaces';
+import { PlayerPreferenceListeners } from '../player-controls/player-preference-listeners';
+import { inferTrackRole } from '@arm-nator/shared/interfaces';
 import { Injectable, Signal, computed, inject, signal } from '@angular/core';
 import { toSignal } from '@angular/core/rxjs-interop';
 import {
@@ -53,7 +56,7 @@ export class EmbeddedMpvControlsAdapter implements PlayerController {
         merge(
             this.translate.onLangChange,
             this.translate.onTranslationChange,
-            this.translate.onDefaultLangChange,
+            this.translate.onFallbackLangChange,
         ),
         { initialValue: null },
     );
@@ -126,6 +129,7 @@ export class EmbeddedMpvControlsAdapter implements PlayerController {
             ...mappedStatus,
             stalled: this.controller.stalled(),
             positionSeconds: Math.max(0, session?.positionSeconds ?? 0),
+            seeking: session?.seeking === true,
             durationSeconds,
             isLive,
             canSeek: capabilities.seek && !isLive && (durationSeconds ?? 0) > 0,
@@ -143,6 +147,8 @@ export class EmbeddedMpvControlsAdapter implements PlayerController {
                           ),
                       }),
                       selected: track.selected,
+                      language: track.language,
+                      role: inferTrackRole({ forced: track.forced, label: track.title }),
                   }))
                 : [],
             subtitleTracks: capabilities.subtitles
@@ -158,6 +164,8 @@ export class EmbeddedMpvControlsAdapter implements PlayerController {
                           ),
                       }),
                       selected: track.selected,
+                      language: track.language,
+                      role: inferTrackRole({ forced: track.forced, label: track.title }),
                   }))
                 : [],
             subtitlesEnabled:
@@ -188,13 +196,17 @@ export class EmbeddedMpvControlsAdapter implements PlayerController {
         };
     });
 
+    private readonly preferences = new PlayerPreferenceListeners();
+    observePreferences(listener: (intent: PlayerPreferenceIntent) => void): () => void { return this.preferences.subscribe(listener); }
+    noteTrackPreference(kind: 'audio' | 'subtitle', id: number): void { this.preferences.track(kind, id, this.state()); }
+
     readonly commands: PlayerControlsCommands = {
         togglePlay: () => void this.controller.togglePaused(),
         seekTo: (seconds) => void this.controller.seekTo(seconds),
         seekBy: (deltaSeconds) => void this.controller.seekBy(deltaSeconds),
         setVolume: (value) => void this.controller.applyVolume(value),
-        setAudioTrack: (id) => void this.controller.setAudioTrack(id),
-        setSubtitleTrack: (id) => void this.controller.setSubtitleTrack(id),
+        setAudioTrack: (id) => { this.noteTrackPreference('audio', id); void this.controller.setAudioTrack(id); },
+        setSubtitleTrack: (id) => { this.noteTrackPreference('subtitle', id); void this.controller.setSubtitleTrack(id); },
         setPlaybackSpeed: (speed) => void this.controller.setSpeed(speed),
         setAspectRatio: (value) => void this.controller.setAspect(value),
         setPictureSettings: (value) => {
@@ -202,6 +214,7 @@ export class EmbeddedMpvControlsAdapter implements PlayerController {
             void this.controller.setPicture(value);
         },
         setSubtitleSettings: (value) => {
+            this.preferences.settings(value);
             this.subtitle.set(value);
             void this.controller.setSubtitleSettings(value);
         },
