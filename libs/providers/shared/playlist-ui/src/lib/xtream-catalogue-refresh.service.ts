@@ -1,11 +1,12 @@
 import { inject, Injectable } from '@angular/core';
-import { DatabaseService, type DbOperationOptions } from '@arm-nator/services';
+import { DatabaseService, SOURCE_PLAYBACK_FACADE, type DbOperationOptions } from '@arm-nator/services';
 import { XtreamApiService } from '@arm-nator/providers/xtream/data-access';
 import type { PlaylistMeta, XtreamCatalogueAccountIdentity, XtreamCatalogueSnapshot, XtreamCatalogueRefreshResult } from '@arm-nator/shared/interfaces';
 import { CatalogueRefreshCoordinator } from './coalesced-catalogue-refresh';
 
 @Injectable({ providedIn: 'root' })
 export class XtreamCatalogueRefreshService {
+    private readonly sourceChecks=inject(SOURCE_PLAYBACK_FACADE,{optional:true});
     private readonly db = inject(DatabaseService);
     private readonly api = inject(XtreamApiService);
     private readonly callbacks = new Map<string, DbOperationOptions | undefined>();
@@ -27,6 +28,8 @@ export class XtreamCatalogueRefreshService {
     });
 
     async refresh(item: PlaylistMeta, options?: DbOperationOptions): Promise<XtreamCatalogueRefreshResult> {
+        const release=await this.sourceChecks?.beginSourceOperation?.(item._id);
+        try {
         const playlist = await this.db.getPlaylistById(item._id);
         if (!playlist?.serverUrl || !playlist.username || !playlist.password) throw new Error('Xtream account is unavailable');
         const account = { serverUrl: playlist.serverUrl, username: playlist.username, password: playlist.password };
@@ -37,5 +40,6 @@ export class XtreamCatalogueRefreshService {
         } finally {
             this.callbacks.delete(operationId);
         }
+        } finally { release?.(); }
     }
 }

@@ -6,6 +6,7 @@ import {
   sourceEvidenceKey,
   type SourceEvidenceKey,
   type SourcePlaybackSampler,
+  type PlaylistMeta,
 } from "@arm-nator/shared/interfaces";
 import {
   SourcePlaybackRepositoryService,
@@ -21,6 +22,7 @@ import {
 import { XtreamSourcePlaybackSamplerService } from "@arm-nator/providers/xtream/data-access";
 import { SourcePlaybackOwnershipService } from "./source-playback-ownership.service";
 import { runPersistedSourceCheck } from "./source-playback-check-runner";
+import { SourceCheckQueue } from "./source-check-queue";
 @Injectable({ providedIn: "root" })
 export class SourcePlaybackCheckService implements SourcePlaybackFacade {
   readonly available = signal(
@@ -35,7 +37,96 @@ export class SourcePlaybackCheckService implements SourcePlaybackFacade {
   private readonly probe = inject(SourcePlaybackProbeService);
   private readonly xtream = inject(XtreamSourcePlaybackSamplerService);
   private readonly playlists = inject(PlaylistsService);
-  private readonly queue = new Map<string, SourceEvidenceKey>();
+  private readonly queue = new SourceCheckQueue();
+  private readonly providers = new Map<string, string>();
+  private activeDone: Promise<void> = Promise.resolve();
+  private activeKey: SourceEvidenceKey | null = null;
+  private manualTimer: ReturnType<typeof setTimeout> | undefined;
+  readonly busyVersion = signal(0);
+  get busySourceIds() {
+    this.busyVersion();
+    return this.queue.busy;
+  }
+  setSources(sources: readonly PlaylistMeta[]) {
+    this.providers.clear();
+    for (const s of sources) {
+      try {
+        const url = new URL(s.serverUrl || s.portalUrl || s.url || "");
+        this.providers.set(
+          s._id,
+          url.origin + url.pathname.replace(/\/+$/, ""),
+        );
+      } catch {
+        this.providers.set(s._id, s._id);
+      }
+    }
+  }
+  providerDue(): Map<string, number> {
+    const byProvider = new Map<string, number>();
+    for (const s of this.store.snapshots().values()) {
+      const until = Math.max(
+        0,
+        ...Object.entries(s.nextEligibleAt)
+          .filter(
+            ([category]) =>
+              (s.inconclusiveCounts[category as "live" | "movies" | "series"] ??
+                0) > 0,
+          )
+          .map(([, at]) => at ?? 0),
+      );
+      const provider = this.providers.get(s.sourceId) ?? s.sourceId;
+      byProvider.set(provider, Math.max(byProvider.get(provider) ?? 0, until));
+    }
+    return new Map(
+      [...this.providers].map(([id, p]) => [id, byProvider.get(p) ?? 0]),
+    );
+  }
+  async beginSourceOperation(sourceId: string): Promise<() => void> {
+    this.queue.beginOperation(sourceId);
+    this.busyVersion.update((v) => v + 1);
+    this.cancelSource(sourceId);
+    try {
+      if (this.activeKey?.sourceId === sourceId) {
+        let timer: ReturnType<typeof setTimeout> | undefined;
+        try {
+          await Promise.race([
+            this.activeDone,
+            new Promise<never>((_, reject) => {
+              timer = setTimeout(
+                () =>
+                  reject(new Error("Source check cleanup is still pending")),
+                P.cleanupMs,
+              );
+            }),
+          ]);
+        } finally {
+          clearTimeout(timer);
+        }
+      }
+    } catch (error) {
+      this.queue.endOperation(sourceId);
+      this.busyVersion.update((v) => v + 1);
+      throw error;
+    }
+    let done = false;
+    return () => {
+      if (done) return;
+      done = true;
+      this.queue.endOperation(sourceId);
+      this.busyVersion.update((v) => v + 1);
+      this.queueChanged.update((v) => v + 1);
+    };
+  }
+  retainKeys(keys: readonly SourceEvidenceKey[]) {
+    this.queue.retain(keys);
+    if (
+      this.activeKey &&
+      !keys.some(
+        (k) => sourceEvidenceKey(k) === sourceEvidenceKey(this.activeKey!),
+      )
+    )
+      this.active?.abort();
+  }
   private readonly queueChanged = signal(0);
   private running = false;
   private active: AbortController | null = null;
@@ -44,15 +135,27 @@ export class SourcePlaybackCheckService implements SourcePlaybackFacade {
     destroy.onDestroy(inject(SourcePlaybackOwnershipService).start());
     destroy.onDestroy(() => {
       this.active?.abort();
-      this.queue.clear();
+      clearTimeout(this.manualTimer);
     });
     effect(() => {
       this.queueChanged();
       if (!this.available() || this.resources.isBlocked() || this.running)
         return;
-      const next = this.queue.values().next().value;
+      const due = this.providerDue();
+      const next = this.queue.take(this.busySourceIds, due, Date.now());
+      clearTimeout(this.manualTimer);
+      if (this.queue.size) {
+        const upcoming = [...due.values()].filter((at) => at > Date.now());
+        if (upcoming.length)
+          this.manualTimer = setTimeout(
+            () => this.queueChanged.update((v) => v + 1),
+            Math.min(
+              2147483647,
+              Math.max(1, Math.min(...upcoming) - Date.now()),
+            ),
+          );
+      }
       if (next) {
-        this.queue.delete(sourceEvidenceKey(next));
         void this.runCheck(next, "manual", new AbortController().signal).catch(
           () => undefined,
         );
@@ -67,7 +170,7 @@ export class SourcePlaybackCheckService implements SourcePlaybackFacade {
       sourceEvidenceKey(this.activity().key!) === sourceEvidenceKey(key)
     )
       return Promise.resolve();
-    this.queue.set(sourceEvidenceKey(key), key);
+    this.queue.request(key);
     this.activity.set({
       state: this.resources.isBlocked() ? "deferred" : "queued",
       key,
@@ -78,14 +181,20 @@ export class SourcePlaybackCheckService implements SourcePlaybackFacade {
   supportedCategories(
     _sourceType: string,
   ): readonly ("live" | "movies" | "series")[] {
-    return ["live"];
+    return _sourceType === "xtream" ? ["live"] : [];
   }
   async runCheck(
     key: SourceEvidenceKey,
     origin: "manual" | "background",
     parent: AbortSignal,
   ): Promise<void> {
-    if (this.running || !this.available()) return;
+    if (
+      this.running ||
+      !this.available() ||
+      this.busySourceIds.has(key.sourceId) ||
+      (this.providerDue().get(key.sourceId) ?? 0) > Date.now()
+    )
+      return;
     this.running = true;
     const abort = new AbortController();
     this.active = abort;
@@ -95,11 +204,15 @@ export class SourcePlaybackCheckService implements SourcePlaybackFacade {
       deny = reject;
     });
     void drained.catch(() => undefined);
+    this.activeDone = drained;
+    this.activeKey = key;
     const lease = this.resources.tryAcquireBackground(() => {
       abort.abort();
       return drained;
     });
     if (!lease) {
+      acknowledge();
+      this.activeKey = null;
       this.running = false;
       this.active = null;
       this.activity.set({ state: "deferred", key });
@@ -168,13 +281,13 @@ export class SourcePlaybackCheckService implements SourcePlaybackFacade {
         });
       }
       this.active = null;
+      this.activeKey = null;
       this.running = false;
       this.queueChanged.update((v) => v + 1);
     }
   }
   cancelSource(sourceId: string): void {
-    for (const [id, key] of this.queue)
-      if (key.sourceId === sourceId) this.queue.delete(id);
-    if (this.activity().key?.sourceId === sourceId) this.active?.abort();
+    this.queue.cancel(sourceId);
+    if (this.activeKey?.sourceId === sourceId) this.active?.abort();
   }
 }

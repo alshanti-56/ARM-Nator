@@ -11,6 +11,7 @@ export interface SourcePlaybackActivity {
 export interface SourcePlaybackFacade {
   available: Signal<boolean>;
   activity: Signal<SourcePlaybackActivity>;
+  beginSourceOperation?(sourceId: string): Promise<() => void>;
   requestCheck(key: SourceEvidenceKey): Promise<void>;
 }
 export const SOURCE_PLAYBACK_FACADE = new InjectionToken<SourcePlaybackFacade>(

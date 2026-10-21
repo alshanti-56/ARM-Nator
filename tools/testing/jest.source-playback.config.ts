@@ -6,6 +6,7 @@ const config: Config = {
   testEnvironment: "jsdom",
   modulePathIgnorePatterns: ["<rootDir>/dist/", "<rootDir>/.superpowers/"],
   testMatch: [
+    "<rootDir>/apps/desktop-ui/src/app/services/source-playback/*.angular.spec.ts",
     "<rootDir>/libs/providers/shared/playlist-ui/src/lib/recent-playlists/source-playback-details/*.spec.ts",
     "<rootDir>/libs/workspace/shell/feature/src/lib/workspace-sources-filters-panel/source-playback-filters.component.spec.ts",
   ],

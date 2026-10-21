@@ -42,3 +42,9 @@ test('completed empty kinds are usable offline while an unfinished empty import 
     status = 'pending';
     assert.equal(await store.hasUsableOfflineCache('live'), false);
 });
+
+test('catalogue imports wait for source-check cleanup before fetching and release the busy source',async t=>{
+ const {SOURCE_PLAYBACK_FACADE}=await import('@arm-nator/services');let finish!:()=>void;const draining=new Promise<void>(r=>finish=r);let fetched=0,released=0;
+ const injector=createEnvironmentInjector([{provide:DatabaseService,useValue:{getXtreamImportStatus:async()=> 'idle',getXtreamContent:async()=>[]}},{provide:PlaybackPositionService,useValue:{}},{provide:XtreamPendingRestoreService,useValue:{}},{provide:XtreamApiService,useValue:{getStreams:async()=>{fetched++;return[];}}},{provide:SOURCE_PLAYBACK_FACADE,useValue:{beginSourceOperation:async()=>{await draining;return()=>released++;}}}]);t.after(()=>injector.destroy());
+ const source=runInInjectionContext(injector,()=>new ElectronXtreamDataSource());const pending=source.getContent('fixture',account,'live');await new Promise(r=>setImmediate(r));assert.equal(fetched,0);finish();await pending;assert.equal(fetched,1);assert.equal(released,1);
+});

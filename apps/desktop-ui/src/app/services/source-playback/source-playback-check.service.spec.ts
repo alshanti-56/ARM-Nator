@@ -118,3 +118,25 @@ test("cancellation saves partial evidence without reporting a failed category", 
   assert.equal(result.attempt.reason, "cancelled");
   assert.equal(result.attempt.samples.length, 1);
 });
+test("a throttled provider stops sampling and retains its Retry-After delay", async () => {
+  const h = setup(["failed"]);
+  let requests = 0;
+  h.dependencies.resolve = async () => {
+    requests++;
+    throw Object.assign(Error("limited"), {
+      status: 429,
+      retryAfterMs: 7200000,
+    });
+  };
+  const result = await runSourceSampleCheck(
+    key,
+    "background",
+    new AbortController().signal,
+    h.dependencies,
+  );
+  assert.equal(requests, 1);
+  assert.equal(result.observation, undefined);
+  assert.ok(
+    (result.nextEligibleAt ?? 0) >= result.attempt.completedAt + 7199900,
+  );
+});

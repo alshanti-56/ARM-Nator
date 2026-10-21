@@ -7,6 +7,7 @@ import axios, { AxiosRequestConfig } from 'axios';
 import { ipcMain } from 'electron';
 import {
     PortalDebugEvent,
+    sourceRetryAfterMs,
     XTREAM_CANCEL_SESSION,
     normalizeXtreamServerUrl,
 } from '@arm-nator/shared/interfaces';
@@ -27,6 +28,7 @@ interface XtreamRequestError {
     status: number;
     message: string;
     name?: 'AbortError';
+    retryAfterMs?: number;
 }
 
 function getXtreamHttpErrorMessage(status: number): string {
@@ -60,7 +62,7 @@ function toXtreamRequestError(error: unknown): XtreamRequestError {
 
         if (error.response) {
             const status = error.response.status;
-            return xtreamError(status, getXtreamHttpErrorMessage(status));
+            return {...xtreamError(status, getXtreamHttpErrorMessage(status)),retryAfterMs:sourceRetryAfterMs(error.response.headers['retry-after'])};
         }
 
         return xtreamError(
@@ -78,7 +80,7 @@ function toXtreamRequestError(error: unknown): XtreamRequestError {
     if (error && typeof error === 'object' && 'status' in error) {
         const status = (error as { status: unknown }).status;
         if (typeof status === 'number' && status >= 400 && status <= 599) {
-            return xtreamError(status, getXtreamHttpErrorMessage(status));
+            return {...xtreamError(status, getXtreamHttpErrorMessage(status)),retryAfterMs: (error as {retryAfterMs?:number}).retryAfterMs};
         }
     }
 
@@ -242,6 +244,7 @@ ipcMain.handle(
             if (response.status >= 400) {
                 throw {
                     status: response.status,
+                    retryAfterMs:sourceRetryAfterMs(response.headers['retry-after']),
                 };
             }
 

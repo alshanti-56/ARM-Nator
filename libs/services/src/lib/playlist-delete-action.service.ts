@@ -1,3 +1,4 @@
+import {SOURCE_PLAYBACK_FACADE} from './source-playback/source-playback-facade.token';
 import { inject, Injectable } from '@angular/core';
 import { firstValueFrom } from 'rxjs';
 import { PlaylistMeta } from '@arm-nator/shared/interfaces';
@@ -19,6 +20,7 @@ export interface PlaylistDeleteActionOptions {
 
 @Injectable({ providedIn: 'root' })
 export class PlaylistDeleteActionService {
+    private readonly sourceChecks=inject(SOURCE_PLAYBACK_FACADE,{optional:true});
     private readonly databaseService = inject(DatabaseService);
     private readonly playlistsService = inject(PlaylistsService);
     private readonly runtime = inject(RuntimeCapabilitiesService);
@@ -27,18 +29,21 @@ export class PlaylistDeleteActionService {
         playlist: PlaylistMeta,
         options: PlaylistDeleteActionOptions = {}
     ): Promise<boolean> {
+        const release=await this.sourceChecks?.beginSourceOperation?.(playlist._id);
+        try {
         const supportsElectronDelete = playlist.serverUrl
             ? this.runtime.supportsXtreamSqliteDataSource
             : this.runtime.supportsSqlite;
 
         if (supportsElectronDelete) {
-            return this.deletePlaylistInElectron(playlist, options);
+            return await this.deletePlaylistInElectron(playlist, options);
         }
 
         const result = await firstValueFrom(
             this.playlistsService.deletePlaylist(playlist._id)
         );
         return result.success;
+        } finally {release?.();}
     }
 
     private deletePlaylistInElectron(

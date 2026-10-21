@@ -329,6 +329,7 @@ export class XtreamApiService {
             payload?: unknown;
             status?: number;
             type?: string;
+            retryAfterMs?: number;
         };
 
         // The IPC layer catches errors and returns { type: 'ERROR', message, status }
@@ -340,8 +341,10 @@ export class XtreamApiService {
         ) {
             const error = new Error(response?.message ?? 'Request failed') as Error & {
                 status?: number;
+                retryAfterMs?: number;
             };
             error.status = response?.status;
+            error.retryAfterMs = response?.retryAfterMs;
             if (error.status === 499) {
                 error.name = 'AbortError';
             }

@@ -1,7 +1,8 @@
 /* eslint-disable max-lines */
-import { inject, Injectable } from '@angular/core';
+import { inject, Injectable, Injector } from '@angular/core';
 import {
     DatabaseService,
+    SOURCE_PLAYBACK_FACADE,
     PlaybackPositionService,
     XtreamPendingRestoreService,
     XtreamImportStatus,
@@ -39,6 +40,7 @@ import {
  */
 @Injectable({ providedIn: 'root' })
 export class ElectronXtreamDataSource implements IXtreamDataSource {
+    private readonly sourceInjector=inject(Injector);
     private readonly dbService = inject(DatabaseService);
     private readonly playbackService = inject(PlaybackPositionService);
     private readonly pendingRestoreService = inject(
@@ -168,6 +170,8 @@ export class ElectronXtreamDataSource implements IXtreamDataSource {
             return cached;
         }
 
+        const release=await this.sourceInjector.get(SOURCE_PLAYBACK_FACADE,null)?.beginSourceOperation?.(playlistId);
+        try {
         // Fetch from API and cache
         options?.onPhaseChange?.('loading-categories');
         const remoteData = await this.apiService.getCategories(
@@ -195,7 +199,8 @@ export class ElectronXtreamDataSource implements IXtreamDataSource {
         }
 
         // Return from cache (now populated)
-        return this.dbService.getXtreamCategories(playlistId, dbType);
+        return await this.dbService.getXtreamCategories(playlistId, dbType);
+        } finally {release?.();}
     }
 
     /**
@@ -307,6 +312,8 @@ export class ElectronXtreamDataSource implements IXtreamDataSource {
             return cached;
         }
 
+        const release=await this.sourceInjector.get(SOURCE_PLAYBACK_FACADE,null)?.beginSourceOperation?.(playlistId);
+        try {
         // Fetch from API
         options?.onPhaseChange?.(
             type === 'live'
@@ -339,7 +346,8 @@ export class ElectronXtreamDataSource implements IXtreamDataSource {
         }
 
         // Return from cache (now populated)
-        return this.dbService.getXtreamContent(playlistId, type);
+        return await this.dbService.getXtreamContent(playlistId, type);
+        } finally {release?.();}
     }
 
     async getCachedContent(

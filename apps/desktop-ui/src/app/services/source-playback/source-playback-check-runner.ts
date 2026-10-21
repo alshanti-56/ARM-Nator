@@ -1,3 +1,4 @@
+import { sourceCheckBackoff } from "@arm-nator/player/core";
 import {
   SOURCE_PLAYBACK_POLICY as P,
   classifySourceCheck,
@@ -68,6 +69,12 @@ export async function runSourceSampleCheck(
   const startedAt = Date.now(),
     category = sourceDeadline(parent, P.categoryMs);
   const samples: SourceSampleEvidence[] = [];
+  let retryAfterMs = 0;
+  const rememberDelay = (error: unknown) => {
+    const delay = (error as { retryAfterMs?: number } | null)?.retryAfterMs;
+    if (typeof delay === "number" && Number.isFinite(delay) && delay > 0)
+      retryAfterMs = Math.max(retryAfterMs, delay);
+  };
   let reason: SourcePlaybackReason | null = null,
     items: readonly SourcePlaybackCandidate[] = [];
   try {
@@ -98,6 +105,7 @@ export async function runSourceSampleCheck(
           elapsedMs: Math.max(outcome.elapsedMs, Date.now() - sampleStart),
         };
       } catch (error) {
+        rememberDelay(error);
         result = {
           ...sourceCheckFailure(error),
           itemId: candidate.episodeId ?? candidate.itemId,
@@ -123,9 +131,16 @@ export async function runSourceSampleCheck(
           reason: "startup-timeout",
         };
       samples.push(result);
-      if (result.outcome === "played") break;
+      if (
+        result.outcome === "played" ||
+        result.reason === "provider-throttled" ||
+        result.reason === "provider-busy" ||
+        result.reason === "offline"
+      )
+        break;
     }
   } catch (error) {
+    rememberDelay(error);
     reason = parent.aborted
       ? "cancelled"
       : category.signal.aborted
@@ -154,6 +169,7 @@ export async function runSourceSampleCheck(
         );
   return {
     attempt,
+    ...(retryAfterMs ? { nextEligibleAt: Date.now() + retryAfterMs } : {}),
     ...(observation ? { observation } : {}),
     ...(items.length
       ? {
@@ -190,5 +206,23 @@ export async function runPersistedSourceCheck(
       return deps.resolve(candidate, attemptSignal);
     },
   });
-  return persistence.write(write);
+  const count = write.observation
+    ? 0
+    : (current.inconclusiveCounts[key.category] ?? 0) + 1;
+  return persistence.write({
+    ...write,
+    inconclusiveCount: count,
+    nextEligibleAt: write.observation
+      ? write.attempt.completedAt + P.freshMs
+      : sourceCheckBackoff(
+          {
+            inconclusiveCount: count,
+            retryAfterMs: Math.max(
+              0,
+              (write.nextEligibleAt ?? 0) - write.attempt.completedAt,
+            ),
+          },
+          write.attempt.completedAt,
+        ),
+  });
 }
