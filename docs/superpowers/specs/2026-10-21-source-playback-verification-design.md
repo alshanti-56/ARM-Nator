@@ -2,7 +2,8 @@
 
 Date: 21 October 2026
 
-Status: design ready for review; application implementation has not started.
+Status: written design approved by the user's “continue”; implementation plan
+prepared separately for review. Application implementation has not started.
 
 ## Goal and approved direction
 
