@@ -1,3 +1,7 @@
+import {
+  SourcePlaybackAccountService,
+  sourceAccountAtCapacity,
+} from "./source-playback-account.service";
 import { DestroyRef, Injectable, effect, inject, signal } from "@angular/core";
 import { firstValueFrom } from "rxjs";
 import {
@@ -35,6 +39,7 @@ export class SourcePlaybackCheckService implements SourcePlaybackFacade {
   private readonly store = inject(SourcePlaybackStoreService);
   private readonly resources = inject(PlaybackResourceService);
   private readonly probe = inject(SourcePlaybackProbeService);
+  private readonly account = inject(SourcePlaybackAccountService);
   private readonly xtream = inject(XtreamSourcePlaybackSamplerService);
   private readonly playlists = inject(PlaylistsService);
   private readonly queue = new SourceCheckQueue();
@@ -181,7 +186,7 @@ export class SourcePlaybackCheckService implements SourcePlaybackFacade {
   supportedCategories(
     _sourceType: string,
   ): readonly ("live" | "movies" | "series")[] {
-    return _sourceType === "xtream" ? ["live"] : [];
+    return _sourceType === "xtream" ? ["live", "movies", "series"] : [];
   }
   async runCheck(
     key: SourceEvidenceKey,
@@ -227,7 +232,7 @@ export class SourcePlaybackCheckService implements SourcePlaybackFacade {
       signal.throwIfAborted();
       const sourceType = source ? getPlaylistSourceType(source) : null;
       const sampler: SourcePlaybackSampler | null =
-        sourceType === "xtream" && key.category === "live" ? this.xtream : null;
+        sourceType === "xtream" ? this.xtream : null;
       if (!sampler) {
         const now = Date.now();
         await this.repository.write({
@@ -247,6 +252,12 @@ export class SourcePlaybackCheckService implements SourcePlaybackFacade {
           origin,
           signal,
           {
+            prepare: async (s) =>
+              sourceAccountAtCapacity(
+                await this.account.read(key.sourceId, key.revision, s),
+              )
+                ? "provider-busy"
+                : null,
             select: (s) => sampler.select(key.sourceId, key.category, s),
             resolve: (candidate, s) =>
               sampler.resolve(key.sourceId, candidate, s),

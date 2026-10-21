@@ -20,6 +20,7 @@ import type {
   SourcePlaybackCategory,
   SourcePlaybackSampler,
   ResolvedPortalPlayback,
+  XtreamSerieEpisode,
 } from "@arm-nator/shared/interfaces";
 @Injectable({ providedIn: "root" })
 export class XtreamSourcePlaybackSamplerService implements SourcePlaybackSampler {
@@ -47,7 +48,6 @@ export class XtreamSourcePlaybackSamplerService implements SourcePlaybackSampler
     signal: AbortSignal,
   ): Promise<readonly SourcePlaybackCandidate[]> {
     signal.throwIfAborted();
-    if (category !== "live") return [];
     const saved = (await this.repository.read([sourceId]))[0];
     const preferred = saved?.latest
       .find((o) => o.key.category === category)
@@ -60,10 +60,13 @@ export class XtreamSourcePlaybackSamplerService implements SourcePlaybackSampler
       preferredItemId: preferred,
     });
     signal.throwIfAborted();
-    if (cached.length) return cached;
+    if (cached.length)
+      return category === "series"
+        ? this.episodeCandidates(sourceId, cached, signal)
+        : cached;
     const source = await this.source(sourceId);
     const credentials = this.credentials(source);
-    return this.request(signal, async (options) => {
+    const selected = await this.request(signal, async (options) => {
       const known = await this.db.hasXtreamCategories(sourceId, category);
       const groups = known
         ? (await this.db.getXtreamCategories(sourceId, category))
@@ -72,7 +75,11 @@ export class XtreamSourcePlaybackSamplerService implements SourcePlaybackSampler
               category_id: String(c.xtream_id),
               category_name: c.name,
             }))
-        : await this.api.getCategories(credentials, category, options);
+        : await this.api.getCategories(
+            credentials,
+            category === "movies" ? "vod" : category,
+            options,
+          );
       signal.throwIfAborted();
       const items: SourcePlaybackCandidate[] = [];
       for (const group of groups
@@ -81,29 +88,33 @@ export class XtreamSourcePlaybackSamplerService implements SourcePlaybackSampler
         )
         .slice(0, 3)) {
         signal.throwIfAborted();
-        const rows = await this.api.getLiveStreams(credentials, {
-          ...options,
-          categoryId: String(group.category_id),
-        });
+        const filtered = { ...options, categoryId: String(group.category_id) };
+        const rows =
+          category === "live"
+            ? await this.api.getLiveStreams(credentials, filtered)
+            : category === "movies"
+              ? await this.api.getVodStreams(credentials, filtered)
+              : await this.api.getSeriesStreams(credentials, filtered);
         signal.throwIfAborted();
         for (const row of rows) {
-          if (
-            row.stream_id == null ||
-            items.some((i) => i.itemId === String(row.stream_id))
-          )
+          const id = "series_id" in row ? row.series_id : row.stream_id;
+          if (id == null || items.some((i) => i.itemId === String(id)))
             continue;
           items.push({
-            itemId: String(row.stream_id),
+            itemId: String(id),
             title: row.name || "Sample channel",
             category,
             categoryId: String(group.category_id),
-            cursor: String(row.stream_id),
+            cursor: String(id),
           });
           if (items.length >= 3) return items;
         }
       }
       return items;
     });
+    return category === "series"
+      ? this.episodeCandidates(sourceId, selected, signal)
+      : selected;
   }
   async resolve(
     sourceId: string,
@@ -113,14 +124,41 @@ export class XtreamSourcePlaybackSamplerService implements SourcePlaybackSampler
     signal.throwIfAborted();
     const source = await this.source(sourceId);
     signal.throwIfAborted();
-    const credentials = this.credentials(source),
+    await this.assertEligible(sourceId, candidate, source, signal);
+    const credentials = this.credentials(source);
+    let url = "";
+    if (candidate.category === "live")
       url = this.urls.constructLiveUrl(credentials, Number(candidate.itemId));
-    if (!url) throw Error("Sample link is unavailable");
+    else if (candidate.category === "movies") {
+      const details = await this.request(signal, (o) =>
+        this.api.getVodInfo(credentials, candidate.itemId, o),
+      );
+      if (details.movie_data?.container_extension)
+        url = this.urls.constructVodUrl(credentials, details);
+    } else {
+      const details = await this.request(signal, (o) =>
+        this.api.getSeriesInfo(credentials, candidate.itemId, o),
+      );
+      const episode = Object.values(details?.episodes ?? {})
+        .flat()
+        .find((e) => String(e.id) === candidate.episodeId);
+      if (!episode)
+        throw Object.assign(Error("Sample episode is unavailable"), {
+          status: 404,
+        });
+      if (episode.container_extension)
+        url = this.urls.constructEpisodeUrl(credentials, episode);
+    }
+    signal.throwIfAborted();
+    if (!url)
+      throw Object.assign(Error("Sample media format is unavailable"), {
+        reason: "unsupported-media",
+      });
     const headers = buildXtreamSavedPlaybackHeaders(source);
     return {
       streamUrl: url,
       title: candidate.title,
-      isLive: true,
+      isLive: candidate.category === "live",
       headers,
       userAgent: source.userAgent,
       referer: source.referrer,
@@ -128,29 +166,110 @@ export class XtreamSourcePlaybackSamplerService implements SourcePlaybackSampler
       requestPolicy: { accountRef: sourceId, portalCredentials: true },
     };
   }
-  private async request<T>(
+  private async assertEligible(
+    sourceId: string,
+    candidate: SourcePlaybackCandidate,
+    source: Playlist,
+    signal: AbortSignal,
+  ): Promise<void> {
+    const known = await this.db.hasXtreamCategories(
+      sourceId,
+      candidate.category,
+    );
+    const groups = known
+      ? (await this.db.getXtreamCategories(sourceId, candidate.category))
+          .filter((c) => !c.hidden)
+          .map((c) => ({
+            category_id: String(c.xtream_id),
+            category_name: c.name,
+          }))
+      : await this.request(signal, (o) =>
+          this.api.getCategories(
+            this.credentials(source),
+            candidate.category === "movies" ? "vod" : candidate.category,
+            o,
+          ),
+        );
+    signal.throwIfAborted();
+    const group = groups.find(
+      (g) => String(g.category_id) === candidate.categoryId,
+    );
+    if (
+      !group ||
+      (source.hiddenGroupTitles ?? []).includes(group.category_name)
+    )
+      throw Object.assign(Error("Sample category is unavailable"), {
+        status: 404,
+      });
+  }
+  private async episodeCandidates(
+    sourceId: string,
+    candidates: readonly SourcePlaybackCandidate[],
+    signal: AbortSignal,
+  ): Promise<readonly SourcePlaybackCandidate[]> {
+    const source = await this.source(sourceId);
+    const credentials = this.credentials(source);
+    const selected: SourcePlaybackCandidate[] = [];
+    await this.request(signal, async (options) => {
+      for (const candidate of candidates.slice(0, 3)) {
+        signal.throwIfAborted();
+        const details = await this.api.getSeriesInfo(
+          credentials,
+          candidate.itemId,
+          options,
+        );
+        signal.throwIfAborted();
+        const episode = Object.values(details?.episodes ?? {})
+          .flat()
+          .filter(
+            (e): e is XtreamSerieEpisode => !!e?.id && !!e.container_extension,
+          )
+          .sort(
+            (a, b) =>
+              Number(a.season) - Number(b.season) ||
+              Number(a.episode_num) - Number(b.episode_num),
+          )[0];
+        if (episode)
+          selected.push({
+            ...candidate,
+            episodeId: String(episode.id),
+            title: episode.title || candidate.title,
+          });
+      }
+    });
+    return selected;
+  }
+  private request<T>(
     signal: AbortSignal,
     operation: (options: XtreamRequestOptions) => Promise<T>,
   ): Promise<T> {
-    const sessionId = `source-samples-${crypto.randomUUID()}`;
-    let cancellation: Promise<boolean> | null = null;
-    const abort = () => {
-      cancellation ??= this.api.cancelSession(sessionId);
-    };
-    signal.addEventListener("abort", abort, { once: true });
-    try {
-      signal.throwIfAborted();
-      const result = await operation({
-        sessionId,
-        requestId: crypto.randomUUID(),
-        requireArray: true,
-        suppressErrorLog: true,
-      });
-      signal.throwIfAborted();
-      return result;
-    } finally {
-      signal.removeEventListener("abort", abort);
-      if (cancellation) await cancellation;
-    }
+    return xtreamSourceRequest(this.api, signal, operation);
+  }
+}
+export async function xtreamSourceRequest<T>(
+  api: XtreamApiService,
+  signal: AbortSignal,
+  operation: (options: XtreamRequestOptions) => Promise<T>,
+): Promise<T> {
+  const sessionId = `source-samples-${crypto.randomUUID()}`;
+  let cancellation: Promise<boolean> | null = null;
+  const abort = () => {
+    cancellation ??= api.cancelSession(sessionId);
+    void cancellation.catch(() => undefined);
+  };
+  signal.addEventListener("abort", abort, { once: true });
+  try {
+    signal.throwIfAborted();
+    const result = await operation({
+      sessionId,
+      requestId: crypto.randomUUID(),
+      requireArray: true,
+      suppressErrorLog: true,
+    });
+    signal.throwIfAborted();
+    return result;
+  } finally {
+    signal.removeEventListener("abort", abort);
+    if (cancellation) await cancellation;
   }
 }

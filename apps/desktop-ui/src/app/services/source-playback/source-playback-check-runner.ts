@@ -12,6 +12,7 @@ import {
   type SourceSampleEvidence,
 } from "@arm-nator/shared/interfaces";
 export interface SourceSampleDependencies {
+  prepare?(signal: AbortSignal): Promise<SourcePlaybackReason | null>;
   select(signal: AbortSignal): Promise<readonly SourcePlaybackCandidate[]>;
   resolve(
     candidate: SourcePlaybackCandidate,
@@ -44,6 +45,9 @@ export function sourceCheckFailure(error: unknown): {
   outcome: "failed" | "inconclusive";
   reason: SourcePlaybackReason;
 } {
+  const reason = (error as { reason?: unknown } | null)?.reason;
+  if (reason === "unsupported-media" || reason === "provider-busy")
+    return { outcome: "inconclusive", reason };
   const status = (error as { status?: number } | null)?.status;
   return {
     outcome:
@@ -78,6 +82,10 @@ export async function runSourceSampleCheck(
   let reason: SourcePlaybackReason | null = null,
     items: readonly SourcePlaybackCandidate[] = [];
   try {
+    const deferred = await deps.prepare?.(category.signal);
+    category.signal.throwIfAborted();
+    if (deferred)
+      throw Object.assign(Error("Source is busy"), { reason: deferred });
     const discovery = sourceDeadline(category.signal, P.discoveryMs);
     try {
       items = await deps.select(discovery.signal);
