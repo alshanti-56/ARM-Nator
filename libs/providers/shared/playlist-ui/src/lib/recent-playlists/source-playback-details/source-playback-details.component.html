@@ -1,0 +1,118 @@
+<section
+  class="check-details"
+  [attr.aria-label]="'WORKSPACE.SOURCES.PLAYBACK.DETAILS' | translate"
+>
+  <div class="check-history">
+    <header>
+      <strong>{{ "WORKSPACE.SOURCES.PLAYBACK.DETAILS" | translate }}</strong
+      ><span>{{
+        "WORKSPACE.SOURCES.PLAYBACK.CATEGORY_" +
+          summary().key.category.toUpperCase() | translate
+      }}</span>
+      @if (summary().latestAttempt ?? summary().latest; as recent) {
+        <time>{{ recent.completedAt | date: "medium" }}</time>
+      }
+    </header>
+    @for (sample of samples(); track $index) {
+      <div class="sample-row">
+        <span class="sample-index">{{ $index + 1 }}.</span
+        ><strong>{{ sample.title }}</strong
+        ><span class="sample-result" [attr.data-outcome]="sample.outcome">{{
+          "WORKSPACE.SOURCES.PLAYBACK.OUTCOME_" + sample.outcome.toUpperCase()
+            | translate
+        }}</span
+        ><small
+          >{{
+            sample.reason
+              ? ("WORKSPACE.SOURCES.PLAYBACK.REASON_" + sample.reason
+                | translate)
+              : sample.engine
+          }}
+          · {{ (sample.elapsedMs / 1000).toFixed(1) }}s</small
+        >
+      </div>
+    } @empty {
+      <p>{{ "WORKSPACE.SOURCES.PLAYBACK.NO_EVIDENCE" | translate }}</p>
+    }
+    @if (summary().latestAttempt?.reason; as reason) {
+      <p role="status">
+        {{ "WORKSPACE.SOURCES.PLAYBACK.REASON_" + reason | translate }}
+      </p>
+    }
+    @if (samples().length) {
+      <p>
+        {{
+          "WORKSPACE.SOURCES.PLAYBACK.ATTEMPTED"
+            | translate: { count: samples().length }
+        }}
+      </p>
+    }
+    @if (summary().latest; as latest) {
+      <p>
+        {{ "WORKSPACE.SOURCES.PLAYBACK.ORIGIN" | translate }}:
+        {{ "WORKSPACE.SOURCES.PLAYBACK.ORIGIN_" + latest.origin | translate }} ·
+        {{
+          "WORKSPACE.SOURCES.PLAYBACK.RESULT_" + latest.result.toUpperCase()
+            | translate
+        }}
+      </p>
+    }
+    @if (summary().lastSuccessfulAt; as success) {
+      <p>
+        {{ "WORKSPACE.SOURCES.PLAYBACK.LAST_SUCCESS" | translate }}
+        {{ success | date: "medium" }}
+      </p>
+    }
+  </div>
+  <aside class="check-account">
+    <strong>{{ "WORKSPACE.SOURCES.PLAYBACK.ACCOUNT" | translate }}</strong>
+    <dl>
+      <div>
+        <dt>{{ "WORKSPACE.SOURCES.PLAYBACK.EXPIRES" | translate }}</dt>
+        <dd>
+          {{
+            account()?.expiryKind === "date"
+              ? (account()?.expiresAt | date: "mediumDate")
+              : ((account()?.expiryKind === "none"
+                  ? "WORKSPACE.SOURCES.PLAYBACK.NO_EXPIRY"
+                  : "WORKSPACE.SOURCES.PLAYBACK.NOT_REPORTED"
+                ) | translate)
+          }}
+        </dd>
+      </div>
+      <div>
+        <dt>{{ "WORKSPACE.SOURCES.PLAYBACK.CONNECTIONS" | translate }}</dt>
+        <dd>
+          {{ account()?.activeConnections ?? "—" }} /
+          {{ account()?.maxConnections ?? "—" }}
+        </dd>
+      </div>
+    </dl>
+    <small
+      >{{ "WORKSPACE.SOURCES.PLAYBACK.REPORTED" | translate }}
+      @if (account(); as facts) {
+        · {{ facts.checkedAt | date: "short" }}
+      }
+    </small>
+    <button
+      type="button"
+      class="check-again"
+      [disabled]="!checks?.available() || !summary().key.revision || checking()"
+      (click)="checkAgain.emit(summary().key)"
+    >
+      <mat-icon>sync</mat-icon
+      >{{
+        (checking()
+          ? "WORKSPACE.SOURCES.PLAYBACK.QUEUED"
+          : "WORKSPACE.SOURCES.PLAYBACK.CHECK_AGAIN"
+        ) | translate
+      }}
+    </button>
+    <small>{{
+      (checks?.available()
+        ? "WORKSPACE.SOURCES.PLAYBACK.IDLE_ONLY"
+        : "WORKSPACE.SOURCES.PLAYBACK.UNAVAILABLE"
+      ) | translate
+    }}</small>
+  </aside>
+</section>

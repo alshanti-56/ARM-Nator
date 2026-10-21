@@ -1,3 +1,5 @@
+import {SourcePlaybackStoreService,SOURCE_PLAYBACK_FACADE} from '@arm-nator/services';
+import type {SourcePlaybackCategory,SourcePlaybackResult} from '@arm-nator/shared/interfaces';
 import {
     ChangeDetectionStrategy,
     Component,
@@ -37,6 +39,12 @@ const ALL_FILTERS: PlaylistSourceType[] = ['xtream', 'stalker'];
     changeDetection: ChangeDetectionStrategy.OnPush,
 })
 export class WorkspaceSourcesFiltersPanelComponent {
+    readonly playback=inject(SourcePlaybackStoreService);
+    readonly checks=inject(SOURCE_PLAYBACK_FACADE,{optional:true});
+    readonly playbackResults:readonly (SourcePlaybackResult|'any'|'working-recently')[]=['any','working-recently','verified','mixed','failed','unstable','untested'];
+    setPlaybackCategory(value:string):void{if(['all','live','movies','series'].includes(value))this.playback.setFilter({...this.playback.filter(),category:value as SourcePlaybackCategory|'all'});}
+    setPlaybackResult(value:string):void{if(this.playbackResults.includes(value as SourcePlaybackResult))this.playback.setFilter({...this.playback.filter(),result:value as SourcePlaybackResult|'any'|'working-recently'});}
+
     private readonly store = inject(Store);
 
     private readonly activeTypeFilters = this.store.selectSignal(

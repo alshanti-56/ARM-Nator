@@ -1,0 +1,126 @@
+:host {
+  display: block;
+}
+.check-details {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(180px, 250px);
+  gap: 22px;
+  margin: 2px 10px 14px 46px;
+  padding: 18px;
+  background: var(--app-widget-bg, var(--mat-sys-surface-container));
+  border: 1px solid var(--app-widget-border, var(--mat-sys-outline-variant));
+  border-radius: 12px;
+  font-size: 0.82rem;
+  color: var(--app-body-color);
+  line-height: 1.5;
+}
+.check-history {
+  min-width: 0;
+}
+header {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  flex-wrap: wrap;
+  color: var(--app-heading-color);
+  margin-bottom: 12px;
+}
+header time {
+  margin-inline-start: auto;
+  color: var(--app-muted-color);
+  font-size: 0.75rem;
+}
+.sample-row {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 12px;
+  padding: 10px 0;
+  border-top: 1px solid var(--app-separator);
+}
+.sample-row strong {
+  min-width: 100px;
+  flex: 1;
+  overflow-wrap: anywhere;
+}
+.sample-row small {
+  color: var(--app-muted-color);
+}
+.sample-index {
+  color: var(--app-muted-color);
+}
+.sample-result {
+  color: var(--app-muted-color);
+}
+[data-outcome="played"] {
+  color: var(--app-success-color, #72cd96);
+}
+[data-outcome="failed"] {
+  color: var(--mat-sys-error);
+}
+p {
+  margin: 8px 0 0;
+  color: var(--app-muted-color);
+  font-size: 0.75rem;
+}
+.check-account {
+  border-inline-start: 1px solid var(--app-separator);
+  padding-inline-start: 18px;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+dl {
+  margin: 0;
+}
+dl div {
+  display: flex;
+  justify-content: space-between;
+  gap: 12px;
+  margin: 8px 0;
+}
+dt {
+  color: var(--app-muted-color);
+}
+dd {
+  margin: 0;
+}
+small {
+  color: var(--app-muted-color);
+}
+button {
+  font: inherit;
+  color: var(--app-selection-color);
+  background: transparent;
+  border: 1px solid var(--app-selection-border);
+  border-radius: 18px;
+  min-height: 38px;
+  padding: 6px 14px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  cursor: pointer;
+}
+button:disabled {
+  opacity: 0.45;
+  cursor: default;
+}
+button:focus-visible {
+  outline: 2px solid var(--app-selection-color);
+  outline-offset: 3px;
+}
+@media (max-width: 900px) {
+  .check-details {
+    grid-template-columns: 1fr;
+    margin-inline-start: 12px;
+  }
+  .check-account {
+    border-inline-start: 0;
+    border-top: 1px solid var(--app-separator);
+    padding: 14px 0 0;
+  }
+  .sample-row small {
+    flex-basis: 100%;
+  }
+}

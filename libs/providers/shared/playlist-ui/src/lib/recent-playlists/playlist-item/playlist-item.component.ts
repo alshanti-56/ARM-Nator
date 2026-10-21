@@ -1,3 +1,5 @@
+import {SourcePlaybackDetailsComponent} from '../source-playback-details/source-playback-details.component';
+import type {SourcePlaybackCategory,SourcePlaybackSummary,SourceAccountSnapshot,SourceEvidenceKey} from '@arm-nator/shared/interfaces';
 import { DragDropModule } from '@angular/cdk/drag-drop';
 import { DatePipe } from '@angular/common';
 import {
@@ -8,6 +10,7 @@ import {
   inject,
   input,
   output,
+  signal,
   ChangeDetectionStrategy
 } from '@angular/core';
 import { toSignal } from '@angular/core/rxjs-interop';
@@ -37,6 +40,7 @@ import {
     changeDetection: ChangeDetectionStrategy.Eager,
     imports: [
         DatePipe,
+        SourcePlaybackDetailsComponent,
         DragDropModule,
         MatButtonModule,
         MatIconButton,
@@ -50,6 +54,16 @@ import {
 export class PlaylistItemComponent implements OnInit {
     @Input() item!: PlaylistMeta;
     readonly showActions = input(true);
+    readonly sourceEvidence=input<readonly SourcePlaybackSummary[]>([]);
+    readonly sourceAccount=input<SourceAccountSnapshot|null>(null);
+    readonly expandedCategory=signal<SourcePlaybackCategory|null>(null);
+    readonly selectedEvidence=computed(()=>this.sourceEvidence().find(s=>s.key.category===this.expandedCategory())??null);
+    readonly latestChecked=computed(()=>Math.max(0,...this.sourceEvidence().map(s=>s.latestAttempt?.completedAt??s.latest?.completedAt??0)));
+    readonly sourceCheckRequested=output<SourceEvidenceKey>();
+    toggleDetails(event:Event,category?:SourcePlaybackCategory):void{event.stopPropagation();if(this.isBusy())return;this.expandedCategory.set(category??(this.expandedCategory()?null:'live'));}
+    checkedAge():string{const at=this.latestChecked();if(!at)return this.translate.instant("WORKSPACE.SOURCES.PLAYBACK.NEVER");const minutes=Math.floor(Math.max(0,Date.now()-at)/60000);return new Intl.RelativeTimeFormat(this.translate.currentLang()||"en",{numeric:"auto"}).format(minutes<60?-minutes:minutes<1440?-Math.floor(minutes/60):-Math.floor(minutes/1440),minutes<60?"minute":minutes<1440?"hour":"day");}
+    resultIcon(result:string):string{return result==='verified'?'check_circle':result==='failed'?'error_outline':result==='untested'?'help_outline':'warning_amber';}
+
     readonly isDraggable = input(false);
     readonly isSelected = input(false);
     readonly isRefreshing = input(false);

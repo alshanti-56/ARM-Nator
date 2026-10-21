@@ -1,7 +1,7 @@
 <div
     class="playlist-item"
     cdkDrag
-    [cdkDragDisabled]="!isDraggable() || isBusy()"
+    [cdkDragDisabled]="!isDraggable() || isBusy() || expandedCategory() !== null"
     cdkDragPreviewContainer="parent"
     [class.selected]="isSelected()"
     [class.is-busy]="isBusy()"
@@ -45,6 +45,7 @@
     <div class="playlist-content">
         <div class="playlist-title">
             {{ item.title || item.filename }}
+            @if (showActions() && sourceEvidence().length) {<button type="button" class="source-disclosure" [disabled]="isBusy()" [attr.aria-label]="'WORKSPACE.SOURCES.PLAYBACK.DETAILS' | translate" [attr.aria-expanded]="expandedCategory() !== null" (click)="toggleDetails($event)"><mat-icon>{{ expandedCategory() ? 'expand_less' : 'expand_more' }}</mat-icon></button>}
         </div>
         <div class="meta">
             @if (sourceType === 'stalker') {
@@ -104,6 +105,14 @@
         }
     </div>
 
+    @if (showActions() && sourceEvidence().length) {
+        <div class="source-results">
+          @for (evidence of sourceEvidence(); track evidence.key.category) {
+            <div class="source-category-result"><span class="source-category-label">{{ ('WORKSPACE.SOURCES.PLAYBACK.CATEGORY_' + evidence.key.category.toUpperCase()) | translate }}</span><button type="button" class="source-badge" [attr.data-result]="evidence.result" [class.stale]="evidence.stale" [disabled]="isBusy()" [attr.aria-expanded]="expandedCategory() === evidence.key.category" (click)="toggleDetails($event,evidence.key.category)"><mat-icon>{{ resultIcon(evidence.result) }}</mat-icon>{{ ('WORKSPACE.SOURCES.PLAYBACK.RESULT_' + evidence.result.toUpperCase()) | translate }}@if (evidence.stale) {<small>{{ 'WORKSPACE.SOURCES.PLAYBACK.STALE' | translate }}</small>}</button></div>
+          }
+        </div>
+        <span class="source-checked">{{ checkedAge() }}</span>
+    }
     @if (showActions()) {
         <div class="action-buttons">
             @if (canCancelBusyAction()) {
@@ -175,3 +184,5 @@
         </div>
     }
 </div>
+
+@if (showActions() && selectedEvidence(); as evidence) {<app-source-playback-details [summary]="evidence" [account]="sourceAccount()" (checkAgain)="sourceCheckRequested.emit($event)" />}

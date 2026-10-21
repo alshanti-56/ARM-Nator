@@ -1,3 +1,5 @@
+import {SourcePlaybackStoreService,SOURCE_PLAYBACK_FACADE} from '@arm-nator/services';
+import type {SourceEvidenceKey} from '@arm-nator/shared/interfaces';
 /* eslint-disable max-lines */
 import {
     CdkDragDrop,
@@ -7,6 +9,7 @@ import {
 import {
     ChangeDetectionStrategy,
     Component,
+    computed,
     effect,
     inject,
     input,
@@ -19,7 +22,7 @@ import { MatInputModule } from '@angular/material/input';
 import { MatSnackBar } from '@angular/material/snack-bar';
 import { Router } from '@angular/router';
 import { Store } from '@ngrx/store';
-import { TranslateService } from '@ngx-translate/core';
+import { TranslatePipe, TranslateService } from '@ngx-translate/core';
 import { PlaylistContextFacade } from '@arm-nator/providers/shared/playlist-util';
 import {
     PlaylistActions,
@@ -68,9 +71,14 @@ type PlaylistBusyOperation = {
         EmptyStateComponent,
         MatInputModule,
         PlaylistItemComponent,
+        TranslatePipe,
     ],
 })
 export class RecentPlaylistsComponent {
+    readonly sourcePlayback=inject(SourcePlaybackStoreService);
+    readonly sourceChecks=inject(SOURCE_PLAYBACK_FACADE,{optional:true});
+    private readonly sourceMetas=inject(Store).selectSignal(selectAllPlaylistsMeta);
+    async checkSource(key:SourceEvidenceKey):Promise<void>{try{await this.sourceChecks?.requestCheck(key);}catch(error){this.sourcePlayback.persistenceFailure.set(error instanceof Error?error.message:'Source check could not be saved');}}
     private readonly databaseService = inject(DatabaseService);
     private readonly dialog = inject(MatDialog);
     private readonly dialogService = inject(DialogService);
@@ -118,6 +126,7 @@ export class RecentPlaylistsComponent {
     );
 
     constructor() {
+        effect(()=>{const ids=this.sourceMetas().map(source=>source._id);void this.sourcePlayback.load(ids);});
         // Update searchQuery when input changes
         effect(() => {
             this.searchQuery.next(this.searchQueryInput());
@@ -152,12 +161,14 @@ export class RecentPlaylistsComponent {
         })
     );
 
-    readonly playlistsData = toSignal(this.playlistsData$, {
+    private readonly basePlaylistsData = toSignal(this.playlistsData$, {
         initialValue: {
             playlists: [] as PlaylistMeta[],
             totalCount: 0,
         },
     });
+
+    readonly playlistsData=computed(()=>{const data=this.basePlaylistsData();return {...data,playlists:data.playlists.filter(item=>this.sidebarMode()||this.sourcePlayback.matches(item._id))};});
 
     /**
      * Opens the details dialog with the information about the provided playlist

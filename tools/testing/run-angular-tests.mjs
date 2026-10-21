@@ -9,6 +9,7 @@ const configs = process.argv.slice(2).length
           'libs/providers/stalker/data-access/jest.config.ts',
           'libs/providers/stalker/feature/jest.config.ts',
           'libs/providers/xtream/feature/jest.config.ts',
+          'tools/testing/jest.source-playback.config.ts',
       ];
 
 function runConfig(config) {

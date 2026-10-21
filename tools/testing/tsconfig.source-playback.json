@@ -1,0 +1,17 @@
+{
+  "extends": "../../tsconfig.base.json",
+  "compilerOptions": {
+    "module": "commonjs",
+    "target": "ES2022",
+    "types": [
+      "jest",
+      "node"
+    ],
+    "isolatedModules": true,
+    "emitDecoratorMetadata": false
+  },
+  "include": [
+    "../../libs/**/*.ts",
+    "../../apps/**/*.ts"
+  ]
+}

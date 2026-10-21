@@ -1,3 +1,4 @@
+import {SourcePlaybackStoreService} from '@arm-nator/services';
 import { Component, computed, inject, ChangeDetectionStrategy } from '@angular/core';
 import { toSignal } from '@angular/core/rxjs-interop';
 import { MatButtonModule } from '@angular/material/button';
@@ -40,6 +41,7 @@ interface SortOption {
     styleUrl: './workspace-sources.component.scss',
 })
 export class WorkspaceSourcesComponent {
+    private readonly evidence=inject(SourcePlaybackStoreService);
     private readonly route = inject(ActivatedRoute);
     private readonly store = inject(Store);
     private readonly workspaceActions = inject(WORKSPACE_SHELL_ACTIONS);
@@ -124,6 +126,7 @@ export class WorkspaceSourcesComponent {
         return allPlaylists
             .filter((item) => filters.includes(getPlaylistSourceType(item)))
             .filter((item) => (item.title || '').toLowerCase().includes(query))
+            .filter(item=>this.evidence.matches(item._id))
             .length;
     });
 

@@ -100,3 +100,5 @@
     color: var(--mat-sys-on-surface-variant);
     opacity: 0.85;
 }
+
+.playback-filters{display:flex;flex-direction:column;gap:10px}.playback-filters label{font-size:.8rem;color:var(--app-body-color)}.playback-filters select{font:inherit;font-size:.82rem;min-height:40px;padding:8px 12px;color:var(--app-on-surface);background:var(--app-search-bg);border:1px solid var(--app-search-border);border-radius:8px;max-width:100%;width:100%;color-scheme:inherit}.playback-filters select:focus-visible{outline:2px solid var(--app-selection-color);outline-offset:3px}.playback-filters p{font-size:.72rem;color:var(--app-muted-color);line-height:1.5;margin:2px 0 12px}.playback-idle{display:flex;gap:8px;align-items:center;font-size:.78rem;color:var(--app-muted-color)}.playback-idle mat-icon{flex-shrink:0;font-size:18px;width:18px;height:18px}

@@ -25,6 +25,9 @@
             ) {
                 <app-playlist-item
                     [item]="item"
+                    [sourceEvidence]="sourcePlayback.summariesFor(item._id)"
+                    [sourceAccount]="sourcePlayback.snapshots().get(item._id)?.account ?? null"
+                    (sourceCheckRequested)="checkSource($event)"
                     [isSelected]="activePlaylistId() === item._id"
                     [showActions]="!sidebarMode()"
                     [isDraggable]="isCustomSortActive()"
@@ -42,4 +45,9 @@
             }
         </div>
     }
+}
+
+@if (!sidebarMode()) {
+  @if (sourcePlayback.persistenceFailure(); as failure) {<p class="evidence-error" role="alert">{{ failure }}</p>}
+  <p class="evidence-limit">{{ 'WORKSPACE.SOURCES.PLAYBACK.LIMITATION' | translate }}</p>
 }

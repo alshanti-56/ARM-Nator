@@ -35,4 +35,18 @@
             }
         </div>
     </section>
+
+    <div class="context-divider"></div>
+    <section class="panel-section playback-filters"><h3 class="panel-section-title">{{ 'WORKSPACE.SOURCES.PLAYBACK.TITLE' | translate }}</h3>
+     <label for="source-playback-category">{{ 'WORKSPACE.SOURCES.PLAYBACK.CATEGORY' | translate }}</label>
+     <select id="source-playback-category" [value]="playback.filter().category" (change)="setPlaybackCategory($any($event.target).value)">
+      @for(category of ['all','live','movies','series'];track category){<option [value]="category">{{ ('WORKSPACE.SOURCES.PLAYBACK.CATEGORY_' + category.toUpperCase()) | translate }}</option>}
+     </select>
+     <label for="source-playback-result">{{ 'WORKSPACE.SOURCES.PLAYBACK.RESULT' | translate }}</label>
+     <select id="source-playback-result" [value]="playback.filter().result" (change)="setPlaybackResult($any($event.target).value)">
+      @for(result of playbackResults;track result){<option [value]="result">{{ ('WORKSPACE.SOURCES.PLAYBACK.RESULT_' + result.toUpperCase()) | translate }}</option>}
+     </select>
+     <p>{{ 'WORKSPACE.SOURCES.PLAYBACK.FILTER_HINT' | translate }}</p>
+     <div class="playback-idle" role="status"><mat-icon>{{ checks?.activity()?.state === 'checking' ? 'sync' : 'pause_circle_outline' }}</mat-icon><span>{{ (checks?.available() ? 'WORKSPACE.SOURCES.PLAYBACK.IDLE_ONLY' : 'WORKSPACE.SOURCES.PLAYBACK.UNAVAILABLE') | translate }}</span></div>
+    </section>
 </div>

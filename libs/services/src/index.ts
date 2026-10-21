@@ -17,3 +17,6 @@ export * from './lib/tmdb';
 export * from './lib/xtream-pending-restore.service';
 
 export * from './lib/ui-performance.service';
+export * from './lib/source-playback/source-playback-facade.token';
+export * from './lib/source-playback/source-playback-store.service';
+export * from './lib/source-playback/source-playback-repository.service';
