@@ -1,4 +1,5 @@
-import { inject, Injectable } from '@angular/core';
+import {StalkerSourcePlaybackContextService} from './source-playback-context.service';
+import { inject, Injectable, Injector } from '@angular/core';
 import { DataService } from '@arm-nator/services';
 import {
     isFullStalkerPortalPlaylist,
@@ -65,17 +66,25 @@ interface StalkerMainInfoResponse {
  */
 @Injectable({ providedIn: 'root' })
 export class StalkerAccountInfoService {
+    private readonly sourceInjector=inject(Injector);
     private readonly dataService = inject(DataService);
     private readonly stalkerSession = inject(StalkerSessionService);
     private readonly portalRepair = inject(StalkerPortalRepairService);
 
     async fetchAccountInfo(
-        playlist: PlaylistMeta
+        playlist: PlaylistMeta,
+        options?: {signal?:AbortSignal}
     ): Promise<StalkerAccountSnapshot | null> {
         if (!playlist.portalUrl || !playlist.macAddress) {
             return null;
         }
 
+        if(options?.signal){
+            return this.sourceInjector.get(StalkerSourcePlaybackContextService).run(playlist,options.signal,async context=>{
+                if(context.authentication){const info=context.authentication.accountInfo;return info?normalizeSnapshot({login:info.login,expireDate:parseStalkerDate(info.expire_date),tariffPlanName:info.tariff_plan_name,status:parseStalkerNumber(info.status)}):null;}
+                const response=await context.request<StalkerMainInfoResponse>({type:'account_info',action:'get_main_info'});const flat=response?.js;if(!flat||typeof flat!=='object')return null;const info={...flat,...flat.account_info};return normalizeSnapshot({login:info.login||info.fname,expireDate:parseStalkerDate(info.expire_date)??parseStalkerDate(info.end_date)??parseStalkerDate(info.expire_billing_date),tariffPlanName:info.tariff_plan_name||info.tariff_plan,status:parseStalkerNumber(info.status)});
+            },true);
+        }
         await this.portalRepair.waitForPendingRepair(playlist._id);
         const effectivePlaylist = this.portalRepair.applyOverride(playlist);
         if (isFullStalkerPortalPlaylist(effectivePlaylist)) {

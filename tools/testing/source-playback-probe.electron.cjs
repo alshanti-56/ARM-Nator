@@ -17,6 +17,11 @@ const temp = mkdtempSync(join(tmpdir(), "arm-source-check-"));
 app.setPath("userData", join(temp, "profile"));
 let window, server;
 let inFlight = 0;
+app.on("window-all-closed", () => {});
+const watchdog = setTimeout(() => {
+  console.error("Source fixture acceptance timed out");
+  finish(1);
+}, 100000);
 (async () => {
   const media = join(temp, "sample.mp4");
   const ffmpeg =
@@ -91,17 +96,28 @@ let inFlight = 0;
   const urls = resolve(
     "libs/providers/xtream/data-access/src/lib/services/xtream-url.service.ts",
   );
+  const stalkerSampler = resolve(
+    "libs/providers/stalker/data-access/src/lib/source-playback-sampler.service.ts",
+  );
+  const stalkerContext = resolve(
+    "libs/providers/stalker/data-access/src/lib/source-playback-context.service.ts",
+  );
+  const stalkerRepair = resolve(
+    "libs/providers/stalker/data-access/src/lib/stalker-portal-repair.service.ts",
+  );
   await build({
     stdin: {
       contents: `import '@angular/compiler';import {SilentMediaSession} from ${JSON.stringify(session)};import {SourcePlaybackConfirmation} from ${JSON.stringify(confirmation)};
- import {createEnvironmentInjector,runInInjectionContext} from '@angular/core';import {of} from 'rxjs';import {DataService,DatabaseService,PlaylistsService,SourcePlaybackRepositoryService} from '@arm-nator/services';import {XtreamSourcePlaybackSamplerService} from ${JSON.stringify(sampler)};import {XtreamApiService} from ${JSON.stringify(api)};import {XtreamUrlService} from ${JSON.stringify(urls)};
+ import {createEnvironmentInjector,runInInjectionContext} from '@angular/core';import {of} from 'rxjs';import {DataService,DatabaseService,PlaylistsService,SourcePlaybackRepositoryService} from '@arm-nator/services';import {XtreamSourcePlaybackSamplerService} from ${JSON.stringify(sampler)};import {XtreamApiService} from ${JSON.stringify(api)};import {XtreamUrlService} from ${JSON.stringify(urls)};import {StalkerSourcePlaybackSamplerService} from ${JSON.stringify(stalkerSampler)};import {StalkerSourcePlaybackContextService} from ${JSON.stringify(stalkerContext)};import {StalkerPortalRepairService} from ${JSON.stringify(stalkerRepair)};
  const source={_id:'fixture',serverUrl:location.origin,username:'fixture',password:'fixture'};
- const injector=createEnvironmentInjector([{provide:DataService,useValue:{sendIpcEvent:async(_event,p)=>({payload:await (await fetch(p.url+'/player_api.php?'+new URLSearchParams(p.params))).json()})}},{provide:DatabaseService,useValue:{getSourcePlaybackCandidates:async()=>[],hasXtreamCategories:async()=>false}},{provide:PlaylistsService,useValue:{getPlaylistById:()=>of(source)}},{provide:SourcePlaybackRepositoryService,useValue:{read:async()=>[]}},{provide:XtreamApiService,useFactory:()=>new XtreamApiService()},{provide:XtreamUrlService,useValue:{constructVodUrl:(c,d)=>c.serverUrl+'/movie/'+c.username+'/'+c.password+'/'+d.movie_data.stream_id+'.'+d.movie_data.container_extension,constructEpisodeUrl:(c,e)=>c.serverUrl+'/series/'+c.username+'/'+c.password+'/'+e.id+'.'+e.container_extension}}],null);
+ const injector=createEnvironmentInjector([{provide:DataService,useValue:{sendIpcEvent:async(_event,p)=>{const result=await (await fetch((p.macAddress?p.url:p.url+'/player_api.php')+'?'+new URLSearchParams(p.params))).json();return p.macAddress?result:{payload:result};}}},{provide:DatabaseService,useValue:{getSourcePlaybackCandidates:async()=>[],hasXtreamCategories:async()=>false}},{provide:PlaylistsService,useValue:{getPlaylistById:id=>of(id==='portal'?{_id:'portal',portalUrl:location.origin+'/stalker_portal/server/load.php',macAddress:'00:1A:79:00:00:01',isFullStalkerPortal:true,stalkerToken:'fixture'}:source)}},{provide:SourcePlaybackRepositoryService,useValue:{read:async()=>[]}},{provide:StalkerPortalRepairService,useValue:{waitForPendingRepair:async()=>{},applyOverride:s=>s}},{provide:StalkerSourcePlaybackContextService,useFactory:()=>new StalkerSourcePlaybackContextService()},{provide:XtreamApiService,useFactory:()=>new XtreamApiService()},{provide:XtreamUrlService,useValue:{constructLiveUrl:(c,id)=>c.serverUrl+'/live/'+c.username+'/'+c.password+'/'+id+'.mp4',constructVodUrl:(c,d)=>c.serverUrl+'/movie/'+c.username+'/'+c.password+'/'+d.movie_data.stream_id+'.'+d.movie_data.container_extension,constructEpisodeUrl:(c,e)=>c.serverUrl+'/series/'+c.username+'/'+c.password+'/'+e.id+'.'+e.container_extension}}],null);
+ const portalSampler=runInInjectionContext(injector,()=>new StalkerSourcePlaybackSamplerService());
  const sampler=runInInjectionContext(injector,()=>new XtreamSourcePlaybackSamplerService());
+ async function portalCategory(kind){const signal=new AbortController().signal;const [candidate]=await portalSampler.select('portal',kind,signal);if(!candidate)throw Error('Missing portal candidate');const playback=await portalSampler.resolve('portal',candidate,signal);return {...await run(playback.streamUrl,11000),itemId:candidate.episodeId??candidate.itemId};}
  async function category(kind){const signal=new AbortController().signal;const candidates=await sampler.select('fixture',kind,signal);if(!candidates.length)throw Error('Missing fixture candidate');const playback=await sampler.resolve('fixture',candidates[0],signal);const outcome=await run(playback.streamUrl,11000);return {...outcome,itemId:candidates[0].episodeId??candidates[0].itemId};}
 
  async function run(path,limit){const video=document.createElement('video');video.style.cssText='position:fixed;left:-10000px;width:2px;height:2px;opacity:.001';document.body.append(video);const controller=new AbortController();const session=new SilentMediaSession({video});const confirm=new SourcePlaybackConfirmation();let frames=0;const result=await new Promise(resolve=>{const timeout=setTimeout(()=>resolve(false),limit);session.failure.then(()=>{clearTimeout(timeout);resolve(false);});session.start({streamUrl:new URL(path,location.origin).href,title:'Local fixture'},controller.signal,s=>{frames=Math.max(frames,s.presentedFrames??0);if(confirm.observe(s)){clearTimeout(timeout);resolve(true);}}).catch(()=>{clearTimeout(timeout);resolve(false);});});controller.abort();await session.close();video.remove();return {played:result,frames};}
- globalThis.runSourceProbeAcceptance=async()=>({video:await run('/video.mp4',11000),metadata:await run('/metadata.mp4',3000),movie:await category('movies'),episode:await category('series')});`,
+ globalThis.runSourceProbeAcceptance=async()=>({video:await run('/video.mp4',11000),metadata:await run('/metadata.mp4',3000),live:await category('live'),movie:await category('movies'),episode:await category('series'),portalLive:await portalCategory('live'),portalMovie:await portalCategory('movies'),portalEpisode:await portalCategory('series')});`,
       resolveDir: process.cwd(),
       sourcefile: "source-probe-acceptance.ts",
       loader: "ts",
@@ -129,32 +145,83 @@ let inFlight = 0;
       return;
     }
     const requestUrl = new URL(req.url, "http://fixture.test");
+    if (requestUrl.pathname === "/stalker_portal/server/load.php") {
+      const action = requestUrl.searchParams.get("action"),
+        type = requestUrl.searchParams.get("type");
+      const payload =
+        action === "handshake"
+          ? { js: { token: "fixture", random: "fixture" } }
+          : action === "get_profile"
+            ? { js: { status: 0 } }
+            : action === "get_genres" || action === "get_categories"
+              ? { js: [{ id: "g", title: "Fixture" }] }
+              : action === "get_ordered_list"
+                ? {
+                    js: {
+                      data: requestUrl.searchParams.get("movie_id")
+                        ? [
+                            {
+                              id: "season",
+                              name: "Season 1",
+                              cmd: "ffmpeg /media/season",
+                              series: [1, 2],
+                            },
+                          ]
+                        : [
+                            {
+                              id: type === "series" ? "show" : "item",
+                              name: "Portal sample",
+                              cmd: "ffmpeg /media/item",
+                              use_http_tmp_link: 1,
+                              category_id: "g",
+                            },
+                          ],
+                    },
+                  }
+                : action === "create_link"
+                  ? { js: { cmd: "/fixture-video.mp4" } }
+                  : null;
+      if (!payload) {
+        res.statusCode = 400;
+        res.end();
+        return;
+      }
+      res.setHeader("Content-Type", "application/json");
+      res.end(JSON.stringify(payload));
+      return;
+    }
     if (requestUrl.pathname === "/player_api.php") {
       const action = requestUrl.searchParams.get("action");
       const payload =
-        action === "get_vod_categories" || action === "get_series_categories"
+        action === "get_live_categories" ||
+        action === "get_vod_categories" ||
+        action === "get_series_categories"
           ? [{ category_id: "1", category_name: "Fixture" }]
-          : action === "get_vod_streams"
-            ? [{ stream_id: 77, name: "Fixture movie", category_id: "1" }]
-            : action === "get_series"
-              ? [{ series_id: 8, name: "Fixture series", category_id: "1" }]
-              : action === "get_vod_info"
-                ? { movie_data: { stream_id: 77, container_extension: "mp4" } }
-                : action === "get_series_info"
+          : action === "get_live_streams"
+            ? [{ stream_id: 99, name: "Fixture live", category_id: "1" }]
+            : action === "get_vod_streams"
+              ? [{ stream_id: 77, name: "Fixture movie", category_id: "1" }]
+              : action === "get_series"
+                ? [{ series_id: 8, name: "Fixture series", category_id: "1" }]
+                : action === "get_vod_info"
                   ? {
-                      episodes: {
-                        1: [
-                          {
-                            id: "88",
-                            title: "Fixture episode",
-                            season: 1,
-                            episode_num: 1,
-                            container_extension: "mp4",
-                          },
-                        ],
-                      },
+                      movie_data: { stream_id: 77, container_extension: "mp4" },
                     }
-                  : null;
+                  : action === "get_series_info"
+                    ? {
+                        episodes: {
+                          1: [
+                            {
+                              id: "88",
+                              title: "Fixture episode",
+                              season: 1,
+                              episode_num: 1,
+                              container_extension: "mp4",
+                            },
+                          ],
+                        },
+                      }
+                    : null;
       if (payload === null) {
         res.statusCode = 400;
         res.end();
@@ -166,7 +233,8 @@ let inFlight = 0;
     }
     const body =
       req.url === "/video.mp4" ||
-      /^\/(movie|series)\/fixture\/fixture\/\d+\.mp4$/.test(req.url)
+      req.url === "/stalker_portal/fixture-video.mp4" ||
+      /^\/(live|movie|series)\/fixture\/fixture\/\d+\.mp4$/.test(req.url)
         ? bytes
         : req.url === "/metadata.mp4"
           ? bytes.subarray(0, metadataEnd)
@@ -215,6 +283,7 @@ let inFlight = 0;
     if (/error/i.test(event.message)) console.log("Renderer:", event.message);
   });
   await window.loadURL(`http://127.0.0.1:${server.address().port}`);
+  console.log("Fixture renderer ready; starting decoded playback checks");
   const result = await window.webContents.executeJavaScript(
     "runSourceProbeAcceptance()",
   );
@@ -225,6 +294,9 @@ let inFlight = 0;
     false,
     "Metadata without decoded frames must not qualify",
   );
+  assert.equal(result.live.played, true);
+  for (const kind of ["portalLive", "portalMovie", "portalEpisode"])
+    assert.equal(result[kind].played, true, kind + " must decode");
   assert.equal(result.movie.played, true);
   assert.equal(result.movie.itemId, "77");
   assert.equal(result.episode.played, true);
@@ -239,6 +311,7 @@ let inFlight = 0;
   },
 );
 function finish(code) {
+  clearTimeout(watchdog);
   window?.destroy();
   server?.closeAllConnections();
   server?.close();

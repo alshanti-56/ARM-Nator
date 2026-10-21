@@ -1,3 +1,4 @@
+import { StalkerSourcePlaybackSamplerService } from "@arm-nator/providers/stalker/data-access";
 import {
   SourcePlaybackAccountService,
   sourceAccountAtCapacity,
@@ -40,6 +41,7 @@ export class SourcePlaybackCheckService implements SourcePlaybackFacade {
   private readonly resources = inject(PlaybackResourceService);
   private readonly probe = inject(SourcePlaybackProbeService);
   private readonly account = inject(SourcePlaybackAccountService);
+  private readonly stalker = inject(StalkerSourcePlaybackSamplerService);
   private readonly xtream = inject(XtreamSourcePlaybackSamplerService);
   private readonly playlists = inject(PlaylistsService);
   private readonly queue = new SourceCheckQueue();
@@ -186,7 +188,9 @@ export class SourcePlaybackCheckService implements SourcePlaybackFacade {
   supportedCategories(
     _sourceType: string,
   ): readonly ("live" | "movies" | "series")[] {
-    return _sourceType === "xtream" ? ["live", "movies", "series"] : [];
+    return _sourceType === "xtream" || _sourceType === "stalker"
+      ? ["live", "movies", "series"]
+      : [];
   }
   async runCheck(
     key: SourceEvidenceKey,
@@ -232,7 +236,11 @@ export class SourcePlaybackCheckService implements SourcePlaybackFacade {
       signal.throwIfAborted();
       const sourceType = source ? getPlaylistSourceType(source) : null;
       const sampler: SourcePlaybackSampler | null =
-        sourceType === "xtream" ? this.xtream : null;
+        sourceType === "xtream"
+          ? this.xtream
+          : sourceType === "stalker"
+            ? this.stalker
+            : null;
       if (!sampler) {
         const now = Date.now();
         await this.repository.write({

@@ -64,3 +64,17 @@ test("delete and reimport cannot resurrect old evidence; removing all cascades",
     sqlite.close();
   }
 });
+test("ephemeral Stalker tokens retain the durable evidence revision", () => {
+  const { db, sqlite } = fixture();
+  try {
+    const revision = readSourcePlaybackEvidence(db, ["one"])[0].revision;
+    saveSourcePlaybackEvidence(db, evidence(revision));
+    sqlite
+      .prepare("UPDATE playlists SET payload=? WHERE id='one'")
+      .run(JSON.stringify({ stalkerToken: "rotated-token" }));
+    assert.equal(readSourcePlaybackEvidence(db, ["one"])[0].revision, revision);
+    assert.equal(readSourcePlaybackEvidence(db, ["one"])[0].latest.length, 1);
+  } finally {
+    sqlite.close();
+  }
+});

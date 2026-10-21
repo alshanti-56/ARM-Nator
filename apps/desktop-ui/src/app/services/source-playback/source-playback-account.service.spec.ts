@@ -179,3 +179,15 @@ test("reported full capacity defers before any media discovery", async () => {
   assert.equal(result.attempt.reason, "provider-busy");
   assert.equal(result.observation, undefined);
 });
+test("Stalker account facts never invent provider connection counts", async () => {
+  const { mapStalkerSourceAccount } =
+    await import("./source-playback-account.service");
+  assert.deepEqual(mapStalkerSourceAccount({ expireDate: 1800000000 }, 100), {
+    checkedAt: 100,
+    expiresAt: 1800000000000,
+    expiryKind: "date",
+    activeConnections: null,
+    maxConnections: null,
+  });
+  assert.equal(mapStalkerSourceAccount({}, 100).expiryKind, "unknown");
+});

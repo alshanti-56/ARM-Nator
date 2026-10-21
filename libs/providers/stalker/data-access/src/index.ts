@@ -23,3 +23,6 @@ export * from './lib/stores/utils/stalker-link-semantics.utils';
 
 export * from './lib/stalker-category-visibility';
 export * from './lib/stalker-category-counts';
+
+export * from './lib/source-playback-context.service';
+export * from './lib/source-playback-sampler.service';

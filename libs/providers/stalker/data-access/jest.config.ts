@@ -4,6 +4,7 @@ export default {
     setupFilesAfterEnv: ['<rootDir>/src/test-setup.ts'],
     testPathIgnorePatterns: [
         '/node_modules/',
+        '<rootDir>/src/lib/source-playback-sampler.service.spec.ts',
         '<rootDir>/src/lib/stalker-category-counts.spec.ts',
         '<rootDir>/src/lib/stalker-category-visibility.spec.ts',
     ],

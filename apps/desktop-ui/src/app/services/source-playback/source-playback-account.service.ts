@@ -1,4 +1,8 @@
-import { Injectable, inject } from "@angular/core";
+import {
+  StalkerAccountInfoService,
+  type StalkerAccountSnapshot,
+} from "@arm-nator/providers/stalker/data-access";
+import { Injectable, inject, Injector } from "@angular/core";
 import { firstValueFrom } from "rxjs";
 import {
   PlaylistsService,
@@ -57,8 +61,28 @@ export function sourceAccountAtCapacity(
     account.activeConnections >= account.maxConnections
   );
 }
+export function mapStalkerSourceAccount(
+  value: StalkerAccountSnapshot,
+  checkedAt = Date.now(),
+): SourceAccountSnapshot {
+  const seconds = value.expireDate;
+  return {
+    checkedAt,
+    expiresAt:
+      typeof seconds === "number" && Number.isFinite(seconds) && seconds > 0
+        ? seconds * 1000
+        : null,
+    expiryKind:
+      typeof seconds === "number" && Number.isFinite(seconds) && seconds > 0
+        ? "date"
+        : "unknown",
+    activeConnections: null,
+    maxConnections: null,
+  };
+}
 @Injectable({ providedIn: "root" })
 export class SourcePlaybackAccountService {
+  private readonly sourceInjector = inject(Injector);
   private readonly playlists = inject(PlaylistsService);
   private readonly api = inject(XtreamApiService);
   private readonly repository = inject(SourcePlaybackRepositoryService);
@@ -74,28 +98,35 @@ export class SourcePlaybackAccountService {
         this.playlists.getPlaylistById(sourceId),
       );
       deadline.signal.throwIfAborted();
-      if (
-        !source ||
-        getPlaylistSourceType(source) !== "xtream" ||
-        !source.serverUrl ||
-        !source.username ||
-        !source.password
-      )
-        return null;
-      const payload = await xtreamSourceRequest(
-        this.api,
-        deadline.signal,
-        (options) =>
-          this.api.getAccountInfo(
-            {
-              serverUrl: source.serverUrl!,
-              username: source.username!,
-              password: source.password!,
-            },
-            options,
-          ),
-      );
-      snapshot = mapXtreamSourceAccount(payload);
+      if (source && getPlaylistSourceType(source) === "stalker") {
+        const account = await this.sourceInjector
+          .get(StalkerAccountInfoService)
+          .fetchAccountInfo(source, { signal: deadline.signal });
+        snapshot = account ? mapStalkerSourceAccount(account) : null;
+      } else {
+        if (
+          !source ||
+          getPlaylistSourceType(source) !== "xtream" ||
+          !source.serverUrl ||
+          !source.username ||
+          !source.password
+        )
+          return null;
+        const payload = await xtreamSourceRequest(
+          this.api,
+          deadline.signal,
+          (options) =>
+            this.api.getAccountInfo(
+              {
+                serverUrl: source.serverUrl!,
+                username: source.username!,
+                password: source.password!,
+              },
+              options,
+            ),
+        );
+        snapshot = mapXtreamSourceAccount(payload);
+      }
     } catch (error) {
       parent.throwIfAborted();
       if (
