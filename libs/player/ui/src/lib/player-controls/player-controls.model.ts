@@ -115,6 +115,8 @@ export interface PlayerMediaTelemetry {
     readonly frameReady?: boolean;
     /** True only when the active media has been identified as audio-only. */
     readonly audioOnly?: boolean;
+    /** Positive decoded-audio evidence when exposed by the engine. */
+    readonly audioReady?: boolean;
     /** Current media mute state when the engine exposes it. */
     readonly muted?: boolean;
     readonly container?: string;

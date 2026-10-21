@@ -91,7 +91,28 @@ test("ignores invalid quality counters and media API failures", () => {
 });
 
 test("recognizes only explicit audio media extensions as native audio-only sources", () => {
-  assert.equal(isKnownAudioOnlySourceUrl("https://media.example/live?id=4&ext=mp3"), true);
-  assert.equal(isKnownAudioOnlySourceUrl("https://media.example/movie.m3u8"), false);
-  assert.equal(isKnownAudioOnlySourceUrl("https://media.example/stream"), false);
+  assert.equal(
+    isKnownAudioOnlySourceUrl("https://media.example/live?id=4&ext=mp3"),
+    true,
+  );
+  assert.equal(
+    isKnownAudioOnlySourceUrl("https://media.example/movie.m3u8"),
+    false,
+  );
+  assert.equal(
+    isKnownAudioOnlySourceUrl("https://media.example/stream"),
+    false,
+  );
+});
+test("audio confirmation requires decoded audio bytes rather than metadata alone", () => {
+  const video = {
+    readyState: 2,
+    videoWidth: 0,
+    videoHeight: 0,
+    muted: false,
+    webkitAudioDecodedByteCount: 10,
+  } as unknown as HTMLVideoElement;
+  assert.equal(readBrowserPlaybackEvidence(video).audioReady, true);
+  (video as any).webkitAudioDecodedByteCount = 0;
+  assert.equal(readBrowserPlaybackEvidence(video).audioReady, false);
 });

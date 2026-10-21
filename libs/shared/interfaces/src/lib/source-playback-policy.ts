@@ -47,7 +47,9 @@ function ordered(items: readonly SourcePlaybackObservation[]) {
   }
   return [...byId.values()].sort(
     (a, b) =>
-      a.completedAt - b.completedAt || a.checkId.localeCompare(b.checkId),
+      a.startedAt - b.startedAt ||
+      a.completedAt - b.completedAt ||
+      a.checkId.localeCompare(b.checkId),
   );
 }
 export function retainSourceObservations(

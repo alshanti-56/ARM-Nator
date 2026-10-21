@@ -1,3 +1,4 @@
+import {SourcePlaybackViewingObserverService} from './services/source-playback/source-playback-viewing-observer.service';
 import {SourcePlaybackSchedulerService} from './services/source-playback/source-playback-scheduler.service';
 import {SOURCE_PLAYBACK_FACADE} from '@arm-nator/services';
 import {SourcePlaybackCheckService} from './services/source-playback/source-playback-check.service';
@@ -78,7 +79,7 @@ installWebElectronBridge();
 
 export const appConfig: ApplicationConfig = {
     providers: [
-        provideAppInitializer(()=>{inject(SourcePlaybackSchedulerService).start();}),
+        provideAppInitializer(()=>{inject(SourcePlaybackViewingObserverService).start();inject(SourcePlaybackSchedulerService).start();}),
         {provide:SOURCE_PLAYBACK_FACADE,useExisting:SourcePlaybackCheckService},
         { provide: OverlayContainer, useClass: FullscreenOverlayContainer },
         provideZoneChangeDetection({ eventCoalescing: true }),

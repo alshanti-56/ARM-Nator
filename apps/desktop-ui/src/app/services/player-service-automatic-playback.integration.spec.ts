@@ -7,7 +7,7 @@ import test from "node:test";
 import { createEnvironmentInjector, runInInjectionContext } from "@angular/core";
 import { MatDialog } from "@angular/material/dialog";
 import { Router } from "@angular/router";
-import { DataService, PlaybackPositionService, SettingsStore } from "@arm-nator/services";
+import { DataService, PlaybackPositionService, SettingsStore, SourcePlaybackRepositoryService, SourcePlaybackStoreService } from "@arm-nator/services";
 import { ResolvedPortalPlayback, VideoPlayer } from "@arm-nator/shared/interfaces";
 
 function deferred<T>() {
@@ -32,13 +32,14 @@ function prepared(id: string, url: string) {
   return { ok: true as const, session: { id, url, format: "hls" as const, container: "hls" as const } };
 }
 
-async function createHarness(preparePlayback: (...args: unknown[]) => Promise<unknown>) {
+async function createHarness(preparePlayback: (...args: unknown[]) => Promise<unknown>, evidenceRepository?:unknown) {
   const preparedCalls: { url: string; headers: Record<string, string>; isLive: boolean; attemptId: string }[] = [];
   const cancelCalls: string[] = [];
   const releaseCalls: string[] = [];
   const externalCalls: { type: string; payload: Record<string, unknown> }[] = [];
   const decisions: unknown[] = [];
   const bridge = {
+    dbSaveSourcePlaybackEvidence: evidenceRepository?async()=>'saved':undefined,
     onBrowserViewUpdate: () => () => undefined,
     closeBrowserView: async () => undefined,
     prepareAutoPlayback: async (url: string, headers: Record<string, string>, isLive: boolean, attemptId: string) => {
@@ -92,7 +93,11 @@ async function createHarness(preparePlayback: (...args: unknown[]) => Promise<un
     moduleLoader._resolveFilename = originalResolveFilename;
     delete require.cache[mockUiModuleId];
   }
+  const {SourcePlaybackViewingObserverService}=require(resolve("apps/desktop-ui/src/app/services/source-playback/source-playback-viewing-observer.service.ts"));
   const injector = createEnvironmentInjector([
+    {provide:SourcePlaybackViewingObserverService,useFactory:()=>new SourcePlaybackViewingObserverService()},
+    {provide:SourcePlaybackRepositoryService,useValue:evidenceRepository??{read:async()=>[],write:async()=>'saved'}},
+    {provide:SourcePlaybackStoreService,useValue:{snapshots:()=>new Map(),refreshSaved:async()=>{},persistenceFailure:{set:()=>{}}}},
     WorkspacePlayerStateService,
     PlaybackResourceService,
     PlayerService,
@@ -112,9 +117,10 @@ async function createHarness(preparePlayback: (...args: unknown[]) => Promise<un
   const state = runInInjectionContext(injector, () => injector.get(WorkspacePlayerStateService));
   const service = runInInjectionContext(injector, () => injector.get(PlayerService));
   return {
-    observePosition(positionSeconds: number, durationSeconds: number): void {
+    viewing:injector.get(SourcePlaybackViewingObserverService),
+    observePosition(positionSeconds: number, durationSeconds: number,media?:{presentedFrames:number}): void {
       const { createEmptyControlsState, DEFAULT_PLAYER_CAPABILITIES } = createRequire(import.meta.url)(resolve('libs/player/ui/src/lib/player-controls/player-controls-defaults.ts'));
-      state.onRuntimeSnapshot({ state: { ...createEmptyControlsState(), status: 'playing', positionSeconds, durationSeconds }, capabilities: DEFAULT_PLAYER_CAPABILITIES });
+      state.onRuntimeSnapshot({ state: { ...createEmptyControlsState(), status: 'playing', positionSeconds, durationSeconds }, capabilities: DEFAULT_PLAYER_CAPABILITIES,media });
     },
     sourceResources:injector.get(PlaybackResourceService),
     state, service, bridge, preparedCalls, cancelCalls, releaseCalls, externalCalls, decisions,
@@ -329,3 +335,11 @@ test("source check cleanup finishes before a user playback transport opens",asyn
  const close=deferred<void>();const harness=await createHarness(async()=>prepared("verified-foreground","http://127.0.0.1:43111/auto/foreground/master.m3u8"));
  try{const lease=harness.sourceResources.tryAcquireBackground(()=>close.promise);assert.ok(lease);const opening=harness.service.openAutomaticPlayback(source("https://provider.example/user.m3u8"));assert.equal(lease.signal.aborted,true);assert.equal(harness.preparedCalls.length,0);close.resolve();await opening;assert.equal(harness.preparedCalls.length,1);}finally{harness.destroy();}
 });
+test('normal viewing saves qualified playback and terminal recovery failure updates the same SQLite observation',async()=>{
+ const require=createRequire(import.meta.url);const {fixture}=require(resolve('apps/electron-backend/src/app/database/operations/source-playback.test-fixtures.ts'));const {readSourcePlaybackEvidence,saveSourcePlaybackEvidence}=require(resolve('apps/electron-backend/src/app/database/operations/source-playback.operations.ts'));const {db,sqlite}=fixture();const repository={read:async(ids:string[])=>readSourcePlaybackEvidence(db,ids),write:async(input:unknown)=>saveSourcePlaybackEvidence(db,input)};const h=await createHarness(async()=>prepared('view-proxy','http://127.0.0.1/view.m3u8'),repository);const now=Date.now;let clock=now();Date.now=()=>clock;
+ try{h.viewing.start();const playback=source('https://fixture.test/movie',{itemIdentity:{sourceType:'xtream',playlistId:'one',contentKind:'vod',providerItemId:'7'}});await h.service.openAutomaticPlayback(playback);for(let t=0;t<=9;t++){h.observePosition(t,100,{presentedFrames:t*24});clock+=1000;}await h.viewing.drain();let saved=readSourcePlaybackEvidence(db,['one'])[0];assert.equal(saved.latest[0]?.result,'verified');assert.equal(saved.latest[0]?.origin,'viewing');assert.equal(saved.observations.length,1);const id=saved.latest[0].checkId,success=saved.latest[0].successfulAt;
+ await h.service.handleAutomaticDiagnostic({code:'provider-rejected',sourceUrl:h.state.playback()?.streamUrl,network:{status:403}});await h.viewing.drain();saved=readSourcePlaybackEvidence(db,['one'])[0];assert.equal(saved.latest[0]?.result,'failed');assert.equal(saved.latest[0]?.checkId,id);assert.equal(saved.latest[0]?.successfulAt,success);assert.equal(saved.observations.length,1);
+ await h.state.restart();h.observePosition(0,100,{presentedFrames:0});await new Promise(r=>setImmediate(r));for(let t=0;t<=7;t++){clock+=1000;h.observePosition(t,100,{presentedFrames:t*24});}await h.viewing.drain();saved=readSourcePlaybackEvidence(db,['one'])[0];assert.equal(saved.latest[0]?.result,'verified');assert.equal(saved.observations.length,2);
+ }finally{Date.now=now;h.destroy();sqlite.close();}
+});
+test('a terminal preparation failure waits for evidence identity instead of dropping the outcome',async()=>{const ready=deferred<any[]>();const writes:any[]=[];const h=await createHarness(async()=>({ok:false,error:{code:'upstream-http-error',status:403,message:'Rejected'}}),{read:()=>ready.promise,write:async(input:any)=>{writes.push(input);return 'saved';}});try{h.viewing.start();await h.service.openAutomaticPlayback(source('https://fixture.test/rejected',{itemIdentity:{sourceType:'xtream',playlistId:'one',contentKind:'live',providerItemId:'7'}}));ready.resolve([{sourceId:'one',revision:'r'}]);await new Promise(r=>setImmediate(r));await h.viewing.drain();assert.equal(writes.length,1);assert.equal(writes[0].observation.result,'failed');}finally{h.destroy();}});

@@ -4,7 +4,10 @@ import { getPlaybackMediaExtensionFromUrl } from "@arm-nator/providers/shared/ut
 export function readBrowserPlaybackEvidence(
   video?: HTMLVideoElement,
   presentedFramesOverride?: number,
-): Pick<PlayerMediaTelemetry, "presentedFrames" | "audioOnly" | "muted"> {
+): Pick<
+  PlayerMediaTelemetry,
+  "presentedFrames" | "audioOnly" | "audioReady" | "muted"
+> {
   if (!video) {
     return {};
   }
@@ -12,10 +15,12 @@ export function readBrowserPlaybackEvidence(
   const evidence: {
     presentedFrames?: number;
     audioOnly?: boolean;
+    audioReady?: boolean;
     muted?: boolean;
   } = {};
   const presentedFrames =
-    isFrameCount(presentedFramesOverride) && presentedFramesOverride !== undefined
+    isFrameCount(presentedFramesOverride) &&
+    presentedFramesOverride !== undefined
       ? presentedFramesOverride
       : readQualityFrameCount(video);
   if (presentedFrames !== undefined) {
@@ -25,6 +30,11 @@ export function readBrowserPlaybackEvidence(
   if (video.readyState >= 2) {
     evidence.audioOnly = video.videoWidth === 0 && video.videoHeight === 0;
   }
+  const audioBytes = (
+    video as HTMLVideoElement & { webkitAudioDecodedByteCount?: number }
+  ).webkitAudioDecodedByteCount;
+  if (typeof audioBytes === "number")
+    evidence.audioReady = Number.isFinite(audioBytes) && audioBytes > 0;
   if (typeof video.muted === "boolean") {
     evidence.muted = video.muted;
   }
@@ -59,7 +69,10 @@ function readQualityFrameCount(video: HTMLVideoElement): number | undefined {
       return undefined;
     }
     const droppedFrames = quality?.droppedVideoFrames;
-    return Math.max(0, totalFrames - (isFrameCount(droppedFrames) ? droppedFrames : 0));
+    return Math.max(
+      0,
+      totalFrames - (isFrameCount(droppedFrames) ? droppedFrames : 0),
+    );
   } catch {
     return undefined;
   }

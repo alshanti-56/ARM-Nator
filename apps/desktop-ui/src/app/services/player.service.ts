@@ -1,3 +1,4 @@
+import {SourcePlaybackViewingObserverService} from './source-playback/source-playback-viewing-observer.service';
 import { Injectable, inject, DestroyRef } from "@angular/core";
 import { MatDialog } from "@angular/material/dialog";
 import { ExternalPlayerInfoDialogComponent } from "@arm-nator/player/ui/external-player-info-dialog";
@@ -35,6 +36,7 @@ export class PlayerService implements PlayerFacade {
   private dataService = inject(DataService);
   private settingsStore = inject(SettingsStore);
   private workspacePlayer = inject(WorkspacePlayerStateService);
+  private readonly sourceViewing=inject(SourcePlaybackViewingObserverService,{optional:true});
 
   private readonly destroyRef = inject(DestroyRef);
   private readonly enginePreferences = new PlaybackEnginePreferences<VideoPlayer>({
@@ -162,6 +164,7 @@ export class PlayerService implements PlayerFacade {
       }
     },
     showFailure: failure => {
+      if(failure.token!==null&&this.workspacePlayer.isPlaybackTransitionCurrent(failure.token))this.sourceViewing?.terminal(failure.playback,failure.error);
       this.workspacePlayer.failAutomaticPlayback(failure);
       this.recordReliabilityEvent(`Playback stopped: ${failure.error.code}; status ${failure.error.status ?? 'unknown'}.`);
     },
@@ -196,6 +199,7 @@ export class PlayerService implements PlayerFacade {
   }
 
   async openAutomaticPlayback(playback: ResolvedPortalPlayback, context?: PlayerOpenContext): Promise<void> {
+    this.sourceViewing?.beginSelection(playback,!!context?.recoveryIdentity);
     const original = originalProviderPlayback(playback);
     this.selectionStartedAt = Date.now();
     try {
@@ -282,6 +286,7 @@ export class PlayerService implements PlayerFacade {
     transition?: number,
   ): Promise<void> {
     if (engine === VideoPlayer.Auto) return this.openAutomaticPlayback(playback, context);
+    this.sourceViewing?.beginSelection(playback,!!context?.recoveryIdentity);
     this.selectionStartedAt = Date.now();
     return this.workspacePlayer.withSourceCheckForeground(()=>this.automatic.open(originalProviderPlayback(playback), context, engine))
       .then(() => {
@@ -298,6 +303,7 @@ export class PlayerService implements PlayerFacade {
     player: ExternalPlayerName,
     transition?: number,
   ): Promise<ExternalPlayerSession | void> {
+    this.sourceViewing?.stopSelection();
     this.automatic.invalidate();
     playback = originalProviderPlayback(playback);
     const currentTransition =

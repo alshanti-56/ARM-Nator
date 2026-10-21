@@ -182,3 +182,31 @@ test("filters selected categories and excludes stale and unstable from working r
     sourceEvidenceKey({ ...key, sourceId: "a", revision: "b:c" }),
   );
 });
+test("a background check started earlier cannot supersede a newer viewing observation by completing late", () => {
+  const old = classifySourceCheck(
+    {
+      ...attempt(["failed"], 12000, "background"),
+      origin: "background",
+      startedAt: 1000,
+    },
+    1,
+    true,
+  )!;
+  const viewing = classifySourceCheck(
+    {
+      ...attempt(["played"], 11000, "viewing"),
+      origin: "viewing",
+      startedAt: 5000,
+    },
+    1,
+    true,
+  )!;
+  assert.equal(
+    summarizeSourceEvidence(key, [viewing, old], null, 13000).result,
+    "verified",
+  );
+  assert.equal(
+    summarizeSourceEvidence(key, [viewing, old], null, 13000).latest?.checkId,
+    "viewing",
+  );
+});
