@@ -1,3 +1,4 @@
+import type {SourceAccountSnapshot,SourceEvidenceSnapshot,SourceEvidenceWrite} from '@arm-nator/shared/interfaces';
 /* eslint-disable max-lines */
 /**
  * Database service for Electron renderer process
@@ -150,6 +151,10 @@ export interface GlobalRecentlyAddedItem extends XtreamContent {
     providedIn: 'root',
 })
 export class DatabaseService {
+    getSourcePlaybackEvidence(sourceIds:string[]):Promise<SourceEvidenceSnapshot[]> { return window.electron.dbGetSourcePlaybackEvidence(sourceIds); }
+    saveSourcePlaybackEvidence(input:SourceEvidenceWrite):Promise<'saved'|'obsolete'> { return window.electron.dbSaveSourcePlaybackEvidence(input); }
+    saveSourcePlaybackAccount(sourceId:string,revision:string,account:SourceAccountSnapshot):Promise<'saved'|'obsolete'> { return window.electron.dbSaveSourcePlaybackAccount(sourceId,revision,account); }
+
     private readonly catalogueReads = new InFlightCatalogueReads();
     private readonly catalogueChanges = new Subject<string>();
     readonly catalogueChanges$ = this.catalogueChanges.asObservable();

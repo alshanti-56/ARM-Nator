@@ -1,6 +1,9 @@
 import type { WorkerPerformanceCaptureResult } from './worker-performance-capture';
 
 export const DB_WORKER_OPERATIONS = [
+    'DB_GET_SOURCE_PLAYBACK_EVIDENCE',
+    'DB_SAVE_SOURCE_PLAYBACK_EVIDENCE',
+    'DB_SAVE_SOURCE_PLAYBACK_ACCOUNT',
     'DB_HAS_CATEGORIES',
     'DB_GET_CATEGORIES',
     'DB_SAVE_CATEGORIES',

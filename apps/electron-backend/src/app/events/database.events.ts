@@ -19,3 +19,5 @@ export default class DatabaseEvents {
         return ipcMain;
     }
 }
+
+import './database/source-playback.events';

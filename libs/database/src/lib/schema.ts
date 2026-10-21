@@ -333,3 +333,17 @@ export const titlePreferences = sqliteTable("title_preferences", {
   preferences: text("preferences").notNull(),
   updatedAt: integer("updated_at").notNull(),
 });
+
+// Evidence is separate from provider credentials and catalogue payloads.
+export const sourcePlaybackSources = sqliteTable('source_playback_sources', {
+ sourceId:text('source_id').primaryKey().references(()=>playlists.id,{onDelete:'cascade'}),revision:text('revision').notNull(),
+});
+export const sourcePlaybackCategories = sqliteTable('source_playback_categories', {
+ sourceId:text('source_id').notNull().references(()=>sourcePlaybackSources.sourceId,{onDelete:'cascade'}),category:text('category').notNull(),latest:text('latest'),successfulAt:integer('successful_at'),attempt:text('attempt'),cursor:text('cursor'),nextEligibleAt:integer('next_eligible_at'),inconclusiveCount:integer('inconclusive_count').default(0),
+},table=>[uniqueIndex('source_playback_categories_key').on(table.sourceId,table.category)]);
+export const sourcePlaybackObservations = sqliteTable('source_playback_observations', {
+ sourceId:text('source_id').notNull().references(()=>sourcePlaybackSources.sourceId,{onDelete:'cascade'}),category:text('category').notNull(),checkId:text('check_id').notNull(),completedAt:integer('completed_at').notNull(),observation:text('observation').notNull(),
+},table=>[uniqueIndex('source_playback_observations_key').on(table.sourceId,table.category,table.checkId)]);
+export const sourcePlaybackAccounts = sqliteTable('source_playback_accounts', {
+ sourceId:text('source_id').primaryKey().references(()=>sourcePlaybackSources.sourceId,{onDelete:'cascade'}),snapshot:text('snapshot').notNull(),
+});

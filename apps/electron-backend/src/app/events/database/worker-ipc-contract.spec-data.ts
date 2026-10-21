@@ -33,6 +33,8 @@ const tmdbCacheEntry = {
 };
 
 export const workerIpcContractCases: WorkerIpcContractCase[] = [
+    { operation: 'DB_GET_SOURCE_PLAYBACK_EVIDENCE', args: [[playlistId]], payload: { sourceIds: [playlistId] } },
+
     {
         operation: 'DB_CREATE_PLAYLIST',
         args: [playlist],

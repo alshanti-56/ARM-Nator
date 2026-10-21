@@ -1,3 +1,4 @@
+import type {SourceAccountSnapshot,SourceEvidenceWrite} from '@arm-nator/shared/interfaces';
 import type { StalkerSearchRequestPayload, StalkerSearchPageResponse } from '@arm-nator/shared/interfaces';
 import type { StalkerRequestPayload } from '@arm-nator/shared/interfaces';
 /* eslint-disable max-lines */
@@ -752,6 +753,9 @@ const electronApi: ElectronBridgeApi = {
         return () => ipcRenderer.off(CREDENTIAL_TESTER_IPC.progress, handler);
     },
     // Database operations
+    dbGetSourcePlaybackEvidence: (sourceIds:string[]) => ipcRenderer.invoke('DB_GET_SOURCE_PLAYBACK_EVIDENCE',sourceIds),
+    dbSaveSourcePlaybackEvidence: (input:SourceEvidenceWrite) => ipcRenderer.invoke('DB_SAVE_SOURCE_PLAYBACK_EVIDENCE',input),
+    dbSaveSourcePlaybackAccount: (sourceId:string,revision:string,account:SourceAccountSnapshot) => ipcRenderer.invoke('DB_SAVE_SOURCE_PLAYBACK_ACCOUNT',sourceId,revision,account),
     dbCreatePlaylist: (playlist: ElectronBridgePlaylistUpsertInput) =>
         ipcRenderer.invoke('DB_CREATE_PLAYLIST', playlist),
     dbGetPlaylist: (playlistId: string) =>

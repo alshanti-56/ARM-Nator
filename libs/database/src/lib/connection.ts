@@ -1,3 +1,4 @@
+import { migrateSourcePlayback } from './source-playback-migration';
 /* eslint-disable max-lines */
 /**
  * Database connection and initialization for ARM-Nator
@@ -844,6 +845,7 @@ function removeLegacyStalkerAndDownloads(sqliteDb: Database.Database): void {
  */
 function runMigrations(sqliteDb: Database.Database): void {
   migrateViewingState(sqliteDb);
+  migrateSourcePlayback(sqliteDb);
   widenTmdbMetadataMediaTypeCheck(sqliteDb);
   cleanupLegacyTmdbSearchCache(sqliteDb);
   removeLegacyStalkerAndDownloads(sqliteDb);
