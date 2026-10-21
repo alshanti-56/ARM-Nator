@@ -18,3 +18,5 @@ export * from './lib/workspace-player/workspace-player-host.component';
 export * from './lib/workspace-player/workspace-player-state.service';
 
 export {NativeCompositionService} from './lib/embedded-mpv-player/native-composition.service';
+
+export * from './lib/source-playback/playback-resource.service';

@@ -17,3 +17,5 @@ export * from './lib/browser-playback-preparation';
 export * from './lib/playback-restore-state';
 
 export * from './lib/media-companion-client';
+
+export * from './lib/playback-resource-coordinator';

@@ -1,3 +1,4 @@
+import {PlaybackResourceService} from '../source-playback/playback-resource.service';
 import { redactPlaybackErrorText } from "../playback-diagnostics/playback-diagnostics.util";
 import type { RecoveryActionId } from "../playback-recovery/playback-recovery-actions";
 import {
@@ -37,6 +38,9 @@ export type WorkspacePlayerPresentation = "expanded" | "mini";
 
 @Injectable({ providedIn: "root" })
 export class WorkspacePlayerStateService {
+  private readonly sourceResources=inject(PlaybackResourceService);
+  withSourceCheckForeground<T>(action:()=>Promise<T>):Promise<T>{return this.sourceResources.withForeground(action);}
+
   private readonly playbackPositions = inject(PlaybackPositionService);
   private readonly router = inject(Router);
   private readonly destroyRef = inject(DestroyRef);
@@ -426,6 +430,7 @@ export class WorkspacePlayerStateService {
   }
 
   constructor() {
+    this.destroyRef.onDestroy(this.sourceResources.registerBlocker(()=>!!this.youtube()||this.automaticPreparing()||this.recoveryBusy()||!!this.playback()&&!this.stopped()));
     this.destroyRef.onDestroy(() => {
       this.cancelPendingRetry();
       this.cancelRecovery();
@@ -465,7 +470,7 @@ export class WorkspacePlayerStateService {
     this.resumeGeneration = this.resumeCoordinator.begin(null);
     this.detachPreferences();
     try {
-      const transition = await this.teardownRegistry.prepareForPlayback();
+      const transition = await this.sourceResources.withForeground(()=>this.teardownRegistry.prepareForPlayback());
       if (transition === null || requestVersion !== this.playbackRequestVersion)
         return null;
       await this.closeYoutubePlayback(false, requestVersion);
@@ -912,7 +917,7 @@ export class WorkspacePlayerStateService {
     this.cancelPendingRetry();
     let transition: number | null;
     try {
-      transition = await this.teardownRegistry.prepareForPlayback();
+      transition = await this.sourceResources.withForeground(()=>this.teardownRegistry.prepareForPlayback());
     } catch (error) {
       if (requestVersion !== this.playbackRequestVersion) return;
       this.teardownFailure.set(this.getErrorMessage(error));

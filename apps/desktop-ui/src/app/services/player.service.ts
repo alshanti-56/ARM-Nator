@@ -199,7 +199,7 @@ export class PlayerService implements PlayerFacade {
     const original = originalProviderPlayback(playback);
     this.selectionStartedAt = Date.now();
     try {
-      await this.automatic.open(original, context);
+      await this.workspacePlayer.withSourceCheckForeground(()=>this.automatic.open(original, context));
     } catch (error) {
       // A cleanup rejection remains registered for retry. Do not start another transport.
       console.error("Automatic playback could not finish cleanup:", error);
@@ -283,7 +283,7 @@ export class PlayerService implements PlayerFacade {
   ): Promise<void> {
     if (engine === VideoPlayer.Auto) return this.openAutomaticPlayback(playback, context);
     this.selectionStartedAt = Date.now();
-    return this.automatic.open(originalProviderPlayback(playback), context, engine)
+    return this.workspacePlayer.withSourceCheckForeground(()=>this.automatic.open(originalProviderPlayback(playback), context, engine))
       .then(() => {
         // Manual selection still uses managed preparation/recovery. Keep its
         // terminal diagnostic when preparation fails before a driver mounts.
@@ -291,7 +291,9 @@ export class PlayerService implements PlayerFacade {
       });
   }
 
-  async openExternalPlayback(
+  openExternalPlayback(playback:ResolvedPortalPlayback,player:ExternalPlayerName,transition?:number):Promise<ExternalPlayerSession|void>{return this.workspacePlayer.withSourceCheckForeground(()=>this.openExternalPlaybackOwned(playback,player,transition));}
+
+  private async openExternalPlaybackOwned(
     playback: ResolvedPortalPlayback,
     player: ExternalPlayerName,
     transition?: number,

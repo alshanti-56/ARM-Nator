@@ -1,3 +1,4 @@
+import {PlaybackResourceService} from "../../../../../libs/player/ui/src/lib/source-playback/playback-resource.service";
 import "@angular/compiler";
 import assert from "node:assert/strict";
 import { createRequire } from "node:module";
@@ -93,6 +94,7 @@ async function createHarness(preparePlayback: (...args: unknown[]) => Promise<un
   }
   const injector = createEnvironmentInjector([
     WorkspacePlayerStateService,
+    PlaybackResourceService,
     PlayerService,
     { provide: MatDialog, useValue: { open: () => undefined } },
     { provide: Router, useValue: { url: "/workspace/dashboard", navigateByUrl: async () => true } },
@@ -114,6 +116,7 @@ async function createHarness(preparePlayback: (...args: unknown[]) => Promise<un
       const { createEmptyControlsState, DEFAULT_PLAYER_CAPABILITIES } = createRequire(import.meta.url)(resolve('libs/player/ui/src/lib/player-controls/player-controls-defaults.ts'));
       state.onRuntimeSnapshot({ state: { ...createEmptyControlsState(), status: 'playing', positionSeconds, durationSeconds }, capabilities: DEFAULT_PLAYER_CAPABILITIES });
     },
+    sourceResources:injector.get(PlaybackResourceService),
     state, service, bridge, preparedCalls, cancelCalls, releaseCalls, externalCalls, decisions,
     destroy(): void {
       injector.destroy();
@@ -320,4 +323,9 @@ test("manual external playback also receives the original provider URL", async (
     assert.equal(harness.state.engine(), VideoPlayer.Html5Player);
     assert.equal(harness.state.playback()?.preparedProxy?.processingMode, 'direct');
   } finally { harness.destroy(); }
+});
+
+test("source check cleanup finishes before a user playback transport opens",async()=>{
+ const close=deferred<void>();const harness=await createHarness(async()=>prepared("verified-foreground","http://127.0.0.1:43111/auto/foreground/master.m3u8"));
+ try{const lease=harness.sourceResources.tryAcquireBackground(()=>close.promise);assert.ok(lease);const opening=harness.service.openAutomaticPlayback(source("https://provider.example/user.m3u8"));assert.equal(lease.signal.aborted,true);assert.equal(harness.preparedCalls.length,0);close.resolve();await opening;assert.equal(harness.preparedCalls.length,1);}finally{harness.destroy();}
 });
