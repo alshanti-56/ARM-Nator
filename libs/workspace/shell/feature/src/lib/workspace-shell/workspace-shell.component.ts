@@ -1,3 +1,4 @@
+import {SourcePlaybackProbeHostComponent} from '@arm-nator/player/ui';
 import { Component, HostListener, inject, viewChild, ChangeDetectionStrategy } from '@angular/core';
 import { RouterOutlet } from '@angular/router';
 import { Location } from '@angular/common';
@@ -22,6 +23,7 @@ import { WorkspaceKeyboardNavigationService } from '../workspace-keyboard-naviga
     selector: 'app-workspace-shell',
     imports: [
         ExternalPlaybackDockComponent,
+        SourcePlaybackProbeHostComponent,
         WorkspacePlayerHostComponent,
         RouterOutlet,
         WorkspaceShellContextSidebarComponent,

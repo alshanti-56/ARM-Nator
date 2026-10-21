@@ -1,0 +1,14 @@
+:host {
+  position: fixed;
+  left: -10000px;
+  top: 0;
+  width: 2px;
+  height: 2px;
+  pointer-events: none;
+  opacity: 0.001;
+  overflow: hidden;
+}
+video {
+  width: 2px;
+  height: 2px;
+}

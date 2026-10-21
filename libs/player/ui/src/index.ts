@@ -20,3 +20,6 @@ export * from './lib/workspace-player/workspace-player-state.service';
 export {NativeCompositionService} from './lib/embedded-mpv-player/native-composition.service';
 
 export * from './lib/source-playback/playback-resource.service';
+
+export * from './lib/source-playback/source-playback-probe.service';
+export * from './lib/source-playback/source-playback-probe-host.component';
