@@ -1,3 +1,4 @@
+import type {SourceCandidateQuery} from '@arm-nator/shared/interfaces';
 import type {SourceAccountSnapshot,SourceEvidenceWrite} from '@arm-nator/shared/interfaces';
 import type { StalkerSearchRequestPayload, StalkerSearchPageResponse } from '@arm-nator/shared/interfaces';
 import type { StalkerRequestPayload } from '@arm-nator/shared/interfaces';
@@ -753,6 +754,7 @@ const electronApi: ElectronBridgeApi = {
         return () => ipcRenderer.off(CREDENTIAL_TESTER_IPC.progress, handler);
     },
     // Database operations
+    dbGetSourcePlaybackCandidates: (input:SourceCandidateQuery)=>ipcRenderer.invoke("DB_GET_SOURCE_PLAYBACK_CANDIDATES",input),
     dbGetSourcePlaybackEvidence: (sourceIds:string[]) => ipcRenderer.invoke('DB_GET_SOURCE_PLAYBACK_EVIDENCE',sourceIds),
     dbSaveSourcePlaybackEvidence: (input:SourceEvidenceWrite) => ipcRenderer.invoke('DB_SAVE_SOURCE_PLAYBACK_EVIDENCE',input),
     dbSaveSourcePlaybackAccount: (sourceId:string,revision:string,account:SourceAccountSnapshot) => ipcRenderer.invoke('DB_SAVE_SOURCE_PLAYBACK_ACCOUNT',sourceId,revision,account),

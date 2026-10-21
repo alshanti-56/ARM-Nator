@@ -1,3 +1,7 @@
+import type {
+  SourceCandidateQuery,
+  SourcePlaybackCandidate,
+} from "@arm-nator/shared/interfaces";
 import { sql } from "drizzle-orm";
 import type { AppDatabase } from "../database.types";
 import {
@@ -299,4 +303,54 @@ export function saveSourcePlaybackAccount(
     );
     return "saved" as const;
   });
+}
+
+export function getSourcePlaybackCandidates(
+  db: AppDatabase,
+  input: SourceCandidateQuery,
+): SourcePlaybackCandidate[] {
+  const args = object(input);
+  only(args, ["sourceId", "category", "limit", "cursor", "preferredItemId"]);
+  string(input.sourceId);
+  if (!categories.includes(input.category)) throw new Error("Invalid category");
+  const limit = input.limit ?? 3;
+  if (!Number.isSafeInteger(limit) || limit < 1 || limit > 3)
+    throw new Error("Invalid sample limit");
+  const type = input.category === "movies" ? "movie" : input.category;
+  const selected: SourcePlaybackCandidate[] = [];
+  const query = (extra: ReturnType<typeof sql>, count: number) =>
+    db
+      .all<{
+        id: number;
+        category_id: number;
+        xtream_id: number;
+        title: string;
+        provider_category: number;
+      }>(
+        sql`SELECT c.id,c.category_id,c.xtream_id,c.title,cat.xtream_id AS provider_category FROM content c JOIN categories cat ON cat.id=c.category_id WHERE cat.playlist_id=${input.sourceId} AND cat.type=${input.category} AND c.type=${type} AND cat.hidden=0 AND cat.available=1 AND c.available=1 AND ${extra} ORDER BY cat.id,c.id LIMIT ${count}`,
+      )
+      .map((row) => ({
+        itemId: String(row.xtream_id),
+        title: row.title,
+        category: input.category,
+        categoryId: String(row.provider_category),
+        cursor: row.category_id + ":" + row.id,
+      }));
+  if (input.preferredItemId)
+    selected.push(...query(sql`c.xtream_id=${input.preferredItemId}`, 1));
+  const cursor = /^(\d+):(\d+)$/.exec(input.cursor ?? "");
+  const after = cursor
+    ? sql`(cat.id>${Number(cursor[1])} OR (cat.id=${Number(cursor[1])} AND c.id>${Number(cursor[2])}))`
+    : sql`1=1`;
+  const add = (items: SourcePlaybackCandidate[]) => {
+    for (const item of items)
+      if (
+        selected.length < limit &&
+        !selected.some((s) => s.itemId === item.itemId)
+      )
+        selected.push(item);
+  };
+  add(query(after, limit));
+  if (selected.length < limit) add(query(sql`1=1`, limit));
+  return selected;
 }

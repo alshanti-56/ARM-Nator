@@ -92,6 +92,7 @@ export interface SourceEvidenceWrite {
   inconclusiveCount?: number;
 }
 export interface SourcePlaybackCandidate {
+  cursor?: string;
   itemId: string;
   title: string;
   category: SourcePlaybackCategory;
@@ -116,3 +117,22 @@ export const SOURCE_PLAYBACK_POLICY = Object.freeze({
   maxBackoffMs: 6 * 3600000,
   accountMs: 5000,
 });
+export interface SourceCandidateQuery {
+  sourceId: string;
+  category: SourcePlaybackCategory;
+  limit?: number;
+  cursor?: string;
+  preferredItemId?: string;
+}
+export interface SourcePlaybackSampler {
+  select(
+    sourceId: string,
+    category: SourcePlaybackCategory,
+    signal: AbortSignal,
+  ): Promise<readonly SourcePlaybackCandidate[]>;
+  resolve(
+    sourceId: string,
+    candidate: SourcePlaybackCandidate,
+    signal: AbortSignal,
+  ): Promise<import("./portal-playback.interface").ResolvedPortalPlayback>;
+}

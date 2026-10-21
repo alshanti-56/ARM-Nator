@@ -5,3 +5,4 @@ export * from './lib/stores';
 export * from './lib/with-favorites.feature';
 export { withRecentItems } from './lib/with-recent-items';
 export * from './lib/xtream-state';
+export * from './lib/source-playback-sampler.service';

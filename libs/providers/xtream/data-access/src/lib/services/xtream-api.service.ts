@@ -39,6 +39,7 @@ export type CategoryType = 'live' | 'vod' | 'series';
 export type StreamType = 'live' | 'movie' | 'series';
 
 export interface XtreamRequestOptions {
+    categoryId?:string;
     requestId?: string;
     sessionId?: string;
     suppressErrorLog?: boolean;
@@ -161,6 +162,7 @@ export class XtreamApiService {
             credentials.serverUrl,
             {
                 action: XtreamCodeActions.GetLiveStreams,
+                ...(options?.categoryId ? { category_id: options.categoryId } : {}),
                 username: credentials.username,
                 password: credentials.password,
             },
@@ -183,6 +185,7 @@ export class XtreamApiService {
             credentials.serverUrl,
             {
                 action: XtreamCodeActions.GetVodStreams,
+                ...(options?.categoryId ? { category_id: options.categoryId } : {}),
                 username: credentials.username,
                 password: credentials.password,
             },
@@ -205,6 +208,7 @@ export class XtreamApiService {
             credentials.serverUrl,
             {
                 action: XtreamCodeActions.GetSeries,
+                ...(options?.categoryId ? { category_id: options.categoryId } : {}),
                 username: credentials.username,
                 password: credentials.password,
             },

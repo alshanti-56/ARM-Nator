@@ -1,3 +1,5 @@
+import {getSourcePlaybackCandidates} from '../database/operations/source-playback.operations';
+import type {SourceCandidateQuery} from '@arm-nator/shared/interfaces';
 import {readSourcePlaybackEvidence,saveSourcePlaybackEvidence,saveSourcePlaybackAccount} from '../database/operations/source-playback.operations';
 import type {SourceAccountSnapshot} from '@arm-nator/shared/interfaces';
 import type { ViewingItem, ViewingStateUpdate, CatalogueItemIdentity, TitleTrackPreferences } from '@arm-nator/shared/interfaces';
@@ -376,6 +378,7 @@ async function executeRequest(
     const db = await getWorkerDatabase();
 
     switch (message.operation) {
+        case 'DB_GET_SOURCE_PLAYBACK_CANDIDATES': return getSourcePlaybackCandidates(db,message.payload as SourceCandidateQuery);
         case 'DB_GET_SOURCE_PLAYBACK_EVIDENCE': return readSourcePlaybackEvidence(db,(message.payload as {sourceIds:unknown}).sourceIds);
         case 'DB_SAVE_SOURCE_PLAYBACK_EVIDENCE': return saveSourcePlaybackEvidence(db,message.payload);
         case 'DB_SAVE_SOURCE_PLAYBACK_ACCOUNT': {const p=message.payload as {sourceId:string;revision:string;account:SourceAccountSnapshot};return saveSourcePlaybackAccount(db,p.sourceId,p.revision,p.account);}

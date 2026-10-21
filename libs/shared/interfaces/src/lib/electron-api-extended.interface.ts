@@ -1,3 +1,4 @@
+import type {SourceCandidateQuery,SourcePlaybackCandidate} from './source-playback-evidence';
 import type {SourceAccountSnapshot,SourceEvidenceSnapshot,SourceEvidenceWrite} from './source-playback-evidence';
 import type { StalkerSearchRequestPayload, StalkerSearchPageResponse } from './stalker-request.interface';
 import type { StalkerRequestPayload } from './stalker-request.interface';
@@ -244,6 +245,7 @@ export interface ElectronBridgePlaybackPositionInput extends Omit<PlaybackPositi
     playlistType?: ElectronBridgePlaylistType;
 }
 export interface ElectronBridgeApi extends ElectronBridgeKsPlayerMetalApi {
+    dbGetSourcePlaybackCandidates: (input:SourceCandidateQuery)=>Promise<SourcePlaybackCandidate[]>;
     dbGetSourcePlaybackEvidence: (sourceIds:string[]) => Promise<SourceEvidenceSnapshot[]>;
     dbSaveSourcePlaybackEvidence: (input:SourceEvidenceWrite) => Promise<'saved'|'obsolete'>;
     dbSaveSourcePlaybackAccount: (sourceId:string,revision:string,account:SourceAccountSnapshot) => Promise<'saved'|'obsolete'>;

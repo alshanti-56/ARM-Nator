@@ -1,3 +1,5 @@
+import {SOURCE_PLAYBACK_FACADE} from '@arm-nator/services';
+import {SourcePlaybackCheckService} from './services/source-playback/source-playback-check.service';
 import { OverlayContainer, FullscreenOverlayContainer } from '@angular/cdk/overlay';
 import { AppPortalDiscoveryService } from './services/portal-discovery.service';
 import { PORTAL_DISCOVERY_ADAPTER } from '@arm-nator/providers/shared/util';
@@ -75,6 +77,7 @@ installWebElectronBridge();
 
 export const appConfig: ApplicationConfig = {
     providers: [
+        {provide:SOURCE_PLAYBACK_FACADE,useExisting:SourcePlaybackCheckService},
         { provide: OverlayContainer, useClass: FullscreenOverlayContainer },
         provideZoneChangeDetection({ eventCoalescing: true }),
         provideRouter(routes, withComponentInputBinding()),

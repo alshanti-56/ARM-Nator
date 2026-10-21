@@ -1,3 +1,4 @@
+import type {SourceCandidateQuery,SourcePlaybackCandidate} from '@arm-nator/shared/interfaces';
 import type {SourceAccountSnapshot,SourceEvidenceSnapshot,SourceEvidenceWrite} from '@arm-nator/shared/interfaces';
 /* eslint-disable max-lines */
 /**
@@ -151,6 +152,7 @@ export interface GlobalRecentlyAddedItem extends XtreamContent {
     providedIn: 'root',
 })
 export class DatabaseService {
+    getSourcePlaybackCandidates(input:SourceCandidateQuery):Promise<SourcePlaybackCandidate[]> {return window.electron.dbGetSourcePlaybackCandidates(input); }
     getSourcePlaybackEvidence(sourceIds:string[]):Promise<SourceEvidenceSnapshot[]> { return window.electron.dbGetSourcePlaybackEvidence(sourceIds); }
     saveSourcePlaybackEvidence(input:SourceEvidenceWrite):Promise<'saved'|'obsolete'> { return window.electron.dbSaveSourcePlaybackEvidence(input); }
     saveSourcePlaybackAccount(sourceId:string,revision:string,account:SourceAccountSnapshot):Promise<'saved'|'obsolete'> { return window.electron.dbSaveSourcePlaybackAccount(sourceId,revision,account); }

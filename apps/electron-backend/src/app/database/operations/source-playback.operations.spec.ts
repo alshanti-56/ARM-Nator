@@ -103,3 +103,45 @@ test("inconclusive attempt preserves last result; missing accounts remain nullab
     sqlite.close();
   }
 });
+
+test("candidate query limits before IPC and excludes hidden and unavailable categories", async () => {
+  const { getSourcePlaybackCandidates } =
+    await import("./source-playback.operations");
+  const { db, sqlite } = fixture();
+  try {
+    sqlite.exec(
+      "CREATE TABLE categories(id INTEGER PRIMARY KEY,playlist_id TEXT,xtream_id INTEGER,type TEXT,hidden INTEGER,available INTEGER);CREATE TABLE content(id INTEGER PRIMARY KEY,category_id INTEGER,xtream_id INTEGER,title TEXT,type TEXT,available INTEGER)",
+    );
+    sqlite.exec(
+      "INSERT INTO categories VALUES(1,'one',100,'live',0,1),(2,'one',200,'live',1,1);INSERT INTO content VALUES(1,1,11,'Visible one','live',1),(2,1,12,'Visible two','live',1),(3,1,13,'Visible three','live',1),(4,1,14,'Visible four','live',1),(5,2,15,'Hidden','live',1)",
+    );
+    const selected = getSourcePlaybackCandidates(db, {
+      sourceId: "one",
+      category: "live",
+      limit: 3,
+    });
+    assert.equal(selected.length, 3);
+    assert.equal(
+      selected.some((x) => x.title === "Hidden"),
+      false,
+    );
+    assert.equal(
+      getSourcePlaybackCandidates(db, {
+        sourceId: "one",
+        category: "live",
+        limit: 3,
+        cursor: selected.at(-1)?.cursor,
+      })[0].itemId,
+      "14",
+    );
+    assert.throws(() =>
+      getSourcePlaybackCandidates(db, {
+        sourceId: "one",
+        category: "live",
+        limit: 300,
+      }),
+    );
+  } finally {
+    sqlite.close();
+  }
+});

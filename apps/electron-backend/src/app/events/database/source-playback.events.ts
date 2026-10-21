@@ -19,3 +19,5 @@ handleWorkerRequest(
     account,
   }),
 );
+
+handleWorkerRequest('DB_GET_SOURCE_PLAYBACK_CANDIDATES',(input:unknown)=>input);
