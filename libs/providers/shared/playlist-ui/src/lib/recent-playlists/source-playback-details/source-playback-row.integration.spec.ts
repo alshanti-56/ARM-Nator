@@ -1,3 +1,5 @@
+import { TestbedHarnessEnvironment } from "@angular/cdk/testing/testbed";
+import { MatMenuHarness } from "@angular/material/menu/testing";
 import { TestBed } from "@angular/core/testing";
 import { provideTranslateService } from "@ngx-translate/core";
 import { PlaylistItemComponent } from "../playlist-item/playlist-item.component";
@@ -74,7 +76,7 @@ describe("source row evidence interaction", () => {
     f.nativeElement.querySelector(".playlist-title").click();
     expect(navigate).toHaveBeenCalledTimes(1);
   });
-  it("preserves row actions and hides extra evidence in compact sidebar mode", () => {
+  it("preserves row actions through the menu and hides evidence in compact sidebar mode", async () => {
     const f = row();
     const refresh = jest.fn(),
       edit = jest.fn(),
@@ -84,9 +86,21 @@ describe("source row evidence interaction", () => {
     f.componentInstance.editPlaylistClicked.subscribe(edit);
     f.componentInstance.removeClicked.subscribe(remove);
     f.componentInstance.playlistClicked.subscribe(navigate);
-    f.nativeElement.querySelector(".refresh-btn").click();
-    f.nativeElement.querySelector(".edit-btn").click();
-    f.nativeElement.querySelector(".delete-btn").click();
+    const menu = await TestbedHarnessEnvironment.loader(f).getHarness(
+      MatMenuHarness.with({ selector: ".playlist-actions-trigger" }),
+    );
+    for (const text of [
+      "HOME.PLAYLISTS.REFRESH_XTREAM",
+      "HOME.PLAYLISTS.SHOW_DETAILS",
+      "HOME.PLAYLISTS.REMOVE",
+    ]) {
+      await menu.open();
+      const [action] = await menu.getItems({
+        text: new RegExp(text.replaceAll(".", "\\.")),
+      });
+      expect(action).toBeDefined();
+      await action.click();
+    }
     expect([
       refresh.mock.calls.length,
       edit.mock.calls.length,
@@ -96,5 +110,34 @@ describe("source row evidence interaction", () => {
     f.componentRef.setInput("showActions", false);
     f.detectChanges();
     expect(f.nativeElement.querySelector(".source-results")).toBeNull();
+    expect(
+      f.nativeElement.querySelector(".playlist-actions-trigger"),
+    ).toBeNull();
+  });
+  it("opens the same actions on right-click without navigating", async () => {
+    const f = row();
+    const refresh = jest.fn(),
+      navigate = jest.fn();
+    f.componentInstance.refreshClicked.subscribe(refresh);
+    f.componentInstance.playlistClicked.subscribe(navigate);
+    const context = new MouseEvent("contextmenu", {
+      bubbles: true,
+      cancelable: true,
+      clientX: 120,
+      clientY: 80,
+    });
+    f.nativeElement.querySelector(".playlist-title").dispatchEvent(context);
+    f.detectChanges();
+    await f.whenStable();
+    expect(context.defaultPrevented).toBe(true);
+    const action = Array.from(
+      document.querySelectorAll<HTMLButtonElement>("[role=menuitem]"),
+    ).find((button) =>
+      button.textContent?.includes("HOME.PLAYLISTS.REFRESH_XTREAM"),
+    );
+    expect(action).toBeDefined();
+    action!.click();
+    expect(refresh).toHaveBeenCalledWith(f.componentInstance.item);
+    expect(navigate).not.toHaveBeenCalled();
   });
 });

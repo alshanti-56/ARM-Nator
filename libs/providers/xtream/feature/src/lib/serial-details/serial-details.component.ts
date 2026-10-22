@@ -1,4 +1,5 @@
 /* eslint-disable max-lines */
+import { MetadataSourceToggleComponent } from "../content-metadata-dialog/metadata-source-toggle.component";
 import { Location, SlicePipe } from "@angular/common";
 import {
   Component,
@@ -36,6 +37,8 @@ import {
 import {
   normalizeTitleKeys,
   metadataDisplayEntries,
+  metadataInfoForSource,
+  type ContentMetadataSource,
   seriesStatusLabelKey,
   TmdbEnrichedCastMember,
   XtreamSerieDetails,
@@ -82,6 +85,7 @@ import {
     DetailActionsTemplateDirective,
     DetailMetaTemplateDirective,
     DetailTagsTemplateDirective,
+    MetadataSourceToggleComponent,
     MatIcon,
     PortalDetailShellComponent,
     SafePipe,
@@ -120,10 +124,14 @@ export class SerialDetailsComponent implements OnInit, OnDestroy {
       .find((item) => Number(item.series_id) === this.selectedSeriesId()),
   );
   /** Merge provider detail fields with the catalog cache for incomplete APIs. */
+  readonly metadataSource = signal<ContentMetadataSource>('tmdb');
+  readonly hasTmdbMetadata = computed(() => !!this.selectedItem()?.metadataSources?.tmdb);
+  readonly providerMetadata = computed(() => metadataInfoForSource(this.selectedItem(), 'provider'));
+  readonly tmdbMetadataEntries = computed(() => metadataDisplayEntries(this.selectedItem()?.metadataSources?.tmdb));
   readonly displayInfo = computed<XtreamSerieInfo | null>(() => {
     const item = this.selectedItem();
-    const info = item?.info && !Array.isArray(item.info) ? item.info : null;
-    const catalog = this.selectedCatalogItem() as unknown as Record<
+    const info = metadataInfoForSource(item, this.metadataSource());
+    const catalog = (this.metadataSource() === "provider" ? null : this.selectedCatalogItem()) as unknown as Record<
       string,
       unknown
     > | null;
@@ -164,7 +172,7 @@ export class SerialDetailsComponent implements OnInit, OnDestroy {
     } as XtreamSerieInfo;
   });
   readonly rawMetadata = computed(() => {
-    const info = this.selectedItem()?.info;
+    const info = this.providerMetadata();
     return metadataDisplayEntries(
       info && !Array.isArray(info)
         ? (info as unknown as Record<string, unknown>)
@@ -482,7 +490,13 @@ export class SerialDetailsComponent implements OnInit, OnDestroy {
       {
         data: {
           title: info.name || "Series",
+          mediaType: "tv",
           entries,
+          metadataSource: this.metadataSource,
+          hasTmdb: this.hasTmdbMetadata,
+          providerEntries: this.rawMetadata,
+          tmdbEntries: this.tmdbMetadataEntries,
+          displayEntries: () => metadataDisplayEntries(this.displayInfo() as unknown as Record<string, unknown> | null),
         },
         width: "min(820px, calc(100vw - 32px))",
         maxWidth: "calc(100vw - 24px)",

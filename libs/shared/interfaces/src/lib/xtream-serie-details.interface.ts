@@ -1,3 +1,4 @@
+import type { ContentMetadataSources } from "./content-metadata-sources";
 import {
   TmdbEnrichedCastMember,
   TmdbRecommendation,
@@ -5,6 +6,7 @@ import {
 } from "./tmdb.interface";
 
 export interface XtreamSerieDetails {
+    metadataSources?: ContentMetadataSources<XtreamSerieInfo>;
   seasons: XtreamSerieSeason[];
   info: XtreamSerieInfo;
   episodes: Record<string, XtreamSerieEpisode[]>;

@@ -1,3 +1,4 @@
+import type { ContentMetadataSources } from "./content-metadata-sources";
 import {
     TmdbEnrichedCastMember,
     TmdbRecommendation,
@@ -54,6 +55,7 @@ export interface XtreamVodMovieData {
 }
 
 export interface XtreamVodDetails {
+    metadataSources?: ContentMetadataSources<XtreamVodInfo>;
     info?: XtreamVodInfo | [] | null;
     movie_data?: XtreamVodMovieData;
 }

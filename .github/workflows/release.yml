@@ -119,7 +119,11 @@ jobs:
               artifacts+=("${artifact}")
             fi
           done
+          notes_args=(--generate-notes)
+          if [[ -f "docs/releases/${RELEASE_TAG}.md" ]]; then
+            notes_args+=(--notes-file "docs/releases/${RELEASE_TAG}.md")
+          fi
           gh release create "${RELEASE_TAG}" "${artifacts[@]}" \
             --verify-tag \
             --title "ARM-Nator ${RELEASE_TAG#v}" \
-            --generate-notes
+            "${notes_args[@]}"

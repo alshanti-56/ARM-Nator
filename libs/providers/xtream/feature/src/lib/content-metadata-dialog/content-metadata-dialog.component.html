@@ -1,34 +1,196 @@
-<header mat-dialog-title class="metadata-dialog__header">
-    <div class="metadata-dialog__eyebrow">
-        <mat-icon>info_outline</mat-icon>
-        {{ 'XTREAM.ALL_METADATA' | translate }}
-    </div>
-    <h2 class="metadata-dialog__title">{{ data.title }}</h2>
-</header>
-
-<mat-dialog-content class="metadata-dialog__content">
-    @if (data.entries.length) {
-        <div class="metadata-dialog__grid">
-            @for (entry of data.entries; track entry.key) {
-                <article class="metadata-dialog__item">
-                    <span class="metadata-dialog__label">{{
-                        entry.label
-                    }}</span>
-                    <span class="metadata-dialog__value">{{
-                        entry.value
-                    }}</span>
-                </article>
-            }
+<header class="metadata-dialog__header">
+    <div class="metadata-dialog__heading">
+        <div class="metadata-dialog__eyebrow">
+            <mat-icon aria-hidden="true">description</mat-icon
+            >{{ "XTREAM.METADATA.TITLE" | translate }}
         </div>
-    } @else {
-        <p class="metadata-dialog__empty">
-            {{ 'XTREAM.NO_METADATA' | translate }}
-        </p>
-    }
-</mat-dialog-content>
-
-<mat-dialog-actions align="end" class="metadata-dialog__actions">
-    <button mat-stroked-button mat-dialog-close type="button">
-        {{ 'CLOSE' | translate }}
+        <h2 mat-dialog-title class="metadata-dialog__title" dir="auto">
+            {{ title() }}
+        </h2>
+        @if (originalTitle() && originalTitle() !== title()) {
+            <p class="metadata-dialog__original">{{ originalTitle() }}</p>
+        }
+    </div>
+    <button
+        mat-icon-button
+        mat-dialog-close
+        type="button"
+        [aria-label]="'CLOSE' | translate"
+    >
+        <mat-icon>close</mat-icon>
     </button>
-</mat-dialog-actions>
+</header>
+<div class="metadata-dialog__source">
+    <app-metadata-source-toggle
+        [(source)]="metadataSource"
+        [hasTmdb]="hasTmdb()"
+    />
+</div>
+<mat-dialog-content class="metadata-dialog__content">
+    <mat-tab-group
+        animationDuration="0ms"
+        [mat-stretch-tabs]="false"
+        [preserveContent]="true"
+    >
+        <mat-tab [label]="'XTREAM.METADATA.OVERVIEW' | translate">
+            <div class="metadata-dialog__panel">
+                @if (facts().length) {
+                    <dl class="metadata-dialog__facts">
+                        @for (field of facts(); track field.label) {
+                            <div>
+                                <dt>{{ field.label | translate }}</dt>
+                                <dd>{{ field.value }}</dd>
+                            </div>
+                        }
+                    </dl>
+                }
+                @if (synopsis()) {
+                    <section class="metadata-dialog__synopsis">
+                        <h3>{{ "XTREAM.METADATA.SYNOPSIS" | translate }}</h3>
+                        <p>{{ synopsis() }}</p>
+                    </section>
+                }
+                <dl class="metadata-dialog__rows">
+                    @for (field of overview(); track field.label) {
+                        <div>
+                            <dt>{{ field.label | translate }}</dt>
+                            <dd>{{ field.value }}</dd>
+                        </div>
+                    }
+                </dl>
+                @if (!facts().length && !synopsis() && !overview().length) {
+                    <p class="metadata-dialog__empty">
+                        {{ "XTREAM.NO_METADATA" | translate }}
+                    </p>
+                }
+                <div class="metadata-dialog__links">
+                    @for (link of links(); track link.url) {
+                        <a
+                            [href]="link.url"
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            ><mat-icon aria-hidden="true">open_in_new</mat-icon
+                            >{{ link.label | translate }}</a
+                        >
+                    }
+                </div>
+            </div>
+        </mat-tab>
+        <mat-tab [label]="'XTREAM.METADATA.MEDIA' | translate">
+            <div class="metadata-dialog__panel">
+                <p class="metadata-dialog__note">
+                    {{ "XTREAM.METADATA.MEDIA_PROVIDER" | translate }}
+                </p>
+                <div class="metadata-dialog__media-grid">
+                    @for (section of mediaSections(); track section.key) {
+                        <section class="metadata-dialog__media">
+                            <h3>
+                                <mat-icon aria-hidden="true">{{
+                                    section.key === "video"
+                                        ? "videocam"
+                                        : "volume_up"
+                                }}</mat-icon
+                                >{{
+                                    "XTREAM.METADATA." +
+                                        section.key.toUpperCase() | translate
+                                }}
+                            </h3>
+                            <dl class="metadata-dialog__rows">
+                                @for (
+                                    field of section.rows;
+                                    track field.label
+                                ) {
+                                    <div>
+                                        <dt>{{ field.label | translate }}</dt>
+                                        <dd>{{ field.value }}</dd>
+                                    </div>
+                                }
+                            </dl>
+                        </section>
+                    }
+                    @if (fileFields().length) {
+                        <section
+                            class="metadata-dialog__media metadata-dialog__media--file"
+                        >
+                            <h3>{{ "XTREAM.METADATA.FILE" | translate }}</h3>
+                            <dl class="metadata-dialog__rows">
+                                @for (field of fileFields(); track field.key) {
+                                    <div>
+                                        <dt>{{ field.label | translate }}</dt>
+                                        <dd>{{ field.value }}</dd>
+                                    </div>
+                                }
+                            </dl>
+                        </section>
+                    }
+                </div>
+                @if (!mediaSections().length && !fileFields().length) {
+                    <p class="metadata-dialog__empty">
+                        {{ "XTREAM.NO_METADATA" | translate }}
+                    </p>
+                }
+            </div>
+        </mat-tab>
+        <mat-tab [label]="'XTREAM.METADATA.ALL_FIELDS' | translate">
+            <div class="metadata-dialog__panel">
+                <label class="metadata-dialog__search"
+                    ><mat-icon aria-hidden="true">search</mat-icon
+                    ><input
+                        type="search"
+                        [value]="query()"
+                        (input)="query.set($any($event.target).value)"
+                        [placeholder]="'XTREAM.METADATA.SEARCH' | translate"
+                        [attr.aria-label]="
+                            'XTREAM.METADATA.SEARCH' | translate
+                        "
+                /></label>
+                <div class="metadata-dialog__field-list" aria-live="polite">
+                    @for (entry of fields(); track entry.key) {
+                        <div class="metadata-dialog__field">
+                            <span class="metadata-dialog__key">{{
+                                entry.key
+                            }}</span>
+                            <div class="metadata-dialog__value">
+                                @if (isExpandable(entry)) {
+                                    <details>
+                                        <summary>
+                                            {{
+                                                "XTREAM.METADATA.EXPAND_VALUE"
+                                                    | translate
+                                            }}
+                                        </summary>
+                                        <pre>{{ formattedValue(entry) }}</pre>
+                                    </details>
+                                } @else if (safeLink(entry.value); as url) {
+                                    <a
+                                        [href]="url"
+                                        target="_blank"
+                                        rel="noopener noreferrer"
+                                        >{{ entry.value }}</a
+                                    >
+                                } @else {
+                                    {{ entry.value }}
+                                }
+                            </div>
+                        </div>
+                    } @empty {
+                        <p class="metadata-dialog__empty">
+                            {{ "XTREAM.METADATA.NO_MATCHES" | translate }}
+                        </p>
+                    }
+                </div>
+            </div>
+        </mat-tab>
+    </mat-tab-group>
+</mat-dialog-content>
+<mat-dialog-actions class="metadata-dialog__actions"
+    ><span>{{
+        (activeSource() === "tmdb"
+            ? "XTREAM.METADATA.TMDB_NOTE"
+            : "XTREAM.METADATA.PROVIDER_NOTE"
+        ) | translate
+    }}</span
+    ><button mat-stroked-button mat-dialog-close type="button">
+        {{ "CLOSE" | translate }}
+    </button></mat-dialog-actions
+>

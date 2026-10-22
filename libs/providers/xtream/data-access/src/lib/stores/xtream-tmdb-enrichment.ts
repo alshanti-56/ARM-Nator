@@ -9,6 +9,7 @@ import {
     XtreamSerieDetails,
     XtreamVodDetails,
     getXtreamVodInfo,
+    preserveMetadataSources,
     resolveEnrichmentSeasonNumber,
 } from '@arm-nator/shared/interfaces';
 
@@ -75,6 +76,11 @@ export async function enrichVodSelectionWithTmdb<TItem extends SelectionRecord>(
         store.setSelectedItem({
             ...current,
             info: mergeVodInfoWithTmdb(currentInfo, details),
+            metadataSources: preserveMetadataSources(
+                (current as unknown as XtreamVodDetails).metadataSources,
+                currentInfo,
+                details as unknown as Record<string, unknown>,
+            ),
         } as unknown as TItem);
     } catch (error) {
         // Never degrade provider data over a malformed payload shape
@@ -124,6 +130,11 @@ export async function enrichSerialSelectionWithTmdb<
         store.setSelectedItem({
             ...current,
             info: mergeSerieInfoWithTmdb(currentInfo, details),
+            metadataSources: preserveMetadataSources(
+                (current as unknown as XtreamSerieDetails).metadataSources,
+                currentInfo,
+                details as unknown as Record<string, unknown>,
+            ),
         } as unknown as TItem);
     } catch (error) {
         console.warn('[TMDB] series merge failed:', error);

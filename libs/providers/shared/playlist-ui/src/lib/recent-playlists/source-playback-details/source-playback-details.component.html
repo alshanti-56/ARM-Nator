@@ -64,6 +64,30 @@
         {{ success | date: "medium" }}
       </p>
     }
+    <div class="check-actions">
+      <button
+        type="button"
+        class="check-again"
+        [disabled]="
+          !checks?.available() || !summary().key.revision || checking()
+        "
+        (click)="checkAgain.emit(summary().key)"
+      >
+        <mat-icon>sync</mat-icon
+        >{{
+          (checking()
+            ? "WORKSPACE.SOURCES.PLAYBACK.QUEUED"
+            : "WORKSPACE.SOURCES.PLAYBACK.CHECK_AGAIN"
+          ) | translate
+        }}
+      </button>
+      <small>{{
+        (checks?.available()
+          ? "WORKSPACE.SOURCES.PLAYBACK.IDLE_ONLY"
+          : "WORKSPACE.SOURCES.PLAYBACK.UNAVAILABLE"
+        ) | translate
+      }}</small>
+    </div>
   </div>
   <aside class="check-account">
     <strong>{{ "WORKSPACE.SOURCES.PLAYBACK.ACCOUNT" | translate }}</strong>
@@ -95,25 +119,5 @@
         · {{ facts.checkedAt | date: "short" }}
       }
     </small>
-    <button
-      type="button"
-      class="check-again"
-      [disabled]="!checks?.available() || !summary().key.revision || checking()"
-      (click)="checkAgain.emit(summary().key)"
-    >
-      <mat-icon>sync</mat-icon
-      >{{
-        (checking()
-          ? "WORKSPACE.SOURCES.PLAYBACK.QUEUED"
-          : "WORKSPACE.SOURCES.PLAYBACK.CHECK_AGAIN"
-        ) | translate
-      }}
-    </button>
-    <small>{{
-      (checks?.available()
-        ? "WORKSPACE.SOURCES.PLAYBACK.IDLE_ONLY"
-        : "WORKSPACE.SOURCES.PLAYBACK.UNAVAILABLE"
-      ) | translate
-    }}</small>
   </aside>
 </section>

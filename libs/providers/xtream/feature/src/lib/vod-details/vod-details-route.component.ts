@@ -1,4 +1,5 @@
 /* eslint-disable max-lines */
+import { MetadataSourceToggleComponent } from "../content-metadata-dialog/metadata-source-toggle.component";
 import { Location, SlicePipe, UpperCasePipe } from "@angular/common";
 import {
   ChangeDetectionStrategy,
@@ -35,6 +36,8 @@ import {
 import {
   getXtreamVodInfo,
   metadataDisplayEntries,
+  metadataInfoForSource,
+  type ContentMetadataSource,
   normalizeTitleKeys,
   TmdbEnrichedCastMember,
   XtreamCategory,
@@ -69,6 +72,7 @@ import {
     DetailActionsTemplateDirective,
     DetailMetaTemplateDirective,
     DetailTagsTemplateDirective,
+    MetadataSourceToggleComponent,
     MatIcon,
     PortalDetailShellComponent,
     SafePipe,
@@ -184,10 +188,14 @@ export class VodDetailsRouteComponent implements OnInit, OnDestroy {
    * live detail object as the source of truth, but fill its display fields
    * from the catalog row when the endpoint omits them.
    */
+  readonly metadataSource = signal<ContentMetadataSource>('tmdb');
+  readonly hasTmdbMetadata = computed(() => !!this.selectedItem()?.metadataSources?.tmdb);
+  readonly providerMetadata = computed(() => metadataInfoForSource(this.selectedItem(), 'provider'));
+  readonly tmdbMetadataEntries = computed(() => metadataDisplayEntries(this.selectedItem()?.metadataSources?.tmdb));
   readonly displayInfo = computed<XtreamVodInfo | null>(() => {
     const item = this.selectedItem();
-    const info = getXtreamVodInfo(item);
-    const catalog = this.selectedCatalogItem() as unknown as Record<
+    const info = metadataInfoForSource(item, this.metadataSource());
+    const catalog = (this.metadataSource() === "provider" ? null : this.selectedCatalogItem()) as unknown as Record<
       string,
       unknown
     > | null;
@@ -236,7 +244,7 @@ export class VodDetailsRouteComponent implements OnInit, OnDestroy {
   });
   readonly rawMetadata = computed(() => {
     const item = this.selectedItem();
-    const info = getXtreamVodInfo(item);
+    const info = this.providerMetadata();
     return [
       ...metadataDisplayEntries(
         info as unknown as Record<string, unknown> | null,
@@ -469,6 +477,11 @@ export class VodDetailsRouteComponent implements OnInit, OnDestroy {
         data: {
           title: info.name || this.selectedItem()?.movie_data?.name || "Movie",
           entries,
+          metadataSource: this.metadataSource,
+          hasTmdb: this.hasTmdbMetadata,
+          providerEntries: this.rawMetadata,
+          tmdbEntries: this.tmdbMetadataEntries,
+          displayEntries: () => metadataDisplayEntries(this.displayInfo() as unknown as Record<string, unknown> | null),
         },
         width: "min(820px, calc(100vw - 32px))",
         maxWidth: "calc(100vw - 24px)",

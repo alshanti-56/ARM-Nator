@@ -10,6 +10,7 @@
         (closePlayerRequested)="closeInlinePlayer()"
     >
         <ng-template appDetailTags>
+            <app-metadata-source-toggle [(source)]="metadataSource" [hasTmdb]="hasTmdbMetadata()" />
             @if (info.releasedate) {
                 <span class="details__tag">{{
                     info.releasedate | slice: 0 : 4
@@ -464,6 +465,7 @@
         (backClicked)="goBack()"
     >
         <ng-template appDetailTags>
+            <app-metadata-source-toggle [(source)]="metadataSource" [hasTmdb]="hasTmdbMetadata()" />
             <span
                 class="details__tag details__tag--status"
                 data-testid="xtream-vod-fallback-status"

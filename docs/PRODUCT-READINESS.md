@@ -68,3 +68,19 @@ Regression checks first reproduced repeated DNS requests, unused host/format alt
 The first packaged policy build launched with the existing saved library. During live inspection the session moved between providers, so the original `JOR| A ONE HD` case was not conclusively reverified. A real provider session logged media HTTP 200 and native `playing`, followed by release; that does not establish that this new recovery policy caused a recovery.
 
 The final reviewed package is `tmp/auto-policy-final/mac-arm64/ARM-Nator.app`. Production packaging completed with exit 0, `codesign --verify --deep --strict` passed, and inspection of its archived frontend/backend confirmed source selection and retry-delay propagation are included. It is separate from the active test session and the prior packages.
+
+
+## v0.33.0 scoped release — 2026-10-22
+
+Candidate: the main-branch source tagged `v0.33.0`, with package version `0.33.0`.
+Local environment: macOS 27.0.1 (26A434), Apple Silicon arm64, Node 26.11.1, pnpm 12.11.2.
+This is a scoped feature release of source playback evidence and metadata inspection. It does not claim that the previously unverified dependable-player acceptance journeys have passed.
+
+- `pnpm test`: exit 0, 759 Node tests passed, including original-provider metadata preservation.
+- `pnpm test:angular`: the initial run exposed a stale row-action test selecting removed inline buttons. The test now opens the real overflow menu and checks refresh/edit/remove events; a new right-click test verifies the same actions without navigation. The targeted source-playback run passes 7 suites / 13 tests. After refreshing the local pnpm install state with `pnpm install --frozen-lockfile` (exit 0, lockfile unchanged), the full `pnpm test:angular` rerun passed 61 suites / 725 tests with exit 0.
+- `env NX_DAEMON=false ./node_modules/.bin/nx run-many -t build --projects=desktop-ui,electron-backend --configuration=production --excludeTaskDependencies --skip-nx-cache --outputStyle=static`: exit 0 for both production builds. CI performs native runtime builds and packaging from the immutable tag.
+- Development Electron UI, Xtream input: inspected the populated Sources page, expanded category evidence, overflow menu and right-click menu. Both menus retained refresh, edit, and remove; opening evidence did not navigate.
+- Development Electron UI, Xtream movie details: Provider restored the original Arabic synopsis, supplied cast and rating; TMDB restored enriched text and cast portraits. The dialog switched sources with the page. Searched `codec`: TMDB fields had no match; Provider returned the original audio/video objects, which expanded into formatted JSON. Media info showed 1920 × 800, 23.976 fps and 48,000 Hz from the provider. The movie TMDB link resolved to the movie URL path.
+- The new metadata UI also compiles for series; a separate native series walkthrough was not performed.
+- Full packaged-app launch/upgrade/restart, new-provider error paths, playback controls/failure recovery, and repeated-use/native-memory acceptance remain unverified for this candidate. Existing earlier evidence is retained above; it is not new candidate evidence.
+- Release notes explicitly state these limitations and distinguish sampled playback evidence from a guarantee that an entire source works. No credentials are included in shared evidence.

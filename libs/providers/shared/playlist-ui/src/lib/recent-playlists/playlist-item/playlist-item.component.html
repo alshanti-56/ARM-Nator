@@ -1,17 +1,23 @@
 <div
     class="playlist-item"
     cdkDrag
-    [cdkDragDisabled]="!isDraggable() || isBusy() || expandedCategory() !== null"
+    [cdkDragDisabled]="
+        !isDraggable() || isBusy() || expandedCategory() !== null
+    "
     cdkDragPreviewContainer="parent"
     [class.selected]="isSelected()"
+    [class.source-list-row]="showActions() && sourceEvidence().length > 0"
+    [class.is-expanded]="expandedCategory() !== null"
     [class.is-busy]="isBusy()"
     (click)="onPlaylistClick()"
+    [matContextMenuTriggerFor]="playlistActions"
+    [matContextMenuTriggerDisabled]="!showActions() || isBusy()"
 >
     @if (isDraggable()) {
         <mat-icon cdkDragHandle class="drag-icon">drag_indicator</mat-icon>
     }
     <div class="playlist-icon">
-        @if (sourceType === 'stalker') {
+        @if (sourceType === "stalker") {
             <div class="icon-container">
                 <mat-icon
                     class="upload-type-icon"
@@ -26,7 +32,7 @@
                 ></span>
             </div>
         }
-        @if (sourceType === 'xtream') {
+        @if (sourceType === "xtream") {
             <div class="icon-container">
                 <mat-icon
                     class="upload-type-icon"
@@ -44,38 +50,45 @@
     </div>
     <div class="playlist-content">
         <div class="playlist-title">
-            {{ item.title || item.filename }}
-            @if (showActions() && sourceEvidence().length) {<button type="button" class="source-disclosure" [disabled]="isBusy()" [attr.aria-label]="'WORKSPACE.SOURCES.PLAYBACK.DETAILS' | translate" [attr.aria-expanded]="expandedCategory() !== null" (click)="toggleDetails($event)"><mat-icon>{{ expandedCategory() ? 'expand_less' : 'expand_more' }}</mat-icon></button>}
+            <span class="playlist-title-text">{{
+                item.title || item.filename
+            }}</span>
         </div>
         <div class="meta">
-            @if (sourceType === 'stalker') {
-                {{ 'HOME.PLAYLIST_TYPES.STALKER' | translate }}
+            @if (sourceType === "stalker") {
+                {{ "HOME.PLAYLIST_TYPES.STALKER" | translate }}
                 @if (item.importDate.length > 3) {
-                    | {{ 'HOME.PLAYLISTS.ADDED' | translate }}:
-                    {{ item.importDate | date: undefined : undefined : currentLocale() }}
+                    | {{ "HOME.PLAYLISTS.ADDED" | translate }}:
+                    {{
+                        item.importDate
+                            | date: undefined : undefined : currentLocale()
+                    }}
                 }
                 @if (item.updateDate) {
-                    | {{ 'HOME.PLAYLISTS.UPDATED' | translate }}:
+                    | {{ "HOME.PLAYLISTS.UPDATED" | translate }}:
                     {{
                         item.updateDate
                             | date
-                                : 'MMMM d, yyyy, HH:mm'
+                                : "MMMM d, yyyy, HH:mm"
                                 : undefined
                                 : currentLocale()
                     }}
                 }
             } @else {
-                {{ 'HOME.PLAYLIST_TYPES.XTREAM' | translate }}
+                {{ "HOME.PLAYLIST_TYPES.XTREAM" | translate }}
                 @if (item.importDate.length > 3) {
-                    | {{ 'HOME.PLAYLISTS.ADDED' | translate }}:
-                    {{ item.importDate | date: undefined : undefined : currentLocale() }}
+                    | {{ "HOME.PLAYLISTS.ADDED" | translate }}:
+                    {{
+                        item.importDate
+                            | date: undefined : undefined : currentLocale()
+                    }}
                 }
                 @if (item.updateDate) {
-                    | {{ 'HOME.PLAYLISTS.UPDATED' | translate }}:
+                    | {{ "HOME.PLAYLISTS.UPDATED" | translate }}:
                     {{
                         item.updateDate
                             | date
-                                : 'MMMM d, yyyy, HH:mm'
+                                : "MMMM d, yyyy, HH:mm"
                                 : undefined
                                 : currentLocale()
                     }}
@@ -107,11 +120,70 @@
 
     @if (showActions() && sourceEvidence().length) {
         <div class="source-results">
-          @for (evidence of sourceEvidence(); track evidence.key.category) {
-            <div class="source-category-result"><span class="source-category-label">{{ ('WORKSPACE.SOURCES.PLAYBACK.CATEGORY_' + evidence.key.category.toUpperCase()) | translate }}</span><button type="button" class="source-badge" [attr.data-result]="evidence.result" [class.stale]="evidence.stale" [disabled]="isBusy()" [attr.aria-expanded]="expandedCategory() === evidence.key.category" (click)="toggleDetails($event,evidence.key.category)"><mat-icon>{{ resultIcon(evidence.result) }}</mat-icon>{{ ('WORKSPACE.SOURCES.PLAYBACK.RESULT_' + evidence.result.toUpperCase()) | translate }}@if (evidence.stale) {<small>{{ 'WORKSPACE.SOURCES.PLAYBACK.STALE' | translate }}</small>}</button></div>
-          }
+            @for (evidence of sourceEvidence(); track evidence.key.category) {
+                <div class="source-category-result">
+                    <span class="source-category-label">{{
+                        "WORKSPACE.SOURCES.PLAYBACK.CATEGORY_" +
+                            evidence.key.category.toUpperCase() | translate
+                    }}</span
+                    ><button
+                        type="button"
+                        class="source-badge"
+                        [attr.data-result]="evidence.result"
+                        [attr.aria-label]="
+                            ('WORKSPACE.SOURCES.PLAYBACK.CATEGORY_' +
+                                evidence.key.category.toUpperCase()
+                                | translate) +
+                            ': ' +
+                            ('WORKSPACE.SOURCES.PLAYBACK.RESULT_' +
+                                evidence.result.toUpperCase() | translate)
+                        "
+                        [class.stale]="evidence.stale"
+                        [disabled]="isBusy()"
+                        [attr.aria-expanded]="
+                            expandedCategory() === evidence.key.category
+                        "
+                        (click)="toggleDetails($event, evidence.key.category)"
+                    >
+                        <mat-icon>{{ resultIcon(evidence.result) }}</mat-icon
+                        >{{
+                            "WORKSPACE.SOURCES.PLAYBACK.RESULT_" +
+                                evidence.result.toUpperCase() | translate
+                        }}
+                        @if (evidence.stale) {
+                            <small>{{
+                                "WORKSPACE.SOURCES.PLAYBACK.STALE" | translate
+                            }}</small>
+                        }
+                    </button>
+                </div>
+            }
         </div>
-        <span class="source-checked">{{ checkedAge() }}</span>
+        <span
+            class="source-checked"
+            [matTooltip]="'WORKSPACE.SOURCES.PLAYBACK.CHECKED' | translate"
+            >{{ checkedAge() }}</span
+        >
+    }
+    @if (showActions() && sourceEvidence().length) {
+        <button
+            type="button"
+            class="source-disclosure"
+            [disabled]="isBusy()"
+            [matTooltip]="'WORKSPACE.SOURCES.PLAYBACK.DETAILS' | translate"
+            [attr.aria-expanded]="expandedCategory() !== null"
+            (click)="toggleDetails($event)"
+        >
+            <span>{{
+                (expandedCategory()
+                    ? "WORKSPACE.SOURCES.PLAYBACK.HIDE_DETAILS"
+                    : "WORKSPACE.SOURCES.PLAYBACK.SHOW_DETAILS"
+                ) | translate
+            }}</span>
+            <mat-icon aria-hidden="true">{{
+                expandedCategory() ? "expand_less" : "expand_more"
+            }}</mat-icon>
+        </button>
     }
     @if (showActions()) {
         <div class="action-buttons">
@@ -130,59 +202,68 @@
                     <mat-icon>close</mat-icon>
                 </button>
             }
-            @if (sourceType === 'xtream' && supportsXtreamSqliteDataSource) {
-                <button
-                    mat-icon-button
-                    class="refresh-btn"
-                    (click)="
-                        $event.stopPropagation(); refreshClicked.emit(item)
-                    "
-                    [disabled]="isBusy()"
-                    [matTooltip]="'HOME.PLAYLISTS.REFRESH_XTREAM' | translate"
-                >
-                    @if (isRefreshing()) {
-                        <mat-spinner
-                            class="action-spinner"
-                            diameter="18"
-                            strokeWidth="3"
-                        />
-                    } @else {
-                        <mat-icon>sync</mat-icon>
-                    }
-                </button>
-            }
-
             <button
                 mat-icon-button
-                class="edit-btn"
-                (click)="
-                    $event.stopPropagation(); editPlaylistClicked.emit(item)
+                type="button"
+                class="playlist-actions-trigger"
+                [matMenuTriggerFor]="playlistActions"
+                [disabled]="isBusy()"
+                [attr.aria-label]="
+                    'WORKSPACE.SOURCES.PLAYBACK.ACTIONS' | translate
                 "
-                [disabled]="isBusy()"
-                [matTooltip]="'HOME.PLAYLISTS.SHOW_DETAILS' | translate"
+                [matTooltip]="'WORKSPACE.SOURCES.PLAYBACK.ACTIONS' | translate"
+                (click)="$event.stopPropagation()"
             >
-                <mat-icon>edit</mat-icon>
-            </button>
-
-            <button
-                mat-icon-button
-                class="delete-btn"
-                (click)="$event.stopPropagation(); removeClicked.emit(item._id)"
-                [disabled]="isBusy()"
-                [matTooltip]="'HOME.PLAYLISTS.REMOVE' | translate"
-            >
-                @if (isDeleting()) {
+                @if (isBusy()) {
                     <mat-spinner
                         class="action-spinner"
                         diameter="18"
                         strokeWidth="3"
                     />
                 } @else {
-                    <mat-icon>delete</mat-icon>
+                    <mat-icon>more_horiz</mat-icon>
                 }
             </button>
         </div>
     }
 </div>
 
-@if (showActions() && selectedEvidence(); as evidence) {<app-source-playback-details [summary]="evidence" [account]="sourceAccount()" (checkAgain)="sourceCheckRequested.emit($event)" />}
+@if (showActions() && selectedEvidence(); as evidence) {
+    <app-source-playback-details
+        [summary]="evidence"
+        [account]="sourceAccount()"
+        (checkAgain)="sourceCheckRequested.emit($event)"
+    />
+}
+
+<mat-menu #playlistActions="matMenu" xPosition="before">
+    @if (sourceType === "xtream" && supportsXtreamSqliteDataSource) {
+        <button
+            mat-menu-item
+            [disabled]="isBusy()"
+            type="button"
+            (click)="refreshClicked.emit(item)"
+        >
+            <mat-icon>sync</mat-icon>
+            <span>{{ "HOME.PLAYLISTS.REFRESH_XTREAM" | translate }}</span>
+        </button>
+    }
+    <button
+        mat-menu-item
+        [disabled]="isBusy()"
+        type="button"
+        (click)="editPlaylistClicked.emit(item)"
+    >
+        <mat-icon>edit</mat-icon>
+        <span>{{ "HOME.PLAYLISTS.SHOW_DETAILS" | translate }}</span>
+    </button>
+    <button
+        mat-menu-item
+        [disabled]="isBusy()"
+        type="button"
+        (click)="removeClicked.emit(item._id)"
+    >
+        <mat-icon>delete</mat-icon>
+        <span>{{ "HOME.PLAYLISTS.REMOVE" | translate }}</span>
+    </button>
+</mat-menu>

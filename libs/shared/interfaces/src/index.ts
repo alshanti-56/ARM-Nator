@@ -102,3 +102,5 @@ export * from "./lib/source-playback-confirmation";
 export * from "./lib/source-retry-after";
 
 export * from "./lib/source-sample-cursor";
+
+export * from "./lib/content-metadata-sources";

@@ -16,6 +16,7 @@ import {
 import { toSignal } from '@angular/core/rxjs-interop';
 import { MatButtonModule, MatIconButton } from '@angular/material/button';
 import { MatIcon } from '@angular/material/icon';
+import { MatMenuModule } from '@angular/material/menu';
 import { MatProgressBarModule } from '@angular/material/progress-bar';
 import { MatProgressSpinnerModule } from '@angular/material/progress-spinner';
 import { MatTooltip } from '@angular/material/tooltip';
@@ -44,6 +45,7 @@ import {
         DragDropModule,
         MatButtonModule,
         MatIconButton,
+        MatMenuModule,
         MatIcon,
         MatProgressBarModule,
         MatProgressSpinnerModule,

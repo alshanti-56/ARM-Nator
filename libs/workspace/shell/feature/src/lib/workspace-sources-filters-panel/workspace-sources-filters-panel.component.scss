@@ -1,4 +1,4 @@
-@use '../../nav-list.scss';
+@use "../../nav-list.scss";
 
 :host {
     display: flex;
@@ -10,14 +10,16 @@
 .context-column {
     display: flex;
     flex-direction: column;
+    box-sizing: border-box;
     min-height: 0;
     height: 100%;
-    overflow: hidden;
+    padding: 12px 18px 18px;
+    overflow-y: auto;
 }
 
 // ─── Header ───────────────────────────────────────────────────────────────────
 .context-header {
-    padding: 4px 6px 10px;
+    padding: 4px 0 12px;
     flex-shrink: 0;
 }
 
@@ -46,7 +48,7 @@
 .context-divider {
     height: 1px;
     background: var(--mat-sys-outline-variant);
-    margin: 0 0 6px;
+    margin: 0;
     opacity: 0.6;
     flex-shrink: 0;
 }
@@ -58,11 +60,13 @@
 }
 
 .option-list {
-    overflow-y: auto;
+    overflow: visible;
     min-height: 0;
+    padding: 0 0 12px;
 }
 
 .option-row {
+    padding: 8px 10px;
     border-radius: 12px;
     transition:
         box-shadow 0.18s ease,
@@ -71,7 +75,9 @@
     .option-label,
     .option-meta,
     mat-icon {
-        transition: color 0.18s ease, opacity 0.18s ease;
+        transition:
+            color 0.18s ease,
+            opacity 0.18s ease;
     }
 
     &.selected {
@@ -92,7 +98,7 @@
 
 .panel-section-title {
     margin: 0;
-    padding: 10px 10px 6px;
+    padding: 12px 0 8px;
     font-size: 0.72rem;
     font-weight: 600;
     text-transform: uppercase;
@@ -104,7 +110,11 @@
 .playback-filters {
     display: flex;
     flex-direction: column;
-    gap: 10px;
+    gap: 8px;
+
+    .panel-section-title {
+        padding-bottom: 4px;
+    }
 
     label {
         font-size: 0.8rem;
@@ -115,6 +125,7 @@
         width: 100%;
         max-width: 100%;
         min-height: 40px;
+        margin-bottom: 4px;
         padding: 8px 12px;
         color: var(--app-on-surface);
         font: inherit;
@@ -131,7 +142,7 @@
     }
 
     p {
-        margin: 2px 0 4px;
+        margin: 0;
         color: var(--app-muted-color);
         font-size: 0.72rem;
         line-height: 1.5;
@@ -139,25 +150,23 @@
 }
 
 .status-divider {
-    margin-top: 12px;
+    margin: 12px 0 10px;
 }
 
 .check-status {
     display: flex;
     align-items: flex-start;
     gap: 10px;
-    margin: 2px 2px 0;
-    padding: 12px;
+    margin: 0;
+    padding: 8px 0;
     overflow: hidden;
     color: var(--app-body-color);
-    background: color-mix(in srgb, var(--app-search-bg) 72%, transparent);
-    border: 1px solid var(--app-search-border);
-    border-radius: 12px;
-    box-shadow: 0 8px 22px -20px var(--mat-sys-on-surface);
+    background: transparent;
+    border: 0;
+    border-radius: 0;
 
     &--checking {
-        background: color-mix(in srgb, var(--app-selection-color) 8%, var(--app-search-bg));
-        border-color: color-mix(in srgb, var(--app-selection-color) 28%, var(--app-search-border));
+        background: transparent;
 
         .check-status__icon {
             color: var(--app-selection-color);
@@ -180,14 +189,12 @@
 
 .check-status__icon {
     display: grid;
-    flex: 0 0 30px;
-    width: 30px;
-    height: 30px;
+    flex: 0 0 18px;
+    width: 18px;
+    height: 18px;
     place-items: center;
     color: var(--app-muted-color);
-    background: color-mix(in srgb, var(--mat-sys-surface) 70%, transparent);
-    border: 1px solid color-mix(in srgb, var(--app-search-border) 75%, transparent);
-    border-radius: 9px;
+    background: transparent;
 
     mat-icon {
         width: 18px;
@@ -206,11 +213,10 @@
 
 .check-status__eyebrow {
     color: var(--app-muted-color);
-    font-size: 0.64rem;
-    font-weight: 700;
-    letter-spacing: 0.085em;
+    font-size: 0.72rem;
+    font-weight: 500;
+    letter-spacing: 0;
     line-height: 1.2;
-    text-transform: uppercase;
 }
 
 .check-status__title {
@@ -229,7 +235,7 @@
     line-height: 1.35;
 
     span + span::before {
-        content: '·';
+        content: "·";
         margin-right: 8px;
         color: var(--app-search-border);
     }
@@ -252,7 +258,11 @@
     span {
         width: 24px;
         height: 3px;
-        background: color-mix(in srgb, var(--app-selection-color) 20%, var(--app-search-border));
+        background: color-mix(
+            in srgb,
+            var(--app-selection-color) 20%,
+            var(--app-search-border)
+        );
         border-radius: 99px;
 
         &.is-active {
@@ -266,7 +276,9 @@
 }
 
 @keyframes status-rotate {
-    to { transform: rotate(360deg); }
+    to {
+        transform: rotate(360deg);
+    }
 }
 
 @media (prefers-reduced-motion: reduce) {
