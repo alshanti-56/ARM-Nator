@@ -19,6 +19,7 @@ import {
     PlaylistSourceType,
 } from '@arm-nator/shared/interfaces';
 import { TranslatePipe } from '@ngx-translate/core';
+import { PlaybackResourceService } from '@arm-nator/player/ui';
 
 type PlaylistFilterId = 'all' | PlaylistSourceType;
 
@@ -41,6 +42,7 @@ const ALL_FILTERS: PlaylistSourceType[] = ['xtream', 'stalker'];
 export class WorkspaceSourcesFiltersPanelComponent {
     readonly playback=inject(SourcePlaybackStoreService);
     readonly checks=inject(SOURCE_PLAYBACK_FACADE,{optional:true});
+    private readonly playbackResources = inject(PlaybackResourceService);
     readonly playbackResults:readonly (SourcePlaybackResult|'any'|'working-recently')[]=['any','working-recently','verified','mixed','failed','unstable','untested'];
     setPlaybackCategory(value:string):void{if(['all','live','movies','series'].includes(value))this.playback.setFilter({...this.playback.filter(),category:value as SourcePlaybackCategory|'all'});}
     setPlaybackResult(value:string):void{if(this.playbackResults.includes(value as SourcePlaybackResult))this.playback.setFilter({...this.playback.filter(),result:value as SourcePlaybackResult|'any'|'working-recently'});}
@@ -51,6 +53,106 @@ export class WorkspaceSourcesFiltersPanelComponent {
         selectActiveTypeFilters
     );
     private readonly playlists = this.store.selectSignal(selectAllPlaylistsMeta);
+
+    readonly checkStatus = computed(() => {
+        const activity = this.checks?.activity();
+        const source = this.sourceTitle(activity?.key?.sourceId);
+        const category = activity?.key?.category;
+
+        if (!this.checks?.available()) {
+            return {
+                state: 'unavailable',
+                icon: 'cloud_off',
+                title: 'WORKSPACE.SOURCES.PLAYBACK.UNAVAILABLE',
+                titleParams: undefined,
+                source: '',
+                category: '',
+                sampleTitle: undefined,
+            };
+        }
+
+        if (activity?.state === 'checking') {
+            return {
+                state: 'checking',
+                icon: 'sync',
+                title: activity.phase === 'sample'
+                    ? 'WORKSPACE.SOURCES.PLAYBACK.STATUS_SAMPLE'
+                    : 'WORKSPACE.SOURCES.PLAYBACK.STATUS_DISCOVERING',
+                titleParams: activity.phase === 'sample'
+                    ? { index: activity.sampleIndex ?? 1, count: activity.sampleCount ?? 3 }
+                    : undefined,
+                source,
+                category: category ? `WORKSPACE.SOURCES.PLAYBACK.CATEGORY_${category.toUpperCase()}` : '',
+                sampleTitle: activity.sampleTitle,
+            };
+        }
+
+        if (activity?.state === 'queued') {
+            return {
+                state: 'queued',
+                icon: 'schedule',
+                title: 'WORKSPACE.SOURCES.PLAYBACK.STATUS_QUEUED',
+                titleParams: undefined,
+                source,
+                category: category ? `WORKSPACE.SOURCES.PLAYBACK.CATEGORY_${category.toUpperCase()}` : '',
+                sampleTitle: undefined,
+            };
+        }
+
+        if (activity?.state === 'teardown-pending') {
+            return {
+                state: 'waiting',
+                icon: 'hourglass_top',
+                title: 'WORKSPACE.SOURCES.PLAYBACK.STATUS_CLEANUP',
+                titleParams: undefined,
+                source,
+                category: category ? `WORKSPACE.SOURCES.PLAYBACK.CATEGORY_${category.toUpperCase()}` : '',
+                sampleTitle: undefined,
+            };
+        }
+
+        if (this.playbackResources.isBlocked()) {
+            return {
+                state: 'paused',
+                icon: 'pause_circle_outline',
+                title: 'WORKSPACE.SOURCES.PLAYBACK.STATUS_PAUSED',
+                titleParams: undefined,
+                source: '',
+                category: '',
+                sampleTitle: undefined,
+            };
+        }
+
+        if (activity?.state === 'deferred') {
+            return {
+                state: 'paused',
+                icon: 'pause_circle_outline',
+                title: activity.reason
+                    ? `WORKSPACE.SOURCES.PLAYBACK.REASON_${activity.reason}`
+                    : 'WORKSPACE.SOURCES.PLAYBACK.STATUS_PAUSED',
+                titleParams: undefined,
+                source,
+                category: category ? `WORKSPACE.SOURCES.PLAYBACK.CATEGORY_${category.toUpperCase()}` : '',
+                sampleTitle: undefined,
+            };
+        }
+
+        return {
+            state: 'idle',
+            icon: 'check_circle_outline',
+            title: 'WORKSPACE.SOURCES.PLAYBACK.STATUS_IDLE',
+            titleParams: undefined,
+                source: '',
+                category: '',
+            sampleTitle: undefined,
+        };
+    });
+
+    sourceTitle(sourceId?: string): string {
+        if (!sourceId) return '';
+        const source = this.playlists().find((item) => item._id === sourceId);
+        return source?.title || source?.filename || sourceId;
+    }
 
     readonly typeOptions: PlaylistFilterOption[] = [
         {

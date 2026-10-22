@@ -7,6 +7,10 @@ export interface SourcePlaybackActivity {
   state: "idle" | "queued" | "checking" | "deferred" | "teardown-pending";
   key?: SourceEvidenceKey;
   reason?: SourcePlaybackReason;
+  phase?: "discovering" | "sample";
+  sampleIndex?: number;
+  sampleCount?: number;
+  sampleTitle?: string;
 }
 export interface SourcePlaybackFacade {
   available: Signal<boolean>;

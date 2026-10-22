@@ -1,4 +1,5 @@
 import { sourceCheckBackoff } from "@arm-nator/player/core";
+import type { SourcePlaybackActivity } from "@arm-nator/services";
 import {
   SOURCE_PLAYBACK_POLICY as P,
   classifySourceCheck,
@@ -12,6 +13,7 @@ import {
   type SourceSampleEvidence,
 } from "@arm-nator/shared/interfaces";
 export interface SourceSampleDependencies {
+  onProgress?(progress: Pick<SourcePlaybackActivity, "phase" | "sampleIndex" | "sampleCount" | "sampleTitle">): void;
   selectionCursor?(): string | undefined;
   prepare?(signal: AbortSignal): Promise<SourcePlaybackReason | null>;
   select(signal: AbortSignal): Promise<readonly SourcePlaybackCandidate[]>;
@@ -84,6 +86,7 @@ export async function runSourceSampleCheck(
   let reason: SourcePlaybackReason | null = null,
     items: readonly SourcePlaybackCandidate[] = [];
   try {
+    deps.onProgress?.({ phase: "discovering" });
     const deferred = await deps.prepare?.(category.signal);
     category.signal.throwIfAborted();
     if (deferred)
@@ -101,6 +104,12 @@ export async function runSourceSampleCheck(
     if (!items.length) reason = "no-samples";
     for (const candidate of items) {
       category.signal.throwIfAborted();
+      deps.onProgress?.({
+        phase: "sample",
+        sampleIndex: samples.length + 1,
+        sampleCount: items.length,
+        sampleTitle: candidate.title,
+      });
       const sample = sourceDeadline(category.signal, P.sampleMs),
         sampleStart = Date.now();
       let result: SourceSampleEvidence;

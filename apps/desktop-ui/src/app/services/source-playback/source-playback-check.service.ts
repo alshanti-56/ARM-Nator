@@ -285,6 +285,10 @@ export class SourcePlaybackCheckService implements SourcePlaybackFacade {
               sampler.resolve(key.sourceId, candidate, s),
             probe: (playback, s) => this.probe.probe(playback, s),
             drain: () => this.probe.drain(),
+            onProgress: (progress) => {
+              if (!signal.aborted)
+                this.activity.set({ state: "checking", key, ...progress });
+            },
           },
           this.repository,
         );

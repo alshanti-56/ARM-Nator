@@ -101,4 +101,176 @@
     opacity: 0.85;
 }
 
-.playback-filters{display:flex;flex-direction:column;gap:10px}.playback-filters label{font-size:.8rem;color:var(--app-body-color)}.playback-filters select{font:inherit;font-size:.82rem;min-height:40px;padding:8px 12px;color:var(--app-on-surface);background:var(--app-search-bg);border:1px solid var(--app-search-border);border-radius:8px;max-width:100%;width:100%;color-scheme:inherit}.playback-filters select:focus-visible{outline:2px solid var(--app-selection-color);outline-offset:3px}.playback-filters p{font-size:.72rem;color:var(--app-muted-color);line-height:1.5;margin:2px 0 12px}.playback-idle{display:flex;gap:8px;align-items:center;font-size:.78rem;color:var(--app-muted-color)}.playback-idle mat-icon{flex-shrink:0;font-size:18px;width:18px;height:18px}
+.playback-filters {
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+
+    label {
+        font-size: 0.8rem;
+        color: var(--app-body-color);
+    }
+
+    select {
+        width: 100%;
+        max-width: 100%;
+        min-height: 40px;
+        padding: 8px 12px;
+        color: var(--app-on-surface);
+        font: inherit;
+        font-size: 0.82rem;
+        background: var(--app-search-bg);
+        border: 1px solid var(--app-search-border);
+        border-radius: 8px;
+        color-scheme: inherit;
+
+        &:focus-visible {
+            outline: 2px solid var(--app-selection-color);
+            outline-offset: 3px;
+        }
+    }
+
+    p {
+        margin: 2px 0 4px;
+        color: var(--app-muted-color);
+        font-size: 0.72rem;
+        line-height: 1.5;
+    }
+}
+
+.status-divider {
+    margin-top: 12px;
+}
+
+.check-status {
+    display: flex;
+    align-items: flex-start;
+    gap: 10px;
+    margin: 2px 2px 0;
+    padding: 12px;
+    overflow: hidden;
+    color: var(--app-body-color);
+    background: color-mix(in srgb, var(--app-search-bg) 72%, transparent);
+    border: 1px solid var(--app-search-border);
+    border-radius: 12px;
+    box-shadow: 0 8px 22px -20px var(--mat-sys-on-surface);
+
+    &--checking {
+        background: color-mix(in srgb, var(--app-selection-color) 8%, var(--app-search-bg));
+        border-color: color-mix(in srgb, var(--app-selection-color) 28%, var(--app-search-border));
+
+        .check-status__icon {
+            color: var(--app-selection-color);
+        }
+    }
+
+    &--paused,
+    &--waiting {
+        .check-status__icon {
+            color: var(--mat-sys-on-surface-variant);
+        }
+    }
+
+    &--idle {
+        .check-status__icon {
+            color: var(--app-selection-color);
+        }
+    }
+}
+
+.check-status__icon {
+    display: grid;
+    flex: 0 0 30px;
+    width: 30px;
+    height: 30px;
+    place-items: center;
+    color: var(--app-muted-color);
+    background: color-mix(in srgb, var(--mat-sys-surface) 70%, transparent);
+    border: 1px solid color-mix(in srgb, var(--app-search-border) 75%, transparent);
+    border-radius: 9px;
+
+    mat-icon {
+        width: 18px;
+        height: 18px;
+        font-size: 18px;
+    }
+}
+
+.check-status__content {
+    display: flex;
+    flex: 1 1 auto;
+    flex-direction: column;
+    gap: 3px;
+    min-width: 0;
+}
+
+.check-status__eyebrow {
+    color: var(--app-muted-color);
+    font-size: 0.64rem;
+    font-weight: 700;
+    letter-spacing: 0.085em;
+    line-height: 1.2;
+    text-transform: uppercase;
+}
+
+.check-status__title {
+    color: var(--app-on-surface);
+    font-size: 0.8rem;
+    font-weight: 600;
+    line-height: 1.35;
+}
+
+.check-status__context {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 4px 8px;
+    color: var(--app-muted-color);
+    font-size: 0.7rem;
+    line-height: 1.35;
+
+    span + span::before {
+        content: '·';
+        margin-right: 8px;
+        color: var(--app-search-border);
+    }
+}
+
+.check-status__sample {
+    overflow: hidden;
+    color: var(--app-body-color);
+    font-size: 0.7rem;
+    line-height: 1.35;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+.check-status__progress {
+    display: flex;
+    gap: 4px;
+    margin-top: 5px;
+
+    span {
+        width: 24px;
+        height: 3px;
+        background: color-mix(in srgb, var(--app-selection-color) 20%, var(--app-search-border));
+        border-radius: 99px;
+
+        &.is-active {
+            background: var(--app-selection-color);
+        }
+    }
+}
+
+.check-status--checking .check-status__icon mat-icon {
+    animation: status-rotate 1.4s linear infinite;
+}
+
+@keyframes status-rotate {
+    to { transform: rotate(360deg); }
+}
+
+@media (prefers-reduced-motion: reduce) {
+    .check-status--checking .check-status__icon mat-icon {
+        animation: none;
+    }
+}

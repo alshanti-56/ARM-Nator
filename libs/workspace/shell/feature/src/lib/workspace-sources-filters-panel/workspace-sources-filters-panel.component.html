@@ -82,18 +82,56 @@
       }
     </select>
     <p>{{ "WORKSPACE.SOURCES.PLAYBACK.FILTER_HINT" | translate }}</p>
-    <div class="playback-idle" role="status">
-      <mat-icon>{{
-        checks?.activity()?.state === "checking"
-          ? "sync"
-          : "pause_circle_outline"
-      }}</mat-icon
-      ><span>{{
-        (checks?.available()
-          ? "WORKSPACE.SOURCES.PLAYBACK.IDLE_ONLY"
-          : "WORKSPACE.SOURCES.PLAYBACK.UNAVAILABLE"
-        ) | translate
-      }}</span>
+  </section>
+
+  <div class="context-divider status-divider"></div>
+  <section
+    class="check-status"
+    [class.check-status--unavailable]="checkStatus().state === 'unavailable'"
+    [class.check-status--checking]="checkStatus().state === 'checking'"
+    [class.check-status--queued]="checkStatus().state === 'queued'"
+    [class.check-status--waiting]="checkStatus().state === 'waiting'"
+    [class.check-status--paused]="checkStatus().state === 'paused'"
+    [class.check-status--idle]="checkStatus().state === 'idle'"
+    role="status"
+    aria-live="polite"
+    aria-atomic="true"
+  >
+    <div class="check-status__icon" aria-hidden="true">
+      <mat-icon>{{ checkStatus().icon }}</mat-icon>
+    </div>
+    <div class="check-status__content">
+      <div class="check-status__eyebrow">
+        {{ "WORKSPACE.SOURCES.PLAYBACK.STATUS_LABEL" | translate }}
+      </div>
+      <div class="check-status__title">
+        {{ checkStatus().title | translate: checkStatus().titleParams }}
+      </div>
+      @if (checkStatus().source || checkStatus().category) {
+        <div class="check-status__context">
+          @if (checkStatus().source) {
+            <span>{{ checkStatus().source }}</span>
+          }
+          @if (checkStatus().category) {
+            <span>{{ checkStatus().category | translate }}</span>
+          }
+        </div>
+      }
+      @if (checkStatus().sampleTitle) {
+        <div class="check-status__sample" [title]="checkStatus().sampleTitle">
+          {{ checkStatus().sampleTitle }}
+        </div>
+      }
+      @if (checkStatus().state === "checking") {
+        <div class="check-status__progress" aria-hidden="true">
+          <span
+            [class.is-active]="checkStatus().title === 'WORKSPACE.SOURCES.PLAYBACK.STATUS_DISCOVERING'"
+          ></span>
+          <span
+            [class.is-active]="checkStatus().title === 'WORKSPACE.SOURCES.PLAYBACK.STATUS_SAMPLE'"
+          ></span>
+        </div>
+      }
     </div>
   </section>
 </div>
