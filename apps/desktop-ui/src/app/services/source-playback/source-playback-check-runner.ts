@@ -12,6 +12,7 @@ import {
   type SourceSampleEvidence,
 } from "@arm-nator/shared/interfaces";
 export interface SourceSampleDependencies {
+  selectionCursor?(): string | undefined;
   prepare?(signal: AbortSignal): Promise<SourcePlaybackReason | null>;
   select(signal: AbortSignal): Promise<readonly SourcePlaybackCandidate[]>;
   resolve(
@@ -27,6 +28,7 @@ export interface SourceSampleDependencies {
     elapsedMs: number;
     engine: string;
     audioOnly: boolean;
+    retryAfterMs?: number;
   }>;
   drain(): Promise<void>;
 }
@@ -106,8 +108,10 @@ export async function runSourceSampleCheck(
         const playback = await deps.resolve(candidate, sample.signal);
         sample.signal.throwIfAborted();
         const outcome = await deps.probe(playback, sample.signal);
+        rememberDelay(outcome);
+        const { retryAfterMs: _transportDelay, ...evidence } = outcome;
         result = {
-          ...outcome,
+          ...evidence,
           itemId: candidate.episodeId ?? candidate.itemId,
           title: candidate.title,
           elapsedMs: Math.max(outcome.elapsedMs, Date.now() - sampleStart),
@@ -185,7 +189,9 @@ export async function runSourceSampleCheck(
             items[Math.min(samples.length, items.length) - 1]?.cursor ??
             items[Math.min(samples.length, items.length) - 1]?.itemId,
         }
-      : {}),
+      : deps.selectionCursor?.()
+        ? { cursor: deps.selectionCursor() }
+        : {}),
   };
 }
 export interface SourceCheckPersistence {

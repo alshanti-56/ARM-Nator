@@ -48,6 +48,8 @@ export class SourcePlaybackCheckService implements SourcePlaybackFacade {
   private readonly providers = new Map<string, string>();
   private activeDone: Promise<void> = Promise.resolve();
   private activeKey: SourceEvidenceKey | null = null;
+  private strandedLease: { sourceId: string; release(): Promise<void> } | null =
+    null;
   private manualTimer: ReturnType<typeof setTimeout> | undefined;
   readonly busyVersion = signal(0);
   get busySourceIds() {
@@ -93,11 +95,17 @@ export class SourcePlaybackCheckService implements SourcePlaybackFacade {
     this.busyVersion.update((v) => v + 1);
     this.cancelSource(sourceId);
     try {
-      if (this.activeKey?.sourceId === sourceId) {
+      const cleanup =
+        this.strandedLease?.sourceId === sourceId
+          ? this.strandedLease.release()
+          : this.activeKey?.sourceId === sourceId
+            ? this.activeDone
+            : null;
+      if (cleanup) {
         let timer: ReturnType<typeof setTimeout> | undefined;
         try {
           await Promise.race([
-            this.activeDone,
+            cleanup,
             new Promise<never>((_, reject) => {
               timer = setTimeout(
                 () =>
@@ -217,7 +225,12 @@ export class SourcePlaybackCheckService implements SourcePlaybackFacade {
     this.activeKey = key;
     const lease = this.resources.tryAcquireBackground(() => {
       abort.abort();
-      return drained;
+      return drained.catch(async () => {
+        await this.probe.drain();
+        this.strandedLease = null;
+        this.activity.set({ state: "idle" });
+        this.queueChanged.update((v) => v + 1);
+      });
     });
     if (!lease) {
       acknowledge();
@@ -266,6 +279,7 @@ export class SourcePlaybackCheckService implements SourcePlaybackFacade {
               )
                 ? "provider-busy"
                 : null,
+            selectionCursor: () => sampler.selectionCursor,
             select: (s) => sampler.select(key.sourceId, key.category, s),
             resolve: (candidate, s) =>
               sampler.resolve(key.sourceId, candidate, s),
@@ -292,6 +306,10 @@ export class SourcePlaybackCheckService implements SourcePlaybackFacade {
         if (this.activity().state === "checking")
           this.activity.set({ state: "idle" });
       } catch (error) {
+        this.strandedLease = {
+          sourceId: key.sourceId,
+          release: () => lease.release(),
+        };
         deny(error);
         this.activity.set({
           state: "teardown-pending",

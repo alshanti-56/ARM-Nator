@@ -1,200 +1,229 @@
-import { signal } from '@angular/core';
-import type { MatSnackBar } from '@angular/material/snack-bar';
-import type { TranslateService } from '@ngx-translate/core';
+import { signal } from "@angular/core";
+import type { MatSnackBar } from "@angular/material/snack-bar";
+import type { TranslateService } from "@ngx-translate/core";
 import type {
-    Logger,
-    PortalPlaybackPositions,
-    PortalPlayer,
-} from '@arm-nator/providers/shared/util';
-import type { PlaybackPositionData } from '@arm-nator/shared/interfaces';
-import { StalkerVodPlaybackController } from './stalker-vod-playback-controller';
+  Logger,
+  PortalPlaybackPositions,
+  PortalPlayer,
+} from "@arm-nator/providers/shared/util";
+import type { PlaybackPositionData } from "@arm-nator/shared/interfaces";
+import { StalkerVodPlaybackController } from "./stalker-vod-playback-controller";
 
 interface Deferred<T> {
-    promise: Promise<T>;
-    resolve: (value: T) => void;
+  promise: Promise<T>;
+  resolve: (value: T) => void;
 }
 
 function createDeferred<T>(): Deferred<T> {
-    let resolve!: (value: T) => void;
-    const promise = new Promise<T>((resolver) => {
-        resolve = resolver;
-    });
+  let resolve!: (value: T) => void;
+  const promise = new Promise<T>((resolver) => {
+    resolve = resolver;
+  });
 
-    return {
-        promise,
-        resolve,
-    };
+  return {
+    promise,
+    resolve,
+  };
 }
 
 function createPosition(
-    contentXtreamId: number,
-    positionSeconds: number
+  contentXtreamId: number,
+  positionSeconds: number,
 ): PlaybackPositionData {
-    return {
-        contentXtreamId,
-        contentType: 'vod',
-        positionSeconds,
-        durationSeconds: 100,
-    };
+  return {
+    contentXtreamId,
+    contentType: "vod",
+    positionSeconds,
+    durationSeconds: 100,
+  };
 }
 
 function createController() {
-    const inlinePlayback = signal(null);
-    const selectedVodPosition = signal<PlaybackPositionData | null>(null);
-    const playbackPositions = {
-        savePlaybackPosition: jest.fn(),
-        getPlaybackPosition: jest.fn(),
-        getSeriesPlaybackPositions: jest.fn(),
-        getAllPlaybackPositions: jest.fn(),
-        clearPlaybackPosition: jest.fn(),
-    } as unknown as jest.Mocked<PortalPlaybackPositions>;
-    const portalPlayer = {
-        isEmbeddedPlayer: jest.fn(() => true),
-        openPlayer: jest.fn(),
-        openResolvedPlayback: jest.fn(),
-        openExternalPlayback: jest.fn(),
-    } as unknown as jest.Mocked<PortalPlayer>;
-    const snackBar = {
-        open: jest.fn(),
-    } as unknown as MatSnackBar;
-    const translateService = {
-        instant: jest.fn((key: string) => key),
-    } as unknown as TranslateService;
-    const logger = {
-        debug: jest.fn(),
-        info: jest.fn(),
-        warn: jest.fn(),
-        error: jest.fn(),
-    } as unknown as Logger;
+  const inlinePlayback = signal(null);
+  const selectedVodPosition = signal<PlaybackPositionData | null>(null);
+  const playbackPositions = {
+    savePlaybackPosition: jest.fn(),
+    getPlaybackPosition: jest.fn(),
+    getSeriesPlaybackPositions: jest.fn(),
+    getAllPlaybackPositions: jest.fn(),
+    clearPlaybackPosition: jest.fn(),
+  } as unknown as jest.Mocked<PortalPlaybackPositions>;
+  const portalPlayer = {
+    isEmbeddedPlayer: jest.fn(() => true),
+    openPlayer: jest.fn(),
+    openResolvedPlayback: jest.fn(),
+    openExternalPlayback: jest.fn(),
+  } as unknown as jest.Mocked<PortalPlayer>;
+  const snackBar = {
+    open: jest.fn(),
+  } as unknown as MatSnackBar;
+  const translateService = {
+    instant: jest.fn((key: string) => key),
+  } as unknown as TranslateService;
+  const logger = {
+    debug: jest.fn(),
+    info: jest.fn(),
+    warn: jest.fn(),
+    error: jest.fn(),
+  } as unknown as Logger;
 
-    const controller = new StalkerVodPlaybackController({
-        inlinePlayback,
-        selectedVodPosition,
-        playbackPositions,
-        portalPlayer,
-        snackBar,
-        translateService,
-        logger,
-        playbackErrorLogMessage: 'Playback failed',
-    });
+  const controller = new StalkerVodPlaybackController({
+    inlinePlayback,
+    selectedVodPosition,
+    playbackPositions,
+    portalPlayer,
+    snackBar,
+    translateService,
+    logger,
+    playbackErrorLogMessage: "Playback failed",
+  });
 
-    return {
-        controller,
-        inlinePlayback,
-        playbackPositions,
-        portalPlayer,
-        selectedVodPosition,
-    };
+  return {
+    controller,
+    inlinePlayback,
+    playbackPositions,
+    portalPlayer,
+    selectedVodPosition,
+  };
 }
 
-describe('StalkerVodPlaybackController', () => {
-    it('ignores stale VOD position loads that resolve after a newer selection', async () => {
-        const { controller, playbackPositions, selectedVodPosition } =
-            createController();
-        const olderLoad = createDeferred<PlaybackPositionData | null>();
-        const newerLoad = createDeferred<PlaybackPositionData | null>();
+describe("StalkerVodPlaybackController", () => {
+  it("ignores stale VOD position loads that resolve after a newer selection", async () => {
+    const { controller, playbackPositions, selectedVodPosition } =
+      createController();
+    const olderLoad = createDeferred<PlaybackPositionData | null>();
+    const newerLoad = createDeferred<PlaybackPositionData | null>();
 
-        playbackPositions.getPlaybackPosition.mockImplementation(
-            (_playlistId, vodId) =>
-                vodId === 101 ? olderLoad.promise : newerLoad.promise
-        );
+    playbackPositions.getPlaybackPosition.mockImplementation(
+      (_playlistId, vodId) =>
+        vodId === 101 ? olderLoad.promise : newerLoad.promise,
+    );
 
-        const olderLoadPromise = controller.loadSelectedVodPosition(
-            'playlist-1',
-            101
-        );
-        const newerLoadPromise = controller.loadSelectedVodPosition(
-            'playlist-1',
-            202
-        );
+    const olderLoadPromise = controller.loadSelectedVodPosition(
+      "playlist-1",
+      101,
+    );
+    const newerLoadPromise = controller.loadSelectedVodPosition(
+      "playlist-1",
+      202,
+    );
 
-        newerLoad.resolve(createPosition(202, 20));
-        await newerLoadPromise;
-        expect(selectedVodPosition()?.contentXtreamId).toBe(202);
+    newerLoad.resolve(createPosition(202, 20));
+    await newerLoadPromise;
+    expect(selectedVodPosition()?.contentXtreamId).toBe(202);
 
-        olderLoad.resolve(createPosition(101, 10));
-        await olderLoadPromise;
-        expect(selectedVodPosition()?.contentXtreamId).toBe(202);
-        expect(selectedVodPosition()?.positionSeconds).toBe(20);
+    olderLoad.resolve(createPosition(101, 10));
+    await olderLoadPromise;
+    expect(selectedVodPosition()?.contentXtreamId).toBe(202);
+    expect(selectedVodPosition()?.positionSeconds).toBe(20);
+  });
+
+  it("does not mount playback that resolves after the detail closes", async () => {
+    const { controller, inlinePlayback } = createController();
+    const pending = createDeferred<{ streamUrl: string }>();
+    const playback = controller.startVodPlayback(() => pending.promise);
+
+    controller.closeInlinePlayer();
+    pending.resolve({ streamUrl: "https://stale.example/movie.mpg" });
+    await playback;
+
+    expect(inlinePlayback()).toBeNull();
+  });
+
+  it("keeps the newest VOD request when resolutions finish out of order", async () => {
+    const { controller, inlinePlayback } = createController();
+    const older = createDeferred<{ streamUrl: string }>();
+    const newer = createDeferred<{ streamUrl: string }>();
+    const olderRequest = controller.startVodPlayback(() => older.promise);
+    const newerRequest = controller.startVodPlayback(() => newer.promise);
+    const newestPlayback = { streamUrl: "https://new.example/movie.mpg" };
+
+    newer.resolve(newestPlayback);
+    older.resolve({ streamUrl: "https://old.example/movie.mpg" });
+    await Promise.all([olderRequest, newerRequest]);
+
+    expect(inlinePlayback()).toBe(newestPlayback);
+  });
+
+  it("passes data-only recovery to external playback when the URL is renewable", async () => {
+    const { controller, portalPlayer } = createController();
+    portalPlayer.isEmbeddedPlayer.mockReturnValue(false);
+    const playback = {
+      streamUrl: "http://portal.test/temporary/old",
+      title: "Movie",
+      recovery: {
+        accountRef: "playlist-1",
+        providerLinkRenewable: true,
+      },
+    };
+    const resolver = jest.fn().mockResolvedValue({
+      streamUrl: "http://portal.test/temporary/new",
+      title: "Movie",
+      recovery: playback.recovery,
     });
 
-    it('does not mount playback that resolves after the detail closes', async () => {
-        const { controller, inlinePlayback } = createController();
-        const pending = createDeferred<{ streamUrl: string }>();
-        const playback = controller.startVodPlayback(() => pending.promise);
+    await controller.startVodPlayback(async () => playback, resolver);
 
-        controller.closeInlinePlayer();
-        pending.resolve({ streamUrl: 'https://stale.example/movie.mpg' });
-        await playback;
-
-        expect(inlinePlayback()).toBeNull();
+    const context = portalPlayer.openResolvedPlayback.mock.calls[0][2];
+    expect(context.resolvePlayback).toBeDefined();
+    await expect(
+      context.resolvePlayback({
+        signal: new AbortController().signal,
+        reason: "manual-retry",
+      }),
+    ).resolves.toMatchObject({
+      streamUrl: "http://portal.test/temporary/new",
     });
+    expect(resolver).toHaveBeenCalledTimes(1);
+  });
 
-    it('keeps the newest VOD request when resolutions finish out of order', async () => {
-        const { controller, inlinePlayback } = createController();
-        const older = createDeferred<{ streamUrl: string }>();
-        const newer = createDeferred<{ streamUrl: string }>();
-        const olderRequest = controller.startVodPlayback(() => older.promise);
-        const newerRequest = controller.startVodPlayback(() => newer.promise);
-        const newestPlayback = { streamUrl: 'https://new.example/movie.mpg' };
+  it("does not attach a recovery resolver to a static URL", async () => {
+    const { controller, portalPlayer } = createController();
+    portalPlayer.isEmbeddedPlayer.mockReturnValue(false);
 
-        newer.resolve(newestPlayback);
-        older.resolve({ streamUrl: 'https://old.example/movie.mpg' });
-        await Promise.all([olderRequest, newerRequest]);
+    await controller.startVodPlayback(
+      async () => ({
+        streamUrl: "https://cdn.example/movie.mp4",
+        title: "Movie",
+      }),
+      jest.fn(),
+    );
 
-        expect(inlinePlayback()).toBe(newestPlayback);
-    });
+    expect(
+      portalPlayer.openResolvedPlayback.mock.calls[0][2]?.resolvePlayback,
+    ).toBeUndefined();
+  });
+});
 
-    it('passes data-only recovery to external playback when the URL is renewable', async () => {
-        const { controller, portalPlayer } = createController();
-        portalPlayer.isEmbeddedPlayer.mockReturnValue(false);
-        const playback = {
-            streamUrl: 'http://portal.test/temporary/old',
-            title: 'Movie',
-            recovery: {
-                accountRef: 'playlist-1',
-                providerLinkRenewable: true,
-            },
-        };
-        const resolver = jest.fn().mockResolvedValue({
-            streamUrl: 'http://portal.test/temporary/new',
-            title: 'Movie',
-            recovery: playback.recovery,
-        });
-
-        await controller.startVodPlayback(
-            async () => playback,
-            resolver,
-        );
-
-        const context = portalPlayer.openResolvedPlayback.mock.calls[0][2];
-        expect(context.resolvePlayback).toBeDefined();
-        await expect(
-            context.resolvePlayback({
-                signal: new AbortController().signal,
-                reason: 'manual-retry',
-            }),
-        ).resolves.toMatchObject({
-            streamUrl: 'http://portal.test/temporary/new',
-        });
-        expect(resolver).toHaveBeenCalledTimes(1);
-    });
-
-    it('does not attach a recovery resolver to a static URL', async () => {
-        const { controller, portalPlayer } = createController();
-        portalPlayer.isEmbeddedPlayer.mockReturnValue(false);
-
-        await controller.startVodPlayback(
-            async () => ({
-                streamUrl: 'https://cdn.example/movie.mp4',
-                title: 'Movie',
-            }),
-            jest.fn(),
-        );
-
-        expect(
-            portalPlayer.openResolvedPlayback.mock.calls[0][2]
-                ?.resolvePlayback,
-        ).toBeUndefined();
-    });
+it("waits for foreground intent ownership before resolving a provider URL and holds it through player handoff", async () => {
+  const h = createController(),
+    gate = createDeferred<void>(),
+    handoff = createDeferred<void>();
+  let released = false;
+  h.portalPlayer.isEmbeddedPlayer.mockReturnValue(false);
+  Object.assign(h.portalPlayer, {
+    withPlaybackIntent: async (action: () => Promise<void>) => {
+      await gate.promise;
+      try {
+        return await action();
+      } finally {
+        released = true;
+      }
+    },
+  });
+  h.portalPlayer.openResolvedPlayback.mockReturnValue(handoff.promise);
+  const resolve = jest.fn(async () => ({
+    streamUrl: "https://fixture.test/live",
+    title: "Sample",
+  }));
+  const task = h.controller.startVodPlayback(resolve);
+  expect(resolve).not.toHaveBeenCalled();
+  gate.resolve();
+  await Promise.resolve();
+  await Promise.resolve();
+  expect(resolve).toHaveBeenCalledTimes(1);
+  expect(released).toBe(false);
+  handoff.resolve();
+  await task;
+  expect(released).toBe(true);
 });

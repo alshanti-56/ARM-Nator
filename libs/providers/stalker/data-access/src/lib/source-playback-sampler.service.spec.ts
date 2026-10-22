@@ -9,7 +9,11 @@ import {
   createEnvironmentInjector,
   runInInjectionContext,
 } from "@angular/core";
-import { DataService, PlaylistsService } from "@arm-nator/services";
+import {
+  DataService,
+  PlaylistsService,
+  SourcePlaybackRepositoryService,
+} from "@arm-nator/services";
 import {
   STALKER_CANCEL_REQUEST,
   type Playlist,
@@ -76,9 +80,14 @@ function setup(full = true) {
     },
     applyOverride: (s: any) => s,
   };
+  const saved = { cursor: {} as Record<string, string>, latest: [] };
   const injector = createEnvironmentInjector(
     [
       { provide: DataService, useValue: data },
+      {
+        provide: SourcePlaybackRepositoryService,
+        useValue: { read: async () => [saved] },
+      },
       {
         provide: PlaylistsService,
         useValue: { getPlaylistById: () => of(source) },
@@ -95,7 +104,7 @@ function setup(full = true) {
     injector,
     () => new StalkerSourcePlaybackSamplerService(),
   );
-  return { injector, sampler, data, source, calls, repair };
+  return { injector, sampler, data, source, calls, repair, saved };
 }
 test("full and legacy portals use bounded pages and fresh links without changing saved source state", async () => {
   for (const full of [true, false]) {
@@ -260,6 +269,43 @@ test("cancellable account reads use request-scoped full profiles and propagate r
     await assert.rejects(pending);
   } finally {
     child.destroy();
+    h.injector.destroy();
+  }
+});
+
+test("portal checks rotate items and advance bounded pages using the saved cursor", async () => {
+  const h = setup(false),
+    request = h.data.sendIpcEvent;
+  h.data.sendIpcEvent = async (e, p) =>
+    p?.params?.action === "get_ordered_list"
+      ? {
+          js: {
+            data: (p.params.p === 2 ? [5, 6, 7] : [1, 2, 3, 4]).map((id) => ({
+              id,
+              name: String(id),
+              cmd: "ffmpeg /ch/" + id,
+            })),
+          },
+        }
+      : request(e, p);
+  try {
+    const signal = new AbortController().signal;
+    const first = await h.sampler.select("one", "live", signal);
+    assert.deepEqual(
+      first.map((c) => c.itemId),
+      ["1", "2", "3"],
+    );
+    h.saved.cursor.live = first[2].cursor!;
+    const second = await h.sampler.select("one", "live", signal);
+    assert.equal(second[0].itemId, "4");
+    h.saved.cursor.live = second[0].cursor!;
+    const third = await h.sampler.select("one", "live", signal);
+    assert.equal(third[0].itemId, "5");
+    assert.ok(
+      h.calls.filter((c) => c.params?.action === "get_ordered_list").length <=
+        6,
+    );
+  } finally {
     h.injector.destroy();
   }
 });

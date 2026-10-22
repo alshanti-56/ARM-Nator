@@ -1,3 +1,4 @@
+import { withPlaybackIntent } from "@arm-nator/player/core";
 import { readStalkerDiscoveryLiveSelection } from '@arm-nator/shared/interfaces';
 import {
   ChangeDetectionStrategy,
@@ -75,9 +76,12 @@ export class StalkerLiveStreamLayoutComponent {
   private readonly portalPlayer = inject(PORTAL_PLAYER);
   private readonly hostElement = inject(ElementRef<HTMLElement>);
   private readonly navigationState = inject(CatalogueNavigationStateService);
-  private readonly listUrl = signal('');
+  private readonly listUrl = signal("");
   private restoredListUrl: string | null = null;
-  private readonly discoveryLiveSelection=signal<{playlistId:string;row:StalkerCatalogRow}|null>(null);
+  private readonly discoveryLiveSelection = signal<{
+    playlistId: string;
+    row: StalkerCatalogRow;
+  } | null>(null);
 
   readonly contentType = signal<StalkerContentType>("itv");
   readonly viewMode = signal<StalkerViewMode>(restoreStalkerViewMode());
@@ -261,33 +265,49 @@ export class StalkerLiveStreamLayoutComponent {
   }
 
   constructor() {
-    this.router.events.pipe(takeUntilDestroyed(this.destroyRef)).subscribe(event => {
-      if (event instanceof NavigationStart) this.saveListState();
-    });
+    this.router.events
+      .pipe(takeUntilDestroyed(this.destroyRef))
+      .subscribe((event) => {
+        if (event instanceof NavigationStart) this.saveListState();
+      });
     afterRenderEffect(() => {
       const url = this.listUrl();
       this.visibleChannels();
       if (!url || this.loading() || this.restoredListUrl === url) return;
       const container = this.scrollElement();
       if (!container) return;
-      container.scrollTop = this.navigationState.stalkerLists.read(url)?.scrollTop ?? 0;
+      container.scrollTop =
+        this.navigationState.stalkerLists.read(url)?.scrollTop ?? 0;
       this.restoredListUrl = url;
     });
     this.destroyRef.onDestroy(() => {
       this.playRequestVersion += 1;
     });
 
-    combineLatest([this.route.data, this.route.paramMap, this.route.queryParamMap])
+    combineLatest([
+      this.route.data,
+      this.route.paramMap,
+      this.route.queryParamMap,
+    ])
       .pipe(takeUntilDestroyed(this.destroyRef))
       .subscribe(([data, params]) => {
         const routeType = data["contentType"];
         const nextType: StalkerContentType =
           routeType === "vod" || routeType === "series" ? routeType : "itv";
         const categoryId = params.get("categoryId");
-        const playlistId=this.route.parent?.snapshot.paramMap.get('id')??'';
-        const navigationState=nextType==='itv'?(this.router.currentNavigation()?.extras.state??window.history.state):null;
-        const row=nextType==='itv'?readStalkerDiscoveryLiveSelection(navigationState,playlistId):null;
-        this.discoveryLiveSelection.set(row?{playlistId,row:row as StalkerCatalogRow}:null);
+        const playlistId = this.route.parent?.snapshot.paramMap.get("id") ?? "";
+        const navigationState =
+          nextType === "itv"
+            ? (this.router.currentNavigation()?.extras.state ??
+              window.history.state)
+            : null;
+        const row =
+          nextType === "itv"
+            ? readStalkerDiscoveryLiveSelection(navigationState, playlistId)
+            : null;
+        this.discoveryLiveSelection.set(
+          row ? { playlistId, row: row as StalkerCatalogRow } : null,
+        );
 
         this.contentType.set(nextType);
         this.isRecentlyAdded.set(data["recentlyAdded"] === true);
@@ -303,7 +323,7 @@ export class StalkerLiveStreamLayoutComponent {
         this.listUrl.set(this.router.url);
         const saved = this.navigationState.stalkerLists.read(this.router.url);
         this.visibleLimit.set(saved?.visibleLimit ?? INITIAL_RENDER_LIMIT);
-        this.sortMode.set(saved?.sortMode ?? 'server');
+        this.sortMode.set(saved?.sortMode ?? "server");
         if (saved) this.viewMode.set(saved.viewMode);
       });
 
@@ -319,10 +339,18 @@ export class StalkerLiveStreamLayoutComponent {
       }
     });
 
-    effect(()=>{
-      const selection=this.discoveryLiveSelection(), playlist=this.store.currentPlaylist();
-      if(selection && playlist?._id===selection.playlistId && this.contentType()==='itv'){
-        untracked(()=>{this.discoveryLiveSelection.set(null);void this.play(selection.row);});
+    effect(() => {
+      const selection = this.discoveryLiveSelection(),
+        playlist = this.store.currentPlaylist();
+      if (
+        selection &&
+        playlist?._id === selection.playlistId &&
+        this.contentType() === "itv"
+      ) {
+        untracked(() => {
+          this.discoveryLiveSelection.set(null);
+          void this.play(selection.row);
+        });
       }
     });
 
@@ -344,99 +372,119 @@ export class StalkerLiveStreamLayoutComponent {
     refreshBeforePlayback = false,
     retrySignal?: AbortSignal,
   ): Promise<void> {
-    const requestVersion = ++this.playRequestVersion;
-    const playlist = this.store.currentPlaylist();
-    const playableItem = refreshBeforePlayback
-      ? ((await this.store.refreshItvChannel(item)) ?? item)
-      : item;
-    if (retrySignal?.aborted || requestVersion !== this.playRequestVersion) {
-      return;
-    }
-    this.store.setSelectedItem(playableItem);
-    this.playbackError.set(null);
-
-    if (this.contentType() !== "itv") {
-      const portalId = this.route.parent?.snapshot.paramMap.get("id");
-      const itemId = String(
-        playableItem.movie_id ??
-          playableItem.series_id ??
-          playableItem.id ??
-          playableItem.stream_id ??
-          "",
-      ).trim();
-      if (!portalId || !itemId) {
-        this.playbackError.set("This item has no usable portal ID");
-        return;
-      }
-
-      this.saveListState();
-      await this.router.navigate([
-        "/workspace/stalker",
-        portalId,
-        this.contentType(),
-        this.selectedCategory() ?? "*",
-        itemId,
-      ], { queryParamsHandling: 'preserve', state: { catalogueOrigin: this.router.url } });
-      return;
-    }
-
-    try {
-      // The retry path already refreshed the row above. Keep playback
-      // resolution itself non-blocking so a second full catalog request
-      // cannot be queued when that refresh fails.
-      const playback = await this.store.resolveItvPlayback(
-        playableItem,
-        false,
-        retrySignal,
-        { playlist, selectedContentType: "itv" },
-      );
+    return withPlaybackIntent(this.portalPlayer, async () => {
+      const requestVersion = ++this.playRequestVersion;
+      const playlist = this.store.currentPlaylist();
+      const playableItem = refreshBeforePlayback
+        ? ((await this.store.refreshItvChannel(item)) ?? item)
+        : item;
       if (retrySignal?.aborted || requestVersion !== this.playRequestVersion) {
         return;
       }
-      this.activePlayback.set(playback);
+      this.store.setSelectedItem(playableItem);
+      this.playbackError.set(null);
 
-      const items = this.filteredChannels();
-      const index = items.findIndex(
-        (candidate) => String(candidate.id) === String(playableItem.id),
-      );
-      void this.portalPlayer.openResolvedPlayback(playback, true, {
-        ...createStalkerPlaybackRecoveryContext(playback, ({ signal }) =>
-          this.store.resolveItvPlayback(playableItem, false, signal, {
-            playlist,
-            selectedContentType: "itv",
-          }),
-        ),
-        canPrevious: index > 0,
-        canNext: index >= 0 && index < items.length - 1,
-        onPrevious: () => {
-          const previous = items[index - 1];
-          if (previous) void this.play(previous);
-        },
-        onNext: () => {
-          const next = items[index + 1];
-          if (next) void this.play(next);
-        },
-        onRetry: (signal) => this.play(playableItem, true, signal),
-      });
-    } catch (cause) {
-      if (retrySignal?.aborted || requestVersion !== this.playRequestVersion) {
+      if (this.contentType() !== "itv") {
+        const portalId = this.route.parent?.snapshot.paramMap.get("id");
+        const itemId = String(
+          playableItem.movie_id ??
+            playableItem.series_id ??
+            playableItem.id ??
+            playableItem.stream_id ??
+            "",
+        ).trim();
+        if (!portalId || !itemId) {
+          this.playbackError.set("This item has no usable portal ID");
+          return;
+        }
+
+        this.saveListState();
+        await this.router.navigate(
+          [
+            "/workspace/stalker",
+            portalId,
+            this.contentType(),
+            this.selectedCategory() ?? "*",
+            itemId,
+          ],
+          {
+            queryParamsHandling: "preserve",
+            state: { catalogueOrigin: this.router.url },
+          },
+        );
         return;
       }
-      this.playbackError.set(
-        cause instanceof Error ? cause.message : "Unable to play this item",
-      );
-    }
+
+      try {
+        // The retry path already refreshed the row above. Keep playback
+        // resolution itself non-blocking so a second full catalog request
+        // cannot be queued when that refresh fails.
+        const playback = await this.store.resolveItvPlayback(
+          playableItem,
+          false,
+          retrySignal,
+          { playlist, selectedContentType: "itv" },
+        );
+        if (
+          retrySignal?.aborted ||
+          requestVersion !== this.playRequestVersion
+        ) {
+          return;
+        }
+        this.activePlayback.set(playback);
+
+        const items = this.filteredChannels();
+        const index = items.findIndex(
+          (candidate) => String(candidate.id) === String(playableItem.id),
+        );
+        await this.portalPlayer.openResolvedPlayback(playback, true, {
+          ...createStalkerPlaybackRecoveryContext(playback, ({ signal }) =>
+            this.store.resolveItvPlayback(playableItem, false, signal, {
+              playlist,
+              selectedContentType: "itv",
+            }),
+          ),
+          canPrevious: index > 0,
+          canNext: index >= 0 && index < items.length - 1,
+          onPrevious: () => {
+            const previous = items[index - 1];
+            if (previous) void this.play(previous);
+          },
+          onNext: () => {
+            const next = items[index + 1];
+            if (next) void this.play(next);
+          },
+          onRetry: (signal) => this.play(playableItem, true, signal),
+        });
+      } catch (cause) {
+        if (
+          retrySignal?.aborted ||
+          requestVersion !== this.playRequestVersion
+        ) {
+          return;
+        }
+        this.playbackError.set(
+          cause instanceof Error ? cause.message : "Unable to play this item",
+        );
+      }
+    });
   }
 
   private scrollElement(): HTMLElement | null {
-    return this.hostElement.nativeElement.querySelector('.stalker-grid, .stalker-list');
+    return this.hostElement.nativeElement.querySelector(
+      ".stalker-grid, .stalker-list",
+    );
   }
 
   private saveListState(): void {
     const container = this.scrollElement();
-    if (container && this.listUrl()) this.navigationState.stalkerLists.save(this.listUrl(), {
-      scrollTop: container.scrollTop, visibleLimit: this.visibleLimit(), viewMode: this.viewMode(), sortMode: this.sortMode(),
-    });
+    if (container && this.listUrl())
+      this.navigationState.stalkerLists.save(this.listUrl(), {
+        scrollTop: container.scrollTop,
+        visibleLimit: this.visibleLimit(),
+        viewMode: this.viewMode(),
+        sortMode: this.sortMode(),
+      });
   }
 
   playGridItem(item: unknown): void {

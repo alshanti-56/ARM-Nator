@@ -1,52 +1,99 @@
 <div class="context-column">
-    <header class="context-header">
-        <div class="context-header__top">
-            <h2>{{ 'WORKSPACE.SOURCES.TITLE' | translate }}</h2>
-        </div>
-        <p>{{ 'WORKSPACE.SOURCES.SUBTITLE' | translate }}</p>
-    </header>
+  <header class="context-header">
+    <div class="context-header__top">
+      <h2>{{ "WORKSPACE.SOURCES.TITLE" | translate }}</h2>
+    </div>
+    <p>{{ "WORKSPACE.SOURCES.SUBTITLE" | translate }}</p>
+  </header>
 
-    <div class="context-divider"></div>
+  <div class="context-divider"></div>
 
-    <section class="panel-section">
-        <div class="nav-list option-list">
-            <h3 class="panel-section-title">
-                {{ 'WORKSPACE.SOURCES.TYPE' | translate }}
-            </h3>
-            @for (option of typeOptions; track option.id) {
-                <button
-                    type="button"
-                    class="nav-item category-item option-row"
-                    [class.selected]="isTypeActive(option.id)"
-                    (click)="selectType(option.id)"
-                >
-                    <mat-icon>{{ option.icon }}</mat-icon>
-                    <span class="nav-item-label option-label">
-                        {{
-                            option.translationKey
-                                ? (option.translationKey | translate)
-                                : option.label
-                        }}
-                    </span>
-                    <div class="nav-item-meta option-meta">
-                        {{ getTypeCount(option.id) }}
-                    </div>
-                </button>
-            }
-        </div>
-    </section>
+  <section class="panel-section">
+    <div class="nav-list option-list">
+      <h3 class="panel-section-title">
+        {{ "WORKSPACE.SOURCES.TYPE" | translate }}
+      </h3>
+      @for (option of typeOptions; track option.id) {
+        <button
+          type="button"
+          class="nav-item category-item option-row"
+          [class.selected]="isTypeActive(option.id)"
+          (click)="selectType(option.id)"
+        >
+          <mat-icon>{{ option.icon }}</mat-icon>
+          <span class="nav-item-label option-label">
+            {{
+              option.translationKey
+                ? (option.translationKey | translate)
+                : option.label
+            }}
+          </span>
+          <div class="nav-item-meta option-meta">
+            {{ getTypeCount(option.id) }}
+          </div>
+        </button>
+      }
+    </div>
+  </section>
 
-    <div class="context-divider"></div>
-    <section class="panel-section playback-filters"><h3 class="panel-section-title">{{ 'WORKSPACE.SOURCES.PLAYBACK.TITLE' | translate }}</h3>
-     <label for="source-playback-category">{{ 'WORKSPACE.SOURCES.PLAYBACK.CATEGORY' | translate }}</label>
-     <select id="source-playback-category" [value]="playback.filter().category" (change)="setPlaybackCategory($any($event.target).value)">
-      @for(category of ['all','live','movies','series'];track category){<option [value]="category">{{ ('WORKSPACE.SOURCES.PLAYBACK.CATEGORY_' + category.toUpperCase()) | translate }}</option>}
-     </select>
-     <label for="source-playback-result">{{ 'WORKSPACE.SOURCES.PLAYBACK.RESULT' | translate }}</label>
-     <select id="source-playback-result" [value]="playback.filter().result" (change)="setPlaybackResult($any($event.target).value)">
-      @for(result of playbackResults;track result){<option [value]="result">{{ ('WORKSPACE.SOURCES.PLAYBACK.RESULT_' + result.toUpperCase()) | translate }}</option>}
-     </select>
-     <p>{{ 'WORKSPACE.SOURCES.PLAYBACK.FILTER_HINT' | translate }}</p>
-     <div class="playback-idle" role="status"><mat-icon>{{ checks?.activity()?.state === 'checking' ? 'sync' : 'pause_circle_outline' }}</mat-icon><span>{{ (checks?.available() ? 'WORKSPACE.SOURCES.PLAYBACK.IDLE_ONLY' : 'WORKSPACE.SOURCES.PLAYBACK.UNAVAILABLE') | translate }}</span></div>
-    </section>
+  <div class="context-divider"></div>
+  <section class="panel-section playback-filters">
+    <h3 class="panel-section-title">
+      {{ "WORKSPACE.SOURCES.PLAYBACK.TITLE" | translate }}
+    </h3>
+    <label for="source-playback-category">{{
+      "WORKSPACE.SOURCES.PLAYBACK.CATEGORY" | translate
+    }}</label>
+    <select
+      id="source-playback-category"
+      [value]="playback.filter().category"
+      (change)="setPlaybackCategory($any($event.target).value)"
+    >
+      @for (category of ["all", "live", "movies", "series"]; track category) {
+        <option
+          [value]="category"
+          [selected]="playback.filter().category === category"
+        >
+          {{
+            "WORKSPACE.SOURCES.PLAYBACK.CATEGORY_" + category.toUpperCase()
+              | translate
+          }}
+        </option>
+      }
+    </select>
+    <label for="source-playback-result">{{
+      "WORKSPACE.SOURCES.PLAYBACK.RESULT" | translate
+    }}</label>
+    <select
+      id="source-playback-result"
+      [value]="playback.filter().result"
+      (change)="setPlaybackResult($any($event.target).value)"
+    >
+      @for (result of playbackResults; track result) {
+        <option
+          [value]="result"
+          [selected]="playback.filter().result === result"
+        >
+          {{
+            "WORKSPACE.SOURCES.PLAYBACK.RESULT_" + result.toUpperCase()
+              | translate
+          }}
+        </option>
+      }
+    </select>
+    <p>{{ "WORKSPACE.SOURCES.PLAYBACK.FILTER_HINT" | translate }}</p>
+    <div class="playback-idle" role="status">
+      <mat-icon>{{
+        checks?.activity()?.state === "checking"
+          ? "sync"
+          : "pause_circle_outline"
+      }}</mat-icon
+      ><span>{{
+        (checks?.available()
+          ? "WORKSPACE.SOURCES.PLAYBACK.IDLE_ONLY"
+          : "WORKSPACE.SOURCES.PLAYBACK.UNAVAILABLE"
+        ) | translate
+      }}</span>
+    </div>
+  </section>
 </div>

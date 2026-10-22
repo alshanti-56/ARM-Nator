@@ -16,7 +16,11 @@ function deferred<T>() {
   const promise = new Promise<T>((r) => (resolve = r));
   return { promise, resolve };
 }
-function harness(prepare?: () => Promise<unknown>) {
+function harness(
+  prepare?: () => Promise<unknown>,
+  failCleanup: "close" | "release" | null = null,
+) {
+  let failedCleanup = false;
   let observe!: (s: SourceConfirmationInput) => void;
   const released: string[] = [];
   let closed = 0,
@@ -38,6 +42,10 @@ function harness(prepare?: () => Promise<unknown>) {
               },
             })),
           releaseAutoPlaybackSession: async (id: string) => {
+            if (failCleanup === "release" && !failedCleanup) {
+              failedCleanup = true;
+              throw Error("Temporary release failure");
+            }
             released.push(id);
           },
           cancelAutoPlaybackPreparation: async () => {
@@ -54,6 +62,10 @@ function harness(prepare?: () => Promise<unknown>) {
           },
           close: async () => {
             closed++;
+            if (failCleanup === "close" && !failedCleanup) {
+              failedCleanup = true;
+              throw Error("Temporary close failure");
+            }
           },
         }),
       },
@@ -182,6 +194,52 @@ test("twenty-second deadline is inconclusive and closes the connection", async (
     assert.equal(outcome.reason, "startup-timeout");
     assert.deepEqual(h.released, ["prepared"]);
     assert.equal(h.cancelled, 1);
+  } finally {
+    h.destroy();
+  }
+});
+
+for (const step of ["close", "release"] as const)
+  test(`retries unacknowledged ${step} cleanup and permits playback after recovery`, async () => {
+    const h = harness(undefined, step),
+      abort = new AbortController();
+    try {
+      const task = h.probe.probe(
+        { streamUrl: "https://fixture.test/live", title: "Sample" },
+        abort.signal,
+      );
+      await h.ready.promise;
+      abort.abort();
+      await assert.rejects(task, /cleanup/);
+      await h.probe.drain();
+      await h.probe.drain(); // Acknowledged cleanup remains idempotent for runner and lease callers.
+      assert.equal(h.closed, step === "close" ? 2 : 1);
+      assert.deepEqual(h.released, ["prepared"]);
+      const nextAbort = new AbortController();
+      const next = h.probe.probe(
+        { streamUrl: "https://fixture.test/next", title: "Next" },
+        nextAbort.signal,
+      );
+      nextAbort.abort();
+      assert.equal((await next).outcome, "cancelled");
+      await h.probe.drain();
+    } finally {
+      h.destroy();
+    }
+  });
+
+test("retains a media preparation throttle deadline", async () => {
+  const h = harness(async () => ({
+    ok: false,
+    error: { status: 429, retryAfterMs: 86400000, message: "limited" },
+  }));
+  try {
+    const result = await h.probe.probe(
+      { streamUrl: "https://fixture.test/live", title: "Sample" },
+      new AbortController().signal,
+    );
+    assert.equal(result.reason, "provider-throttled");
+    assert.equal((result as { retryAfterMs?: number }).retryAfterMs, 86400000);
   } finally {
     h.destroy();
   }

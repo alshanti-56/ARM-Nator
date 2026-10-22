@@ -35,6 +35,7 @@ export interface SourceProbeResult {
   elapsedMs: number;
   engine: "html5";
   audioOnly: boolean;
+  retryAfterMs?: number;
 }
 @Injectable({ providedIn: "root" })
 export class SourcePlaybackProbeService {
@@ -42,6 +43,7 @@ export class SourcePlaybackProbeService {
   private factory = inject(SOURCE_PROBE_SESSION_FACTORY);
   private active = false;
   private draining: Promise<void> = Promise.resolve();
+  private retryCleanup: (() => Promise<void>) | null = null;
   setSessionFactory(factory: () => SilentSessionDriver | null): void {
     this.factory = factory;
   }
@@ -72,7 +74,7 @@ export class SourcePlaybackProbeService {
     return task;
   }
   drain(): Promise<void> {
-    return this.draining;
+    return this.retryCleanup?.() ?? this.draining;
   }
   private async run(
     bridge: SourceProbeTransport,
@@ -125,7 +127,7 @@ export class SourcePlaybackProbeService {
       prepared = first;
       if (!prepared.ok) {
         const status = prepared.error.status;
-        return result(
+        const failure = result(
           status === 401 || status === 403 || status === 404 || status === 410
             ? "failed"
             : "inconclusive",
@@ -137,6 +139,10 @@ export class SourcePlaybackProbeService {
                 ? "provider-throttled"
                 : "network-unknown",
         );
+        const delay = prepared.error.retryAfterMs;
+        return typeof delay === "number" && Number.isFinite(delay) && delay > 0
+          ? { ...failure, retryAfterMs: delay }
+          : failure;
       }
       if (signal.aborted)
         return result(
@@ -183,31 +189,48 @@ export class SourcePlaybackProbeService {
     } finally {
       if (timer !== undefined) clearTimeout(timer);
       signal.removeEventListener("abort", abort);
-      const cleanup = await Promise.allSettled([
-        driver.close(),
+      // Retain only unacknowledged steps: a transient IPC/driver failure must
+      // withhold ownership while allowing a later foreground request to retry.
+      let steps: (() => Promise<unknown>)[] = [
+        () => driver.close(),
         ...(signal.aborted
-          ? [bridge.cancelAutoPlaybackPreparation(attemptId)]
+          ? [() => bridge.cancelAutoPlaybackPreparation(attemptId)]
           : []),
-      ]);
-      // A cancelled request may still return ownership later. Await and release it before acknowledging drain.
-      const final = prepared ?? (await preparation?.catch(() => undefined));
-      if (final?.ok) {
-        try {
-          await bridge.releaseAutoPlaybackSession(final.session.id);
-        } catch (error) {
-          cleanup.push({ status: "rejected", reason: error });
-        }
-      }
-      const errors = cleanup.flatMap((r) =>
-        r.status === "rejected" ? [r.reason] : [],
-      );
-      if (errors.length)
-        // Cleanup failure must override success so the coordinator cannot acknowledge a live transport.
-        // eslint-disable-next-line no-unsafe-finally
-        throw new AggregateError(
-          errors,
-          "Source playback cleanup was not acknowledged",
-        );
+        async () => {
+          const final = prepared ?? (await preparation?.catch(() => undefined));
+          if (final?.ok)
+            await bridge.releaseAutoPlaybackSession(final.session.id);
+        },
+      ];
+      let pending: Promise<void> | null = null;
+      const cleanup = (): Promise<void> => {
+        if (pending) return pending;
+        pending = Promise.allSettled(
+          steps.map((step) => Promise.resolve().then(step)),
+        )
+          .then((results) => {
+            const failed = results.flatMap((r, i) =>
+              r.status === "rejected"
+                ? [{ step: steps[i], reason: r.reason }]
+                : [],
+            );
+            steps = failed.map((f) => f.step);
+            if (failed.length)
+              throw new AggregateError(
+                failed.map((f) => f.reason),
+                "Source playback cleanup was not acknowledged",
+              );
+            this.retryCleanup = null;
+            this.draining = Promise.resolve();
+            this.active = false;
+          })
+          .finally(() => {
+            pending = null;
+          });
+        return pending;
+      };
+      this.retryCleanup = cleanup;
+      await cleanup();
     }
   }
 }

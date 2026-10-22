@@ -1,3 +1,4 @@
+import { withPlaybackIntent } from "@arm-nator/player/core";
 import { readProviderSeekPreviews } from "@arm-nator/shared/interfaces";
 import { optionalStalkerViewingItem } from '@arm-nator/shared/interfaces';
 import { inject } from '@angular/core';
@@ -481,156 +482,147 @@ export function withStalkerPlayer() {
                 };
 
                 return {
-                    async fetchLinkToPlay(
-                        portalUrl: string,
-                        macAddress: string,
-                        cmd: string,
-                        series?: number,
-                        linkFlags?: StalkerLinkFlagSource | null
-                    ) {
-                        return fetchStalkerPlaybackLink(requestDeps, {
-                            playlist: createRequestPlaylist(
-                                portalUrl,
-                                macAddress
-                            ),
-                            selectedContentType:
-                                storeState.selectedContentType(),
-                            cmd,
-                            series,
-                            linkFlags,
+                  async fetchLinkToPlay(
+                    portalUrl: string,
+                    macAddress: string,
+                    cmd: string,
+                    series?: number,
+                    linkFlags?: StalkerLinkFlagSource | null,
+                  ) {
+                    return fetchStalkerPlaybackLink(requestDeps, {
+                      playlist: createRequestPlaylist(portalUrl, macAddress),
+                      selectedContentType: storeState.selectedContentType(),
+                      cmd,
+                      series,
+                      linkFlags,
+                    });
+                  },
+                  async getExpireDate() {
+                    const playlist = storeState.currentPlaylist();
+                    if (!playlist) {
+                      return "Unknown";
+                    }
+
+                    try {
+                      return await fetchStalkerExpireDate(
+                        requestDeps,
+                        playlist,
+                      );
+                    } catch (error) {
+                      logger.error("Failed to fetch expire date", error);
+                      return "Error fetching data";
+                    }
+                  },
+                  async fetchMovieFileId(
+                    movieId: string,
+                  ): Promise<string | null> {
+                    const playlist = storeState.currentPlaylist();
+                    if (!playlist) {
+                      return null;
+                    }
+
+                    return fetchStalkerMovieFileId(
+                      requestDeps,
+                      playlist,
+                      movieId,
+                    );
+                  },
+                  async resolveVodPlayback(
+                    cmd?: string,
+                    title?: string,
+                    thumbnail?: string,
+                    episodeNum?: number,
+                    episodeId?: number,
+                    startTime?: number,
+                    options?: StalkerPlaybackResolutionOptions,
+                  ): Promise<ResolvedPortalPlayback> {
+                    return resolveVodPlaybackInternal(
+                      cmd,
+                      title,
+                      thumbnail,
+                      episodeNum,
+                      episodeId,
+                      startTime,
+                      options,
+                    );
+                  },
+                  async resolveItvPlayback(
+                    item: StalkerPlayableItem,
+                  ): Promise<ResolvedPortalPlayback> {
+                    return resolveItvPlaybackInternal(item);
+                  },
+                  async resolveRadioPlayback(
+                    item: StalkerPlayableItem,
+                  ): Promise<ResolvedPortalPlayback> {
+                    return resolveRadioPlaybackInternal(item);
+                  },
+                  async createLinkToPlayVod(
+                    cmd?: string,
+                    title?: string,
+                    thumbnail?: string,
+                    episodeNum?: number,
+                    episodeId?: number,
+                    startTime?: number,
+                  ) {
+                    return withPlaybackIntent(playerService, async () => {
+                      const sourceItem = storeState.selectedItem() as
+                        StalkerPlayableItem | null | undefined;
+                      const sourcePlaylist = storeState.currentPlaylist();
+                      const sourceContentType =
+                        storeState.selectedContentType();
+                      try {
+                        const playback = await resolveVodPlaybackInternal(
+                          cmd,
+                          title,
+                          thumbnail,
+                          episodeNum,
+                          episodeId,
+                          startTime,
+                          {
+                            item: sourceItem,
+                            playlist: sourcePlaylist,
+                            selectedContentType: sourceContentType,
+                          },
+                        );
+
+                        await playerService.openResolvedPlayback(
+                          playback,
+                          true,
+                          playback.recovery
+                            ? {
+                                resolvePlayback: ({ signal }) =>
+                                  resolveVodPlaybackInternal(
+                                    cmd,
+                                    title,
+                                    thumbnail,
+                                    episodeNum,
+                                    episodeId,
+                                    startTime,
+                                    {
+                                      item: sourceItem,
+                                      playlist: sourcePlaylist,
+                                      selectedContentType: sourceContentType,
+                                      signal,
+                                      recordRecentlyViewed: false,
+                                    },
+                                  ),
+                              }
+                            : undefined,
+                        );
+                      } catch (error) {
+                        logger.error("Failed to get playback URL", error);
+                        const errorMessage =
+                          error instanceof Error &&
+                          error.message === "nothing_to_play"
+                            ? translate.instant("PORTALS.CONTENT_NOT_AVAILABLE")
+                            : translate.instant("PORTALS.PLAYBACK_ERROR");
+
+                        snackBar.open(errorMessage, undefined, {
+                          duration: 3000,
                         });
-                    },
-                    async getExpireDate() {
-                        const playlist = storeState.currentPlaylist();
-                        if (!playlist) {
-                            return 'Unknown';
-                        }
-
-                        try {
-                            return await fetchStalkerExpireDate(
-                                requestDeps,
-                                playlist
-                            );
-                        } catch (error) {
-                            logger.error('Failed to fetch expire date', error);
-                            return 'Error fetching data';
-                        }
-                    },
-                    async fetchMovieFileId(
-                        movieId: string
-                    ): Promise<string | null> {
-                        const playlist = storeState.currentPlaylist();
-                        if (!playlist) {
-                            return null;
-                        }
-
-                        return fetchStalkerMovieFileId(
-                            requestDeps,
-                            playlist,
-                            movieId
-                        );
-                    },
-                    async resolveVodPlayback(
-                        cmd?: string,
-                        title?: string,
-                        thumbnail?: string,
-                        episodeNum?: number,
-                        episodeId?: number,
-                        startTime?: number,
-                        options?: StalkerPlaybackResolutionOptions
-                    ): Promise<ResolvedPortalPlayback> {
-                        return resolveVodPlaybackInternal(
-                            cmd,
-                            title,
-                            thumbnail,
-                            episodeNum,
-                            episodeId,
-                            startTime,
-                            options
-                        );
-                    },
-                    async resolveItvPlayback(
-                        item: StalkerPlayableItem
-                    ): Promise<ResolvedPortalPlayback> {
-                        return resolveItvPlaybackInternal(item);
-                    },
-                    async resolveRadioPlayback(
-                        item: StalkerPlayableItem
-                    ): Promise<ResolvedPortalPlayback> {
-                        return resolveRadioPlaybackInternal(item);
-                    },
-                    async createLinkToPlayVod(
-                        cmd?: string,
-                        title?: string,
-                        thumbnail?: string,
-                        episodeNum?: number,
-                        episodeId?: number,
-                        startTime?: number
-                    ) {
-                        const sourceItem = storeState.selectedItem() as
-                            | StalkerPlayableItem
-                            | null
-                            | undefined;
-                        const sourcePlaylist = storeState.currentPlaylist();
-                        const sourceContentType =
-                            storeState.selectedContentType();
-                        try {
-                            const playback = await resolveVodPlaybackInternal(
-                                cmd,
-                                title,
-                                thumbnail,
-                                episodeNum,
-                                episodeId,
-                                startTime,
-                                {
-                                    item: sourceItem,
-                                    playlist: sourcePlaylist,
-                                    selectedContentType: sourceContentType,
-                                }
-                            );
-
-                            void playerService.openResolvedPlayback(
-                                playback,
-                                true,
-                                playback.recovery
-                                    ? {
-                                          resolvePlayback: ({ signal }) =>
-                                              resolveVodPlaybackInternal(
-                                            cmd,
-                                            title,
-                                            thumbnail,
-                                            episodeNum,
-                                            episodeId,
-                                            startTime,
-                                            {
-                                                item: sourceItem,
-                                                playlist: sourcePlaylist,
-                                                selectedContentType:
-                                                    sourceContentType,
-                                                signal,
-                                                recordRecentlyViewed: false,
-                                            }
-                                              ),
-                                      }
-                                    : undefined
-                            );
-                        } catch (error) {
-                            logger.error('Failed to get playback URL', error);
-                            const errorMessage =
-                                error instanceof Error &&
-                                error.message === 'nothing_to_play'
-                                    ? translate.instant(
-                                          'PORTALS.CONTENT_NOT_AVAILABLE'
-                                      )
-                                    : translate.instant(
-                                          'PORTALS.PLAYBACK_ERROR'
-                                      );
-
-                            snackBar.open(errorMessage, undefined, {
-                                duration: 3000,
-                            });
-                        }
-                    },
+                      }
+                    });
+                  },
                 };
             }
         )

@@ -32,6 +32,9 @@ import { SettingsStore } from "./settings-store.service";
   providedIn: "root",
 })
 export class PlayerService implements PlayerFacade {
+  withPlaybackIntent<T>(action: () => Promise<T>): Promise<T> {
+    return this.workspacePlayer.withSourceCheckForeground(action);
+  }
   private dialog = inject(MatDialog);
   private dataService = inject(DataService);
   private settingsStore = inject(SettingsStore);

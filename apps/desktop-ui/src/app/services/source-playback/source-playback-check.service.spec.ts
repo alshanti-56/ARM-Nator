@@ -140,3 +140,27 @@ test("a throttled provider stops sampling and retains its Retry-After delay", as
     (result.nextEligibleAt ?? 0) >= result.attempt.completedAt + 7199900,
   );
 });
+
+test("persists a media preparation Retry-After without adding transport fields to sample evidence", async () => {
+  const h = setup([]);
+  const result = await runSourceSampleCheck(
+    key,
+    "manual",
+    new AbortController().signal,
+    {
+      ...h.dependencies,
+      probe: async () => ({
+        outcome: "inconclusive",
+        reason: "provider-throttled",
+        elapsedMs: 1,
+        engine: "html5",
+        audioOnly: false,
+        retryAfterMs: 86400000,
+      }),
+    },
+  );
+  assert.ok(
+    (result.nextEligibleAt ?? 0) >= result.attempt.completedAt + 86399900,
+  );
+  assert.equal("retryAfterMs" in result.attempt.samples[0], false);
+});

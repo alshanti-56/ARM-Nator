@@ -226,3 +226,41 @@ test("hidden or removed categories never resolve a media sample", async () => {
     h.injector.destroy();
   }
 });
+
+test("uncached checks rotate beyond three failed candidates using the saved cursor", async () => {
+  const h = setup(false);
+  let cursor: string | undefined;
+  h.injector.get(SourcePlaybackRepositoryService).read = async () => [
+    { cursor: { live: cursor }, latest: [] } as never,
+  ];
+  h.injector.get(XtreamApiService).getLiveStreams = async () =>
+    [1, 2, 3, 4].map((stream_id) => ({
+      stream_id,
+      name: String(stream_id),
+      category_id: "1",
+    })) as never;
+  try {
+    const sampler = runInInjectionContext(
+      h.injector,
+      () => new XtreamSourcePlaybackSamplerService(),
+    );
+    const first = await sampler.select(
+      "one",
+      "live",
+      new AbortController().signal,
+    );
+    assert.deepEqual(
+      first.map((c) => c.itemId),
+      ["1", "2", "3"],
+    );
+    cursor = first[2].cursor;
+    const second = await sampler.select(
+      "one",
+      "live",
+      new AbortController().signal,
+    );
+    assert.equal(second[0].itemId, "4");
+  } finally {
+    h.injector.destroy();
+  }
+});

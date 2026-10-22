@@ -1,6 +1,76 @@
-import {TestBed} from '@angular/core/testing';import {signal} from '@angular/core';import {provideTranslateService} from '@ngx-translate/core';import {Store} from '@ngrx/store';
-import {WorkspaceSourcesFiltersPanelComponent} from './workspace-sources-filters-panel.component';import {SourcePlaybackStoreService} from '@arm-nator/services';
-describe('source playback filters',()=>{it('updates shared playback filters without changing provider filter',async()=>{
- const dispatch=jest.fn(),setFilter=jest.fn();let calls=0;await TestBed.configureTestingModule({imports:[WorkspaceSourcesFiltersPanelComponent],providers:[...provideTranslateService(),{provide:Store,useValue:{selectSignal:()=>signal(calls++===0?['xtream','stalker']:[]),dispatch}},{provide:SourcePlaybackStoreService,useValue:{filter:signal({category:'all',result:'any'}),setFilter}}]}).compileComponents();
- const f=TestBed.createComponent(WorkspaceSourcesFiltersPanelComponent);f.detectChanges();const select=f.nativeElement.querySelector('#source-playback-category');select.value='movies';select.dispatchEvent(new Event('change'));expect(setFilter).toHaveBeenCalledWith({category:'movies',result:'any'});expect(dispatch).not.toHaveBeenCalled();expect(select.getAttribute('id')).toBe('source-playback-category');expect(f.nativeElement.querySelector('label[for="source-playback-category"]')).toBeTruthy();
- });});
+import { TestBed } from "@angular/core/testing";
+import { signal } from "@angular/core";
+import { provideTranslateService } from "@ngx-translate/core";
+import { Store } from "@ngrx/store";
+import { WorkspaceSourcesFiltersPanelComponent } from "./workspace-sources-filters-panel.component";
+import { SourcePlaybackStoreService } from "@arm-nator/services";
+describe("source playback filters", () => {
+  it("updates shared playback filters without changing provider filter", async () => {
+    const dispatch = jest.fn(),
+      setFilter = jest.fn();
+    let calls = 0;
+    await TestBed.configureTestingModule({
+      imports: [WorkspaceSourcesFiltersPanelComponent],
+      providers: [
+        ...provideTranslateService(),
+        {
+          provide: Store,
+          useValue: {
+            selectSignal: () =>
+              signal(calls++ === 0 ? ["xtream", "stalker"] : []),
+            dispatch,
+          },
+        },
+        {
+          provide: SourcePlaybackStoreService,
+          useValue: {
+            filter: signal({ category: "all", result: "any" }),
+            setFilter,
+          },
+        },
+      ],
+    }).compileComponents();
+    const f = TestBed.createComponent(WorkspaceSourcesFiltersPanelComponent);
+    f.detectChanges();
+    const select = f.nativeElement.querySelector("#source-playback-category");
+    select.value = "movies";
+    select.dispatchEvent(new Event("change"));
+    expect(setFilter).toHaveBeenCalledWith({
+      category: "movies",
+      result: "any",
+    });
+    expect(dispatch).not.toHaveBeenCalled();
+    expect(select.getAttribute("id")).toBe("source-playback-category");
+    expect(
+      f.nativeElement.querySelector('label[for="source-playback-category"]'),
+    ).toBeTruthy();
+  });
+});
+
+it("shows the category selected by a playlist result link on its first render", async () => {
+  await TestBed.configureTestingModule({
+    imports: [WorkspaceSourcesFiltersPanelComponent],
+    providers: [
+      ...provideTranslateService(),
+      {
+        provide: Store,
+        useValue: { selectSignal: () => signal([]), dispatch: jest.fn() },
+      },
+      {
+        provide: SourcePlaybackStoreService,
+        useValue: {
+          filter: signal({ category: "movies", result: "mixed" }),
+          setFilter: jest.fn(),
+        },
+      },
+    ],
+  }).compileComponents();
+  const f = TestBed.createComponent(WorkspaceSourcesFiltersPanelComponent);
+  f.detectChanges();
+  expect(f.nativeElement.querySelector("#source-playback-category").value).toBe(
+    "movies",
+  );
+  expect(f.nativeElement.querySelector("#source-playback-result").value).toBe(
+    "mixed",
+  );
+});

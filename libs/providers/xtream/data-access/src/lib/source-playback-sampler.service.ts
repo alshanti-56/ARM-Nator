@@ -1,3 +1,8 @@
+import {
+  readSourceSampleCursor,
+  sourceSampleCursor,
+  rotateSourceRows,
+} from "@arm-nator/shared/interfaces";
 import { Injectable, inject } from "@angular/core";
 import { firstValueFrom } from "rxjs";
 import {
@@ -24,6 +29,7 @@ import type {
 } from "@arm-nator/shared/interfaces";
 @Injectable({ providedIn: "root" })
 export class XtreamSourcePlaybackSamplerService implements SourcePlaybackSampler {
+  selectionCursor: string | undefined;
   private readonly db = inject(DatabaseService);
   private readonly playlists = inject(PlaylistsService);
   private readonly api = inject(XtreamApiService);
@@ -48,6 +54,7 @@ export class XtreamSourcePlaybackSamplerService implements SourcePlaybackSampler
     signal: AbortSignal,
   ): Promise<readonly SourcePlaybackCandidate[]> {
     signal.throwIfAborted();
+    this.selectionCursor = undefined;
     const saved = (await this.repository.read([sourceId]))[0];
     const preferred = saved?.latest
       .find((o) => o.key.category === category)
@@ -82,11 +89,22 @@ export class XtreamSourcePlaybackSamplerService implements SourcePlaybackSampler
           );
       signal.throwIfAborted();
       const items: SourcePlaybackCandidate[] = [];
-      for (const group of groups
-        .filter(
-          (g) => !(source.hiddenGroupTitles ?? []).includes(g.category_name),
-        )
-        .slice(0, 3)) {
+      const cursor = readSourceSampleCursor(saved?.cursor[category]);
+      const visible = groups.filter(
+        (g) => !(source.hiddenGroupTitles ?? []).includes(g.category_name),
+      );
+      const ordered = rotateSourceRows(
+        visible,
+        (g) => String(g.category_id),
+        cursor?.group,
+        true,
+      );
+      for (const [index, group] of ordered.slice(0, 3).entries()) {
+        this.selectionCursor = sourceSampleCursor(
+          String(ordered[(index + 1) % ordered.length].category_id),
+          1,
+          "",
+        );
         signal.throwIfAborted();
         const filtered = { ...options, categoryId: String(group.category_id) };
         const rows =
@@ -96,7 +114,28 @@ export class XtreamSourcePlaybackSamplerService implements SourcePlaybackSampler
               ? await this.api.getVodStreams(credentials, filtered)
               : await this.api.getSeriesStreams(credentials, filtered);
         signal.throwIfAborted();
-        for (const row of rows) {
+        const idOf = (row: (typeof rows)[number]) =>
+          String("series_id" in row ? row.series_id : row.stream_id);
+        const current =
+          cursor?.group === String(group.category_id) ? cursor.item : undefined;
+        const preferredHere =
+          preferred && rows.some((r) => idOf(r) === preferred)
+            ? preferred
+            : undefined;
+        if (
+          !preferredHere &&
+          ordered.length > 1 &&
+          current &&
+          idOf(rows[rows.length - 1] ?? ({} as (typeof rows)[number])) ===
+            current
+        )
+          continue;
+        for (const row of rotateSourceRows(
+          rows,
+          idOf,
+          preferredHere ?? current,
+          !!preferredHere,
+        )) {
           const id = "series_id" in row ? row.series_id : row.stream_id;
           if (id == null || items.some((i) => i.itemId === String(id)))
             continue;
@@ -105,7 +144,11 @@ export class XtreamSourcePlaybackSamplerService implements SourcePlaybackSampler
             title: row.name || "Sample channel",
             category,
             categoryId: String(group.category_id),
-            cursor: String(id),
+            cursor: sourceSampleCursor(
+              String(group.category_id),
+              1,
+              String(id),
+            ),
           });
           if (items.length >= 3) return items;
         }

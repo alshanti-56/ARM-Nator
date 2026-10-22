@@ -11,7 +11,7 @@ export interface PlayerOpenContext {
   /** Resolves only; must not open playback, navigate, or select another item. */
   readonly resolvePlayback?: (request: {
     signal: AbortSignal;
-    reason: 'manual-retry' | 'media-auth-failure';
+    reason: "manual-retry" | "media-auth-failure";
   }) => Promise<ResolvedPortalPlayback>;
   /** Internal handoff: preserves selection-scoped recovery across source replacement. */
   readonly recoveryIdentity?: PlaybackRecoveryIdentity;
@@ -38,6 +38,8 @@ export interface PlayerOpenContext {
  * not import ArtPlayer, HTML5, embedded MPV, external MPV, or VLC internals.
  */
 export interface PlayerFacade {
+  /** Hold foreground ownership from user intent through URL resolution and handoff. */
+  withPlaybackIntent?<T>(action: () => Promise<T>): Promise<T>;
   isEmbeddedPlayer(isLive?: boolean): boolean;
   openAutomaticPlayback?(
     playback: ResolvedPortalPlayback,
@@ -80,3 +82,13 @@ export interface PlayerFacade {
 }
 
 export const PLAYER_FACADE = new InjectionToken<PlayerFacade>("PLAYER_FACADE");
+
+/** Browser-only/test facades may omit native resource arbitration. */
+export function withPlaybackIntent<T>(
+  player: Pick<PlayerFacade, "withPlaybackIntent">,
+  action: () => Promise<T>,
+): Promise<T> {
+  return player.withPlaybackIntent
+    ? player.withPlaybackIntent(action)
+    : action();
+}

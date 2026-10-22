@@ -125,6 +125,8 @@ export interface SourceCandidateQuery {
   preferredItemId?: string;
 }
 export interface SourcePlaybackSampler {
+  /** Advances bounded discovery even when the visited catalogue pages are empty. */
+  readonly selectionCursor?: string;
   select(
     sourceId: string,
     category: SourcePlaybackCategory,

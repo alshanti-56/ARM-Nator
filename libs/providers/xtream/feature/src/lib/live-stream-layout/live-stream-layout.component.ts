@@ -274,6 +274,14 @@ export class LiveStreamLayoutComponent implements OnInit {
       title: item.title ?? item.name ?? "",
       thumbnail: item.poster_url ?? item.stream_icon ?? null,
       isLive: true,
+      itemIdentity: playlist
+        ? {
+            sourceType: "xtream",
+            playlistId: playlist.id,
+            contentKind: "live",
+            providerItemId: String(item.xtream_id),
+          }
+        : undefined,
       ...(playlist
         ? {
             recovery: this.xtreamUrl.buildPlaybackRecoveryMetadata(
@@ -320,7 +328,9 @@ export class LiveStreamLayoutComponent implements OnInit {
     );
   }
 
-  private getXtreamCredentials(playlist: XtreamPlaylistData): XtreamCredentials {
+  private getXtreamCredentials(
+    playlist: XtreamPlaylistData,
+  ): XtreamCredentials {
     return {
       serverUrl: playlist.serverUrl,
       username: playlist.username,

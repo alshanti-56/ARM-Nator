@@ -1,6 +1,14 @@
+import {
+  readSourceSampleCursor,
+  sourceSampleCursor,
+  rotateSourceRows,
+} from "@arm-nator/shared/interfaces";
 import { Injectable, inject } from "@angular/core";
 import { firstValueFrom } from "rxjs";
-import { PlaylistsService } from "@arm-nator/services";
+import {
+  PlaylistsService,
+  SourcePlaybackRepositoryService,
+} from "@arm-nator/services";
 import type {
   SourcePlaybackSampler,
   SourcePlaybackCandidate,
@@ -44,6 +52,10 @@ function missing(): never {
 }
 @Injectable({ providedIn: "root" })
 export class StalkerSourcePlaybackSamplerService implements SourcePlaybackSampler {
+  selectionCursor: string | undefined;
+  private readonly repository = inject(SourcePlaybackRepositoryService, {
+    optional: true,
+  });
   private readonly playlists = inject(PlaylistsService);
   private readonly context = inject(StalkerSourcePlaybackContextService);
   private async source(id: string, signal: AbortSignal): Promise<PlaylistMeta> {
@@ -80,13 +92,14 @@ export class StalkerSourcePlaybackSamplerService implements SourcePlaybackSample
     context: StalkerSourceContext,
     category: SourcePlaybackCategory,
     categoryId: string,
+    page = 1,
   ): Promise<Row[]> {
     const type = portalType(category);
     return sourcePortalRows(
       await context.request({
         type,
         action: "get_ordered_list",
-        p: 1,
+        p: page,
         ...(type === "itv"
           ? { genre: categoryId, fav: 0 }
           : { category: categoryId }),
@@ -98,15 +111,66 @@ export class StalkerSourcePlaybackSamplerService implements SourcePlaybackSample
     category: SourcePlaybackCategory,
     signal: AbortSignal,
   ): Promise<readonly SourcePlaybackCandidate[]> {
+    this.selectionCursor = undefined;
+    const saved = (await this.repository?.read([sourceId]))?.[0];
+    const cursor = readSourceSampleCursor(saved?.cursor[category]);
+    const latest = saved?.latest.find((o) => o.key.category === category);
+    const success = latest?.samples.find((s) => s.outcome === "played")?.itemId;
+    const preferred = category === "series" && success ? cursor?.item : success;
     const source = await this.source(sourceId, signal);
     return this.context.run(source, signal, async (context) => {
-      const groups = (await this.groups(context, category)).slice(0, 3),
+      const groups = rotateSourceRows(
+          await this.groups(context, category),
+          (g) => String(g.id),
+          cursor?.group,
+          true,
+        ),
         items: SourcePlaybackCandidate[] = [];
-      for (const group of groups) {
+      let pages = 0;
+      for (const [index, group] of groups.slice(0, 3).entries()) {
         signal.throwIfAborted();
         const categoryId = String(group.id);
-        const rows = await this.page(context, category, categoryId);
-        for (const row of rows) {
+        if (pages >= 3) break;
+        this.selectionCursor = sourceSampleCursor(
+          String(groups[(index + 1) % groups.length].id),
+          1,
+          "",
+        );
+        let page = cursor?.group === categoryId ? cursor.page : 1;
+        let rows = await this.page(context, category, categoryId, page);
+        pages++;
+        const current = cursor?.group === categoryId ? cursor.item : undefined;
+        const preferredHere =
+          preferred && rows.some((r) => String(r.id) === preferred)
+            ? preferred
+            : undefined;
+        if (
+          !preferredHere &&
+          current &&
+          String(rows.at(-1)?.id) === current &&
+          pages < 3
+        ) {
+          const next = await this.page(context, category, categoryId, page + 1);
+          pages++;
+          if (
+            next.length &&
+            !next.every((n) => rows.some((r) => String(r.id) === String(n.id)))
+          ) {
+            rows = next;
+            page++;
+          } else if (groups.length > 1) continue;
+          else if (page > 1 && pages < 3) {
+            rows = await this.page(context, category, categoryId, 1);
+            page = 1;
+            pages++;
+          }
+        }
+        for (const row of rotateSourceRows(
+          rows,
+          (r) => String(r.id),
+          preferredHere ?? (page === cursor?.page ? current : undefined),
+          !!preferredHere,
+        )) {
           if (row.id == null || items.some((i) => i.itemId === String(row.id)))
             continue;
           if (
@@ -119,7 +183,7 @@ export class StalkerSourcePlaybackSamplerService implements SourcePlaybackSample
             title: row.name ?? row.title ?? "Sample",
             category,
             categoryId,
-            cursor: String(row.id),
+            cursor: sourceSampleCursor(categoryId, page, String(row.id)),
           };
           if (category === "series") {
             const seasons = sourcePortalRows(
@@ -164,6 +228,7 @@ export class StalkerSourcePlaybackSamplerService implements SourcePlaybackSample
         context,
         candidate.category,
         candidate.categoryId,
+        readSourceSampleCursor(candidate.cursor)?.page ?? 1,
       );
       const row = rows.find((r) => String(r.id) === candidate.itemId);
       if (!row) missing();
