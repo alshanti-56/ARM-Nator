@@ -51,6 +51,16 @@ function string(v: unknown, max = 256): string {
     throw new Error("Invalid evidence string");
   return v;
 }
+function identifier(v: unknown, max = 256): string {
+  const value = string(v, max);
+  if (
+    /https?:\/\/|[?&](?:token|username|password|mac|authorization)=|bearer\s/i.test(
+      value,
+    )
+  )
+    throw new Error("Unsafe evidence identifier");
+  return value;
+}
 function time(v: unknown): number {
   if (typeof v !== "number" || !Number.isFinite(v) || v < 0)
     throw new Error("Invalid evidence time");
@@ -59,7 +69,7 @@ function time(v: unknown): number {
 export function validateSourceIds(ids: unknown): string[] {
   if (!Array.isArray(ids) || ids.length > 1000)
     throw new Error("Invalid source IDs");
-  return [...new Set(ids.map((id) => string(id)))];
+  return [...new Set(ids.map((id) => identifier(id)))];
 }
 export function validateSourceEvidenceWrite(
   value: unknown,
@@ -85,11 +95,11 @@ export function validateSourceEvidenceWrite(
     ]);
     const k = object(a.key);
     only(k, ["sourceId", "revision", "category"]);
-    string(k.sourceId);
-    string(k.revision);
+    identifier(k.sourceId);
+    identifier(k.revision);
     if (!categories.includes(String(k.category)))
       throw new Error("Invalid category");
-    string(a.checkId);
+    identifier(a.checkId);
     if (!["manual", "background", "viewing"].includes(String(a.origin)))
       throw new Error("Invalid origin");
     time(a.startedAt);
@@ -109,7 +119,7 @@ export function validateSourceEvidenceWrite(
         "engine",
         "audioOnly",
       ]);
-      string(s.itemId);
+      identifier(s.itemId);
       string(s.title, 500);
       string(s.engine, 30);
       time(s.elapsedMs);
@@ -143,7 +153,7 @@ export function validateSourceEvidenceWrite(
     )
       throw new Error("Evidence identity mismatch");
   }
-  if (clean.cursor !== undefined) string(clean.cursor);
+  if (clean.cursor !== undefined) identifier(clean.cursor);
   if (clean.nextEligibleAt !== undefined) time(clean.nextEligibleAt);
   if (
     clean.inconclusiveCount !== undefined &&

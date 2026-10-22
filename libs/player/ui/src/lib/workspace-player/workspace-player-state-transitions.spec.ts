@@ -1,3 +1,4 @@
+import {PlaybackResourceService} from "../source-playback/playback-resource.service";
 import "@angular/compiler";
 import assert from "node:assert/strict";
 import test from "node:test";
@@ -122,6 +123,7 @@ function createHarness(
   });
   const injector = createEnvironmentInjector([
     WorkspacePlayerStateService,
+    PlaybackResourceService,
     {
       provide: PlaybackPositionService,
       useValue: {

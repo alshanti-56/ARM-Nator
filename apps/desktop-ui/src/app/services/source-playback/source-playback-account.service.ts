@@ -92,7 +92,7 @@ export class SourcePlaybackAccountService {
     parent: AbortSignal,
   ): Promise<SourceAccountSnapshot | null> {
     const deadline = sourceDeadline(parent, P.accountMs);
-    let snapshot: SourceAccountSnapshot | null = null;
+    let snapshot: SourceAccountSnapshot | null;
     try {
       const source = await firstValueFrom(
         this.playlists.getPlaylistById(sourceId),

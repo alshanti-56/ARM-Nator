@@ -1,3 +1,4 @@
+/* eslint-disable @nx/enforce-module-boundaries -- Integration fixture deliberately loads the real SQLite/player module without browser barrel side effects. */
 import assert from "node:assert/strict";
 import test from "node:test";
 import { mkdtempSync, rmSync } from "node:fs";
@@ -140,6 +141,32 @@ test("candidate query limits before IPC and excludes hidden and unavailable cate
         category: "live",
         limit: 300,
       }),
+    );
+  } finally {
+    sqlite.close();
+  }
+});
+test("provider identifiers and cursors cannot persist credential-bearing URLs", () => {
+  const { db, sqlite } = fixture();
+  try {
+    const revision = readSourcePlaybackEvidence(db, ["one"])[0].revision;
+    for (const secret of [
+      "https://provider.test/live/user/password/1?token=secret",
+      "id?username=user&password=secret",
+    ]) {
+      const write = structuredClone(evidence(revision));
+      for (const sample of write.attempt.samples as any[])
+        sample.itemId = secret;
+      for (const sample of write.observation!.samples as any[])
+        sample.itemId = secret;
+      assert.throws(() => saveSourcePlaybackEvidence(db, write));
+      const cursor = structuredClone(evidence(revision));
+      cursor.cursor = secret;
+      assert.throws(() => saveSourcePlaybackEvidence(db, cursor));
+    }
+    assert.equal(
+      readSourcePlaybackEvidence(db, ["one"])[0].observations.length,
+      0,
     );
   } finally {
     sqlite.close();

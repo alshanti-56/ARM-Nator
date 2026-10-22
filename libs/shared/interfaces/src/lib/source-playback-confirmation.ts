@@ -16,10 +16,12 @@ export class SourcePlaybackConfirmation {
   private first: SourceConfirmationInput | null = null;
   private last: SourceConfirmationInput | null = null;
   private frameAdvanced = false;
+  private lastFrameAt: number | null = null;
   reset(): void {
     this.first = null;
     this.last = null;
     this.frameAdvanced = false;
+    this.lastFrameAt = null;
   }
   observe(s: SourceConfirmationInput): boolean {
     if (
@@ -52,19 +54,30 @@ export class SourcePlaybackConfirmation {
     ) {
       this.reset();
     }
-    this.first ??= s;
     if (
       this.last &&
       s.presentedFrames !== undefined &&
       this.last.presentedFrames !== undefined &&
       s.presentedFrames > this.last.presentedFrames
-    )
+    ) {
       this.frameAdvanced = true;
+      this.lastFrameAt = s.atMs;
+    }
+    if (
+      s.audioOnly !== true &&
+      s.presentedFrames !== undefined &&
+      this.lastFrameAt !== null &&
+      s.atMs - this.lastFrameAt > P.progressGapMs
+    )
+      this.reset();
+    this.first ??= s;
     this.last = s;
     const mediaReady =
       s.audioOnly === true
         ? s.audioReady === true
-        : this.frameAdvanced || s.frameReady === true;
+        : s.presentedFrames !== undefined
+          ? this.frameAdvanced
+          : s.frameReady === true;
     return (
       mediaReady &&
       s.atMs - this.first.atMs >= P.confirmationMs &&

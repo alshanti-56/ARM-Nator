@@ -10,18 +10,26 @@ test("occupied sessions and pending foreground opens block background synchronou
   const c = new PlaybackResourceCoordinator();
   c.setOccupied(true);
   assert.equal(
-    c.tryAcquireBackground(async () => {}),
+    c.tryAcquireBackground(async () => {
+      /* Test double intentionally has no side effects. */
+    }),
     null,
   );
   c.setOccupied(false);
   const open = c.beginForeground();
   assert.equal(
-    c.tryAcquireBackground(async () => {}),
+    c.tryAcquireBackground(async () => {
+      /* Test double intentionally has no side effects. */
+    }),
     null,
   );
   const reservation = await open;
   reservation.finish();
-  assert.ok(c.tryAcquireBackground(async () => {}));
+  assert.ok(
+    c.tryAcquireBackground(async () => {
+      /* Test double intentionally has no side effects. */
+    }),
+  );
 });
 test("preemption aborts immediately and awaits confirmed connection cleanup", async () => {
   const c = new PlaybackResourceCoordinator();
@@ -39,11 +47,17 @@ test("preemption aborts immediately and awaits confirmed connection cleanup", as
   const r = await open;
   assert.equal(opened, true);
   assert.equal(
-    c.tryAcquireBackground(async () => {}),
+    c.tryAcquireBackground(async () => {
+      /* Test double intentionally has no side effects. */
+    }),
     null,
   );
   r.finish();
-  assert.ok(c.tryAcquireBackground(async () => {}));
+  assert.ok(
+    c.tryAcquireBackground(async () => {
+      /* Test double intentionally has no side effects. */
+    }),
+  );
 });
 test("cleanup timeout keeps background blocked until late cleanup really finishes", async (t) => {
   t.mock.timers.enable({ apis: ["setTimeout"] });
@@ -56,7 +70,9 @@ test("cleanup timeout keeps background blocked until late cleanup really finishe
   await rejected;
   assert.equal(c.isBlocked(), true);
   assert.equal(
-    c.tryAcquireBackground(async () => {}),
+    c.tryAcquireBackground(async () => {
+      /* Test double intentionally has no side effects. */
+    }),
     null,
   );
   close.resolve();

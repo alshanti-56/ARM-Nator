@@ -23,8 +23,12 @@ class FakeVideo extends EventTarget {
   pause() {
     this.paused = true;
   }
-  load() {}
-  setAttribute() {}
+  load() {
+    /* Test double intentionally has no side effects. */
+  }
+  setAttribute() {
+    /* Test double intentionally has no side effects. */
+  }
   removeAttribute() {
     this.src = "";
   }
@@ -37,7 +41,9 @@ class FakeVideo extends EventTarget {
 }
 test("silent session emits decode telemetry without volume preferences or foreground player", async () => {
   const video = new FakeVideo();
-  let tick = () => {};
+  let tick = () => {
+    /* Test double intentionally has no side effects. */
+  };
   let stopped = false;
   const samples: unknown[] = [];
   let clock = 0;

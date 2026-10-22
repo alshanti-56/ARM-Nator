@@ -9,7 +9,7 @@
         "WORKSPACE.SOURCES.PLAYBACK.CATEGORY_" +
           summary().key.category.toUpperCase() | translate
       }}</span>
-      @if (summary().latestAttempt ?? summary().latest; as recent) {
+      @if (displayedEvidence(); as recent) {
         <time>{{ recent.completedAt | date: "medium" }}</time>
       }
     </header>
@@ -37,6 +37,7 @@
     @if (summary().latestAttempt?.reason; as reason) {
       <p role="status">
         {{ "WORKSPACE.SOURCES.PLAYBACK.REASON_" + reason | translate }}
+        · {{ summary().latestAttempt?.completedAt | date: "medium" }}
       </p>
     }
     @if (samples().length) {

@@ -202,6 +202,8 @@ export class SourcePlaybackProbeService {
         r.status === "rejected" ? [r.reason] : [],
       );
       if (errors.length)
+        // Cleanup failure must override success so the coordinator cannot acknowledge a live transport.
+        // eslint-disable-next-line no-unsafe-finally
         throw new AggregateError(
           errors,
           "Source playback cleanup was not acknowledged",

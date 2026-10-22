@@ -27,12 +27,13 @@ export class SourcePlaybackDetailsComponent {
   readonly account = input<SourceAccountSnapshot | null>(null);
   readonly checkAgain = output<SourceEvidenceKey>();
   readonly checks = inject(SOURCE_PLAYBACK_FACADE, { optional: true });
-  readonly samples = computed(
-    () =>
-      this.summary().latestAttempt?.samples ??
-      this.summary().latest?.samples ??
-      [],
-  );
+  readonly displayedEvidence = computed(() => {
+    const summary = this.summary();
+    return summary.latestAttempt?.samples.length
+      ? summary.latestAttempt
+      : (summary.latest ?? summary.latestAttempt);
+  });
+  readonly samples = computed(() => this.displayedEvidence()?.samples ?? []);
   readonly checking = computed(() => {
     const a = this.checks?.activity();
     return (

@@ -1,3 +1,4 @@
+/* eslint-disable @nx/enforce-module-boundaries -- Integration fixture deliberately loads the real SQLite/player module without browser barrel side effects. */
 import assert from "node:assert/strict";
 import test from "node:test";
 import { runPersistedSourceCheck } from "./source-playback-check-runner";
@@ -30,7 +31,9 @@ test("Xtream Live sample outcomes are saved and source edits reject late results
         engine: "html5",
         audioOnly: false,
       }),
-      drain: async () => {},
+      drain: async () => {
+        /* Test double intentionally has no side effects. */
+      },
     };
     const repository = {
       read: async (ids: readonly string[]) =>
@@ -101,7 +104,9 @@ test("failed persistence propagates and does not publish saved evidence", async 
           engine: "html5",
           audioOnly: false,
         }),
-        drain: async () => {},
+        drain: async () => {
+          /* Test double intentionally has no side effects. */
+        },
       },
       {
         read: async () => [{ sourceId: "one", revision: "r" } as never],

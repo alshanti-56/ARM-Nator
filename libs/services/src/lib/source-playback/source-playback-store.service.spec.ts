@@ -48,7 +48,10 @@ test("store publishes only read acknowledgements, keeps prior evidence on errors
     fail = true;
     await store.refreshSaved(["one"]);
     assert.equal(store.snapshots().get("one")?.revision, "r");
-    assert.match(store.persistenceFailure() ?? "", /disk failed/);
+    assert.equal(
+      store.persistenceFailure(),
+      "Playback evidence could not be loaded. Try again.",
+    );
   } finally {
     injector.destroy();
   }

@@ -71,7 +71,9 @@ function setup(full = true) {
     },
   };
   const repair = {
-    waitForPendingRepair: async () => {},
+    waitForPendingRepair: async () => {
+      /* Test double intentionally has no side effects. */
+    },
     applyOverride: (s: any) => s,
   };
   const injector = createEnvironmentInjector(
@@ -167,7 +169,9 @@ test("abort drains ignored create_link and handshake requests before returning o
       const result = h.sampler.resolve("one", key, abort.signal).finally(() => {
         settled = true;
       });
-      void result.catch(() => {});
+      void result.catch(() => {
+        /* Test double intentionally has no side effects. */
+      });
       await ready;
       abort.abort();
       for (let i = 0; i < 10; i++) await Promise.resolve();
@@ -181,7 +185,10 @@ test("abort drains ignored create_link and handshake requests before returning o
 });
 test("pending portal repair can be cancelled before any authentication request", async () => {
   const h = setup();
-  h.repair.waitForPendingRepair = () => new Promise(() => {});
+  h.repair.waitForPendingRepair = () =>
+    new Promise(() => {
+      /* Test double intentionally has no side effects. */
+    });
   try {
     const abort = new AbortController();
     const pending = h.sampler.select("one", "live", abort.signal);
@@ -241,7 +248,10 @@ test("cancellable account reads use request-scoped full profiles and propagate r
     });
     assert.equal(info?.expireDate, 1800000000);
     assert.equal(h.source.stalkerToken, "saved");
-    h.repair.waitForPendingRepair = () => new Promise(() => {});
+    h.repair.waitForPendingRepair = () =>
+      new Promise(() => {
+        /* Test double intentionally has no side effects. */
+      });
     const abort = new AbortController();
     const pending = account.fetchAccountInfo(h.source, {
       signal: abort.signal,

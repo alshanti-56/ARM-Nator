@@ -83,12 +83,10 @@ export class SourcePlaybackStoreService {
       this.snapshots.set(new Map(data.map((s) => [s.sourceId, s])));
       this.clock.set(Date.now());
       this.persistenceFailure.set(null);
-    } catch (error) {
+    } catch {
       if (generation === this.generation)
         this.persistenceFailure.set(
-          error instanceof Error
-            ? error.message
-            : "Playback evidence could not be loaded",
+          "Playback evidence could not be loaded. Try again.",
         );
     }
   }

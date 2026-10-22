@@ -71,3 +71,11 @@ test("audio-only needs positive decoded audio evidence; playing alone cannot ver
   assert.equal(confirm(6000, 6, 0, { audioOnly: true }), false);
   assert.equal(confirm(6000, 6, 120, { playing: false }), false);
 });
+test("a frame counter that advances once then freezes cannot qualify a continuing media clock", () => {
+  const c = new SourcePlaybackConfirmation();
+  let verified = false;
+  for (let at = 0; at <= 7000; at += 250)
+    verified =
+      c.observe(input(at, { presentedFrames: at === 0 ? 0 : 1 })) || verified;
+  assert.equal(verified, false);
+});

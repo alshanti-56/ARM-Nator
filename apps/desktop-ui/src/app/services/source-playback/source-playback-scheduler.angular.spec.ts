@@ -49,7 +49,12 @@ describe("native source scheduling integration", () => {
         },
         {
           provide: SourcePlaybackStoreService,
-          useValue: { snapshots, load: jest.fn(async () => {}) },
+          useValue: {
+            snapshots,
+            load: jest.fn(async () => {
+              /* Test double intentionally has no side effects. */
+            }),
+          },
         },
         {
           provide: SourcePlaybackCheckService,

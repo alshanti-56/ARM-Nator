@@ -131,7 +131,9 @@ test("account deadline cancels its request after five seconds and playable sampl
         probeSignal = s;
         return new Promise((r) => (finishProbe = r));
       },
-      drain: async () => {},
+      drain: async () => {
+        /* Test double intentionally has no side effects. */
+      },
     },
   );
   for (let i = 0; i < 12; i++) await Promise.resolve();
@@ -172,7 +174,9 @@ test("reported full capacity defers before any media discovery", async () => {
       probe: async () => {
         throw Error("unexpected");
       },
-      drain: async () => {},
+      drain: async () => {
+        /* Test double intentionally has no side effects. */
+      },
     },
   );
   assert.equal(calls, 0);
