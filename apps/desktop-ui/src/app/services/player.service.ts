@@ -23,6 +23,7 @@ import {
   type PlayerOpenContext,
   browserPlaybackPreparation,
   PlaybackEnginePreferences,
+  PlaybackSourcePreferences,
   MediaCompanionClient,
   mediaCompanionCredentials,
 } from "@arm-nator/player/core";
@@ -47,6 +48,22 @@ export class PlayerService implements PlayerFacade {
     setItem: (key, value) => { try { window.localStorage?.setItem(key, value); } catch { /* Storage is optional. */ } },
     removeItem: key => { try { window.localStorage?.removeItem(key); } catch { /* Storage is optional. */ } },
   });
+  private readonly sourcePreferences = new PlaybackSourcePreferences({
+    getItem: key => { try { return window.localStorage?.getItem(key) ?? null; } catch { return null; } },
+    setItem: (key, value) => { try { window.localStorage?.setItem(key, value); } catch { /* Storage is optional. */ } },
+    removeItem: key => { try { window.localStorage?.removeItem(key); } catch { /* Storage is optional. */ } },
+  });
+  private sourcePreferenceScope(playback: ResolvedPortalPlayback) {
+    const identity = playback.itemIdentity;
+    const sourceIdentity = identity ? JSON.stringify([identity.sourceType, identity.playlistId])
+      : playback.recovery?.accountRef ? JSON.stringify(['account', playback.recovery.accountRef])
+      : playback.contentInfo?.playlistId ? JSON.stringify(['playlist', playback.contentInfo.playlistId]) : '';
+    return {
+      sourceIdentity,
+      live: playback.isLive === true,
+      runtime: typeof navigator === 'undefined' ? 'test' : navigator.userAgent,
+    };
+  }
   private preferenceScope(playback: ResolvedPortalPlayback, media: {format: string; container?: string; videoCodecs?: readonly string[]; audioCodecs?: readonly string[]}) {
     return {
       sourceIdentity: playback.itemIdentity?.playlistId ?? playback.contentInfo?.playlistId ?? playback.recovery?.accountRef ?? playback.originalStreamUrl ?? playback.streamUrl,
@@ -141,6 +158,10 @@ export class PlayerService implements PlayerFacade {
       embeddedMpv: !this.browserPlayback() && window.electron?.getEmbeddedMpvSupport ? () => window.electron.getEmbeddedMpvSupport() : undefined,
       ksPlayer: !this.browserPlayback() && window.electron?.getKsPlayerMetalSupport ? () => window.electron.getKsPlayerMetalSupport() : undefined,
     }), nativeHls: typeof document !== 'undefined' && !!document.createElement('video').canPlayType('application/vnd.apple.mpegurl') }),
+    onActivity: activity => this.workspacePlayer.automaticActivity.set(activity),
+    getRememberedSource: playback => this.workspacePlayer.recoveryBusy() ? undefined : this.sourcePreferences.getCompatible(this.sourcePreferenceScope(playback), playback) ?? undefined,
+    rememberSource: (playback, media) => { this.sourcePreferences.rememberVerifiedSuccess(this.sourcePreferenceScope(playback), playback, true, media.format); },
+    invalidateSource: (playback, issue) => this.sourcePreferences.invalidateOnFailure(this.sourcePreferenceScope(playback), playback, issue),
     getRememberedEngine: (playback, media) => this.enginePreferences.getCompatible(this.preferenceScope(playback, media)) ?? undefined,
     rememberEngine: (playback, media, engine) => {
       this.enginePreferences.rememberVerifiedSuccess(this.preferenceScope(playback, media), engine, true);

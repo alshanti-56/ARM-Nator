@@ -10,6 +10,7 @@ import { DestroyRef, Injectable, inject, signal } from "@angular/core";
 import { Router } from "@angular/router";
 import type {
   AutomaticPlaybackFailure,
+  AutomaticPlaybackActivity,
   PlayerOpenContext,
 } from "@arm-nator/player/core";
 import { PlaybackPositionService } from "@arm-nator/services";
@@ -354,9 +355,11 @@ export class WorkspacePlayerStateService {
   readonly automaticMode = signal(false);
   readonly automaticPreparing = signal(false);
   readonly automaticReason = signal<string | null>(null);
+  readonly automaticActivity = signal<AutomaticPlaybackActivity>({ status: 'idle', attempts: [] });
   readonly automaticFailure = signal<PlaybackDiagnostic | null>(null);
 
   clearAutomaticMode(): void {
+    this.automaticActivity.set({ status: 'idle', attempts: [] });
     this.automaticMode.set(false);
     this.automaticPreparing.set(false);
     this.automaticReason.set(null);
@@ -412,10 +415,14 @@ export class WorkspacePlayerStateService {
       container: "unknown",
       audioCodecs: [],
       videoCodecs: [],
+      networkErrorMessage: failure.error.code === 'network-error' &&
+        ['ENOTFOUND', 'EAI_AGAIN', 'EAI_NONAME'].includes(failure.error.networkCode ?? '')
+          ? redactPlaybackErrorText(failure.error.message)
+          : undefined,
       details: redactPlaybackErrorText(
         `${failure.error.code}${failure.error.status === null ? "" : ` (HTTP ${failure.error.status})`}: ${failure.error.message}`,
       ),
-      network: { status: failure.error.status, resourceKind: "manifest" },
+      network: { status: failure.error.status, resourceKind: "manifest", ...(failure.error.retryAfterMs === undefined ? {} : { retryAfterSeconds: failure.error.retryAfterMs / 1_000 }) },
       externalFallbackRecommended: failure.error.status !== 401 && failure.error.status !== 403 &&
         ['unsupported-format', 'unsupported-container', 'unsupported-codec', 'media-decode-error', 'recovery-exhausted'].includes(failure.error.code),
     };

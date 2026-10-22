@@ -31,16 +31,25 @@ export type MediaInspectionErrorCode =
   | "unsupported-dash";
 
 export class MediaInspectionError extends Error {
+  readonly retryAfterMs?: number;
   constructor(
     readonly code: MediaInspectionErrorCode,
     readonly status: number | null,
     message: string,
-    options?: ErrorOptions,
+    options?: ErrorOptions & { readonly retryAfterMs?: number },
     readonly format?: AutoPlaybackFormat,
   ) {
     super(message, options);
     this.name = "MediaInspectionError";
+    this.retryAfterMs = options?.retryAfterMs;
   }
+}
+
+function retryAfterMs(value: string | null): number | undefined {
+  if (!value?.trim()) return undefined;
+  const trimmed = value.trim();
+  const delay = /^\d+$/.test(trimmed) ? Number(trimmed) * 1_000 : Date.parse(trimmed) - Date.now();
+  return Number.isFinite(delay) && delay >= 0 ? delay : undefined;
 }
 
 export interface InspectResponseOptions {
@@ -120,6 +129,7 @@ export async function inspectResponseForMedia(
       "http-error",
       response.status,
       `The source returned HTTP ${response.status}${response.statusText ? ` ${response.statusText}` : ""}.`,
+      { retryAfterMs: retryAfterMs(response.headers.get('retry-after')) },
     );
   }
 

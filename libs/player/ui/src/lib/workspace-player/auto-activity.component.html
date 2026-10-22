@@ -1,0 +1,65 @@
+@if (hasActivity()) {
+  <details class="auto-activity">
+    <summary>
+      <span class="auto-activity__title">Auto activity</span>
+      <span class="auto-activity__status">{{ statusLabel() }}</span>
+      @if (activity().attempts.length === 1) {
+        <span class="auto-activity__count">1 attempt</span>
+      } @else if (activity().attempts.length > 1) {
+        <span class="auto-activity__count">{{ activity().attempts.length }} attempts</span>
+      }
+    </summary>
+
+    <div class="auto-activity__content">
+      @if (attempts().length > 0) {
+        <ol class="auto-activity__history" aria-label="Automatic playback attempts">
+          @for (attempt of attempts(); track attempt.number) {
+            <li class="auto-activity__attempt">
+              <h3>Attempt {{ attempt.number }}</h3>
+              <dl>
+                <div class="auto-activity__field">
+                  <dt>Host</dt>
+                  <dd>{{ hostLabel(attempt.host) }}</dd>
+                </div>
+                <div class="auto-activity__field">
+                  <dt>Format</dt>
+                  <dd>{{ formatLabel(attempt.format) }}</dd>
+                </div>
+                <div class="auto-activity__field">
+                  <dt>Player</dt>
+                  <dd>{{ playerLabel(attempt.engine) }}</dd>
+                </div>
+                <div class="auto-activity__field">
+                  <dt>Outcome</dt>
+                  <dd>{{ outcomeLabel(attempt) }}</dd>
+                </div>
+                <div class="auto-activity__field">
+                  <dt>Verification</dt>
+                  <dd>{{ verificationLabel(attempt) }}</dd>
+                </div>
+              </dl>
+
+              @if (reasonLabel(attempt.reason); as reason) {
+                <p class="auto-activity__reason">
+                  <strong>Recovery reason</strong>
+                  <span>{{ reason }}</span>
+                </p>
+              }
+            </li>
+          }
+        </ol>
+      } @else {
+        <p class="auto-activity__empty" role="status">
+          No playback attempts have been recorded yet.
+        </p>
+      }
+
+      @if (reasonLabel(activity().stopReason); as stopReason) {
+        <p class="auto-activity__stop-reason">
+          <strong>Final stop reason</strong>
+          <span>{{ stopReason }}</span>
+        </p>
+      }
+    </div>
+  </details>
+}

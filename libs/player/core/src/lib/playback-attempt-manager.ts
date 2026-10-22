@@ -1,12 +1,17 @@
+import { isDnsFailure, isSourceRejection, isSourceRouteFailure } from './automatic-playback-sources';
+
 export type PlaybackKind = 'live' | 'vod';
 export type PlaybackFailureCategory = 'transport' | 'decoder' | 'account' | 'autoplay' | 'drm' | 'resource' | 'unknown';
-export type PlaybackRecoveryAction = 'retry' | 'switch' | 'renew' | 'stop';
+export type PlaybackRecoveryAction = 'retry' | 'switch' | 'renew' | 'alternate' | 'stop';
 
 export interface PlaybackFailureInput {
     readonly code?: string;
     readonly status?: number | null;
     readonly retryAfterMs?: number | null;
     readonly renewableLinkSupported?: boolean;
+    readonly networkCode?: string;
+    readonly sourceAlternativeAvailable?: boolean;
+    readonly configuredSourceFallbackAvailable?: boolean;
 }
 
 export interface PlaybackRecoveryDecision {
@@ -192,9 +197,17 @@ export class PlaybackAttemptManager {
             action = 'renew';
             reason = 'account-renewal';
             this.renewalUsed = true;
+        } else if (input.configuredSourceFallbackAvailable && isSourceRouteFailure(input)) {
+            action = 'alternate';
+            reason = 'configured-source-fallback';
+        } else if (input.sourceAlternativeAvailable && (isDnsFailure(input) || isSourceRejection(input))) {
+            action = 'alternate';
+            reason = 'source-alternative';
         } else if (category === 'decoder') {
             action = 'switch';
             reason = 'decoder-switch';
+        } else if (isDnsFailure(input) && input.networkCode !== 'EAI_AGAIN') {
+            reason = 'unresolved-host';
         } else if (category === 'transport') {
             action = 'retry';
             reason = 'transport-retry';
@@ -283,14 +296,14 @@ export class PlaybackAttemptManager {
     }
 
     /** Polls startup and progress deadlines. Repeated polls publish each failure only once. */
-    poll(): PlaybackPollResult {
+    poll(configuredSourceFallbackAvailable = false): PlaybackPollResult {
         if (!this.selection || !this.currentAttempt || this.failureReported || !this.eligible || this.suspendedAtMs !== null) return NO_ACTION;
         const now = this.now();
         if (this.currentAttempt.verified && this.lastProgressAtMs !== null) {
             const stalledForMs = now - this.lastProgressAtMs;
             if (stalledForMs > STABLE_PROGRESS_GAP_MS) this.stableSinceAtMs = null;
             if (stalledForMs >= this.attemptBudgetMs()) {
-                return { type: 'failure', decision: this.recordFailure({ code: 'playback-stalled' }) };
+                return { type: 'failure', decision: this.recordFailure({ code: 'playback-stalled', configuredSourceFallbackAvailable }) };
             }
             const stableForMs = this.stableSinceAtMs === null ? 0 : now - this.stableSinceAtMs;
             if (!this.episodeClosed && stableForMs >= STABLE_PLAYBACK_MS) {
@@ -301,7 +314,7 @@ export class PlaybackAttemptManager {
         }
 
         const deadline = Math.min(this.currentAttempt.deadlineAtMs, this.episodeDeadlineAtMs ?? this.currentAttempt.deadlineAtMs);
-        if (now >= deadline) return { type: 'failure', decision: this.recordFailure({ code: 'playback-timeout' }) };
+        if (now >= deadline) return { type: 'failure', decision: this.recordFailure({ code: 'playback-timeout', configuredSourceFallbackAvailable }) };
         return NO_ACTION;
     }
 

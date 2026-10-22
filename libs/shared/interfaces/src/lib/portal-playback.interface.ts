@@ -87,7 +87,7 @@ export type AutoPlaybackPreparationResult =
   | { ok: true; session: AutoPlaybackPreparation }
   | {
       ok: false;
-      error: { code: string; status: number | null; message: string; retryAfterMs?: number };
+      error: { code: string; status: number | null; message: string; networkCode?: string; retryAfterMs?: number };
     };
 
 export interface PlaybackNetworkHop {

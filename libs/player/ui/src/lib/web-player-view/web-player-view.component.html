@@ -123,7 +123,7 @@
       </h2>
 
       <div class="web-player-diagnostic__description">
-        {{ getDiagnosticDescriptionKey(issue) | translate }}
+        {{ issue.networkErrorMessage ?? (getDiagnosticDescriptionKey(issue) | translate) }}
       </div>
 
       @if (getDiagnosticMeta(issue); as meta) {

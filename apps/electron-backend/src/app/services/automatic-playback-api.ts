@@ -11,6 +11,28 @@ export interface AutomaticPlaybackDecision {
     reason: string;
 }
 
+const DNS_ERROR_CODES = new Set(['ENOTFOUND', 'EAI_AGAIN', 'EAI_NONAME']);
+
+function findDnsErrorCode(error: unknown): string | undefined {
+    const seen = new Set<object>();
+    let current = error;
+    while (typeof current === 'object' && current !== null && !seen.has(current)) {
+        seen.add(current);
+        const candidate = current as { code?: unknown; cause?: unknown };
+        if (typeof candidate.code === 'string' && DNS_ERROR_CODES.has(candidate.code)) {
+            return candidate.code;
+        }
+        current = candidate.cause;
+    }
+    return undefined;
+}
+
+function dnsFailureMessage(code: string): string {
+    return code === 'EAI_AGAIN'
+        ? 'DNS lookup for the stream host temporarily failed (EAI_AGAIN). Check your network and retry.'
+        : `DNS lookup could not find the stream host (${code}). Check the provider stream address and your network, then retry.`;
+}
+
 /** Keep custom failure fields intact across Electron's structured IPC boundary. */
 export function createAutomaticPlaybackApi(
     proxy: HlsPlaybackProxyService,
@@ -36,12 +58,17 @@ export function createAutomaticPlaybackApi(
                 );
                 return { ok: true, session };
             } catch (error) {
+                const networkCode = findDnsErrorCode(error);
                 return {
                     ok: false,
                     error: {
-                        code: error instanceof MediaInspectionError ? error.code : 'unknown-error',
+                        code: error instanceof MediaInspectionError ? error.code : networkCode ? 'network-error' : 'unknown-error',
                         status: error instanceof MediaInspectionError ? error.status : null,
-                        message: error instanceof Error ? error.message : String(error),
+                        message: networkCode
+                            ? dnsFailureMessage(networkCode)
+                            : error instanceof Error ? error.message : String(error),
+                        ...(networkCode === undefined ? {} : { networkCode }),
+                        ...(error instanceof MediaInspectionError && error.retryAfterMs !== undefined ? { retryAfterMs: error.retryAfterMs } : {}),
                     },
                 };
             }

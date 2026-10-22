@@ -337,6 +337,9 @@
     }
     @if (state.recoveryFailure(); as failure) { <p role="status">{{ failure | translate }}</p> }
     @if (recoveryHelp(); as cause) { <p role="status">{{ 'PLAYBACK_RECOVERY.HELP_' + cause | translate }}</p> }
+    @if (!isYouTube() && !(isMini() && collapsed())) {
+      <app-auto-activity [activity]="state.automaticActivity()" />
+    }
     <div #playerSurface class="workspace-player__surface">
       @if (isYouTube()) {
         <div class="workspace-player__youtube-surface" aria-hidden="true"></div>

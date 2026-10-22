@@ -11,6 +11,7 @@ import { CdkDrag, CdkDragHandle, type CdkDragEnd } from '@angular/cdk/drag-drop'
 import { ControlsVisibility } from '../player-controls/controls-visibility';
 import { MiniPlayerChromeService } from './mini-player-chrome.service';
 import { clampFloatingPlayerPosition } from './floating-player-position';
+import { AutoActivityComponent } from './auto-activity.component';
 import {
   ChangeDetectionStrategy,
   Component,
@@ -198,6 +199,7 @@ function formatHwdecLabel(hwdec: string | undefined): string {
     TranslatePipe,
     WebPlayerViewComponent,
     PlaybackRecoveryMenuComponent,
+    AutoActivityComponent,
   ],
   templateUrl: "./workspace-player-host.component.html",
   styleUrl: "./workspace-player-host.component.scss",

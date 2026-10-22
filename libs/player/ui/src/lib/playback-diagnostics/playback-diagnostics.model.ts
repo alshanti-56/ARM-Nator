@@ -91,6 +91,8 @@ export interface PlaybackDiagnostic {
     readonly audioCodecs: readonly string[];
     readonly videoCodecs: readonly string[];
     readonly details?: string;
+    /** Safe preparation explanation for a recognised network failure. */
+    readonly networkErrorMessage?: string;
     readonly nativeErrorCode?: number;
     readonly nativeErrorMessage?: string;
     readonly externalFallbackRecommended: boolean;

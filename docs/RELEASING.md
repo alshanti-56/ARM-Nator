@@ -3,6 +3,9 @@
 Releases are created by GitHub Actions when a semantic-version tag is pushed.
 The tag must match the version in `package.json`.
 
+Before tagging, complete the [product readiness checks](PRODUCT-READINESS.md)
+against the release candidate and record the evidence and unresolved limitations.
+
 ```sh
 git tag -a v0.31.0 -m "Release v0.31.0"
 git push origin main

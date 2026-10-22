@@ -101,6 +101,41 @@ test('allows decoder fallback switches while the attempt budget remains', () => 
     assert.equal(manager.recordFailure({ code: 'unsupported-container' }).action, 'stop');
 });
 
+test('uses a known source alternative for DNS failure without retrying an unresolved host', () => {
+    for (const networkCode of ['ENOTFOUND', 'EAI_NONAME', 'EAI_AGAIN']) {
+        const { manager } = createHarness();
+        manager.startAttempt();
+        assert.equal(manager.recordFailure({ code: 'network-error', networkCode, sourceAlternativeAvailable: true }).action, 'alternate');
+        manager.startAttempt();
+        assert.equal(manager.recordFailure({ code: 'network-error', networkCode }).action, networkCode === 'EAI_AGAIN' ? 'retry' : 'stop');
+    }
+});
+
+test('renews a rejected source once, then uses a known alternative within the same budget', () => {
+    const { manager } = createHarness();
+    manager.startAttempt();
+    assert.equal(manager.recordFailure({ status: 401, renewableLinkSupported: true, sourceAlternativeAvailable: true }).action, 'renew');
+    manager.startAttempt();
+    assert.equal(manager.recordFailure({ status: 401, renewableLinkSupported: true, sourceAlternativeAvailable: true }).action, 'alternate');
+    manager.startAttempt();
+    assert.equal(manager.recordFailure({ status: 404, sourceAlternativeAvailable: true }).action, 'stop');
+});
+
+test('source alternatives never bypass throttling delays, DRM stops, or episode deadlines', () => {
+    const throttle = createHarness();
+    throttle.manager.startAttempt();
+    const retry = throttle.manager.recordFailure({ code: 'provider-rejected', status: 429, retryAfterMs: 5_000, sourceAlternativeAvailable: true });
+    assert.equal(retry.action, 'retry');
+    assert.equal(retry.delayMs, 5_000);
+    const drm = createHarness();
+    drm.manager.startAttempt();
+    assert.equal(drm.manager.recordFailure({ code: 'license-error', sourceAlternativeAvailable: true }).action, 'stop');
+    const deadline = createHarness();
+    deadline.manager.startAttempt();
+    deadline.setNow(30_000);
+    assert.equal(deadline.manager.recordFailure({ status: 404, sourceAlternativeAvailable: true }).action, 'stop');
+});
+
 test('requires a prior advancing time sample and presented frame evidence for video', () => {
     const video = createHarness();
     video.manager.startAttempt();
@@ -240,4 +275,35 @@ test('Retry and a new manual selection reset selection budgets', () => {
     manager.startSelection({ selectionId: 'selection-b', kind: 'live' });
     manager.startAttempt();
     assert.equal(manager.recordFailure({ code: 'network-error' }).rollingRemaining, 5);
+});
+
+test('temporary DNS errors retry with backoff within the same three-attempt budget', () => {
+    const { manager } = createHarness();
+    manager.startAttempt();
+    const first = manager.recordFailure({ code: 'network-error', networkCode: 'EAI_AGAIN' });
+    assert.equal(first.action, 'retry');
+    assert.equal(first.delayMs, 1000);
+    manager.startAttempt();
+    assert.equal(manager.recordFailure({ code: 'network-error', networkCode: 'EAI_AGAIN' }).delayMs, 3000);
+    manager.startAttempt();
+    assert.equal(manager.recordFailure({ code: 'network-error', networkCode: 'EAI_AGAIN' }).reason, 'attempt-limit');
+});
+
+test('a configured source fallback uses the same budget and never overrides throttling, decoder, autoplay or DRM policy', () => {
+    for (const failure of [{ code: 'startup-timeout' }, { code: 'network-error' }, { code: 'html-response', status: 200 }, { code: 'http-error', status: 503 }]) {
+        const { manager } = createHarness();
+        manager.startAttempt();
+        const decision = manager.recordFailure({ ...failure, configuredSourceFallbackAvailable: true });
+        assert.equal(decision.action, 'alternate');
+        assert.equal(decision.reason, 'configured-source-fallback');
+        manager.startAttempt();
+        manager.recordFailure({ code: 'network-error' });
+        manager.startAttempt();
+        assert.equal(manager.recordFailure({ ...failure, configuredSourceFallbackAvailable: true }).reason, 'attempt-limit');
+    }
+    for (const failure of [{ code: 'http-error', status: 429 }, { code: 'media-decode-error' }, { code: 'autoplay-blocked' }, { code: 'drm-error' }]) {
+        const { manager } = createHarness();
+        manager.startAttempt();
+        assert.notEqual(manager.recordFailure({ ...failure, configuredSourceFallbackAvailable: true }).action, 'alternate');
+    }
 });

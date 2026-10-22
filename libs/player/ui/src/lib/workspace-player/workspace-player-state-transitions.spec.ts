@@ -32,6 +32,24 @@ function deferred<T = void>() {
   return { promise, resolve, reject };
 }
 
+test("a DNS preparation failure exposes its safe explanation without opening technical details", async () => {
+  const harness = createHarness(async () => undefined);
+  try {
+    const token = await harness.state.prepareForPlayback();
+    assert.notEqual(token, null);
+    const message = 'DNS lookup could not find the stream host (ENOTFOUND). Check the provider stream address and your network, then retry.';
+    harness.state.failAutomaticPlayback({
+      playback: { streamUrl: 'https://stream.example.test/live', title: 'Channel' },
+      token,
+      error: { code: 'network-error', status: null, networkCode: 'ENOTFOUND', message },
+    });
+    assert.equal(harness.state.automaticFailure()?.networkErrorMessage, message);
+    assert.equal(harness.state.automaticFailure()?.externalFallbackRecommended, false);
+  } finally {
+    harness.destroy();
+  }
+});
+
 test("collapsing the mini-player preserves playback until explicitly closed", async () => {
   const harness = createHarness(async () => undefined);
   let teardowns = 0;
