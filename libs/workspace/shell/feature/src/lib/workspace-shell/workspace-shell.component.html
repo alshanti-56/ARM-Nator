@@ -36,6 +36,7 @@
         [isElectron]="facade.isElectron"
         [hasNoPlaylists]="facade.hasNoPlaylists()"
         [isSettingsRoute]="facade.isSettingsRoute()"
+        [isGlobalSearchRoute]="facade.currentRoute().kind === 'global-search'"
         (refreshPlaylistRequested)="facade.refreshCurrentPlaylist()"
         (searchChanged)="facade.onSearchInput($event)"
         (searchSubmitted)="facade.onSearchEnter($event)"

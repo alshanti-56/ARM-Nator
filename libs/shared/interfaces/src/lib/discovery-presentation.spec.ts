@@ -3,6 +3,7 @@ import assert from "node:assert/strict";
 import { xtreamDiscoveryVersion } from "./discovery-adapters";
 import { groupDiscoveryVersions } from "./unified-discovery";
 import {
+  discoveryDisplayYear,
   discoveryDisplayTitle,
   groupDiscoverySources,
 } from "./discovery-presentation";
@@ -90,6 +91,21 @@ test("display titles preserve names and story numbers while hiding known provide
   assert.equal(
     discoveryDisplayTitle(xtreamDiscoveryVersion(row("Making It (2020)"))),
     "Making It",
+  );
+});
+
+test("catalogue-only display years do not become work identity years", () => {
+  const version = xtreamDiscoveryVersion(row("|FR| Leto 2018"));
+  assert.equal(version.work?.releaseYear, undefined);
+  assert.equal(discoveryDisplayYear(version), 2018);
+  assert.equal(discoveryDisplayTitle(version), "Leto 2018");
+
+  const numeric = xtreamDiscoveryVersion(row("2001: A Space Odyssey"));
+  assert.equal(discoveryDisplayYear(numeric), undefined);
+  assert.equal(discoveryDisplayTitle(numeric), "2001: A Space Odyssey");
+  assert.equal(
+    discoveryDisplayTitle(xtreamDiscoveryVersion(row("Blade Runner 2049"))),
+    "Blade Runner 2049",
   );
 });
 test("provider grouping retains all quality choices and sources with identical display names", () => {

@@ -14,6 +14,7 @@ import { MatButtonModule } from "@angular/material/button";
 import { FormsModule } from "@angular/forms";
 import { MatIcon } from "@angular/material/icon";
 import {
+  discoveryDisplayYear,
   discoveryDisplayTitle,
   groupDiscoverySources,
 } from "@arm-nator/shared/interfaces";
@@ -154,13 +155,15 @@ export class UnifiedDiscoveryResultsComponent {
     const groups = [...this.state.groups()];
     if (this.sort() === "title")
       groups.sort((a, b) =>
-        this.title(a.versions[0]).localeCompare(this.title(b.versions[0])),
+        this.title(this.displayVersion(a)).localeCompare(
+          this.title(this.displayVersion(b)),
+        ),
       );
     if (this.sort() === "year")
       groups.sort(
         (a, b) =>
-          (b.versions[0].work?.releaseYear ?? 0) -
-          (a.versions[0].work?.releaseYear ?? 0),
+          (this.displayYear(this.displayVersion(b)) ?? 0) -
+          (this.displayYear(this.displayVersion(a)) ?? 0),
       );
     if (!this.groupBySource()) return [{ key: "all", name: "", groups }];
     const sections = new Map<
@@ -215,6 +218,18 @@ export class UnifiedDiscoveryResultsComponent {
   title(version: DiscoveryVersion): string {
     return discoveryDisplayTitle(version);
   }
+  displayVersion(group: GroupedGlobalSearchResult): DiscoveryVersion {
+    const first = group.versions[0];
+    const year = group.versions
+      .map((version) => this.displayYear(version))
+      .find((candidate) => candidate !== undefined);
+    return year !== undefined && this.displayYear(first) !== year
+      ? { ...first, displayYear: year }
+      : first;
+  }
+  displayYear(version: DiscoveryVersion): number | undefined {
+    return discoveryDisplayYear(version);
+  }
   sourceCount(group: GroupedGlobalSearchResult): number {
     return groupDiscoverySources(group.versions).length;
   }
@@ -242,7 +257,9 @@ export class UnifiedDiscoveryResultsComponent {
   language(version: DiscoveryVersion): string {
     return (
       version.languages
-        ?.map((code) => this.languageNames?.of(code) || code)
+        ?.map((code) =>
+          code === "mul" ? "Multi" : this.languageNames?.of(code) || code,
+        )
         .join(", ") || "Language unknown"
     );
   }

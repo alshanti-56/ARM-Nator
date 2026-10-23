@@ -223,7 +223,11 @@ function catalogGenreLabel(key: string): string {
   return key.replace(/(^|\s)\S/g, (letter) => letter.toLocaleUpperCase());
 }
 
-export function catalogYear(item: CatalogMetadataRecord): number | null {
+/** undefined keeps catalogTitle(item); null disables title fallback entirely. */
+export function catalogYear(
+  item: CatalogMetadataRecord,
+  fallbackTitle?: string | null,
+): number | null {
   const releaseMetadataFields = [
     "releaseDate",
     "releasedate",
@@ -244,7 +248,10 @@ export function catalogYear(item: CatalogMetadataRecord): number | null {
 
   // A title is only a last-resort source. In particular, do not allow a
   // future year embedded in a title (for example, "|EN| 2073") into Refine.
-  const titleYear = extractPlausibleYear(catalogTitle(item));
+  const titleYear =
+    fallbackTitle === null
+      ? null
+      : extractPlausibleYear(fallbackTitle ?? catalogTitle(item));
   return titleYear;
 }
 

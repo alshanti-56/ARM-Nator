@@ -26,6 +26,10 @@
     app-region: no-drag;
 }
 
+.is-global-search-route .search-field {
+    max-width: 900px;
+}
+
 .search-field {
     container: workspace-search / inline-size;
     flex: 1;
@@ -343,5 +347,11 @@
 
     .workspace-header.is-settings-route {
         grid-template-areas: 'leading trailing';
+    }
+
+    .workspace-header.is-global-search-route {
+        grid-template-areas:
+            'search search'
+            'leading trailing';
     }
 }

@@ -11,6 +11,7 @@ const configs = process.argv.slice(2).length
           'libs/providers/xtream/feature/jest.config.ts',
           'libs/player/ui/jest.config.ts',
           'tools/testing/jest.source-playback.config.ts',
+          'tools/testing/jest.workspace.config.ts',
       ];
 
 function runConfig(config) {

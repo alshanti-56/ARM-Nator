@@ -26,7 +26,7 @@
       }
       <div class="discovery-grid">
         @for (group of section.groups; track group.key) {
-          @let version = group.versions[0];
+          @let version = displayVersion(group);
           <article [class.selected]="focused()?.key === group.key">
             <button
               type="button"
@@ -62,7 +62,7 @@
             </button>
             <div class="poster-meta">
               <span>{{
-                version.work?.releaseYear ||
+                displayYear(version) ||
                   (version.contentType === "live" ? "Live TV" : "Year unknown")
               }}</span>
               <button
@@ -81,7 +81,7 @@
     }
   </div>
   @if (focused(); as group) {
-    @let version = group.versions[0];
+    @let version = displayVersion(group);
     <aside
       #inspector
       class="work-inspector"
@@ -112,7 +112,7 @@
         </p>
         <h2>{{ title(version) }}</h2>
         <p class="work-meta">
-          {{ version.work?.releaseYear || "Year unknown" }}
+          {{ displayYear(version) || "Year unknown" }}
           @if (version.genre) {
             <span> · {{ version.genre }}</span>
           }

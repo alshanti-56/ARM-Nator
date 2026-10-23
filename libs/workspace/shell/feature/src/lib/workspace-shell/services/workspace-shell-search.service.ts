@@ -11,7 +11,6 @@ import {
     resolveSearchPlaceholderKey,
     resolveSearchScopeLabel,
 } from './helpers/workspace-shell-search-labels';
-import { isWorkspaceGlobalSearchablePlaylist } from './helpers/workspace-shell-searchable-playlists';
 import { WorkspaceShellRouteStateService } from './workspace-shell-route-state.service';
 import { WorkspaceShellSearchSyncService } from './workspace-shell-search-sync.service';
 
@@ -79,24 +78,22 @@ export class WorkspaceShellSearchService {
         }
 
         if (route.kind === 'global-search') {
-            const hasSearchablePlaylists =
-                this.runtime.supportsGlobalSearch &&
-                this.routeState
-                    .playlists()
-                    .some(isWorkspaceGlobalSearchablePlaylist);
+            // This query also seeds explicit portal discovery, including libraries
+            // without an indexed source. Keep it available before the first import.
+            const enabled = this.runtime.supportsGlobalSearch;
 
             return {
-                enabled: hasSearchablePlaylists,
-                behavior: hasSearchablePlaylists ? 'remote-search' : 'disabled',
+                enabled,
+                behavior: enabled ? 'remote-search' : 'disabled',
                 context: null,
                 section: null,
-                searchMode: hasSearchablePlaylists ? 'remote-search' : 'none',
+                searchMode: enabled ? 'remote-search' : 'none',
                 placeholderKey: 'WORKSPACE.SHELL.SEARCH_GLOBAL_PLACEHOLDER',
                 scopeLabel: this.translateText(
                     'WORKSPACE.SHELL.RAIL_GLOBAL_SEARCH'
                 ),
                 statusLabel: '',
-                minLength: hasSearchablePlaylists ? 2 : 0,
+                minLength: enabled ? 2 : 0,
                 advancedRouteTarget: null,
             };
         }

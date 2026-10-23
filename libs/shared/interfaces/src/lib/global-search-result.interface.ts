@@ -26,6 +26,7 @@ export interface GlobalSearchBaseResult {
   content_type: GlobalSearchContentType;
   id: number | string;
   category_id: number | string;
+  category_name?: string | null;
   title: string;
   rating: string | null;
   added: string | null;

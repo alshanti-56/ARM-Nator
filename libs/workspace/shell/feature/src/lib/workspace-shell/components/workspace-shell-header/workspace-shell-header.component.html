@@ -1,9 +1,10 @@
-<header class="workspace-header" [class.is-settings-route]="isSettingsRoute()">
-    <!-- Playlist switcher hidden on /settings: those controls are
-         playlist-scoped, but Settings is a global page. Per the UX
-         audit, leaving them visible implied switching playlists changes
-         which settings you're editing. -->
-    @if (!isSettingsRoute()) {
+<header
+    class="workspace-header"
+    [class.is-settings-route]="isSettingsRoute()"
+    [class.is-global-search-route]="isGlobalSearchRoute()"
+>
+    <!-- Global pages must not imply that the selected playlist limits their scope. -->
+    @if (!isSettingsRoute() && !isGlobalSearchRoute()) {
         <app-playlist-switcher
             class="playlist-switcher"
             [currentTitle]="playlistTitle()"
@@ -18,7 +19,7 @@
         />
     }
 
-    @if (!hasNoPlaylists() && canUseSearch()) {
+    @if ((!hasNoPlaylists() || isGlobalSearchRoute()) && canUseSearch()) {
         <label
             class="search-field"
             [attr.title]="searchScopeLabel() || null"
@@ -85,7 +86,7 @@
         >
             <mat-icon>add</mat-icon>
         </button>
-        @if (!isSettingsRoute()) {
+        @if (!isSettingsRoute() && !isGlobalSearchRoute()) {
             @if (headerShortcut(); as action) {
                 <button
                     type="button"

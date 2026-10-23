@@ -4,12 +4,16 @@ import type {
   PortalSearchContinuation,
   PortalSearchPage,
 } from "./unified-discovery";
-import { describeDiscoveryWork } from "./discovery-presentation";
+import {
+  describeDiscoveryWork,
+  discoveryCatalogDisplayYear,
+} from "./discovery-presentation";
 import { normalizeTrackLanguage } from "./title-track-preferences";
 
 /** Read only explicit provider tags; unlabelled quality/language remains unknown. */
 export function discoveryMediaHints(
   title: string,
+  categoryName?: string | null,
 ): Pick<DiscoveryVersion, "resolution" | "languages"> {
   const resolutionTag = title.match(/\b(2160|1080|720|480)p\b/i)?.[1];
   const named =
@@ -58,13 +62,19 @@ export function discoveryMediaHints(
     "th",
   ]);
   const language = normalized && known.has(normalized) ? normalized : null;
+  const multi =
+    /[|┃▎│[(]\s*MULTI\s*[|┃▎│\])]/i.test(title) ||
+    /[[(]\s*\d{4}\s+MULTI\s*[\])]/i.test(title) ||
+    /^\s*MULTI\s*[-|┃▎│]/i.test(title) ||
+    /\S\s+MULTI\s*$/i.test(title) ||
+    (!language && /\bMULTI\b/i.test(categoryName ?? ""));
   return {
     resolution: resolutionTag
       ? Number(resolutionTag)
       : named
         ? resolutions[named.toUpperCase()]
         : undefined,
-    languages: language ? [language] : undefined,
+    languages: multi ? ["mul"] : language ? [language] : undefined,
   };
 }
 export function xtreamDiscoveryVersion(
@@ -91,8 +101,10 @@ export function xtreamDiscoveryVersion(
     backdropUrl: row.backdrop_url || undefined,
     description: row.description || undefined,
     genre: row.genre || undefined,
+    displayYear:
+      type === "live" ? undefined : discoveryCatalogDisplayYear(row.title, row),
     work,
-    ...discoveryMediaHints(row.title),
+    ...discoveryMediaHints(row.title, row.category_name),
     navigation: [
       "/workspace/xtreams",
       row.playlist_id,
@@ -165,11 +177,20 @@ export function stalkerDiscoveryPage(
             ? row["plot"]
             : undefined,
       genre: typeof row["genre"] === "string" ? row["genre"] : undefined,
+      displayYear:
+        contentType === "live"
+          ? undefined
+          : discoveryCatalogDisplayYear(title, row),
       work:
         contentType === "live"
           ? undefined
           : { ...describeDiscoveryWork(title, row), kind: contentType },
-      ...discoveryMediaHints(title),
+      ...discoveryMediaHints(
+        title,
+        typeof row["category_name"] === "string"
+          ? row["category_name"]
+          : undefined,
+      ),
       navigation: [
         "/workspace/stalker",
         playlistId,

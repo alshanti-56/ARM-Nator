@@ -2,6 +2,10 @@ import {
   normalizeTitleKeys,
   displayProviderTitle,
 } from "./title-normalization.util";
+import {
+  catalogYear,
+  type CatalogMetadataRecord,
+} from "./catalog-metadata.util";
 import { catalogueIdentityKey, describeMovieWork } from "./viewing-continuity";
 import type { DiscoveryVersion } from "./unified-discovery";
 
@@ -20,6 +24,47 @@ export function discoveryTitleYear(title: string): number | undefined {
   return year >= 1888 && year <= new Date().getFullYear() + 2
     ? year
     : undefined;
+}
+
+/**
+ * Resolves the year shown by the catalogue grid without promoting title-only
+ * fallbacks into a saved or grouped work identity.
+ */
+export function discoveryCatalogDisplayYear(
+  title: string,
+  metadata: object | null | undefined,
+): number | undefined {
+  const explicitYear = discoveryTitleYear(title);
+  const maximumYear = new Date().getFullYear() + 2;
+  const titleYears = [...title.matchAll(/\b(?:19|20)\d{2}\b/g)]
+    .map((match) => Number(match[0]))
+    .filter((year) => year >= 1888 && year <= maximumYear);
+  let fallbackTitle: string | null = null;
+
+  if (explicitYear !== undefined) {
+    fallbackTitle = String(explicitYear);
+  } else if (titleYears.length === 1) {
+    // A leading number is commonly part of the title (1917, 2001: A Space
+    // Odyssey). Do not present it as a release year without provider metadata
+    // or an explicit release tag.
+    const withoutProviderPrefix = title
+      .replace(/^\s*\|[A-Z]{2,3}\|\s*/i, "")
+      .replace(/^\s*[A-Z]{2,3}\s*[-|▎│]\s*/i, "");
+    if (!/^\s*(?:19|20)\d{2}(?:\b|:)/.test(withoutProviderPrefix))
+      fallbackTitle = title;
+  }
+
+  return (
+    catalogYear((metadata ?? {}) as CatalogMetadataRecord, fallbackTitle) ??
+    undefined
+  );
+}
+
+/** The UI may use a catalogue fallback; identity and grouping must use work. */
+export function discoveryDisplayYear(
+  version: DiscoveryVersion,
+): number | undefined {
+  return version.displayYear ?? version.work?.releaseYear ?? undefined;
 }
 
 /** Discovery can use explicit catalogue title tags without changing saved viewing identities. */

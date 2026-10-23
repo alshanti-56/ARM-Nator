@@ -16,7 +16,10 @@ import { By } from "@angular/platform-browser";
 import { UnifiedDiscoveryResultsComponent } from "./unified-discovery.component";
 import { UnifiedDiscoveryState } from "./unified-discovery-state.service";
 import { AdvancedSearchComponent } from "./advanced-search.component";
-import type { DiscoveryVersion } from "@arm-nator/shared/interfaces";
+import {
+  discoveryMediaHints,
+  type DiscoveryVersion,
+} from "@arm-nator/shared/interfaces";
 
 const movie = (source: string): DiscoveryVersion => ({
   identity: {
@@ -35,7 +38,7 @@ const movie = (source: string): DiscoveryVersion => ({
 
 it("browsing stays simple; Sources exposes exact provider choices without starting playback", async () => {
   const a = movie("a"),
-    b = movie("b");
+    b = { ...movie("b"), ...discoveryMediaHints("|MULTI| Movie (2026)") };
   const group = { key: "movie", versions: [a, b] };
   const state = {
     groups: signal([group]),
@@ -62,6 +65,11 @@ it("browsing stays simple; Sources exposes exact provider choices without starti
   fixture.debugElement.query(By.css(".sources-toggle")).nativeElement.click();
   fixture.detectChanges();
   expect(fixture.debugElement.queryAll(By.css(".version-row"))).toHaveLength(2);
+  expect(
+    fixture.debugElement
+      .queryAll(By.css(".version-facts"))[1]
+      .nativeElement.textContent.trim(),
+  ).toBe("Quality unknown · Multi");
   expect(state.choose).not.toHaveBeenCalled();
   expect(selected).not.toHaveBeenCalled();
   fixture.debugElement
@@ -224,5 +232,72 @@ it("Sources groups provider copies and keeps a precise manual choice available",
   fixture.componentInstance.focus({ ...group, key: "another" });
   fixture.detectChanges();
   expect(fixture.debugElement.queryAll(By.css(".version-row"))).toHaveLength(0);
+  fixture.destroy();
+});
+
+it("a grouped title shows its known year without changing the preferred playback version", async () => {
+  const unknown = {
+    ...movie("a"),
+    work: { kind: "movie" as const, title: "Movie" },
+    posterUrl: "/original-poster.jpg",
+    description: "The original source synopsis",
+  };
+  const dated = {
+    ...movie("b"),
+    work: { kind: "movie" as const, title: "Movie" },
+    displayYear: 2026,
+  };
+  const group = { key: "movie", versions: [unknown, dated] };
+  const later = {
+    ...movie("c"),
+    originalTitle: "Later title",
+    work: { kind: "movie" as const, title: "Later title" },
+    displayYear: 2027,
+  };
+  const laterGroup = { key: "later", versions: [later] };
+  const state = {
+    groups: signal([group, laterGroup]),
+    choosing: signal(null),
+    error: signal(null),
+    rank: jest.fn().mockResolvedValue([unknown, dated]),
+    choose: jest.fn().mockResolvedValue(unknown),
+    versionKey: (v: DiscoveryVersion) => v.identity.playlistId,
+  };
+  TestBed.configureTestingModule({
+    imports: [UnifiedDiscoveryResultsComponent],
+    providers: [{ provide: UnifiedDiscoveryState, useValue: state }],
+  });
+  const fixture = TestBed.createComponent(UnifiedDiscoveryResultsComponent);
+  fixture.detectChanges();
+  await fixture.whenStable();
+  fixture.detectChanges();
+  expect(
+    fixture.nativeElement.querySelector(".poster-meta").textContent,
+  ).toContain("2026");
+  expect(
+    fixture.nativeElement.querySelector(".work-meta").textContent,
+  ).toContain("2026");
+  expect(fixture.nativeElement.textContent).not.toContain("Year unknown");
+  expect(
+    fixture.nativeElement.querySelector(".poster-art img").getAttribute("src"),
+  ).toBe("/original-poster.jpg");
+  expect(
+    fixture.nativeElement.querySelector(".synopsis").textContent,
+  ).toContain("The original source synopsis");
+  expect(fixture.componentInstance.preferred()).toBe(unknown);
+  expect(
+    fixture.componentInstance.displayVersion(group).work?.releaseYear,
+  ).toBeUndefined();
+  expect(group.versions).toEqual([unknown, dated]);
+  fixture.componentInstance.sort.set("year");
+  fixture.detectChanges();
+  expect(
+    Array.from(
+      fixture.nativeElement.querySelectorAll(".poster-select strong"),
+    ).map((node: HTMLElement) => node.textContent?.trim()),
+  ).toEqual(["Later title", "Movie"]);
+  fixture.nativeElement.querySelector(".auto-open").click();
+  await fixture.whenStable();
+  expect(state.choose).toHaveBeenCalledWith(group, undefined);
   fixture.destroy();
 });

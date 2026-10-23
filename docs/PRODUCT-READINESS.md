@@ -84,3 +84,18 @@ This is a scoped feature release of source playback evidence and metadata inspec
 - The new metadata UI also compiles for series; a separate native series walkthrough was not performed.
 - Full packaged-app launch/upgrade/restart, new-provider error paths, playback controls/failure recovery, and repeated-use/native-memory acceptance remain unverified for this candidate. Existing earlier evidence is retained above; it is not new candidate evidence.
 - Release notes explicitly state these limitations and distinguish sampled playback evidence from a guarantee that an entire source works. No credentials are included in shared evidence.
+
+## v0.34.0 scoped search release — 2026-10-23
+
+Candidate: package version `0.34.0`, intended tag `v0.34.0`.
+Local environment: macOS 27.0.1 (26A434), Apple Silicon arm64, Node 26.11.1, pnpm 12.11.2.
+This release covers Global Search grouping, scope, display years, and Multi language labels. It does not claim completion of the broader dependable-player acceptance journeys.
+
+- After the version bump, the first `pnpm test` invocation stopped before running tests with `ERR_PNPM_VERIFY_DEPS_BEFORE_RUN`. `pnpm install --frozen-lockfile` completed with exit 0; the lockfile remained unchanged.
+- The next `pnpm test` run passed 771 of 772 tests. The existing `recovery starts a new budget after an exhausted window` test failed its 80 ms timer assertion. Its isolated rerun passed with exit 0. `ARM_NATOR_NODE_TEST_CONCURRENCY=1 pnpm test` then passed all 772 tests with exit 0. No playback implementation or test was changed to obtain that result.
+- After removing the redundant Global Search scope sentence, `pnpm test:angular` passed all 63 suites / 732 tests with exit 0.
+- `pnpm package` completed with exit 0, including production UI/backend builds and native packaging. The packaged app reports version `0.34.0`; `codesign --verify --deep --strict` passes. Archive inspection confirms Multi rendering and removal of the scope helper sentence; the packaged database worker contains category-name projections.
+- The preceding local feature candidate, still labelled `0.33.0` before this release version bump, was installed over a populated existing app and reopened successfully. Global Search showed `Leto 2018` as 2018, and Sources showed Multi for an untagged `What Jennifer Did (2024)` entry whose indexed category contains MULTI. Searches and saved library data remained available after the quit/relaunch. These are targeted observations of the search implementation; they are not a complete profile upgrade acceptance test or a fresh UI walkthrough of the version-bumped package.
+- Regression coverage includes conservative grouping, source preference/artwork preservation, one workspace search field, year display/sort without changing work identity, MULTI tag/category precedence, and category-name propagation through title-index, FTS, and fallback SQLite queries.
+- New-provider setup/error paths, live and recorded playback controls/recovery, a full prior-profile upgrade, repeated-use/native-memory acceptance, and broad media/provider compatibility remain unverified for this candidate. The release notes retain these limitations. Portal category fallback depends on a category name being supplied in the search response.
+- `graphify update .` completed after the final code change. `git diff --check` is clean. No credentials are included in this evidence or release notes.

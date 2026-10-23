@@ -70,6 +70,7 @@ interface XtreamMetadataSearchCandidate {
 interface XtreamGlobalSearchCandidate extends XtreamMetadataSearchCandidate {
     id: number;
     category_id: number;
+    category_name: string | null;
     added: string | null;
     poster_url: string | null;
     direct_source: string | null;
@@ -257,6 +258,7 @@ async function selectXtreamGlobalSearchCandidatesWithTitleIndex(
             c.direct_source AS direct_source,
             c.xtream_id AS xtream_id,
             c.type AS type,
+            cat.name AS category_name,
             cat.playlist_id AS playlist_id,
             p.name AS playlist_name
         FROM content AS c INDEXED BY idx_content_title
@@ -302,6 +304,7 @@ async function selectXtreamGlobalSearchCandidatesWithFts(
             c.direct_source AS direct_source,
             c.xtream_id AS xtream_id,
             c.type AS type,
+            cat.name AS category_name,
             cat.playlist_id AS playlist_id,
             p.name AS playlist_name
         FROM content_search_fts
@@ -395,6 +398,7 @@ async function selectXtreamGlobalSearchCandidatesWithContentScan(
     return db
         .select({
             ...selectContentFields(),
+            category_name: schema.categories.name,
             playlist_id: schema.categories.playlistId,
             playlist_name: schema.playlists.name,
         })

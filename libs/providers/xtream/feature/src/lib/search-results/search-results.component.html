@@ -38,29 +38,31 @@
       (selected)="selectDiscoveryVersion($event)"
     >
       <div library-controls>
-        <div class="library-search-toolbar">
-          <form class="library-query" (ngSubmit)="executeSearch()">
-            <mat-icon aria-hidden="true">search</mat-icon>
-            <input
-              aria-label="Search all sources"
-              placeholder="Search movies, series and live TV"
-              name="query"
-              [ngModel]="searchTerm()"
-              (ngModelChange)="updateSearchTerm($event)"
-            />
-            @if (searchTerm()) {
-              <button
-                class="query-clear"
-                type="button"
-                aria-label="Clear search"
-                (click)="updateSearchTerm('')"
-              >
-                <mat-icon>close</mat-icon>
-              </button>
-            }
-            <button class="query-submit" type="submit">Search</button>
-          </form>
-        </div>
+        @if (showInlineSearchInput) {
+          <div class="library-search-toolbar">
+            <form class="library-query" (ngSubmit)="executeSearch()">
+              <mat-icon aria-hidden="true">search</mat-icon>
+              <input
+                aria-label="Search all sources"
+                placeholder="Search movies, series and live TV"
+                name="query"
+                [ngModel]="searchTerm()"
+                (ngModelChange)="updateSearchTerm($event)"
+              />
+              @if (searchTerm()) {
+                <button
+                  class="query-clear"
+                  type="button"
+                  aria-label="Clear search"
+                  (click)="updateSearchTerm('')"
+                >
+                  <mat-icon>close</mat-icon>
+                </button>
+              }
+              <button class="query-submit" type="submit">Search</button>
+            </form>
+          </div>
+        }
         <div class="library-filters">
           <div class="type-pills" role="group" aria-label="Content type">
             <button

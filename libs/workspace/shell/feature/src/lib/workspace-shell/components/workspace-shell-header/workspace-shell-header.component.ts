@@ -64,6 +64,7 @@ export class WorkspaceShellHeaderComponent {
      * isSettingsRoute computed.
      */
     readonly isSettingsRoute = input(false);
+    readonly isGlobalSearchRoute = input(false);
 
     readonly searchChanged = output<string>();
     readonly searchSubmitted = output<string>();

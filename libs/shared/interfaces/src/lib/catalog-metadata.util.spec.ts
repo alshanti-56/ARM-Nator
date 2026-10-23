@@ -26,6 +26,20 @@ test("uses a plausible title year only as a final fallback", () => {
   assert.equal(catalogYear({ title: "|EN| 2073" }), null);
 });
 
+test("allows an optional fallback title while preserving metadata precedence", () => {
+  assert.equal(catalogYear({ title: "Movie 2024" }, undefined), 2024);
+  assert.equal(catalogYear({ title: "Movie 2024" }, null), null);
+  assert.equal(catalogYear({ title: "Movie", releaseDate: "2022-01-01" }, null), 2022);
+  assert.equal(
+    catalogYear({ movie_properties: { name: "1917" } }, null),
+    null,
+  );
+  assert.equal(
+    catalogYear({ movie_properties: { name: "Movie 2024" } }, undefined),
+    2024,
+  );
+});
+
 test("deduplicates case and known spelling variants in genre options", () => {
   assert.deepEqual(
     collectCatalogGenres([
